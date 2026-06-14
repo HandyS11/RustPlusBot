@@ -11,7 +11,10 @@ using RustPlusBot.Persistence;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.Configure<DiscordOptions>(builder.Configuration.GetSection("Discord"));
+builder.Services.AddOptions<DiscordOptions>()
+    .Bind(builder.Configuration.GetSection("Discord"))
+    .Validate(static o => !string.IsNullOrWhiteSpace(o.Token), "Discord:Token is required.")
+    .ValidateOnStart();
 
 var connectionString = builder.Configuration["Database:ConnectionString"] ?? "DataSource=rustplusbot.db";
 
