@@ -32,4 +32,18 @@ public sealed class BindingServiceTests
 
         Assert.Equal(777UL, await service.GetBoundChannelAsync(10UL, BoundFeature.Chat));
     }
+
+    [Fact]
+    public async Task GetBoundChannelAsync_DoesNotLeakAcrossGuilds()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new BindingService(context);
+
+        await service.BindAsync(10UL, BoundFeature.Chat, 555UL);
+
+        // The same feature in a different guild must not see guild 10's binding.
+        Assert.Null(await service.GetBoundChannelAsync(20UL, BoundFeature.Chat));
+    }
 }
