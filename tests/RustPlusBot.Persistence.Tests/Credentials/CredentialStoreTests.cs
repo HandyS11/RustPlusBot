@@ -22,7 +22,8 @@ public sealed class CredentialStoreTests
         await using var _ = context;
         await using var __ = connection;
 
-        var store = new CredentialStore(context, PassThroughProtector());
+        var protector = PassThroughProtector();
+        var store = new CredentialStore(context, protector);
         var serverId = Guid.NewGuid();
 
         var id = await store.StoreAsync(new StoreCredentialRequest(
@@ -36,7 +37,12 @@ public sealed class CredentialStoreTests
         var saved = await context.PlayerCredentials.SingleAsync();
         Assert.Equal(id, saved.Id);
         Assert.Equal("enc:raw-token", saved.ProtectedPlayerToken);
+        Assert.Equal("enc:{}", saved.ProtectedFcmCredentials);
         Assert.Equal(CredentialStatus.Standby, saved.Status);
+
+        // Both secret fields must be protected before persistence (security invariant).
+        protector.Received(1).Protect("raw-token");
+        protector.Received(1).Protect("{}");
     }
 
     [Fact]
