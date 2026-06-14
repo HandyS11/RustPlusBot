@@ -16,7 +16,8 @@ internal sealed class ServerInfoMessageRenderer(IServerService servers, ILocaliz
     public string MessageKey => WorkspaceMessageKeys.ServerInfo;
 
     /// <inheritdoc />
-    public async ValueTask<MessagePayload> RenderAsync(MessageRenderContext context, CancellationToken cancellationToken)
+    public async ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (context.ServerId is not Guid serverId)

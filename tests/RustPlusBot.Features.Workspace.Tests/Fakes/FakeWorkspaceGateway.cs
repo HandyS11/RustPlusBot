@@ -7,10 +7,6 @@ namespace RustPlusBot.Features.Workspace.Tests.Fakes;
 /// <summary>Deterministic in-memory <see cref="IWorkspaceGateway"/> for reconciler tests.</summary>
 internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
 {
-    private sealed record Category(ulong Id, string Name);
-    private sealed record Channel(ulong Id, ulong CategoryId, string Name, ChannelPermissionProfile Profile);
-    private sealed record Message(ulong Id, ulong ChannelId, MessagePayload Payload);
-
     private readonly ConcurrentDictionary<ulong, Category> _categories = new();
     private readonly ConcurrentDictionary<ulong, Channel> _channels = new();
     private readonly ConcurrentDictionary<ulong, Message> _messages = new();
@@ -21,22 +17,15 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     public int CreatedChannels { get; private set; }
     public int PostedMessages { get; private set; }
     public int EditedMessages { get; private set; }
-
-    private ulong NextId() => Interlocked.Increment(ref _nextId);
-
-    public void ExternallyDeleteChannel(ulong channelId) => _channels.TryRemove(channelId, out _);
-    public void ExternallyDeleteCategory(ulong categoryId) => _categories.TryRemove(categoryId, out _);
-    public void ExternallyDeleteMessage(ulong messageId) => _messages.TryRemove(messageId, out _);
-    public MessagePayload? GetMessagePayload(ulong messageId) => _messages.TryGetValue(messageId, out var m) ? m.Payload : null;
     public IReadOnlyCollection<ulong> ChannelIds => _channels.Keys.ToList();
     public IReadOnlyCollection<ulong> CategoryIds => _categories.Keys.ToList();
-    public ChannelPermissionProfile ProfileOf(ulong channelId) => _channels[channelId].Profile;
 
     public bool CategoryExists(ulong guildId, ulong categoryId) => _categories.ContainsKey(categoryId);
 
     public Task<ulong?> FindCategoryAsync(ulong guildId, string name, CancellationToken cancellationToken)
     {
-        var match = _categories.Values.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        var match = _categories.Values.FirstOrDefault(c =>
+            string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
         return Task.FromResult(match is null ? (ulong?)null : match.Id);
     }
 
@@ -50,14 +39,21 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
 
     public bool ChannelExists(ulong guildId, ulong channelId) => _channels.ContainsKey(channelId);
 
-    public Task<ulong?> FindChannelAsync(ulong guildId, ulong categoryId, string name, CancellationToken cancellationToken)
+    public Task<ulong?> FindChannelAsync(ulong guildId,
+        ulong categoryId,
+        string name,
+        CancellationToken cancellationToken)
     {
         var match = _channels.Values.FirstOrDefault(c =>
             c.CategoryId == categoryId && string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
         return Task.FromResult(match is null ? (ulong?)null : match.Id);
     }
 
-    public Task<ulong> CreateChannelAsync(ulong guildId, ulong categoryId, string name, ChannelPermissionProfile profile, CancellationToken cancellationToken)
+    public Task<ulong> CreateChannelAsync(ulong guildId,
+        ulong categoryId,
+        string name,
+        ChannelPermissionProfile profile,
+        CancellationToken cancellationToken)
     {
         var id = NextId();
         _channels[id] = new Channel(id, categoryId, name, profile);
@@ -65,16 +61,27 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         return Task.FromResult(id);
     }
 
-    public Task ApplyChannelSettingsAsync(ulong guildId, ulong channelId, ulong categoryId, string name, ChannelPermissionProfile profile, CancellationToken cancellationToken)
+    public Task ApplyChannelSettingsAsync(ulong guildId,
+        ulong channelId,
+        ulong categoryId,
+        string name,
+        ChannelPermissionProfile profile,
+        CancellationToken cancellationToken)
     {
         _channels[channelId] = new Channel(channelId, categoryId, name, profile);
         return Task.CompletedTask;
     }
 
-    public Task<bool> MessageExistsAsync(ulong guildId, ulong channelId, ulong messageId, CancellationToken cancellationToken) =>
+    public Task<bool> MessageExistsAsync(ulong guildId,
+        ulong channelId,
+        ulong messageId,
+        CancellationToken cancellationToken) =>
         Task.FromResult(_messages.ContainsKey(messageId));
 
-    public Task<ulong> PostMessageAsync(ulong guildId, ulong channelId, MessagePayload payload, CancellationToken cancellationToken)
+    public Task<ulong> PostMessageAsync(ulong guildId,
+        ulong channelId,
+        MessagePayload payload,
+        CancellationToken cancellationToken)
     {
         var id = NextId();
         _messages[id] = new Message(id, channelId, payload);
@@ -82,7 +89,11 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         return Task.FromResult(id);
     }
 
-    public Task EditMessageAsync(ulong guildId, ulong channelId, ulong messageId, MessagePayload payload, CancellationToken cancellationToken)
+    public Task EditMessageAsync(ulong guildId,
+        ulong channelId,
+        ulong messageId,
+        MessagePayload payload,
+        CancellationToken cancellationToken)
     {
         _messages[messageId] = new Message(messageId, channelId, payload);
         EditedMessages++;
@@ -102,4 +113,21 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     }
 
     public IReadOnlyList<string> GetMissingBotPermissions(ulong guildId) => MissingPermissions;
+
+    private ulong NextId() => Interlocked.Increment(ref _nextId);
+
+    public void ExternallyDeleteChannel(ulong channelId) => _channels.TryRemove(channelId, out _);
+    public void ExternallyDeleteCategory(ulong categoryId) => _categories.TryRemove(categoryId, out _);
+    public void ExternallyDeleteMessage(ulong messageId) => _messages.TryRemove(messageId, out _);
+
+    public MessagePayload? GetMessagePayload(ulong messageId) =>
+        _messages.TryGetValue(messageId, out var m) ? m.Payload : null;
+
+    public ChannelPermissionProfile ProfileOf(ulong channelId) => _channels[channelId].Profile;
+
+    private sealed record Category(ulong Id, string Name);
+
+    private sealed record Channel(ulong Id, ulong CategoryId, string Name, ChannelPermissionProfile Profile);
+
+    private sealed record Message(ulong Id, ulong ChannelId, MessagePayload Payload);
 }

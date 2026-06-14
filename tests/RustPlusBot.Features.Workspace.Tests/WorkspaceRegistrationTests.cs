@@ -22,7 +22,10 @@ public sealed class WorkspaceRegistrationTests
         services.AddBotPersistence("DataSource=:memory:");
         services.AddWorkspace();
 
-        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true
+        });
         using var scope = provider.CreateScope();
 
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>());

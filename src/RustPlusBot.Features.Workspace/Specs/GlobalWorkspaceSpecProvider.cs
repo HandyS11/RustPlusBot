@@ -8,9 +8,12 @@ internal sealed class GlobalWorkspaceSpecProvider : IChannelSpecProvider, IMessa
     /// <inheritdoc />
     public IEnumerable<ChannelSpec> GetChannelSpecs() =>
     [
-        new(WorkspaceScope.Global, WorkspaceChannelKeys.Information, "channel.information.name", ChannelPermissionProfile.ReadOnly, 0),
-        new(WorkspaceScope.Global, WorkspaceChannelKeys.Setup, "channel.setup.name", ChannelPermissionProfile.ReadOnly, 1),
-        new(WorkspaceScope.Global, WorkspaceChannelKeys.Settings, "channel.settings.name", ChannelPermissionProfile.ReadOnly, 2),
+        new(WorkspaceScope.Global, WorkspaceChannelKeys.Information, "channel.information.name",
+            ChannelPermissionProfile.ReadOnly, 0),
+        new(WorkspaceScope.Global, WorkspaceChannelKeys.Setup, "channel.setup.name", ChannelPermissionProfile.ReadOnly,
+            1),
+        new(WorkspaceScope.Global, WorkspaceChannelKeys.Settings, "channel.settings.name",
+            ChannelPermissionProfile.ReadOnly, 2),
     ];
 
     /// <inheritdoc />

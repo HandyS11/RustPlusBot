@@ -13,7 +13,8 @@ public sealed class FakeWorkspaceGatewayTests
         Assert.True(gateway.CategoryExists(1, categoryId));
         Assert.Equal(categoryId, await gateway.FindCategoryAsync(1, "rustplusbot", default));
 
-        var channelId = await gateway.CreateChannelAsync(1, categoryId, "information", ChannelPermissionProfile.ReadOnly, default);
+        var channelId =
+            await gateway.CreateChannelAsync(1, categoryId, "information", ChannelPermissionProfile.ReadOnly, default);
         Assert.Equal(channelId, await gateway.FindChannelAsync(1, categoryId, "information", default));
 
         gateway.ExternallyDeleteChannel(channelId);

@@ -15,13 +15,14 @@ internal sealed class InformationMessageRenderer(IServerService servers, ILocali
     public string MessageKey => WorkspaceMessageKeys.InformationMain;
 
     /// <inheritdoc />
-    public async ValueTask<MessagePayload> RenderAsync(MessageRenderContext context, CancellationToken cancellationToken)
+    public async ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         var count = (await servers.ListAsync(context.GuildId, cancellationToken).ConfigureAwait(false)).Count;
         var description = localizer.Get("information.body", context.Culture)
-            + "\n\n"
-            + localizer.Get("information.servers", context.Culture, count);
+                          + "\n\n"
+                          + localizer.Get("information.servers", context.Culture, count);
         var embed = new EmbedBuilder()
             .WithTitle(localizer.Get("information.title", context.Culture))
             .WithDescription(description)

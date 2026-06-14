@@ -80,9 +80,11 @@ public sealed class WorkspaceAdminModule(
         try
         {
             var servers = scope.ServiceProvider.GetRequiredService<IServerService>();
-            var server = await servers.AddAsync(Context.Guild.Id, Context.User.Id, name, ip, port).ConfigureAwait(false);
+            var server = await servers.AddAsync(Context.Guild.Id, Context.User.Id, name, ip, port)
+                .ConfigureAwait(false);
             await eventBus.PublishAsync(new ServerRegisteredEvent(Context.Guild.Id, server.Id)).ConfigureAwait(false);
-            await FollowupAsync($"Registered **{name}** and published ServerRegisteredEvent.", ephemeral: true).ConfigureAwait(false);
+            await FollowupAsync($"Registered **{name}** and published ServerRegisteredEvent.", ephemeral: true)
+                .ConfigureAwait(false);
         }
         finally
         {

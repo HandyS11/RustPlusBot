@@ -6,11 +6,6 @@ namespace RustPlusBot.Persistence.Tests.Workspace;
 
 public sealed class WorkspaceStoreTests
 {
-    private sealed class FixedClock(DateTimeOffset now) : IClock
-    {
-        public DateTimeOffset UtcNow { get; } = now;
-    }
-
     private static WorkspaceStore NewStore(out BotDbContext context, out IDisposable cleanup)
     {
         var (ctx, connection) = SqliteContextFixture.Create();
@@ -25,8 +20,14 @@ public sealed class WorkspaceStoreTests
         var store = NewStore(out _, out var cleanup);
         using var _cleanup = cleanup;
 
-        await store.SaveCategoryAsync(new ProvisionedCategory { GuildId = 1, RustServerId = null, DiscordCategoryId = 10 });
-        await store.SaveCategoryAsync(new ProvisionedCategory { GuildId = 1, RustServerId = null, DiscordCategoryId = 20 });
+        await store.SaveCategoryAsync(new ProvisionedCategory
+        {
+            GuildId = 1, RustServerId = null, DiscordCategoryId = 10
+        });
+        await store.SaveCategoryAsync(new ProvisionedCategory
+        {
+            GuildId = 1, RustServerId = null, DiscordCategoryId = 20
+        });
 
         var loaded = await store.GetCategoryAsync(1, null);
         Assert.NotNull(loaded);
@@ -39,9 +40,18 @@ public sealed class WorkspaceStoreTests
         var store = NewStore(out _, out var cleanup);
         using var _cleanup = cleanup;
 
-        await store.SaveChannelAsync(new ProvisionedChannel { GuildId = 1, RustServerId = null, ChannelKey = "information", DiscordChannelId = 5 });
-        await store.SaveChannelAsync(new ProvisionedChannel { GuildId = 1, RustServerId = null, ChannelKey = "information", DiscordChannelId = 6 });
-        await store.SaveChannelAsync(new ProvisionedChannel { GuildId = 2, RustServerId = null, ChannelKey = "information", DiscordChannelId = 7 });
+        await store.SaveChannelAsync(new ProvisionedChannel
+        {
+            GuildId = 1, RustServerId = null, ChannelKey = "information", DiscordChannelId = 5
+        });
+        await store.SaveChannelAsync(new ProvisionedChannel
+        {
+            GuildId = 1, RustServerId = null, ChannelKey = "information", DiscordChannelId = 6
+        });
+        await store.SaveChannelAsync(new ProvisionedChannel
+        {
+            GuildId = 2, RustServerId = null, ChannelKey = "information", DiscordChannelId = 7
+        });
 
         var g1 = await store.GetChannelsAsync(1, null);
         Assert.Single(g1);
@@ -57,8 +67,14 @@ public sealed class WorkspaceStoreTests
         var store = NewStore(out _, out var cleanup);
         using var _cleanup = cleanup;
 
-        await store.SaveMessageAsync(new ProvisionedMessage { GuildId = 1, MessageKey = "information.main", DiscordChannelId = 5, DiscordMessageId = 100 });
-        await store.SaveMessageAsync(new ProvisionedMessage { GuildId = 1, MessageKey = "information.main", DiscordChannelId = 5, DiscordMessageId = 101 });
+        await store.SaveMessageAsync(new ProvisionedMessage
+        {
+            GuildId = 1, MessageKey = "information.main", DiscordChannelId = 5, DiscordMessageId = 100
+        });
+        await store.SaveMessageAsync(new ProvisionedMessage
+        {
+            GuildId = 1, MessageKey = "information.main", DiscordChannelId = 5, DiscordMessageId = 101
+        });
 
         var loaded = await store.GetMessageAsync(1, null, "information.main");
         Assert.NotNull(loaded);
@@ -84,18 +100,35 @@ public sealed class WorkspaceStoreTests
         using var _cleanup = cleanup;
 
         // RustServerId is a FK to RustServers, so we must insert a real server first.
-        var server = new RustPlusBot.Domain.Servers.RustServer { GuildId = 1, Name = "S", Ip = "1.1.1.1", Port = 1 };
+        var server = new RustPlusBot.Domain.Servers.RustServer
+        {
+            GuildId = 1, Name = "S", Ip = "1.1.1.1", Port = 1
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
 
-        await store.SaveCategoryAsync(new ProvisionedCategory { GuildId = 1, RustServerId = null, DiscordCategoryId = 10 });
-        await store.SaveChannelAsync(new ProvisionedChannel { GuildId = 1, RustServerId = null, ChannelKey = "information", DiscordChannelId = 5 });
-        await store.SaveCategoryAsync(new ProvisionedCategory { GuildId = 1, RustServerId = server.Id, DiscordCategoryId = 11 });
+        await store.SaveCategoryAsync(new ProvisionedCategory
+        {
+            GuildId = 1, RustServerId = null, DiscordCategoryId = 10
+        });
+        await store.SaveChannelAsync(new ProvisionedChannel
+        {
+            GuildId = 1, RustServerId = null, ChannelKey = "information", DiscordChannelId = 5
+        });
+        await store.SaveCategoryAsync(new ProvisionedCategory
+        {
+            GuildId = 1, RustServerId = server.Id, DiscordCategoryId = 11
+        });
 
         await store.DeleteScopeAsync(1, null);
 
         Assert.Null(await store.GetCategoryAsync(1, null));
         Assert.Empty(await store.GetChannelsAsync(1, null));
         Assert.NotNull(await store.GetCategoryAsync(1, server.Id));
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : IClock
+    {
+        public DateTimeOffset UtcNow { get; } = now;
     }
 }

@@ -8,7 +8,8 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
     /// <inheritdoc />
     public IEnumerable<ChannelSpec> GetChannelSpecs() =>
     [
-        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerInfo, "channel.info.name", ChannelPermissionProfile.ReadOnly, 0),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerInfo, "channel.info.name",
+            ChannelPermissionProfile.ReadOnly, 0),
     ];
 
     /// <inheritdoc />

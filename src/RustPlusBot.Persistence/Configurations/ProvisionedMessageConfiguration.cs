@@ -12,7 +12,10 @@ internal sealed class ProvisionedMessageConfiguration : IEntityTypeConfiguration
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(m => m.Id);
         builder.Property(m => m.MessageKey).IsRequired().HasMaxLength(64);
-        builder.HasIndex(m => new { m.GuildId, m.RustServerId, m.MessageKey }).IsUnique();
+        builder.HasIndex(m => new
+        {
+            m.GuildId, m.RustServerId, m.MessageKey
+        }).IsUnique();
         builder.HasOne<RustServer>()
             .WithMany()
             .HasForeignKey(m => m.RustServerId)

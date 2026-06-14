@@ -31,7 +31,8 @@ internal sealed class WorkspaceReconciler(
         renderers.ToDictionary(r => r.MessageKey, StringComparer.Ordinal);
 
     /// <inheritdoc />
-    public async Task<ReconcileResult> ReconcileGlobalAsync(ulong guildId, CancellationToken cancellationToken = default)
+    public async Task<ReconcileResult> ReconcileGlobalAsync(ulong guildId,
+        CancellationToken cancellationToken = default)
     {
         using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
         var missing = gateway.GetMissingBotPermissions(guildId);
@@ -45,7 +46,9 @@ internal sealed class WorkspaceReconciler(
     }
 
     /// <inheritdoc />
-    public async Task<ReconcileResult> ReconcileServerAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default)
+    public async Task<ReconcileResult> ReconcileServerAsync(ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken = default)
     {
         using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
         var missing = gateway.GetMissingBotPermissions(guildId);
@@ -83,7 +86,8 @@ internal sealed class WorkspaceReconciler(
 
         foreach (var category in categories.Where(c => c.RustServerId is not null))
         {
-            await ReconcileServerCoreAsync(guildId, category.RustServerId!.Value, cancellationToken).ConfigureAwait(false);
+            await ReconcileServerCoreAsync(guildId, category.RustServerId!.Value, cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 
@@ -91,7 +95,8 @@ internal sealed class WorkspaceReconciler(
     {
         var culture = await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
         var categoryName = localizer.Get("category.global.name", culture);
-        await ReconcileScopeAsync(guildId, null, categoryName, culture, WorkspaceScope.Global, cancellationToken).ConfigureAwait(false);
+        await ReconcileScopeAsync(guildId, null, categoryName, culture, WorkspaceScope.Global, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<bool> ReconcileServerCoreAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
@@ -99,23 +104,36 @@ internal sealed class WorkspaceReconciler(
         var server = await servers.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (server is null)
         {
-            logger.LogWarning("ReconcileServer skipped: server {ServerId} not found in guild {GuildId}.", serverId, guildId);
+            logger.LogWarning("ReconcileServer skipped: server {ServerId} not found in guild {GuildId}.", serverId,
+                guildId);
             return false;
         }
 
         var culture = await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
-        await ReconcileScopeAsync(guildId, serverId, server.Name, culture, WorkspaceScope.PerServer, cancellationToken).ConfigureAwait(false);
+        await ReconcileScopeAsync(guildId, serverId, server.Name, culture, WorkspaceScope.PerServer, cancellationToken)
+            .ConfigureAwait(false);
         return true;
     }
 
-    private async Task ReconcileScopeAsync(ulong guildId, Guid? serverId, string categoryName, string culture, WorkspaceScope scope, CancellationToken cancellationToken)
+    private async Task ReconcileScopeAsync(ulong guildId,
+        Guid? serverId,
+        string categoryName,
+        string culture,
+        WorkspaceScope scope,
+        CancellationToken cancellationToken)
     {
-        var categoryId = await EnsureCategoryAsync(guildId, serverId, categoryName, cancellationToken).ConfigureAwait(false);
-        var channelIds = await EnsureChannelsAsync(guildId, serverId, categoryId, culture, scope, cancellationToken).ConfigureAwait(false);
-        await EnsureMessagesAsync(guildId, serverId, channelIds, culture, scope, cancellationToken).ConfigureAwait(false);
+        var categoryId = await EnsureCategoryAsync(guildId, serverId, categoryName, cancellationToken)
+            .ConfigureAwait(false);
+        var channelIds = await EnsureChannelsAsync(guildId, serverId, categoryId, culture, scope, cancellationToken)
+            .ConfigureAwait(false);
+        await EnsureMessagesAsync(guildId, serverId, channelIds, culture, scope, cancellationToken)
+            .ConfigureAwait(false);
     }
 
-    private async Task<ulong> EnsureCategoryAsync(ulong guildId, Guid? serverId, string name, CancellationToken cancellationToken)
+    private async Task<ulong> EnsureCategoryAsync(ulong guildId,
+        Guid? serverId,
+        string name,
+        CancellationToken cancellationToken)
     {
         var record = await store.GetCategoryAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (record is not null && gateway.CategoryExists(guildId, record.DiscordCategoryId))
@@ -124,14 +142,23 @@ internal sealed class WorkspaceReconciler(
         }
 
         var adopted = await gateway.FindCategoryAsync(guildId, name, cancellationToken).ConfigureAwait(false);
-        var categoryId = adopted ?? await gateway.CreateCategoryAsync(guildId, name, cancellationToken).ConfigureAwait(false);
+        var categoryId = adopted ??
+                         await gateway.CreateCategoryAsync(guildId, name, cancellationToken).ConfigureAwait(false);
         await store.SaveCategoryAsync(
-            new ProvisionedCategory { GuildId = guildId, RustServerId = serverId, DiscordCategoryId = categoryId },
+            new ProvisionedCategory
+            {
+                GuildId = guildId, RustServerId = serverId, DiscordCategoryId = categoryId
+            },
             cancellationToken).ConfigureAwait(false);
         return categoryId;
     }
 
-    private async Task<Dictionary<string, ulong>> EnsureChannelsAsync(ulong guildId, Guid? serverId, ulong categoryId, string culture, WorkspaceScope scope, CancellationToken cancellationToken)
+    private async Task<Dictionary<string, ulong>> EnsureChannelsAsync(ulong guildId,
+        Guid? serverId,
+        ulong categoryId,
+        string culture,
+        WorkspaceScope scope,
+        CancellationToken cancellationToken)
     {
         var existing = (await store.GetChannelsAsync(guildId, serverId, cancellationToken).ConfigureAwait(false))
             .ToDictionary(c => c.ChannelKey, StringComparer.Ordinal);
@@ -146,23 +173,33 @@ internal sealed class WorkspaceReconciler(
             if (existing.TryGetValue(spec.Key, out var rec) && gateway.ChannelExists(guildId, rec.DiscordChannelId))
             {
                 channelId = rec.DiscordChannelId;
-                await gateway.ApplyChannelSettingsAsync(guildId, channelId, categoryId, name, spec.Permissions, cancellationToken).ConfigureAwait(false);
+                await gateway
+                    .ApplyChannelSettingsAsync(guildId, channelId, categoryId, name, spec.Permissions,
+                        cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                var adopted = await gateway.FindChannelAsync(guildId, categoryId, name, cancellationToken).ConfigureAwait(false);
+                var adopted = await gateway.FindChannelAsync(guildId, categoryId, name, cancellationToken)
+                    .ConfigureAwait(false);
                 if (adopted is ulong adoptedId)
                 {
                     channelId = adoptedId;
-                    await gateway.ApplyChannelSettingsAsync(guildId, channelId, categoryId, name, spec.Permissions, cancellationToken).ConfigureAwait(false);
+                    await gateway
+                        .ApplyChannelSettingsAsync(guildId, channelId, categoryId, name, spec.Permissions,
+                            cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    channelId = await gateway.CreateChannelAsync(guildId, categoryId, name, spec.Permissions, cancellationToken).ConfigureAwait(false);
+                    channelId = await gateway
+                        .CreateChannelAsync(guildId, categoryId, name, spec.Permissions, cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 await store.SaveChannelAsync(
-                    new ProvisionedChannel { GuildId = guildId, RustServerId = serverId, ChannelKey = spec.Key, DiscordChannelId = channelId },
+                    new ProvisionedChannel
+                    {
+                        GuildId = guildId, RustServerId = serverId, ChannelKey = spec.Key, DiscordChannelId = channelId
+                    },
                     cancellationToken).ConfigureAwait(false);
             }
 
@@ -174,23 +211,33 @@ internal sealed class WorkspaceReconciler(
         {
             foreach (var orphan in existing.Keys.Where(k => !registryKeys.Contains(k)))
             {
-                logger.LogInformation("Retaining provisioned channel '{Key}' no longer in the registry (guild {GuildId}).", orphan, guildId);
+                logger.LogInformation(
+                    "Retaining provisioned channel '{Key}' no longer in the registry (guild {GuildId}).", orphan,
+                    guildId);
             }
         }
 
         return result;
     }
 
-    private async Task EnsureMessagesAsync(ulong guildId, Guid? serverId, Dictionary<string, ulong> channelIds, string culture, WorkspaceScope scope, CancellationToken cancellationToken)
+    private async Task EnsureMessagesAsync(ulong guildId,
+        Guid? serverId,
+        Dictionary<string, ulong> channelIds,
+        string culture,
+        WorkspaceScope scope,
+        CancellationToken cancellationToken)
     {
         foreach (var spec in registry.GetMessageSpecs(scope))
         {
-            if (!channelIds.TryGetValue(spec.ChannelKey, out var channelId) || !_renderers.TryGetValue(spec.Key, out var renderer))
+            if (!channelIds.TryGetValue(spec.ChannelKey, out var channelId) ||
+                !_renderers.TryGetValue(spec.Key, out var renderer))
             {
                 continue;
             }
 
-            var payload = await renderer.RenderAsync(new MessageRenderContext(guildId, serverId, culture), cancellationToken).ConfigureAwait(false);
+            var payload = await renderer
+                .RenderAsync(new MessageRenderContext(guildId, serverId, culture), cancellationToken)
+                .ConfigureAwait(false);
 
             // A renderer with nothing to show (e.g. the source entity vanished mid-reconcile) returns an
             // empty payload; Discord rejects a message with no content/embed/components, so skip it.
@@ -199,24 +246,43 @@ internal sealed class WorkspaceReconciler(
                 continue;
             }
 
-            var record = await store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken).ConfigureAwait(false);
+            var record = await store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken)
+                .ConfigureAwait(false);
 
             var canEditInPlace = record is not null
-                && record.DiscordChannelId == channelId
-                && await gateway.MessageExistsAsync(guildId, channelId, record.DiscordMessageId, cancellationToken).ConfigureAwait(false);
+                                 && record.DiscordChannelId == channelId
+                                 && await gateway
+                                     .MessageExistsAsync(guildId, channelId, record.DiscordMessageId, cancellationToken)
+                                     .ConfigureAwait(false);
 
             if (canEditInPlace)
             {
-                await gateway.EditMessageAsync(guildId, channelId, record!.DiscordMessageId, payload, cancellationToken).ConfigureAwait(false);
+                await gateway.EditMessageAsync(guildId, channelId, record!.DiscordMessageId, payload, cancellationToken)
+                    .ConfigureAwait(false);
                 await store.SaveMessageAsync(
-                    new ProvisionedMessage { GuildId = guildId, RustServerId = serverId, MessageKey = spec.Key, DiscordChannelId = channelId, DiscordMessageId = record.DiscordMessageId },
+                    new ProvisionedMessage
+                    {
+                        GuildId = guildId,
+                        RustServerId = serverId,
+                        MessageKey = spec.Key,
+                        DiscordChannelId = channelId,
+                        DiscordMessageId = record.DiscordMessageId
+                    },
                     cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                var messageId = await gateway.PostMessageAsync(guildId, channelId, payload, cancellationToken).ConfigureAwait(false);
+                var messageId = await gateway.PostMessageAsync(guildId, channelId, payload, cancellationToken)
+                    .ConfigureAwait(false);
                 await store.SaveMessageAsync(
-                    new ProvisionedMessage { GuildId = guildId, RustServerId = serverId, MessageKey = spec.Key, DiscordChannelId = channelId, DiscordMessageId = messageId },
+                    new ProvisionedMessage
+                    {
+                        GuildId = guildId,
+                        RustServerId = serverId,
+                        MessageKey = spec.Key,
+                        DiscordChannelId = channelId,
+                        DiscordMessageId = messageId
+                    },
                     cancellationToken).ConfigureAwait(false);
             }
         }

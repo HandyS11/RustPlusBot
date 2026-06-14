@@ -11,7 +11,9 @@ namespace RustPlusBot.Persistence.Workspace;
 public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorkspaceStore
 {
     /// <inheritdoc />
-    public Task<ProvisionedCategory?> GetCategoryAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default) =>
+    public Task<ProvisionedCategory?> GetCategoryAsync(ulong guildId,
+        Guid? serverId,
+        CancellationToken cancellationToken = default) =>
         context.ProvisionedCategories
             .SingleOrDefaultAsync(c => c.GuildId == guildId && c.RustServerId == serverId, cancellationToken);
 
@@ -20,7 +22,8 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
     {
         ArgumentNullException.ThrowIfNull(category);
         var existing = await context.ProvisionedCategories
-            .SingleOrDefaultAsync(c => c.GuildId == category.GuildId && c.RustServerId == category.RustServerId, cancellationToken)
+            .SingleOrDefaultAsync(c => c.GuildId == category.GuildId && c.RustServerId == category.RustServerId,
+                cancellationToken)
             .ConfigureAwait(false);
 
         if (existing is null)
@@ -37,7 +40,9 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ProvisionedChannel>> GetChannelsAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default) =>
+    public async Task<IReadOnlyList<ProvisionedChannel>> GetChannelsAsync(ulong guildId,
+        Guid? serverId,
+        CancellationToken cancellationToken = default) =>
         await context.ProvisionedChannels
             .Where(c => c.GuildId == guildId && c.RustServerId == serverId)
             .ToListAsync(cancellationToken)
@@ -49,7 +54,8 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
         ArgumentNullException.ThrowIfNull(channel);
         var existing = await context.ProvisionedChannels
             .SingleOrDefaultAsync(
-                c => c.GuildId == channel.GuildId && c.RustServerId == channel.RustServerId && c.ChannelKey == channel.ChannelKey,
+                c => c.GuildId == channel.GuildId && c.RustServerId == channel.RustServerId &&
+                     c.ChannelKey == channel.ChannelKey,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -67,9 +73,13 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
     }
 
     /// <inheritdoc />
-    public Task<ProvisionedMessage?> GetMessageAsync(ulong guildId, Guid? serverId, string messageKey, CancellationToken cancellationToken = default) =>
+    public Task<ProvisionedMessage?> GetMessageAsync(ulong guildId,
+        Guid? serverId,
+        string messageKey,
+        CancellationToken cancellationToken = default) =>
         context.ProvisionedMessages
-            .SingleOrDefaultAsync(m => m.GuildId == guildId && m.RustServerId == serverId && m.MessageKey == messageKey, cancellationToken);
+            .SingleOrDefaultAsync(m => m.GuildId == guildId && m.RustServerId == serverId && m.MessageKey == messageKey,
+                cancellationToken);
 
     /// <inheritdoc />
     public async Task SaveMessageAsync(ProvisionedMessage message, CancellationToken cancellationToken = default)
@@ -77,7 +87,8 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
         ArgumentNullException.ThrowIfNull(message);
         var existing = await context.ProvisionedMessages
             .SingleOrDefaultAsync(
-                m => m.GuildId == message.GuildId && m.RustServerId == message.RustServerId && m.MessageKey == message.MessageKey,
+                m => m.GuildId == message.GuildId && m.RustServerId == message.RustServerId &&
+                     m.MessageKey == message.MessageKey,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -115,7 +126,10 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
 
         if (settings is null)
         {
-            context.GuildSettings.Add(new GuildSettings { GuildId = guildId, Culture = culture });
+            context.GuildSettings.Add(new GuildSettings
+            {
+                GuildId = guildId, Culture = culture
+            });
         }
         else
         {
@@ -140,14 +154,16 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ProvisionedCategory>> GetAllCategoriesAsync(ulong guildId, CancellationToken cancellationToken = default) =>
+    public async Task<IReadOnlyList<ProvisionedCategory>> GetAllCategoriesAsync(ulong guildId,
+        CancellationToken cancellationToken = default) =>
         await context.ProvisionedCategories
             .Where(c => c.GuildId == guildId)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ulong>> GetProvisionedGuildIdsAsync(CancellationToken cancellationToken = default) =>
+    public async Task<IReadOnlyList<ulong>>
+        GetProvisionedGuildIdsAsync(CancellationToken cancellationToken = default) =>
         await context.ProvisionedCategories
             .Select(c => c.GuildId)
             .Distinct()

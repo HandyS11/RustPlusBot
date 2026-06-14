@@ -13,7 +13,10 @@ public sealed class ProvisioningSchemaTests
         await using var _ = context;
         await using var __ = connection;
 
-        var server = new RustServer { GuildId = 1UL, Name = "S", Ip = "1.1.1.1", Port = 1 };
+        var server = new RustServer
+        {
+            GuildId = 1UL, Name = "S", Ip = "1.1.1.1", Port = 1
+        };
         context.RustServers.Add(server);
         context.ProvisionedCategories.Add(new ProvisionedCategory
         {

@@ -17,7 +17,8 @@ public sealed class WorkspaceReconcilerAdoptTests
         var channel = (await harness.Store.GetChannelsAsync(1, null))[0];
         harness.Gateway.ExternallyDeleteChannel(channel.DiscordChannelId);
         var category = await harness.Store.GetCategoryAsync(1, null);
-        await harness.Gateway.CreateChannelAsync(1, category!.DiscordCategoryId, "information", ChannelPermissionProfile.ReadOnly, default);
+        await harness.Gateway.CreateChannelAsync(1, category!.DiscordCategoryId, "information",
+            ChannelPermissionProfile.ReadOnly, default);
         var createdBefore = harness.Gateway.CreatedChannels;
 
         await sut.ReconcileGlobalAsync(1);

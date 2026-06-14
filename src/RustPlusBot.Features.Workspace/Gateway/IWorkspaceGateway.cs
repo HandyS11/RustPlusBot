@@ -46,7 +46,11 @@ internal interface IWorkspaceGateway
     /// <param name="profile">The permission profile to apply to the channel.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>The snowflake ID of the newly created channel.</returns>
-    Task<ulong> CreateChannelAsync(ulong guildId, ulong categoryId, string name, ChannelPermissionProfile profile, CancellationToken cancellationToken);
+    Task<ulong> CreateChannelAsync(ulong guildId,
+        ulong categoryId,
+        string name,
+        ChannelPermissionProfile profile,
+        CancellationToken cancellationToken);
 
     /// <summary>Re-applies parent + name + permission profile to an existing channel (adopt/heal path).</summary>
     /// <param name="guildId">The snowflake ID of the guild.</param>
@@ -55,7 +59,12 @@ internal interface IWorkspaceGateway
     /// <param name="name">The name to set on the channel.</param>
     /// <param name="profile">The permission profile to re-apply.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    Task ApplyChannelSettingsAsync(ulong guildId, ulong channelId, ulong categoryId, string name, ChannelPermissionProfile profile, CancellationToken cancellationToken);
+    Task ApplyChannelSettingsAsync(ulong guildId,
+        ulong channelId,
+        ulong categoryId,
+        string name,
+        ChannelPermissionProfile profile,
+        CancellationToken cancellationToken);
 
     /// <summary>True if the message still exists in the channel.</summary>
     /// <param name="guildId">The snowflake ID of the guild.</param>
@@ -71,7 +80,10 @@ internal interface IWorkspaceGateway
     /// <param name="payload">The content of the message to post.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>The snowflake ID of the newly posted message.</returns>
-    Task<ulong> PostMessageAsync(ulong guildId, ulong channelId, MessagePayload payload, CancellationToken cancellationToken);
+    Task<ulong> PostMessageAsync(ulong guildId,
+        ulong channelId,
+        MessagePayload payload,
+        CancellationToken cancellationToken);
 
     /// <summary>Edits an existing message in place.</summary>
     /// <param name="guildId">The snowflake ID of the guild.</param>
@@ -79,7 +91,11 @@ internal interface IWorkspaceGateway
     /// <param name="messageId">The snowflake ID of the message to edit.</param>
     /// <param name="payload">The new content to apply to the message.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    Task EditMessageAsync(ulong guildId, ulong channelId, ulong messageId, MessagePayload payload, CancellationToken cancellationToken);
+    Task EditMessageAsync(ulong guildId,
+        ulong channelId,
+        ulong messageId,
+        MessagePayload payload,
+        CancellationToken cancellationToken);
 
     /// <summary>Deletes a channel by snowflake (no-op if already gone).</summary>
     /// <param name="guildId">The snowflake ID of the guild.</param>

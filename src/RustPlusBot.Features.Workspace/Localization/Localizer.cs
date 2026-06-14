@@ -17,7 +17,8 @@ internal sealed class Localizer(LocalizationCatalog catalog) : ILocalizer
             return value;
         }
 
-        if (catalog.Strings.TryGetValue(FallbackCulture, out var fallback) && fallback.TryGetValue(key, out var fallbackValue))
+        if (catalog.Strings.TryGetValue(FallbackCulture, out var fallback) &&
+            fallback.TryGetValue(key, out var fallbackValue))
         {
             return fallbackValue;
         }

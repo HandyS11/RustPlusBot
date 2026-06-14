@@ -11,7 +11,10 @@ internal sealed class ProvisionedCategoryConfiguration : IEntityTypeConfiguratio
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(c => c.Id);
-        builder.HasIndex(c => new { c.GuildId, c.RustServerId }).IsUnique();
+        builder.HasIndex(c => new
+        {
+            c.GuildId, c.RustServerId
+        }).IsUnique();
         builder.HasOne<RustServer>()
             .WithMany()
             .HasForeignKey(c => c.RustServerId)

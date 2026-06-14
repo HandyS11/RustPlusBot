@@ -13,17 +13,18 @@ namespace RustPlusBot.Features.Workspace.Tests.Reconciler;
 /// <summary>Builds a WorkspaceReconciler wired with fakes for tests.</summary>
 internal sealed class ReconcilerHarness
 {
+    private readonly List<IChannelSpecProvider> _channelProviders = [];
+    private readonly List<IMessageSpecProvider> _messageProviders = [];
+    private readonly List<IMessageRenderer> _renderers = [];
     public FakeWorkspaceGateway Gateway { get; } = new();
     public FakeWorkspaceStore Store { get; } = new();
     public IServerService Servers { get; } = Substitute.For<IServerService>();
 
-    private readonly List<IChannelSpecProvider> _channelProviders = [];
-    private readonly List<IMessageSpecProvider> _messageProviders = [];
-    private readonly List<IMessageRenderer> _renderers = [];
-
     public ReconcilerHarness WithChannel(WorkspaceScope scope, string key, string nameKey, int order = 0)
     {
-        _channelProviders.Add(new StubChannelProvider([new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order)]));
+        _channelProviders.Add(new StubChannelProvider([
+            new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order)
+        ]));
         return this;
     }
 
@@ -56,7 +57,9 @@ internal sealed class ReconcilerHarness
     private sealed class StubRenderer(string key, string text) : IMessageRenderer
     {
         public string MessageKey { get; } = key;
-        public ValueTask<MessagePayload> RenderAsync(MessageRenderContext context, CancellationToken cancellationToken) =>
+
+        public ValueTask<MessagePayload>
+            RenderAsync(MessageRenderContext context, CancellationToken cancellationToken) =>
             ValueTask.FromResult(new MessagePayload(text, null, null));
     }
 }
@@ -69,7 +72,9 @@ internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
 
     public ReconcilerBuilderReusing WithChannel(WorkspaceScope scope, string key, string nameKey, int order = 0)
     {
-        _channelProviders.Add(new ListChannelProvider([new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order)]));
+        _channelProviders.Add(new ListChannelProvider([
+            new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order)
+        ]));
         return this;
     }
 

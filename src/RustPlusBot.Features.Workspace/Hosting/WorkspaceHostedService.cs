@@ -24,6 +24,9 @@ internal sealed class WorkspaceHostedService(
     private bool _startupDone;
 
     /// <inheritdoc />
+    public void Dispose() => _cts.Dispose();
+
+    /// <inheritdoc />
     public Task StartAsync(CancellationToken cancellationToken)
     {
         client.Ready += OnReadyAsync;
@@ -52,9 +55,6 @@ internal sealed class WorkspaceHostedService(
             }
         }
     }
-
-    /// <inheritdoc />
-    public void Dispose() => _cts.Dispose();
 
     private async Task OnReadyAsync()
     {
@@ -106,13 +106,15 @@ internal sealed class WorkspaceHostedService(
         // long after startup.
         try
         {
-            await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken).ConfigureAwait(false))
+            await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken)
+                               .ConfigureAwait(false))
             {
                 var scope = scopeFactory.CreateAsyncScope();
                 await using (scope.ConfigureAwait(false))
                 {
                     var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                    await reconciler.ReconcileServerAsync(registered.GuildId, registered.ServerId, cancellationToken).ConfigureAwait(false);
+                    await reconciler.ReconcileServerAsync(registered.GuildId, registered.ServerId, cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
         }

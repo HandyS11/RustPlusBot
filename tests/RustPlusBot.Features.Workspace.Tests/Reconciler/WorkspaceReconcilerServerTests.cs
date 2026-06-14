@@ -15,7 +15,14 @@ public sealed class WorkspaceReconcilerServerTests
             .WithChannel(WorkspaceScope.PerServer, "info", "channel.info.name", 0)
             .WithMessage(WorkspaceScope.PerServer, "server.info", "info", "info");
         harness.Servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = serverId, GuildId = 1, Name = "Rustopia EU", Ip = "1.1.1.1", Port = 28015 });
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "Rustopia EU",
+                Ip = "1.1.1.1",
+                Port = 28015
+            });
         var sut = harness.Build();
 
         var result = await sut.ReconcileServerAsync(1, serverId);

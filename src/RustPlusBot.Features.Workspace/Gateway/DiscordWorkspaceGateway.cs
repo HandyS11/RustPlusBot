@@ -33,24 +33,38 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         client.GetGuild(guildId)?.GetTextChannel(channelId) is not null;
 
     /// <inheritdoc />
-    public Task<ulong?> FindChannelAsync(ulong guildId, ulong categoryId, string name, CancellationToken cancellationToken)
+    public Task<ulong?> FindChannelAsync(ulong guildId,
+        ulong categoryId,
+        string name,
+        CancellationToken cancellationToken)
     {
         var match = client.GetGuild(guildId)?.TextChannels
-            .FirstOrDefault(c => c.CategoryId == categoryId && string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(c =>
+                c.CategoryId == categoryId && string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
         return Task.FromResult(match?.Id);
     }
 
     /// <inheritdoc />
-    public async Task<ulong> CreateChannelAsync(ulong guildId, ulong categoryId, string name, ChannelPermissionProfile profile, CancellationToken cancellationToken)
+    public async Task<ulong> CreateChannelAsync(ulong guildId,
+        ulong categoryId,
+        string name,
+        ChannelPermissionProfile profile,
+        CancellationToken cancellationToken)
     {
         var guild = GetGuild(guildId);
-        var channel = await guild.CreateTextChannelAsync(name, props => props.CategoryId = categoryId).ConfigureAwait(false);
+        var channel = await guild.CreateTextChannelAsync(name, props => props.CategoryId = categoryId)
+            .ConfigureAwait(false);
         await ApplyOverwritesAsync(guild, channel, profile).ConfigureAwait(false);
         return channel.Id;
     }
 
     /// <inheritdoc />
-    public async Task ApplyChannelSettingsAsync(ulong guildId, ulong channelId, ulong categoryId, string name, ChannelPermissionProfile profile, CancellationToken cancellationToken)
+    public async Task ApplyChannelSettingsAsync(ulong guildId,
+        ulong channelId,
+        ulong categoryId,
+        string name,
+        ChannelPermissionProfile profile,
+        CancellationToken cancellationToken)
     {
         var guild = client.GetGuild(guildId);
         var channel = guild?.GetTextChannel(channelId);
@@ -72,7 +86,10 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
     }
 
     /// <inheritdoc />
-    public async Task<bool> MessageExistsAsync(ulong guildId, ulong channelId, ulong messageId, CancellationToken cancellationToken)
+    public async Task<bool> MessageExistsAsync(ulong guildId,
+        ulong channelId,
+        ulong messageId,
+        CancellationToken cancellationToken)
     {
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId);
         if (channel is null)
@@ -85,17 +102,26 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
     }
 
     /// <inheritdoc />
-    public async Task<ulong> PostMessageAsync(ulong guildId, ulong channelId, MessagePayload payload, CancellationToken cancellationToken)
+    public async Task<ulong> PostMessageAsync(ulong guildId,
+        ulong channelId,
+        MessagePayload payload,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(payload);
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId)
-            ?? throw new InvalidOperationException($"Channel {channelId} not found in guild {guildId}.");
-        var message = await channel.SendMessageAsync(text: payload.Text, embed: payload.Embed, components: payload.Components).ConfigureAwait(false);
+                      ?? throw new InvalidOperationException($"Channel {channelId} not found in guild {guildId}.");
+        var message = await channel
+            .SendMessageAsync(text: payload.Text, embed: payload.Embed, components: payload.Components)
+            .ConfigureAwait(false);
         return message.Id;
     }
 
     /// <inheritdoc />
-    public async Task EditMessageAsync(ulong guildId, ulong channelId, ulong messageId, MessagePayload payload, CancellationToken cancellationToken)
+    public async Task EditMessageAsync(ulong guildId,
+        ulong channelId,
+        ulong messageId,
+        MessagePayload payload,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(payload);
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId);
@@ -144,11 +170,17 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         var permissions = guild.CurrentUser.GuildPermissions;
         var missing = new List<string>();
         if (!permissions.ManageChannels) { missing.Add("Manage Channels"); }
+
         if (!permissions.ManageRoles) { missing.Add("Manage Roles"); }
+
         if (!permissions.SendMessages) { missing.Add("Send Messages"); }
+
         if (!permissions.EmbedLinks) { missing.Add("Embed Links"); }
+
         if (!permissions.ManageMessages) { missing.Add("Manage Messages"); }
+
         if (!permissions.ViewChannel) { missing.Add("View Channels"); }
+
         return missing;
     }
 

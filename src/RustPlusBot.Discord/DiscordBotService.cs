@@ -47,6 +47,7 @@ public sealed class DiscordBotService(
         {
             await interactions.AddModulesAsync(moduleAssembly.Assembly, services).ConfigureAwait(false);
         }
+
         await client.LoginAsync(TokenType.Bot, _options.Token).ConfigureAwait(false);
         await client.StartAsync().ConfigureAwait(false);
     }

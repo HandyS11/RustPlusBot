@@ -27,5 +27,6 @@ internal sealed record ReconcileResult(ReconcileStatus Status, IReadOnlyList<str
     /// <summary>Builds a missing-permissions result.</summary>
     /// <param name="permissions">The missing permission names.</param>
     /// <returns>A missing-permissions result.</returns>
-    public static ReconcileResult Missing(IReadOnlyList<string> permissions) => new(ReconcileStatus.MissingPermissions, permissions);
+    public static ReconcileResult Missing(IReadOnlyList<string> permissions) =>
+        new(ReconcileStatus.MissingPermissions, permissions);
 }

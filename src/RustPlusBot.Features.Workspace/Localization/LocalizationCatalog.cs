@@ -22,7 +22,8 @@ internal sealed class LocalizationCatalog
                 ["information.body"] = "Connect your Rust+ account in #setup, then pair a server in-game to begin.",
                 ["information.servers"] = "Servers registered: {0}",
                 ["setup.title"] = "Connect your Rust+ account",
-                ["setup.body"] = "Account connection arrives in the next update. Once connected, pair a server in-game and its channels appear automatically.",
+                ["setup.body"] =
+                    "Account connection arrives in the next update. Once connected, pair a server in-game and its channels appear automatically.",
                 ["settings.title"] = "Settings",
                 ["settings.body"] = "Configure the bot for this server.",
                 ["settings.language.label"] = "Language",
@@ -37,7 +38,8 @@ internal sealed class LocalizationCatalog
                 ["channel.settings.name"] = "parametres",
                 ["channel.info.name"] = "info",
                 ["information.title"] = "RustPlusBot",
-                ["information.body"] = "Connectez votre compte Rust+ dans #configuration, puis appairez un serveur en jeu.",
+                ["information.body"] =
+                    "Connectez votre compte Rust+ dans #configuration, puis appairez un serveur en jeu.",
                 ["information.servers"] = "Serveurs enregistres : {0}",
                 ["setup.title"] = "Connectez votre compte Rust+",
                 ["setup.body"] = "La connexion de compte arrive dans la prochaine mise a jour.",

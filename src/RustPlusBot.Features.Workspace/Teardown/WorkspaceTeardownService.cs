@@ -33,15 +33,18 @@ internal sealed class WorkspaceTeardownService(
 
     private async Task DeleteScopeAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken)
     {
-        foreach (var channel in await store.GetChannelsAsync(guildId, serverId, cancellationToken).ConfigureAwait(false))
+        foreach (var channel in await store.GetChannelsAsync(guildId, serverId, cancellationToken)
+                     .ConfigureAwait(false))
         {
-            await gateway.DeleteChannelAsync(guildId, channel.DiscordChannelId, cancellationToken).ConfigureAwait(false);
+            await gateway.DeleteChannelAsync(guildId, channel.DiscordChannelId, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var category = await store.GetCategoryAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (category is not null)
         {
-            await gateway.DeleteCategoryAsync(guildId, category.DiscordCategoryId, cancellationToken).ConfigureAwait(false);
+            await gateway.DeleteCategoryAsync(guildId, category.DiscordCategoryId, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         await store.DeleteScopeAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);

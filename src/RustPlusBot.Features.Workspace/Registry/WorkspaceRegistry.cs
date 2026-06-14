@@ -12,7 +12,8 @@ internal sealed class WorkspaceRegistry(
 
     /// <inheritdoc />
     public IReadOnlyList<ChannelSpec> GetChannelSpecs(WorkspaceScope scope) =>
-        _channels.Where(s => s.Scope == scope).OrderBy(s => s.Order).ThenBy(s => s.Key, StringComparer.Ordinal).ToList();
+        _channels.Where(s => s.Scope == scope).OrderBy(s => s.Order).ThenBy(s => s.Key, StringComparer.Ordinal)
+            .ToList();
 
     /// <inheritdoc />
     public IReadOnlyList<MessageSpec> GetMessageSpecs(WorkspaceScope scope) =>

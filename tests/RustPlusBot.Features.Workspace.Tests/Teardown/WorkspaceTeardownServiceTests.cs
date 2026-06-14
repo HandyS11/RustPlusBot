@@ -33,7 +33,14 @@ public sealed class WorkspaceTeardownServiceTests
             .WithChannel(WorkspaceScope.Global, "information", "channel.information.name", 0)
             .WithChannel(WorkspaceScope.PerServer, "info", "channel.info.name", 0);
         harness.Servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = serverId, GuildId = 1, Name = "S", Ip = "1.1.1.1", Port = 1 });
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.1.1.1",
+                Port = 1
+            });
         var reconciler = harness.Build();
         await reconciler.ReconcileGlobalAsync(1);
         await reconciler.ReconcileServerAsync(1, serverId);

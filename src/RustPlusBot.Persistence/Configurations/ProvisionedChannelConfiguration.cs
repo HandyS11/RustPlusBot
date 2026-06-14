@@ -12,7 +12,10 @@ internal sealed class ProvisionedChannelConfiguration : IEntityTypeConfiguration
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(c => c.Id);
         builder.Property(c => c.ChannelKey).IsRequired().HasMaxLength(64);
-        builder.HasIndex(c => new { c.GuildId, c.RustServerId, c.ChannelKey }).IsUnique();
+        builder.HasIndex(c => new
+        {
+            c.GuildId, c.RustServerId, c.ChannelKey
+        }).IsUnique();
         builder.HasOne<RustServer>()
             .WithMany()
             .HasForeignKey(c => c.RustServerId)

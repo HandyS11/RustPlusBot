@@ -7,19 +7,19 @@ namespace RustPlusBot.Features.Workspace.Tests.Fakes;
 /// <summary>In-memory <see cref="IWorkspaceStore"/> for reconciler unit tests.</summary>
 internal sealed class FakeWorkspaceStore : IWorkspaceStore
 {
-    private static string Scope(ulong g, Guid? s) => $"{g}:{s?.ToString() ?? "global"}";
-
     private readonly ConcurrentDictionary<string, ProvisionedCategory> _categories = new();
 
     /// <summary>Key: scope|channelKey.</summary>
     private readonly ConcurrentDictionary<string, ProvisionedChannel> _channels = new();
 
+    private readonly ConcurrentDictionary<ulong, string> _cultures = new();
+
     /// <summary>Key: scope|messageKey.</summary>
     private readonly ConcurrentDictionary<string, ProvisionedMessage> _messages = new();
 
-    private readonly ConcurrentDictionary<ulong, string> _cultures = new();
-
-    public Task<ProvisionedCategory?> GetCategoryAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default) =>
+    public Task<ProvisionedCategory?> GetCategoryAsync(ulong guildId,
+        Guid? serverId,
+        CancellationToken cancellationToken = default) =>
         Task.FromResult(_categories.GetValueOrDefault(Scope(guildId, serverId)));
 
     public Task SaveCategoryAsync(ProvisionedCategory category, CancellationToken cancellationToken = default)
@@ -28,7 +28,9 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<ProvisionedChannel>> GetChannelsAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ProvisionedChannel>> GetChannelsAsync(ulong guildId,
+        Guid? serverId,
+        CancellationToken cancellationToken = default)
     {
         var prefix = Scope(guildId, serverId) + "|";
         IReadOnlyList<ProvisionedChannel> list = _channels
@@ -43,7 +45,10 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
         return Task.CompletedTask;
     }
 
-    public Task<ProvisionedMessage?> GetMessageAsync(ulong guildId, Guid? serverId, string messageKey, CancellationToken cancellationToken = default) =>
+    public Task<ProvisionedMessage?> GetMessageAsync(ulong guildId,
+        Guid? serverId,
+        string messageKey,
+        CancellationToken cancellationToken = default) =>
         Task.FromResult(_messages.GetValueOrDefault($"{Scope(guildId, serverId)}|{messageKey}"));
 
     public Task SaveMessageAsync(ProvisionedMessage message, CancellationToken cancellationToken = default)
@@ -78,7 +83,8 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<ProvisionedCategory>> GetAllCategoriesAsync(ulong guildId, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ProvisionedCategory>> GetAllCategoriesAsync(ulong guildId,
+        CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ProvisionedCategory> list = _categories.Values.Where(c => c.GuildId == guildId).ToList();
         return Task.FromResult(list);
@@ -89,4 +95,6 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
         IReadOnlyList<ulong> list = _categories.Values.Select(c => c.GuildId).Distinct().ToList();
         return Task.FromResult(list);
     }
+
+    private static string Scope(ulong g, Guid? s) => $"{g}:{s?.ToString() ?? "global"}";
 }

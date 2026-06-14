@@ -10,7 +10,9 @@ public interface IWorkspaceStore
     /// <param name="serverId">The Rust server id, or null for the global scope.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The matching category, or null if none exists.</returns>
-    Task<ProvisionedCategory?> GetCategoryAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default);
+    Task<ProvisionedCategory?> GetCategoryAsync(ulong guildId,
+        Guid? serverId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Upserts the category for its scope (keyed by guild + server).</summary>
     /// <param name="category">The category to save.</param>
@@ -22,7 +24,9 @@ public interface IWorkspaceStore
     /// <param name="serverId">The Rust server id, or null for the global scope.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The provisioned channels for the scope.</returns>
-    Task<IReadOnlyList<ProvisionedChannel>> GetChannelsAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProvisionedChannel>> GetChannelsAsync(ulong guildId,
+        Guid? serverId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Upserts a channel for its scope (keyed by guild + server + channel key).</summary>
     /// <param name="channel">The channel to save.</param>
@@ -35,7 +39,10 @@ public interface IWorkspaceStore
     /// <param name="messageKey">The stable spec key (e.g. "information.main").</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The matching message, or null if none exists.</returns>
-    Task<ProvisionedMessage?> GetMessageAsync(ulong guildId, Guid? serverId, string messageKey, CancellationToken cancellationToken = default);
+    Task<ProvisionedMessage?> GetMessageAsync(ulong guildId,
+        Guid? serverId,
+        string messageKey,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Upserts an anchored message (keyed by guild + server + message key).</summary>
     /// <param name="message">The message to save.</param>
@@ -64,7 +71,8 @@ public interface IWorkspaceStore
     /// <param name="guildId">The Discord guild snowflake.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>All provisioned categories for the guild.</returns>
-    Task<IReadOnlyList<ProvisionedCategory>> GetAllCategoriesAsync(ulong guildId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProvisionedCategory>> GetAllCategoriesAsync(ulong guildId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Gets the distinct guild ids that have any provisioned category (for startup reconcile).</summary>
     /// <param name="cancellationToken">A cancellation token.</param>
