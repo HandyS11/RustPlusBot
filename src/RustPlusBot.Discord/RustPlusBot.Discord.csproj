@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Discord.Net" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
   </ItemGroup>
 
   <PropertyGroup>
