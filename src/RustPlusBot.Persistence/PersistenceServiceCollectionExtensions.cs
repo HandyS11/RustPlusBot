@@ -1,0 +1,36 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Credentials;
+using RustPlusBot.Persistence.Bindings;
+using RustPlusBot.Persistence.Credentials;
+using RustPlusBot.Persistence.Servers;
+
+namespace RustPlusBot.Persistence;
+
+/// <summary>DI registration for the persistence layer.</summary>
+public static class PersistenceServiceCollectionExtensions
+{
+    /// <summary>Registers the BotDbContext factory and the guild-scoped services over SQLite.</summary>
+    /// <param name="services">The service collection to add to.</param>
+    /// <param name="connectionString">The SQLite connection string.</param>
+    /// <returns>The same service collection, for chaining.</returns>
+    public static IServiceCollection AddBotPersistence(this IServiceCollection services, string connectionString)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddDbContextFactory<BotDbContext>(options => options.UseSqlite(connectionString));
+
+        // AddDbContextFactory registers only the singleton factory, not a scoped context.
+        // Register a scoped BotDbContext sourced from the factory so the scoped services below
+        // (which take BotDbContext directly) resolve, while the factory remains available for
+        // the startup migration in the Host.
+        services.AddScoped<BotDbContext>(sp =>
+            sp.GetRequiredService<IDbContextFactory<BotDbContext>>().CreateDbContext());
+
+        services.AddScoped<IServerService, ServerService>();
+        services.AddScoped<IBindingService, BindingService>();
+        services.AddScoped<ICredentialStore, CredentialStore>();
+
+        return services;
+    }
+}

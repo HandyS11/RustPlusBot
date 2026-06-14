@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RustPlusBot.Abstractions/RustPlusBot.Abstractions.csproj" />
+    <Project Path="src/RustPlusBot.Discord/RustPlusBot.Discord.csproj" />
+    <Project Path="src/RustPlusBot.Domain/RustPlusBot.Domain.csproj" />
+    <Project Path="src/RustPlusBot.Host/RustPlusBot.Host.csproj" />
+    <Project Path="src/RustPlusBot.Persistence/RustPlusBot.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RustPlusBot.Abstractions.Tests/RustPlusBot.Abstractions.Tests.csproj" />
+    <Project Path="tests/RustPlusBot.Persistence.Tests/RustPlusBot.Persistence.Tests.csproj" />
+  </Folder>
+</Solution>
