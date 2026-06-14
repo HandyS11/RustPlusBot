@@ -17,7 +17,9 @@ public static class SqliteContextFixture
             .Options;
 
         var context = new BotDbContext(options);
-        context.Database.EnsureCreated();
+        // Apply the committed EF Core migrations (not EnsureCreated) so tests exercise the same
+        // schema path the Host uses at startup, catching migration/model drift.
+        context.Database.Migrate();
         return (context, connection);
     }
 }

@@ -29,6 +29,12 @@ public sealed class ServerModule(IServiceScopeFactory scopeFactory)
             return;
         }
 
+        if (port is < 1 or > 65535)
+        {
+            await RespondAsync("Port must be between 1 and 65535.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         var scope = scopeFactory.CreateAsyncScope();
         try
         {
