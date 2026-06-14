@@ -6,6 +6,7 @@ using RustPlusBot.Domain.Entities;
 using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Servers;
+using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Persistence.Configurations;
 
 namespace RustPlusBot.Persistence;
@@ -29,14 +30,20 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Per-guild settings.</summary>
     public DbSet<GuildSettings> GuildSettings => Set<GuildSettings>();
 
-    /// <summary>Channel-to-feature bindings.</summary>
-    public DbSet<ChannelBinding> ChannelBindings => Set<ChannelBinding>();
-
     /// <summary>Paired smart devices.</summary>
     public DbSet<PairedEntity> PairedEntities => Set<PairedEntity>();
 
     /// <summary>Per-guild event subscriptions.</summary>
     public DbSet<EventSubscription> EventSubscriptions => Set<EventSubscription>();
+
+    /// <summary>Provisioned Discord categories (global + per-server).</summary>
+    public DbSet<ProvisionedCategory> ProvisionedCategories => Set<ProvisionedCategory>();
+
+    /// <summary>Provisioned Discord channels, keyed by spec key.</summary>
+    public DbSet<ProvisionedChannel> ProvisionedChannels => Set<ProvisionedChannel>();
+
+    /// <summary>Anchored bot messages, edited in place.</summary>
+    public DbSet<ProvisionedMessage> ProvisionedMessages => Set<ProvisionedMessage>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -47,10 +54,12 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
         modelBuilder
             .ApplyConfiguration(new RustServerConfiguration())
             .ApplyConfiguration(new PlayerCredentialConfiguration())
-            .ApplyConfiguration(new ChannelBindingConfiguration())
             .ApplyConfiguration(new ConnectionStateConfiguration())
             .ApplyConfiguration(new GuildSettingsConfiguration())
             .ApplyConfiguration(new PairedEntityConfiguration())
-            .ApplyConfiguration(new EventSubscriptionConfiguration());
+            .ApplyConfiguration(new EventSubscriptionConfiguration())
+            .ApplyConfiguration(new ProvisionedCategoryConfiguration())
+            .ApplyConfiguration(new ProvisionedChannelConfiguration())
+            .ApplyConfiguration(new ProvisionedMessageConfiguration());
     }
 }

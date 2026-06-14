@@ -6,6 +6,7 @@ using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord;
+using RustPlusBot.Features.Workspace;
 using RustPlusBot.Host.Credentials;
 using RustPlusBot.Persistence;
 
@@ -24,6 +25,9 @@ builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 builder.Services.AddSingleton<ICredentialProtector, DataProtectionCredentialProtector>();
 builder.Services.AddBotPersistence(connectionString);
 builder.Services.AddDiscordBot();
+builder.Services.AddOptions<WorkspaceOptions>()
+    .Bind(builder.Configuration.GetSection("Workspace"));
+builder.Services.AddWorkspace();
 
 var host = builder.Build();
 

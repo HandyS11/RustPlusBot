@@ -235,29 +235,6 @@ namespace RustPlusBot.Persistence.Migrations
                     b.ToTable("EventSubscriptions");
                 });
 
-            modelBuilder.Entity("RustPlusBot.Domain.Guilds.ChannelBinding", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("ChannelId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Feature")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GuildId", "Feature")
-                        .IsUnique();
-
-                    b.ToTable("ChannelBindings");
-                });
-
             modelBuilder.Entity("RustPlusBot.Domain.Guilds.GuildSettings", b =>
                 {
                     b.Property<long>("GuildId")
@@ -305,12 +282,136 @@ namespace RustPlusBot.Persistence.Migrations
                     b.ToTable("RustServers");
                 });
 
+            modelBuilder.Entity("RustPlusBot.Domain.Workspace.ProvisionedCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("DiscordCategoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("RustServerId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RustServerId");
+
+                    b.HasIndex("GuildId", "RustServerId")
+                        .IsUnique();
+
+                    b.ToTable("ProvisionedCategories");
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Workspace.ProvisionedChannel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ChannelKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("DiscordChannelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("RustServerId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RustServerId");
+
+                    b.HasIndex("GuildId", "RustServerId", "ChannelKey")
+                        .IsUnique();
+
+                    b.ToTable("ProvisionedChannels");
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Workspace.ProvisionedMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("DiscordChannelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("DiscordMessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MessageKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("RustServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RustServerId");
+
+                    b.HasIndex("GuildId", "RustServerId", "MessageKey")
+                        .IsUnique();
+
+                    b.ToTable("ProvisionedMessages");
+                });
+
             modelBuilder.Entity("Persistord.Core.Entities.ChannelEntity", b =>
                 {
                     b.HasOne("Persistord.Core.Entities.ChannelEntity", null)
                         .WithMany()
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Workspace.ProvisionedCategory", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("RustServerId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Workspace.ProvisionedChannel", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("RustServerId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Workspace.ProvisionedMessage", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("RustServerId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 #pragma warning restore 612, 618
         }

@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Credentials;
-using RustPlusBot.Persistence.Bindings;
 using RustPlusBot.Persistence.Credentials;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Persistence;
 
@@ -28,8 +28,8 @@ public static class PersistenceServiceCollectionExtensions
             sp.GetRequiredService<IDbContextFactory<BotDbContext>>().CreateDbContext());
 
         services.AddScoped<IServerService, ServerService>();
-        services.AddScoped<IBindingService, BindingService>();
         services.AddScoped<ICredentialStore, CredentialStore>();
+        services.AddScoped<IWorkspaceStore, WorkspaceStore>();
 
         return services;
     }

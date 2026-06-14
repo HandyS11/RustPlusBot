@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Persistence;
-using RustPlusBot.Persistence.Bindings;
 using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Persistence.Tests;
@@ -26,7 +25,6 @@ public sealed class PersistenceRegistrationTests
 
         // Services that depend only on BotDbContext resolve from a scope.
         Assert.NotNull(scope.ServiceProvider.GetService<IServerService>());
-        Assert.NotNull(scope.ServiceProvider.GetService<IBindingService>());
 
         // ICredentialStore is registered here, but its ICredentialProtector dependency is
         // supplied by the Host, so verify the registration descriptor rather than resolving it.
