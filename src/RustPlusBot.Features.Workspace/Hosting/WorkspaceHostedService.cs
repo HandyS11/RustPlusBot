@@ -100,6 +100,10 @@ internal sealed class WorkspaceHostedService(
 
     private async Task ConsumeServerRegisteredAsync(CancellationToken cancellationToken)
     {
+        // Subscription is registered when this loop first calls SubscribeAsync; the in-process bus does
+        // not replay, so events published before this point are not delivered. Fine here (the only 1a
+        // producer is the runtime-only simulate-server command); a real producer (1b FCM pairing) runs
+        // long after startup.
         try
         {
             await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken).ConfigureAwait(false))

@@ -63,8 +63,10 @@ internal sealed class WorkspaceReconciler(
     {
         using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
 
-        // Only heal an already-provisioned workspace; never resurrect one cleared by reset.
-        if (await store.GetCategoryAsync(guildId, null, cancellationToken).ConfigureAwait(false) is null)
+        // Heal only the scopes that are actually provisioned; never resurrect a workspace cleared by
+        // reset (no categories) and never create a scope the guild never asked for.
+        var categories = await store.GetAllCategoriesAsync(guildId, cancellationToken).ConfigureAwait(false);
+        if (categories.Count == 0)
         {
             return;
         }
@@ -74,10 +76,14 @@ internal sealed class WorkspaceReconciler(
             return;
         }
 
-        await ReconcileGlobalCoreAsync(guildId, cancellationToken).ConfigureAwait(false);
-        foreach (var server in await servers.ListAsync(guildId, cancellationToken).ConfigureAwait(false))
+        if (categories.Any(c => c.RustServerId is null))
         {
-            await ReconcileServerCoreAsync(guildId, server.Id, cancellationToken).ConfigureAwait(false);
+            await ReconcileGlobalCoreAsync(guildId, cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (var category in categories.Where(c => c.RustServerId is not null))
+        {
+            await ReconcileServerCoreAsync(guildId, category.RustServerId!.Value, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -185,6 +191,14 @@ internal sealed class WorkspaceReconciler(
             }
 
             var payload = await renderer.RenderAsync(new MessageRenderContext(guildId, serverId, culture), cancellationToken).ConfigureAwait(false);
+
+            // A renderer with nothing to show (e.g. the source entity vanished mid-reconcile) returns an
+            // empty payload; Discord rejects a message with no content/embed/components, so skip it.
+            if (payload.Text is null && payload.Embed is null && payload.Components is null)
+            {
+                continue;
+            }
+
             var record = await store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken).ConfigureAwait(false);
 
             var canEditInPlace = record is not null
