@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Persistence.Credentials;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Persistence;
 
@@ -28,6 +29,7 @@ public static class PersistenceServiceCollectionExtensions
 
         services.AddScoped<IServerService, ServerService>();
         services.AddScoped<ICredentialStore, CredentialStore>();
+        services.AddScoped<IWorkspaceStore, WorkspaceStore>();
 
         return services;
     }
