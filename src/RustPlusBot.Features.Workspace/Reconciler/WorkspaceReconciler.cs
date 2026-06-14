@@ -62,7 +62,7 @@ internal sealed class WorkspaceReconciler(
         if (server is null)
         {
             logger.LogWarning("ReconcileServer skipped: server {ServerId} not found in guild {GuildId}.", serverId, guildId);
-            return ReconcileResult.Provisioned;
+            return ReconcileResult.Skipped;
         }
 
         var culture = await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
@@ -162,6 +162,9 @@ internal sealed class WorkspaceReconciler(
             if (canEditInPlace)
             {
                 await gateway.EditMessageAsync(guildId, channelId, record!.DiscordMessageId, payload, cancellationToken).ConfigureAwait(false);
+                await store.SaveMessageAsync(
+                    new ProvisionedMessage { GuildId = guildId, RustServerId = serverId, MessageKey = spec.Key, DiscordChannelId = channelId, DiscordMessageId = record.DiscordMessageId },
+                    cancellationToken).ConfigureAwait(false);
             }
             else
             {
