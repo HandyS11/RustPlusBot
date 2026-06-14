@@ -41,6 +41,10 @@ public sealed class ServerService(BotDbContext context) : IServerService
             .ConfigureAwait(false);
 
     /// <inheritdoc />
+    public Task<RustServer?> GetAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default) =>
+        context.RustServers.SingleOrDefaultAsync(s => s.GuildId == guildId && s.Id == serverId, cancellationToken);
+
+    /// <inheritdoc />
     public async Task<bool> RemoveAsync(
         ulong guildId,
         Guid serverId,

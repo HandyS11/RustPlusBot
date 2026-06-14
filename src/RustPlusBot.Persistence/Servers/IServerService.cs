@@ -32,4 +32,11 @@ public interface IServerService
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>True if a matching server was removed; otherwise false.</returns>
     Task<bool> RemoveAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default);
+
+    /// <summary>Gets a server by id within a guild, or null.</summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="serverId">The server id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The server, or null if not found in this guild.</returns>
+    Task<RustServer?> GetAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default);
 }
