@@ -436,6 +436,9 @@ resharper_wrap_linq_expressions = chop_always
 resharper_csharp_wrap_parameters_style = chop_if_long
 resharper_csharp_place_method_parameter_on_same_line = false
 
+[src/RustPlusBot.Host/**/*.cs]
+dotnet_diagnostic.CA1515.severity = none # Host types are intentionally public so test projects can reference them directly
+
 [**/Migrations/*.cs]
 generated_code = true
 dotnet_diagnostic.CS1591.severity = none # XML docs not required in generated migrations

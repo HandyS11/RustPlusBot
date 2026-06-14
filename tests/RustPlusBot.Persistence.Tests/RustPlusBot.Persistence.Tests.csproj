@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
@@ -21,6 +22,7 @@
     <ProjectReference Include="..\..\src\RustPlusBot.Persistence\RustPlusBot.Persistence.csproj" />
     <ProjectReference Include="..\..\src\RustPlusBot.Domain\RustPlusBot.Domain.csproj" />
     <ProjectReference Include="..\..\src\RustPlusBot.Abstractions\RustPlusBot.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\RustPlusBot.Host\RustPlusBot.Host.csproj" />
   </ItemGroup>
 
 </Project>
