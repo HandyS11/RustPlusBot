@@ -4,7 +4,11 @@ using System.Threading.Channels;
 
 namespace RustPlusBot.Abstractions.Events;
 
-/// <summary>An unbounded, in-process <see cref="IEventBus"/> backed by channels per subscriber.</summary>
+/// <summary>
+/// An unbounded, in-process <see cref="IEventBus"/> backed by channels per subscriber.
+/// Events are buffered without bound per subscriber; a slow consumer accumulates memory
+/// without back-pressure. Acceptable for the bot's low-rate domain events.
+/// </summary>
 public sealed class InMemoryEventBus : IEventBus
 {
     private readonly ConcurrentDictionary<Type, Subscribers> _byType = new();
@@ -74,6 +78,7 @@ public sealed class InMemoryEventBus : IEventBus
             finally
             {
                 _channels.TryRemove(id, out _);
+                channel.Writer.Complete();
             }
         }
     }
