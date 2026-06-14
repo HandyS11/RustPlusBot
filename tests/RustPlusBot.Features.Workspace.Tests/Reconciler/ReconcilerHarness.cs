@@ -60,3 +60,27 @@ internal sealed class ReconcilerHarness
             ValueTask.FromResult(new MessagePayload(text, null, null));
     }
 }
+
+internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
+{
+    private readonly List<IChannelSpecProvider> _channelProviders = [];
+    private readonly List<IMessageSpecProvider> _messageProviders = [];
+    private readonly List<IMessageRenderer> _renderers = [];
+
+    public ReconcilerBuilderReusing WithChannel(WorkspaceScope scope, string key, string nameKey, int order = 0)
+    {
+        _channelProviders.Add(new ListChannelProvider([new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order)]));
+        return this;
+    }
+
+    public WorkspaceReconciler Build() => new(
+        new WorkspaceRegistry(_channelProviders, _messageProviders),
+        source.Gateway, source.Store, _renderers, source.Servers,
+        new Localizer(LocalizationCatalog.Default), new ProvisioningLock(),
+        NullLogger<WorkspaceReconciler>.Instance);
+
+    private sealed class ListChannelProvider(IEnumerable<ChannelSpec> specs) : IChannelSpecProvider
+    {
+        public IEnumerable<ChannelSpec> GetChannelSpecs() => specs;
+    }
+}
