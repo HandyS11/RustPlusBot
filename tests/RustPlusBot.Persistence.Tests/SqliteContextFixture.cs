@@ -1,6 +1,5 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using RustPlusBot.Persistence;
 
 namespace RustPlusBot.Persistence.Tests;
@@ -15,11 +14,6 @@ public static class SqliteContextFixture
 
         var options = new DbContextOptionsBuilder<BotDbContext>()
             .UseSqlite(connection)
-            // Suppress PendingModelChangesWarning while a migration for the latest model changes
-            // is pending (i.e., between removing types from the context and adding the migration
-            // that drops the corresponding table). The next task adds the migration; until then
-            // the in-memory test schema is still valid for all remaining tests.
-            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
             .Options;
 
         var context = new BotDbContext(options);
