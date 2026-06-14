@@ -24,7 +24,7 @@ public sealed class WorkspaceAdminModule(
     public const string ConfirmResetId = "workspace:reset:confirm";
 
     /// <summary>Prompts to delete the entire provisioned workspace (dev-gated).</summary>
-    [SlashCommand("reset", "Delete ALL provisioned channels and records for this server (dangerous)")]
+    [SlashCommand("reset", "Delete ALL of the bot's channels and records in this Discord server (dangerous)")]
     public async Task ResetAsync()
     {
         if (!await EnsureEnabledAsync().ConfigureAwait(false))
@@ -72,6 +72,12 @@ public sealed class WorkspaceAdminModule(
     {
         if (!await EnsureEnabledAsync().ConfigureAwait(false))
         {
+            return;
+        }
+
+        if (port is < 1 or > 65535)
+        {
+            await RespondAsync("Port must be between 1 and 65535.", ephemeral: true).ConfigureAwait(false);
             return;
         }
 

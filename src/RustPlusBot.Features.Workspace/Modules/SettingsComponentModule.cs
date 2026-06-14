@@ -25,7 +25,10 @@ public sealed class SettingsComponentModule(IServiceScopeFactory scopeFactory)
             return;
         }
 
-        var culture = selectedValues.Length > 0 ? selectedValues[0] : "en";
+        // Component payloads can be forged, so only persist a culture the bot actually supports
+        // (GuildSettings.Culture is capped at 16 chars and unknown values break rendering anyway).
+        var selected = selectedValues.Length > 0 ? selectedValues[0] : "en";
+        var culture = selected is "en" or "fr" ? selected : "en";
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
         var scope = scopeFactory.CreateAsyncScope();
         try

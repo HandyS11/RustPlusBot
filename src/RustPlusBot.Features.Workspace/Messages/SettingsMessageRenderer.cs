@@ -29,7 +29,7 @@ internal sealed class SettingsMessageRenderer(ILocalizer localizer) : IMessageRe
             .WithCustomId(LanguageSelectId)
             .WithPlaceholder(localizer.Get("settings.language.label", context.Culture))
             .AddOption("English", "en")
-            .AddOption("Francais", "fr");
+            .AddOption("Français", "fr");
         var components = new ComponentBuilder().WithSelectMenu(menu).Build();
 
         return ValueTask.FromResult(new MessagePayload(null, embed, components));
