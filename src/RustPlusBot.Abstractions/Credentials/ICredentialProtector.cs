@@ -11,5 +11,8 @@ public interface ICredentialProtector
     /// <summary>Reverses <see cref="Protect"/>.</summary>
     /// <param name="protectedText">A value previously produced by <see cref="Protect"/>.</param>
     /// <returns>The original plaintext.</returns>
+    /// <exception cref="System.Security.Cryptography.CryptographicException">
+    /// The payload was tampered with, produced by a different key/purpose, or otherwise unreadable.
+    /// </exception>
     string Unprotect(string protectedText);
 }

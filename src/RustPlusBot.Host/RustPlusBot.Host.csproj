@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="RustPlusBot.Persistence.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RustPlusBot.Discord\RustPlusBot.Discord.csproj" />
     <ProjectReference Include="..\RustPlusBot.Persistence\RustPlusBot.Persistence.csproj" />
     <ProjectReference Include="..\RustPlusBot.Domain\RustPlusBot.Domain.csproj" />

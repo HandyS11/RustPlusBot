@@ -4,7 +4,7 @@ using RustPlusBot.Abstractions.Credentials;
 namespace RustPlusBot.Host.Credentials;
 
 /// <summary>An <see cref="ICredentialProtector"/> backed by ASP.NET Core Data Protection.</summary>
-public sealed class DataProtectionCredentialProtector : ICredentialProtector
+internal sealed class DataProtectionCredentialProtector : ICredentialProtector
 {
     private readonly IDataProtector _protector;
 
