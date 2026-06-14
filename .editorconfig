@@ -404,7 +404,6 @@ dotnet_diagnostic.CA1819.severity = none # Properties should not return arrays �
 dotnet_diagnostic.CA1003.severity = none # Use generic event handler — wrapping EventHandler<string/Exception/T> in EventArgs subclasses is a breaking public API change
 dotnet_diagnostic.CA1062.severity = none # Validate parameters — nullable reference types provide equivalent compile-time null safety; runtime guards are redundant noise
 dotnet_diagnostic.CA1848.severity = none # LoggerMessage source-gen is overkill for this bot's low-volume logging
-dotnet_diagnostic.CA1873.severity = none # IsEnabled guard is redundant noise when args are cheap property accesses
 
 dotnet_diagnostic.IDE0058.severity = none # Expression not used (boring with extension methods) _ = Foo()
 

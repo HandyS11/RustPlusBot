@@ -18,6 +18,8 @@ namespace RustPlusBot.Discord;
 /// <param name="services">The root service provider used to construct interaction modules.</param>
 /// <param name="options">The Discord options carrying the bot token.</param>
 /// <param name="logger">The logger.</param>
+[SuppressMessage("Performance", "CA1873:Avoid potentially expensive logging",
+    Justification = "Log-bridge arguments are cheap LogMessage property reads; an IsEnabled guard would be redundant noise.")]
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
@@ -26,6 +28,7 @@ public sealed class DiscordBotService(
     ILogger<DiscordBotService> logger) : IHostedService
 {
     private readonly DiscordOptions _options = options.Value;
+    private bool _hasRegisteredCommands;
 
     /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -50,11 +53,19 @@ public sealed class DiscordBotService(
 
     private async Task OnReadyAsync()
     {
+        // Ready fires on every gateway (re)connect; only register commands once per process.
+        // Ready is dispatched serially on the gateway thread, so no synchronization is needed.
+        if (_hasRegisteredCommands)
+        {
+            return;
+        }
+
         foreach (var guild in client.Guilds)
         {
             await interactions.RegisterCommandsToGuildAsync(guild.Id).ConfigureAwait(false);
         }
 
+        _hasRegisteredCommands = true;
         logger.LogInformation("Registered commands to {GuildCount} guild(s).", client.Guilds.Count);
     }
 
