@@ -16,6 +16,7 @@ namespace RustPlusBot.Discord;
 /// <param name="client">The Discord socket client.</param>
 /// <param name="interactions">The interaction service that dispatches slash commands.</param>
 /// <param name="services">The root service provider used to construct interaction modules.</param>
+/// <param name="moduleAssemblies">Additional assemblies to scan for interaction modules contributed by feature projects.</param>
 /// <param name="options">The Discord options carrying the bot token.</param>
 /// <param name="logger">The logger.</param>
 [SuppressMessage("Performance", "CA1873:Avoid potentially expensive logging",
@@ -25,6 +26,7 @@ public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
     IServiceProvider services,
+    IEnumerable<InteractionModuleAssembly> moduleAssemblies,
     IOptions<DiscordOptions> options,
     ILogger<DiscordBotService> logger) : IHostedService
 {
@@ -41,6 +43,10 @@ public sealed class DiscordBotService(
         client.JoinedGuild += OnJoinedGuildAsync;
 
         await interactions.AddModulesAsync(Assembly.GetExecutingAssembly(), services).ConfigureAwait(false);
+        foreach (var moduleAssembly in moduleAssemblies)
+        {
+            await interactions.AddModulesAsync(moduleAssembly.Assembly, services).ConfigureAwait(false);
+        }
         await client.LoginAsync(TokenType.Bot, _options.Token).ConfigureAwait(false);
         await client.StartAsync().ConfigureAwait(false);
     }
