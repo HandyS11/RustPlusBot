@@ -11,7 +11,7 @@ using RustPlusBot.Persistence;
 namespace RustPlusBot.Persistence.Migrations
 {
     [DbContext(typeof(BotDbContext))]
-    [Migration("20260614164819_InitialCreate")]
+    [Migration("20260614180746_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -264,7 +264,6 @@ namespace RustPlusBot.Persistence.Migrations
             modelBuilder.Entity("RustPlusBot.Domain.Guilds.GuildSettings", b =>
                 {
                     b.Property<long>("GuildId")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Culture")

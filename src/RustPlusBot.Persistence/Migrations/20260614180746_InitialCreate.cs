@@ -92,8 +92,7 @@ namespace RustPlusBot.Persistence.Migrations
                 name: "GuildSettings",
                 columns: table => new
                 {
-                    GuildId = table.Column<long>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
+                    GuildId = table.Column<long>(type: "INTEGER", nullable: false),
                     Culture = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false)
                 },
                 constraints: table =>

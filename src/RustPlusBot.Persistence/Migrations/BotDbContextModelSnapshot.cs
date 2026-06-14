@@ -261,7 +261,6 @@ namespace RustPlusBot.Persistence.Migrations
             modelBuilder.Entity("RustPlusBot.Domain.Guilds.GuildSettings", b =>
                 {
                     b.Property<long>("GuildId")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Culture")

@@ -10,6 +10,7 @@ internal sealed class GuildSettingsConfiguration : IEntityTypeConfiguration<Guil
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(s => s.GuildId);
+        builder.Property(s => s.GuildId).ValueGeneratedNever();
         builder.Property(s => s.Culture).IsRequired().HasMaxLength(16);
     }
 }
