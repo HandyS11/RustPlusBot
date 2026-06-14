@@ -49,6 +49,8 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new PlayerCredentialConfiguration())
             .ApplyConfiguration(new ChannelBindingConfiguration())
             .ApplyConfiguration(new ConnectionStateConfiguration())
-            .ApplyConfiguration(new GuildSettingsConfiguration());
+            .ApplyConfiguration(new GuildSettingsConfiguration())
+            .ApplyConfiguration(new PairedEntityConfiguration())
+            .ApplyConfiguration(new EventSubscriptionConfiguration());
     }
 }

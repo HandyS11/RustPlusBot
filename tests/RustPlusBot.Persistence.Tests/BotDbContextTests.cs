@@ -19,12 +19,14 @@ public sealed class BotDbContextTests
             Name = "Main",
             Ip = "127.0.0.1",
             Port = 28082,
-            AddedByUserId = 42UL,
+            AddedByUserId = ulong.MaxValue,
         });
         await context.SaveChangesAsync();
 
         var loaded = await context.RustServers.SingleAsync();
+        Assert.NotEqual(Guid.Empty, loaded.Id);
         Assert.Equal(guildId, loaded.GuildId);
+        Assert.Equal(ulong.MaxValue, loaded.AddedByUserId);
         Assert.Equal("Main", loaded.Name);
     }
 }

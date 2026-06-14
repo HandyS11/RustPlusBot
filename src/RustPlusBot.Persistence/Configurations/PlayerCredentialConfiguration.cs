@@ -12,5 +12,6 @@ internal sealed class PlayerCredentialConfiguration : IEntityTypeConfiguration<P
         builder.HasKey(c => c.Id);
         builder.HasIndex(c => new { c.GuildId, c.RustServerId });
         builder.Property(c => c.ProtectedPlayerToken).IsRequired();
+        builder.Property(c => c.ProtectedFcmCredentials).IsRequired();
     }
 }
