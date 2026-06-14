@@ -33,7 +33,8 @@ public sealed class ServerModule(IServiceScopeFactory scopeFactory)
         try
         {
             var service = scope.ServiceProvider.GetRequiredService<IServerService>();
-            var server = await service.AddAsync(Context.Guild.Id, Context.User.Id, name, ip, port).ConfigureAwait(false);
+            var server = await service.AddAsync(Context.Guild.Id, Context.User.Id, name, ip, port)
+                .ConfigureAwait(false);
             await RespondAsync($"Added **{server.Name}** (`{server.Id}`).", ephemeral: true).ConfigureAwait(false);
         }
         finally
@@ -67,7 +68,8 @@ public sealed class ServerModule(IServiceScopeFactory scopeFactory)
             var builder = new StringBuilder();
             foreach (var server in servers)
             {
-                builder.AppendLine(CultureInfo.InvariantCulture, $"• **{server.Name}** — `{server.Ip}:{server.Port}` (`{server.Id}`)");
+                builder.AppendLine(CultureInfo.InvariantCulture,
+                    $"• **{server.Name}** — `{server.Ip}:{server.Port}` (`{server.Id}`)");
             }
 
             await RespondAsync(builder.ToString(), ephemeral: true).ConfigureAwait(false);
@@ -100,7 +102,8 @@ public sealed class ServerModule(IServiceScopeFactory scopeFactory)
         {
             var service = scope.ServiceProvider.GetRequiredService<IServerService>();
             var removed = await service.RemoveAsync(Context.Guild.Id, serverId).ConfigureAwait(false);
-            await RespondAsync(removed ? "Removed." : "No matching server found.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(removed ? "Removed." : "No matching server found.", ephemeral: true)
+                .ConfigureAwait(false);
         }
         finally
         {

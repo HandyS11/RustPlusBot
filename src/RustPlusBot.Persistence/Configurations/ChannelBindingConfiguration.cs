@@ -11,6 +11,9 @@ internal sealed class ChannelBindingConfiguration : IEntityTypeConfiguration<Cha
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(b => b.Id);
         // One channel per feature per guild.
-        builder.HasIndex(b => new { b.GuildId, b.Feature }).IsUnique();
+        builder.HasIndex(b => new
+        {
+            b.GuildId, b.Feature
+        }).IsUnique();
     }
 }

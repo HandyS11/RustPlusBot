@@ -16,8 +16,7 @@ public sealed class BotDbContextTests
         const ulong guildId = 1357924680135792468UL;
         context.GuildSettings.Add(new GuildSettings
         {
-            GuildId = guildId,
-            Culture = "fr",
+            GuildId = guildId, Culture = "fr",
         });
         await context.SaveChangesAsync();
 

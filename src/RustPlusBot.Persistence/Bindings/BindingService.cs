@@ -22,9 +22,7 @@ public sealed class BindingService(BotDbContext context) : IBindingService
         {
             context.ChannelBindings.Add(new ChannelBinding
             {
-                GuildId = guildId,
-                Feature = feature,
-                ChannelId = channelId,
+                GuildId = guildId, Feature = feature, ChannelId = channelId,
             });
         }
         else

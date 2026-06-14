@@ -16,8 +16,10 @@ public sealed class BindModule(IServiceScopeFactory scopeFactory)
     /// <param name="channel">Target text channel.</param>
     [SlashCommand("bind", "Bind a channel to a bot feature")]
     public async Task BindAsync(
-        [Summary("feature", "Which feature this channel serves")] BoundFeature feature,
-        [Summary("channel", "Target text channel")] ITextChannel channel)
+        [Summary("feature", "Which feature this channel serves")]
+        BoundFeature feature,
+        [Summary("channel", "Target text channel")]
+        ITextChannel channel)
     {
         if (Context.Guild is null)
         {

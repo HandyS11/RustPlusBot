@@ -4,8 +4,6 @@ namespace RustPlusBot.Abstractions.Tests.Events;
 
 public sealed class InMemoryEventBusTests
 {
-    private sealed record Ping(string Text);
-
     [Fact]
     public async Task Subscribe_ReceivesEventPublishedAfterSubscribing()
     {
@@ -45,9 +43,12 @@ public sealed class InMemoryEventBusTests
         Assert.Equal("the-real-one", received.Text);
     }
 
-    private static async Task<T?> FirstOrDefaultAsync<T>(IAsyncEnumerable<T> source, CancellationToken cancellationToken)
+    private static async Task<T?> FirstOrDefaultAsync<T>(IAsyncEnumerable<T> source,
+        CancellationToken cancellationToken)
     {
         await using var enumerator = source.GetAsyncEnumerator(cancellationToken);
         return await enumerator.MoveNextAsync() ? enumerator.Current : default;
     }
+
+    private sealed record Ping(string Text);
 }

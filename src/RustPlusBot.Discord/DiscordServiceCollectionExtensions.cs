@@ -17,15 +17,17 @@ public static class DiscordServiceCollectionExtensions
 
         var socketConfig = new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.Guilds,
-            AlwaysDownloadUsers = false,
+            GatewayIntents = GatewayIntents.Guilds, AlwaysDownloadUsers = false,
         };
 
         services.AddSingleton(socketConfig);
         services.AddSingleton<DiscordSocketClient>();
         services.AddSingleton(sp => new InteractionService(
             sp.GetRequiredService<DiscordSocketClient>(),
-            new InteractionServiceConfig { DefaultRunMode = RunMode.Async }));
+            new InteractionServiceConfig
+            {
+                DefaultRunMode = RunMode.Async
+            }));
         services.AddHostedService<DiscordBotService>();
 
         return services;

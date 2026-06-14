@@ -11,7 +11,9 @@ public interface IBindingService
     /// <param name="channelId">The Discord channel snowflake to bind it to.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the binding is saved.</returns>
-    Task BindAsync(ulong guildId, BoundFeature feature, ulong channelId,
+    Task BindAsync(ulong guildId,
+        BoundFeature feature,
+        ulong channelId,
         CancellationToken cancellationToken = default);
 
     /// <summary>Returns the channel bound to a feature, or null if unbound.</summary>
@@ -19,6 +21,7 @@ public interface IBindingService
     /// <param name="feature">The feature to look up.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The bound channel snowflake, or null if the feature is unbound in this guild.</returns>
-    Task<ulong?> GetBoundChannelAsync(ulong guildId, BoundFeature feature,
+    Task<ulong?> GetBoundChannelAsync(ulong guildId,
+        BoundFeature feature,
         CancellationToken cancellationToken = default);
 }

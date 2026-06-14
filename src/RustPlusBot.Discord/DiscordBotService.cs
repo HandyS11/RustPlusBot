@@ -19,7 +19,8 @@ namespace RustPlusBot.Discord;
 /// <param name="options">The Discord options carrying the bot token.</param>
 /// <param name="logger">The logger.</param>
 [SuppressMessage("Performance", "CA1873:Avoid potentially expensive logging",
-    Justification = "Log-bridge arguments are cheap LogMessage property reads; an IsEnabled guard would be redundant noise.")]
+    Justification =
+        "Log-bridge arguments are cheap LogMessage property reads; an IsEnabled guard would be redundant noise.")]
 public sealed class DiscordBotService(
     DiscordSocketClient client,
     InteractionService interactions,
@@ -69,7 +70,9 @@ public sealed class DiscordBotService(
         logger.LogInformation("Registered commands to {GuildCount} guild(s).", client.Guilds.Count);
     }
 
-    [SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Method signature is constrained by the Discord.Net JoinedGuild event delegate (Func<SocketGuild, Task>).")]
+    [SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance",
+        Justification =
+            "Method signature is constrained by the Discord.Net JoinedGuild event delegate (Func<SocketGuild, Task>).")]
     private Task OnJoinedGuildAsync(SocketGuild guild) =>
         interactions.RegisterCommandsToGuildAsync(guild.Id);
 
@@ -81,7 +84,8 @@ public sealed class DiscordBotService(
 
     private Task OnLogAsync(LogMessage message)
     {
-        logger.Log(ToLogLevel(message.Severity), message.Exception, "[{Source}] {Message}", message.Source, message.Message);
+        logger.Log(ToLogLevel(message.Severity), message.Exception, "[{Source}] {Message}", message.Source,
+            message.Message);
         return Task.CompletedTask;
     }
 

@@ -10,7 +10,10 @@ internal sealed class EventSubscriptionConfiguration : IEntityTypeConfiguration<
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(e => e.Id);
-        builder.HasIndex(e => new { e.GuildId, e.RustServerId });
+        builder.HasIndex(e => new
+        {
+            e.GuildId, e.RustServerId
+        });
         builder.Property(e => e.EventKey).IsRequired().HasMaxLength(64);
     }
 }

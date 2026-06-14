@@ -13,7 +13,11 @@ public interface IServerService
     /// <param name="port">Rust+ app port.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The created server.</returns>
-    Task<RustServer> AddAsync(ulong guildId, ulong addedByUserId, string name, string ip, int port,
+    Task<RustServer> AddAsync(ulong guildId,
+        ulong addedByUserId,
+        string name,
+        string ip,
+        int port,
         CancellationToken cancellationToken = default);
 
     /// <summary>Lists a guild's servers, ordered by name.</summary>
