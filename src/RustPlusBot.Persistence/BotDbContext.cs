@@ -29,9 +29,6 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Per-guild settings.</summary>
     public DbSet<GuildSettings> GuildSettings => Set<GuildSettings>();
 
-    /// <summary>Channel-to-feature bindings.</summary>
-    public DbSet<ChannelBinding> ChannelBindings => Set<ChannelBinding>();
-
     /// <summary>Paired smart devices.</summary>
     public DbSet<PairedEntity> PairedEntities => Set<PairedEntity>();
 
@@ -47,7 +44,6 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
         modelBuilder
             .ApplyConfiguration(new RustServerConfiguration())
             .ApplyConfiguration(new PlayerCredentialConfiguration())
-            .ApplyConfiguration(new ChannelBindingConfiguration())
             .ApplyConfiguration(new ConnectionStateConfiguration())
             .ApplyConfiguration(new GuildSettingsConfiguration())
             .ApplyConfiguration(new PairedEntityConfiguration())
