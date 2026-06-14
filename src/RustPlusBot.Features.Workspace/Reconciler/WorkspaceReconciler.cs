@@ -34,16 +34,13 @@ internal sealed class WorkspaceReconciler(
     public async Task<ReconcileResult> ReconcileGlobalAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
         using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
-
         var missing = gateway.GetMissingBotPermissions(guildId);
         if (missing.Count > 0)
         {
             return ReconcileResult.Missing(missing);
         }
 
-        var culture = await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
-        var categoryName = localizer.Get("category.global.name", culture);
-        await ReconcileScopeAsync(guildId, null, categoryName, culture, WorkspaceScope.Global, cancellationToken).ConfigureAwait(false);
+        await ReconcileGlobalCoreAsync(guildId, cancellationToken).ConfigureAwait(false);
         return ReconcileResult.Provisioned;
     }
 
@@ -51,23 +48,58 @@ internal sealed class WorkspaceReconciler(
     public async Task<ReconcileResult> ReconcileServerAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default)
     {
         using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
-
         var missing = gateway.GetMissingBotPermissions(guildId);
         if (missing.Count > 0)
         {
             return ReconcileResult.Missing(missing);
         }
 
+        var provisioned = await ReconcileServerCoreAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        return provisioned ? ReconcileResult.Provisioned : ReconcileResult.Skipped;
+    }
+
+    /// <inheritdoc />
+    public async Task HealGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
+
+        // Only heal an already-provisioned workspace; never resurrect one cleared by reset.
+        if (await store.GetCategoryAsync(guildId, null, cancellationToken).ConfigureAwait(false) is null)
+        {
+            return;
+        }
+
+        if (gateway.GetMissingBotPermissions(guildId).Count > 0)
+        {
+            return;
+        }
+
+        await ReconcileGlobalCoreAsync(guildId, cancellationToken).ConfigureAwait(false);
+        foreach (var server in await servers.ListAsync(guildId, cancellationToken).ConfigureAwait(false))
+        {
+            await ReconcileServerCoreAsync(guildId, server.Id, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ReconcileGlobalCoreAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var culture = await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
+        var categoryName = localizer.Get("category.global.name", culture);
+        await ReconcileScopeAsync(guildId, null, categoryName, culture, WorkspaceScope.Global, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> ReconcileServerCoreAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    {
         var server = await servers.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (server is null)
         {
             logger.LogWarning("ReconcileServer skipped: server {ServerId} not found in guild {GuildId}.", serverId, guildId);
-            return ReconcileResult.Skipped;
+            return false;
         }
 
         var culture = await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
         await ReconcileScopeAsync(guildId, serverId, server.Name, culture, WorkspaceScope.PerServer, cancellationToken).ConfigureAwait(false);
-        return ReconcileResult.Provisioned;
+        return true;
     }
 
     private async Task ReconcileScopeAsync(ulong guildId, Guid? serverId, string categoryName, string culture, WorkspaceScope scope, CancellationToken cancellationToken)

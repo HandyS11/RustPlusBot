@@ -51,7 +51,7 @@ public static class WorkspaceServiceCollectionExtensions
         // Contribute this assembly's interaction modules to the Discord layer.
         services.AddSingleton(new InteractionModuleAssembly(typeof(WorkspaceServiceCollectionExtensions).Assembly));
 
-        // NOTE: WorkspaceHostedService (Hosting namespace) is registered via AddHostedService in Task 24.
+        services.AddHostedService<Hosting.WorkspaceHostedService>();
 
         return services;
     }

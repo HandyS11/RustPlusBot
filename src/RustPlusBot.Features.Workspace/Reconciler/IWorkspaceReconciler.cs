@@ -15,4 +15,10 @@ internal interface IWorkspaceReconciler
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The reconcile result.</returns>
     Task<ReconcileResult> ReconcileServerAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default);
+
+    /// <summary>Converges an already-provisioned guild (global + all servers). No-op if not provisioned.</summary>
+    /// <param name="guildId">The guild to heal.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task.</returns>
+    Task HealGuildAsync(ulong guildId, CancellationToken cancellationToken = default);
 }
