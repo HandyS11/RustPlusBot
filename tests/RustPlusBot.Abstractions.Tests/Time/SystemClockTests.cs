@@ -7,9 +7,7 @@ public sealed class SystemClockTests
     [Fact]
     public void UtcNow_ReturnsCurrentInstant_WithinTolerance()
     {
-#pragma warning disable CA1859 // Use concrete types for performance — intentional: tests the IClock abstraction
         IClock clock = new SystemClock();
-#pragma warning restore CA1859
 
         var before = DateTimeOffset.UtcNow;
         var value = clock.UtcNow;

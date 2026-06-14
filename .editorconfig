@@ -454,6 +454,7 @@ dotnet_diagnostic.CA1515.severity = none # Application API means internal classe
 dotnet_diagnostic.CS1591.severity = none # Missing XML comment for publicly visible type or member
 dotnet_diagnostic.CA2000.severity = none # Using statement required for IDisposable
 dotnet_diagnostic.CA2007.severity = none # Consider calling ConfigureAwait on the awaited task
+dotnet_diagnostic.CA1859.severity = none # Interface references are intentional in tests (exercise the contract)
 
 dotnet_diagnostic.IDE1006.severity = none # Naming rule for test classes
 
