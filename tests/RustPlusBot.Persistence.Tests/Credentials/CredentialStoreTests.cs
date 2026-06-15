@@ -113,4 +113,65 @@ public sealed class CredentialStoreTests
 
         Assert.Equal(2, await store.CountForServerAsync(10UL, serverA));
     }
+
+    [Fact]
+    public async Task RemoveForOwner_RemovesOwnersCredsAcrossServers_ReturnsDistinctServerIds_LeavesOthers()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var serverA = await SeedServerAsync(context, 10UL);
+        var serverB = await SeedServerAsync(context, 10UL, port: 28016);
+        var store = new CredentialStore(context, PassThroughProtector());
+
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 1UL, 1UL, "t1"), markActive: true);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverB, 1UL, 1UL, "t2"), markActive: true);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 2UL, 2UL, "t3"), markActive: false);
+        var serverOtherGuild = await SeedServerAsync(context, 20UL);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(20UL, serverOtherGuild, 1UL, 1UL, "t4"), markActive: true);
+
+        var affected = await store.RemoveForOwnerAsync(10UL, 1UL);
+
+        Assert.Equal(2, affected.Count);
+        Assert.Contains(serverA, affected);
+        Assert.Contains(serverB, affected);
+        Assert.DoesNotContain(serverOtherGuild, affected);
+        var remaining = await context.PlayerCredentials.ToListAsync();
+        Assert.Equal(2, remaining.Count);
+        Assert.Contains(remaining, c => c.GuildId == 10UL && c.OwnerUserId == 2UL);
+        Assert.Contains(remaining, c => c.GuildId == 20UL && c.OwnerUserId == 1UL);
+    }
+
+    [Fact]
+    public async Task RemoveForOwner_WhenNothingOwned_ReturnsEmpty()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        await SeedServerAsync(context, 10UL);
+        var store = new CredentialStore(context, PassThroughProtector());
+
+        var affected = await store.RemoveForOwnerAsync(10UL, 999UL);
+
+        Assert.Empty(affected);
+    }
+
+    [Fact]
+    public async Task ListServerIdsForOwner_ReturnsDistinctServers()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var serverA = await SeedServerAsync(context, 10UL);
+        var serverB = await SeedServerAsync(context, 10UL, port: 28016);
+        var store = new CredentialStore(context, PassThroughProtector());
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 1UL, 1UL, "t1"), markActive: true);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverB, 1UL, 1UL, "t2"), markActive: true);
+
+        var ids = await store.ListServerIdsForOwnerAsync(10UL, 1UL);
+
+        Assert.Equal(2, ids.Count);
+        Assert.Contains(serverA, ids);
+        Assert.Contains(serverB, ids);
+    }
 }

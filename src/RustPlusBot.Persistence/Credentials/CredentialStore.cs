@@ -61,4 +61,33 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
         context.PlayerCredentials
             .Where(c => c.GuildId == guildId && c.RustServerId == rustServerId)
             .CountAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> RemoveForOwnerAsync(
+        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default)
+    {
+        var owned = await context.PlayerCredentials
+            .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (owned.Count == 0)
+        {
+            return [];
+        }
+
+        var serverIds = owned.Select(c => c.RustServerId).Distinct().ToList();
+        context.PlayerCredentials.RemoveRange(owned);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return serverIds;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListServerIdsForOwnerAsync(
+        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default) =>
+        await context.PlayerCredentials
+            .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
+            .Select(c => c.RustServerId)
+            .Distinct()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 }
