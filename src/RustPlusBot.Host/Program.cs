@@ -6,6 +6,7 @@ using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord;
+using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Workspace;
 using RustPlusBot.Host.Credentials;
@@ -37,6 +38,16 @@ builder.Services.AddOptions<PairingOptions>()
         "Pairing:MaxRetryDelay must be at least InitialRetryDelay.")
     .ValidateOnStart();
 builder.Services.AddPairing();
+builder.Services.AddOptions<ConnectionOptions>()
+    .Bind(builder.Configuration.GetSection("Connections"))
+    .Validate(static o => o.ConnectTimeout > TimeSpan.Zero, "Connections:ConnectTimeout must be positive.")
+    .Validate(static o => o.InitialRetryDelay > TimeSpan.Zero, "Connections:InitialRetryDelay must be positive.")
+    .Validate(static o => o.MaxRetryDelay >= o.InitialRetryDelay,
+        "Connections:MaxRetryDelay must be at least InitialRetryDelay.")
+    .Validate(static o => o.HeartbeatInterval > TimeSpan.Zero, "Connections:HeartbeatInterval must be positive.")
+    .Validate(static o => o.HeartbeatTimeout > TimeSpan.Zero, "Connections:HeartbeatTimeout must be positive.")
+    .ValidateOnStart();
+builder.Services.AddConnections();
 
 var host = builder.Build();
 
