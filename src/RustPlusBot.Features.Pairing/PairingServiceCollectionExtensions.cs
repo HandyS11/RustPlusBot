@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Discord;
+using RustPlusBot.Features.Pairing.Accounts;
 using RustPlusBot.Features.Pairing.Hosting;
 using RustPlusBot.Features.Pairing.Listening;
 using RustPlusBot.Features.Pairing.Notifications;
@@ -22,6 +23,7 @@ public static class PairingServiceCollectionExtensions
         services.AddSingleton<IPairingSource, RustPlusFcmPairingSource>();
         services.AddSingleton<IOwnerNotifier, DiscordOwnerNotifier>();
         services.AddSingleton<IPairingSupervisor, PairingSupervisor>();
+        services.AddScoped<IAccountDisconnectService, AccountDisconnectService>();
 
         // Contribute this assembly's interaction modules to the Discord layer.
         services.AddSingleton(new InteractionModuleAssembly(typeof(PairingServiceCollectionExtensions).Assembly));

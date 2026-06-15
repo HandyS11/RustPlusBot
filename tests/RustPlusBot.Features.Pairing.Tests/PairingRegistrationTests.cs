@@ -6,6 +6,7 @@ using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord.Notifications;
 using RustPlusBot.Features.Pairing;
+using RustPlusBot.Features.Pairing.Accounts;
 using RustPlusBot.Features.Pairing.Pairing;
 using RustPlusBot.Features.Pairing.Supervisor;
 using RustPlusBot.Persistence;
@@ -36,5 +37,6 @@ public sealed class PairingRegistrationTests
         Assert.NotNull(provider.GetRequiredService<IPairingSupervisor>());
         await using var scope = provider.CreateAsyncScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPairingHandler>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IAccountDisconnectService>());
     }
 }
