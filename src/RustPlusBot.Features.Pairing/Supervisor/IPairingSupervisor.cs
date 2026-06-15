@@ -22,6 +22,12 @@ internal interface IPairingSupervisor
     /// <param name="cancellationToken">A cancellation token.</param>
     Task StartAllActiveAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Stops the listener for (guild, owner), if running. Idempotent.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="ownerUserId">The Discord user.</param>
+    /// <returns>A task that completes once the listener has stopped.</returns>
+    Task StopListenerAsync(ulong guildId, ulong ownerUserId);
+
     /// <summary>Cancels and disposes every listener (called on shutdown).</summary>
     Task StopAllAsync();
 }

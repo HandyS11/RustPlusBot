@@ -171,6 +171,31 @@ public sealed class PairingSupervisorTests
         Assert.Equal(2, h.Source.CreateCount);
     }
 
+    [Fact]
+    public async Task StopListener_DisposesTheRunningListener()
+    {
+        var source = new FakePairingSource();
+        source.EnqueueOutcome(PairingConnectOutcome.Connected);
+        await using var h = CreateHarness(source);
+        await SeedRegistrationAsync(h.Provider, 10UL, 99UL);
+        await h.Supervisor.EnsureListenerAsync(10UL, 99UL);
+
+        await h.Supervisor.StopListenerAsync(10UL, 99UL);
+
+        Assert.Equal(1, h.Source.DisposeCount);
+    }
+
+#pragma warning disable S2699 // The implicit assertion is "no exception is thrown".
+    [Fact]
+    public async Task StopListener_WhenNotRunning_DoesNotThrow()
+    {
+        var source = new FakePairingSource();
+        await using var h = CreateHarness(source);
+
+        await h.Supervisor.StopListenerAsync(10UL, 12345UL);
+    }
+#pragma warning restore S2699
+
     private sealed class Harness : IAsyncDisposable
     {
         public required ServiceProvider Provider { get; init; }
