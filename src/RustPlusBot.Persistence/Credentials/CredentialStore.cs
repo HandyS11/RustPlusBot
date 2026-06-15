@@ -61,4 +61,41 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
         context.PlayerCredentials
             .Where(c => c.GuildId == guildId && c.RustServerId == rustServerId)
             .CountAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> RemoveForOwnerAsync(
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        // Project the affected server ids first (no token material loaded), then delete set-based.
+        var serverIds = await context.PlayerCredentials
+            .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
+            .Select(c => c.RustServerId)
+            .Distinct()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (serverIds.Count == 0)
+        {
+            return [];
+        }
+
+        await context.PlayerCredentials
+            .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
+            .ExecuteDeleteAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return serverIds;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListServerIdsForOwnerAsync(
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default) =>
+        await context.PlayerCredentials
+            .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
+            .Select(c => c.RustServerId)
+            .Distinct()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 }

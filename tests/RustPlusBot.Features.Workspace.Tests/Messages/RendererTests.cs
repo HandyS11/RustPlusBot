@@ -182,4 +182,97 @@ public sealed class RendererTests
             .SelectMany(r => r.Components).OfType<ButtonComponent>();
         Assert.Contains(buttons, b => b.CustomId == "workspace:setup:connect");
     }
+
+    [Fact]
+    public async Task Setup_HasDisconnectAccountButton()
+    {
+        var renderer = new SetupMessageRenderer(Loc);
+
+        var payload = await renderer.RenderAsync(Global, default);
+
+        var buttons = payload.Components!.Components.OfType<ActionRowComponent>()
+            .SelectMany(r => r.Components).OfType<ButtonComponent>();
+        Assert.Contains(buttons, b => b.CustomId == "workspace:setup:disconnect");
+    }
+
+    [Fact]
+    public async Task ServerInfo_HasRemoveServerButton()
+    {
+        var serverId = Guid.NewGuid();
+        var servers = Substitute.For<IServerService>();
+        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new DomainConnectionState
+            {
+                RustServerId = serverId, GuildId = 1, Status = ConnectionStatus.NoCredentials
+            });
+        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new List<PlayerCredential>());
+        var renderer = new ServerInfoMessageRenderer(servers, connections, Loc);
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
+
+        var buttons = payload.Components!.Components.OfType<ActionRowComponent>()
+            .SelectMany(r => r.Components).OfType<ButtonComponent>();
+        Assert.Contains(buttons, b => b.CustomId == $"workspace:info:remove:{serverId}");
+    }
+
+    [Fact]
+    public async Task ServerInfo_SwapSelectAndRemoveButton_AreInSeparateActionRows()
+    {
+        var serverId = Guid.NewGuid();
+        var credId = Guid.NewGuid();
+        var servers = Substitute.For<IServerService>();
+        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new DomainConnectionState
+            {
+                RustServerId = serverId,
+                GuildId = 1,
+                ActiveCredentialId = credId,
+                Status = ConnectionStatus.Connected,
+                PlayerCount = 1,
+            });
+        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new List<PlayerCredential>
+            {
+                new()
+                {
+                    Id = credId,
+                    GuildId = 1,
+                    RustServerId = serverId,
+                    OwnerUserId = 7,
+                    SteamId = 5UL,
+                    Status = CredentialStatus.Active
+                },
+            });
+        var renderer = new ServerInfoMessageRenderer(servers, connections, Loc);
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
+
+        var rows = payload.Components!.Components.OfType<ActionRowComponent>().ToList();
+        // Discord rejects an action row that mixes a select menu with buttons.
+        Assert.DoesNotContain(rows, r =>
+            r.Components.OfType<SelectMenuComponent>().Any() && r.Components.OfType<ButtonComponent>().Any());
+        Assert.Contains(rows, r => r.Components.OfType<SelectMenuComponent>().Any());
+        Assert.Contains(rows, r => r.Components.OfType<ButtonComponent>().Any());
+    }
 }

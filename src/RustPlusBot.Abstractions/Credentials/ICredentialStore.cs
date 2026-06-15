@@ -25,4 +25,28 @@ public interface ICredentialStore
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The number of stored credentials for that (guild, server).</returns>
     Task<int> CountForServerAsync(ulong guildId, Guid rustServerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes every player-credential the owner holds across all servers in the guild (full account
+    /// removal). Returns the distinct server ids whose pool was affected, so callers can re-evaluate
+    /// those connections.
+    /// </summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="ownerUserId">The Discord user whose credentials are removed.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The distinct server ids whose pool changed.</returns>
+    Task<IReadOnlyList<Guid>> RemoveForOwnerAsync(
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Lists the distinct server ids the owner currently holds a credential for in the guild.</summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="ownerUserId">The Discord user.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The distinct server ids the owner has a credential for.</returns>
+    Task<IReadOnlyList<Guid>> ListServerIdsForOwnerAsync(
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default);
 }

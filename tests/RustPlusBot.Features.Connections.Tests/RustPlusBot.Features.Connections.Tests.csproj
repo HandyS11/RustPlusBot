@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RustPlusBot.Features.Connections\RustPlusBot.Features.Connections.csproj" />
+    <ProjectReference Include="..\..\src\RustPlusBot.Features.Workspace\RustPlusBot.Features.Workspace.csproj" />
   </ItemGroup>
 
 </Project>

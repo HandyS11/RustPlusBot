@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Connections.Hosting;
 using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Features.Connections.Removal;
 using RustPlusBot.Features.Connections.Supervisor;
 
 namespace RustPlusBot.Features.Connections;
@@ -18,6 +19,7 @@ public static class ConnectionServiceCollectionExtensions
 
         services.AddSingleton<IRustSocketSource, RustPlusSocketSource>();
         services.AddSingleton<IConnectionSupervisor, ConnectionSupervisor>();
+        services.AddScoped<IServerRemovalService, ServerRemovalService>();
 
         // Contribute this assembly's interaction modules to the Discord layer.
         services.AddSingleton(new InteractionModuleAssembly(typeof(ConnectionServiceCollectionExtensions).Assembly));

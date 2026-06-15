@@ -6,7 +6,9 @@ using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord.Notifications;
 using RustPlusBot.Features.Connections;
+using RustPlusBot.Features.Connections.Removal;
 using RustPlusBot.Features.Connections.Supervisor;
+using RustPlusBot.Features.Workspace.Teardown;
 using RustPlusBot.Persistence;
 using RustPlusBot.Persistence.Connections;
 
@@ -26,6 +28,7 @@ public sealed class ConnectionRegistrationTests
         services.AddLogging();
         services.AddBotPersistence("DataSource=:memory:");
         services.AddOptions<ConnectionOptions>();
+        services.AddSingleton(Substitute.For<IServerWorkspaceRemover>());
         services.AddConnections();
 
         await using var provider = services.BuildServiceProvider(new ServiceProviderOptions
@@ -36,5 +39,6 @@ public sealed class ConnectionRegistrationTests
         Assert.NotNull(provider.GetRequiredService<IConnectionSupervisor>());
         await using var scope = provider.CreateAsyncScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IConnectionStore>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IServerRemovalService>());
     }
 }

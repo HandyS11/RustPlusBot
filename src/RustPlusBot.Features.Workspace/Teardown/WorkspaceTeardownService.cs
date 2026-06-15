@@ -11,7 +11,7 @@ namespace RustPlusBot.Features.Workspace.Teardown;
 internal sealed class WorkspaceTeardownService(
     IWorkspaceGateway gateway,
     IWorkspaceStore store,
-    IProvisioningLock provisioningLock) : IWorkspaceTeardownService
+    IProvisioningLock provisioningLock) : IWorkspaceTeardownService, IServerWorkspaceRemover
 {
     /// <inheritdoc />
     public async Task RemoveServerAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default)

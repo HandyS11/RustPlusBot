@@ -55,7 +55,13 @@ public sealed class ConnectionStoreTests
         var (store, context, conn) = Create();
         await using var _ = conn;
         await using var __ = context;
-        var serverId = Guid.NewGuid();
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
+        context.RustServers.Add(server);
+        await context.SaveChangesAsync();
+        var serverId = server.Id;
 
         Assert.True(await store.UpsertStatusAsync(10UL, serverId, ConnectionStatus.Connecting, null, null));
         Assert.True(await store.UpsertStatusAsync(10UL, serverId, ConnectionStatus.Connected, 5, null));

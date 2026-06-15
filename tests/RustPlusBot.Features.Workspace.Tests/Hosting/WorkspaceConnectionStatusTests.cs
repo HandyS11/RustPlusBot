@@ -40,4 +40,34 @@ public sealed class WorkspaceConnectionStatusTests
 
         await service.StopAsync(default);
     }
+
+    [Fact]
+    public async Task ServerCredentialsChanged_ReconcilesThatServer()
+    {
+        var reconciler = Substitute.For<IWorkspaceReconciler>();
+        var services = new ServiceCollection();
+        services.AddScoped(_ => reconciler);
+        await using var provider = services.BuildServiceProvider();
+
+        var bus = new InMemoryEventBus();
+        var client = new DiscordSocketClient();
+        var service = new WorkspaceHostedService(client, bus,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<WorkspaceHostedService>.Instance);
+
+        await service.StartAsync(default);
+        var serverId = Guid.NewGuid();
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline
+               && !reconciler.ReceivedCalls().Any(c =>
+                   c.GetMethodInfo().Name == nameof(IWorkspaceReconciler.ReconcileServerAsync)))
+        {
+            await bus.PublishAsync(new ServerCredentialsChangedEvent(10UL, serverId));
+            await Task.Delay(20);
+        }
+
+        await reconciler.Received().ReconcileServerAsync(10UL, serverId, Arg.Any<CancellationToken>());
+
+        await service.StopAsync(default);
+    }
 }

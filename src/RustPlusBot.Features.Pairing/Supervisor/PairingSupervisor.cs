@@ -107,6 +107,10 @@ internal sealed partial class PairingSupervisor(
     }
 
     /// <inheritdoc />
+    public Task StopListenerAsync(ulong guildId, ulong ownerUserId) =>
+        StopListenerAsync((guildId, ownerUserId));
+
+    /// <inheritdoc />
     public async Task StopAllAsync()
     {
         await _shutdown.CancelAsync().ConfigureAwait(false);
