@@ -8,4 +8,7 @@ public static class WorkspaceComponentIds
 {
     /// <summary>The #setup "Connect account" button; handled by the Pairing feature.</summary>
     public const string ConnectAccount = "workspace:setup:connect";
+
+    /// <summary>Prefix for the #info "swap active player" select; the server id is appended. Handled by Connections.</summary>
+    public const string ServerInfoSwapPrefix = "workspace:info:swap:";
 }
