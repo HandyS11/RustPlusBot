@@ -29,16 +29,26 @@ internal sealed partial class ConnectionSupervisor(
     ICredentialProtector protector,
     IEventBus eventBus,
     IOptions<ConnectionOptions> options,
-    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, IAsyncDisposable
+    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly ConcurrentDictionary<(ulong Guild, Guid Server), LiveSocket> _liveSockets = new();
     private readonly ConnectionOptions _options = options.Value;
     private readonly CancellationTokenSource _shutdown = new();
+    private bool _disposed;
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
+        // The supervisor is registered as one singleton backing three service types (IConnectionSupervisor,
+        // ITeamChatSender, and the concrete type), so the DI container may invoke DisposeAsync more than once.
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         await StopAllAsync().ConfigureAwait(false);
         _shutdown.Dispose();
         _gate.Dispose();
@@ -115,6 +125,36 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
+    /// <inheritdoc />
+    public async Task<TeamChatSendResult> SendAsync(
+        ulong guildId,
+        Guid serverId,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return TeamChatSendResult.NotConnected;
+        }
+
+        try
+        {
+            await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+            return TeamChatSendResult.Sent;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogSendFailed(logger, ex, serverId);
+            return TeamChatSendResult.Failed;
+        }
+    }
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]
     private static partial void LogLoopFaulted(ILogger logger, Exception exception, Guid serverId);
 
@@ -187,7 +227,8 @@ internal sealed partial class ConnectionSupervisor(
                 ReconnectReason reason;
                 try
                 {
-                    reason = await RunConnectedAsync(key, connection, p.CredentialId, ct).ConfigureAwait(false);
+                    reason = await RunConnectedAsync(key, connection, p.CredentialId, p.SteamId, ct)
+                        .ConfigureAwait(false);
                 }
                 finally
                 {
@@ -224,6 +265,7 @@ internal sealed partial class ConnectionSupervisor(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
         Guid credentialId,
+        ulong activeSteamId,
         CancellationToken ct)
     {
         var first = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
@@ -240,24 +282,43 @@ internal sealed partial class ConnectionSupervisor(
         await PublishStatusAsync(key, ConnectionStatus.Connected, first.PlayerCount, credentialId, ct)
             .ConfigureAwait(false);
 
-        while (!ct.IsCancellationRequested)
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<TeamChatLine> delegate shape.
+        void OnTeamMessage(object? sender, TeamChatLine line)
         {
-            await Task.Delay(_options.HeartbeatInterval, ct).ConfigureAwait(false);
-            var beat = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-            switch (beat.Kind)
-            {
-                case HeartbeatKind.Ok:
-                    await PublishStatusAsync(key, ConnectionStatus.Connected, beat.PlayerCount, credentialId, ct)
-                        .ConfigureAwait(false);
-                    break;
-                case HeartbeatKind.AuthRejected:
-                    return ReconnectReason.AuthRejected;
-                default:
-                    return ReconnectReason.Unreachable;
-            }
+            // Fire-and-forget: PublishTeamMessageAsync catches everything internally, so the discarded task
+            // never surfaces an unobserved exception. Team chat is low-volume, so unbounded concurrency is fine.
+            _ = PublishTeamMessageAsync(key, activeSteamId, line);
         }
+#pragma warning restore RCS1163
 
-        return ReconnectReason.Stopped;
+        connection.TeamMessageReceived += OnTeamMessage;
+        _liveSockets[key] = new LiveSocket(connection, activeSteamId);
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(_options.HeartbeatInterval, ct).ConfigureAwait(false);
+                var beat = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+                switch (beat.Kind)
+                {
+                    case HeartbeatKind.Ok:
+                        await PublishStatusAsync(key, ConnectionStatus.Connected, beat.PlayerCount, credentialId, ct)
+                            .ConfigureAwait(false);
+                        break;
+                    case HeartbeatKind.AuthRejected:
+                        return ReconnectReason.AuthRejected;
+                    default:
+                        return ReconnectReason.Unreachable;
+                }
+            }
+
+            return ReconnectReason.Stopped;
+        }
+        finally
+        {
+            _liveSockets.TryRemove(key, out _);
+            connection.TeamMessageReceived -= OnTeamMessage;
+        }
     }
 
     private async Task<Prepared?> PrepareAsync((ulong Guild, Guid Server) key, CancellationToken ct)
@@ -355,6 +416,46 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
+    /// <summary>Test seam: true when a live socket is currently registered for the key.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <returns>True when a live socket is registered for (<paramref name="guildId"/>, <paramref name="serverId"/>).</returns>
+    internal bool HasLiveSocket(ulong guildId, Guid serverId) => _liveSockets.ContainsKey((guildId, serverId));
+
+    private async Task PublishTeamMessageAsync((ulong Guild, Guid Server) key, ulong activeSteamId, TeamChatLine line)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            var evt = new TeamMessageReceivedEvent(
+                key.Guild, key.Server, line.SteamId, line.Name, line.Message, line.SteamId == activeSteamId);
+            // Use the supervisor-wide shutdown token (not a per-connection ct): an inbound line should publish
+            // regardless of one connection's reconnect cycle, stopping only on global shutdown.
+            await eventBus.PublishAsync(evt, _shutdown.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a publish failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogPublishTeamMessageFailed(logger, ex, key.Server);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Relaying a message to team chat for server {ServerId} failed.")]
+    private static partial void LogSendFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Publishing a received team message for server {ServerId} failed.")]
+    private static partial void LogPublishTeamMessageFailed(ILogger logger, Exception exception, Guid serverId);
+
     private TimeSpan NextDelay(TimeSpan delay) =>
         delay < _options.MaxRetryDelay
             ? TimeSpan.FromTicks(Math.Min(delay.Ticks * 2, _options.MaxRetryDelay.Ticks))
@@ -375,6 +476,8 @@ internal sealed partial class ConnectionSupervisor(
         ulong OwnerUserId,
         ulong SteamId,
         string PlayerToken);
+
+    private sealed record LiveSocket(IRustServerConnection Connection, ulong ActiveSteamId);
 
     private sealed class Handle(CancellationTokenSource cts, Task runTask) : IAsyncDisposable
     {

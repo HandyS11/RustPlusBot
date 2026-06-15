@@ -18,6 +18,7 @@ internal sealed class LocalizationCatalog
                 ["channel.setup.name"] = "setup",
                 ["channel.settings.name"] = "settings",
                 ["channel.info.name"] = "info",
+                ["channel.teamchat.name"] = "teamchat",
                 ["information.title"] = "RustPlusBot",
                 ["information.body"] = "Connect your Rust+ account in #setup, then pair a server in-game to begin.",
                 ["information.servers"] = "Servers registered: {0}",
@@ -48,6 +49,7 @@ internal sealed class LocalizationCatalog
                 ["channel.setup.name"] = "configuration",
                 ["channel.settings.name"] = "parametres",
                 ["channel.info.name"] = "info",
+                ["channel.teamchat.name"] = "tchat-equipe",
                 ["information.title"] = "RustPlusBot",
                 ["information.body"] =
                     "Connectez votre compte Rust+ dans #configuration, puis appairez un serveur en jeu.",

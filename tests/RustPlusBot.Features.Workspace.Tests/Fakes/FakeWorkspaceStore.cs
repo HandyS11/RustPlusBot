@@ -39,6 +39,15 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
         return Task.FromResult(list);
     }
 
+    public Task<IReadOnlyList<ProvisionedChannel>> GetChannelsByKeyAsync(
+        string channelKey,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<ProvisionedChannel> result =
+            _channels.Values.Where(c => c.ChannelKey == channelKey).ToList();
+        return Task.FromResult(result);
+    }
+
     public Task SaveChannelAsync(ProvisionedChannel channel, CancellationToken cancellationToken = default)
     {
         _channels[$"{Scope(channel.GuildId, channel.RustServerId)}|{channel.ChannelKey}"] = channel;

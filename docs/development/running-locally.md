@@ -25,6 +25,18 @@
 
 A missing or empty `Discord:Token` makes the host fail fast at startup with a clear `OptionsValidationException`.
 
+## Discord application setup (team chat bridge)
+
+The team chat bridge reads messages typed in each server's `#teamchat` channel, which requires a
+privileged gateway intent:
+
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications) → your application
+   → **Bot**.
+2. Enable **Message Content Intent** (under *Privileged Gateway Intents*). No verification is required
+   while the bot is in fewer than 100 servers.
+3. Ensure the bot's role/invite grants **Manage Webhooks** (used to post in-game lines as each player)
+   and **Send Messages** in the provisioned channels.
+
 ## Clearing stale slash commands
 
 If the Discord application was previously used by another bot, leftover **global** commands can
