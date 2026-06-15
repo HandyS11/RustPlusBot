@@ -25,6 +25,21 @@
 
 A missing or empty `Discord:Token` makes the host fail fast at startup with a clear `OptionsValidationException`.
 
+## Clearing stale slash commands
+
+If the Discord application was previously used by another bot, leftover **global** commands can
+appear in every guild alongside this bot's commands. Run once with `Discord:ResetCommandsOnStartup`
+enabled to delete all global commands at startup before the current commands are registered:
+
+```bash
+dotnet run --project src/RustPlusBot.Host -- --Discord:ResetCommandsOnStartup=true
+```
+
+The flag also reads from the `Discord__ResetCommandsOnStartup` environment variable or a
+`"Discord": { "ResetCommandsOnStartup": true }` entry in configuration. It is a one-shot: once the
+stale global commands are gone, leave it off for normal runs. Per-guild commands are already
+overwritten on every startup, so a normal run after the reset leaves only the current command set.
+
 ## Provisioning the workspace
 
 1. Invite the bot with the **Manage Channels**, **Manage Roles**, **Manage Messages**, and

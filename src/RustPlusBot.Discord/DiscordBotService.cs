@@ -68,6 +68,13 @@ public sealed class DiscordBotService(
             return;
         }
 
+        if (_options.ResetCommandsOnStartup)
+        {
+            await client.Rest.DeleteAllGlobalCommandsAsync().ConfigureAwait(false);
+            logger.LogWarning(
+                "ResetCommandsOnStartup is enabled: deleted all global application commands before registration.");
+        }
+
         foreach (var guild in client.Guilds)
         {
             await interactions.RegisterCommandsToGuildAsync(guild.Id).ConfigureAwait(false);
