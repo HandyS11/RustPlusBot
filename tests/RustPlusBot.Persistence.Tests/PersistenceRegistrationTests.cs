@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Persistence;
+using RustPlusBot.Persistence.Credentials;
 using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Persistence.Tests;
@@ -29,5 +30,6 @@ public sealed class PersistenceRegistrationTests
         // ICredentialStore is registered here, but its ICredentialProtector dependency is
         // supplied by the Host, so verify the registration descriptor rather than resolving it.
         Assert.Contains(services, d => d.ServiceType == typeof(ICredentialStore));
+        Assert.Contains(services, d => d.ServiceType == typeof(IFcmRegistrationStore));
     }
 }

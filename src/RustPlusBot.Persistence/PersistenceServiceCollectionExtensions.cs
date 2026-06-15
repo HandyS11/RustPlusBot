@@ -29,6 +29,7 @@ public static class PersistenceServiceCollectionExtensions
 
         services.AddScoped<IServerService, ServerService>();
         services.AddScoped<ICredentialStore, CredentialStore>();
+        services.AddScoped<IFcmRegistrationStore, FcmRegistrationStore>();
         services.AddScoped<IWorkspaceStore, WorkspaceStore>();
 
         return services;
