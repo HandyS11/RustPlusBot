@@ -44,8 +44,24 @@ public sealed class FcmRegistrationStore(BotDbContext context, ICredentialProtec
         };
 
         context.FcmRegistrations.Add(registration);
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return registration.Id;
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return registration.Id;
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent submission for the same (guild, owner) won the unique-index race; update the winner.
+            context.Entry(registration).State = EntityState.Detached;
+            var winner = await context.FcmRegistrations
+                .SingleAsync(r => r.GuildId == guildId && r.OwnerUserId == ownerUserId, cancellationToken)
+                .ConfigureAwait(false);
+            winner.ProtectedFcmCredentials = protector.Protect(fcmCredentialsJson);
+            winner.Status = FcmRegistrationStatus.Active;
+            winner.UpdatedAt = clock.UtcNow;
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return winner.Id;
+        }
     }
 
     /// <inheritdoc />

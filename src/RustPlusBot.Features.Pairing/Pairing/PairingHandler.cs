@@ -38,6 +38,7 @@ internal sealed partial class PairingHandler(
         await credentials.UpsertFromPairingAsync(
             new StoreCredentialRequest(guildId, server.Id, ownerUserId, notification.PlayerId,
                 notification.PlayerToken),
+            markActive: created,
             cancellationToken).ConfigureAwait(false);
 
         if (created)

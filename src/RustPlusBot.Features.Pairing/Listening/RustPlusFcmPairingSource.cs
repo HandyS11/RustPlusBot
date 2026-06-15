@@ -13,8 +13,35 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
     /// <inheritdoc />
     public IPairingListener Create(
         string fcmCredentialsJson,
-        Func<PairingNotification, CancellationToken, Task> onNotification) =>
-        new RustPlusFcmListener(fcmCredentialsJson, onNotification, logger);
+        Func<PairingNotification, CancellationToken, Task> onNotification)
+    {
+        try
+        {
+            return new RustPlusFcmListener(fcmCredentialsJson, onNotification, logger);
+        }
+#pragma warning disable CA1031 // Broad catch: a malformed credential blob must surface as Rejected, not fault the listener loop.
+        catch (Exception ex)
+        {
+            LogConstructionFailed(ex);
+            return new RejectedListener();
+        }
+#pragma warning restore CA1031
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "FCM listener construction failed; treating credentials as rejected.")]
+    private partial void LogConstructionFailed(Exception exception);
+
+    /// <summary>A listener returned when credential construction failed; reports Rejected and does nothing else.</summary>
+    private sealed class RejectedListener : IPairingListener
+    {
+        /// <inheritdoc />
+        public Task<PairingConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(PairingConnectOutcome.Rejected);
+
+        /// <inheritdoc />
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
 
     private sealed partial class RustPlusFcmListener : IPairingListener
     {

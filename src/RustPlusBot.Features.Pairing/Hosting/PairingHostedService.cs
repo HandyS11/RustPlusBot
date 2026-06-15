@@ -32,7 +32,9 @@ internal sealed partial class PairingHostedService(
 
     private async Task OnReadyAsync()
     {
-        // Ready fires on every (re)connect; only start listeners once per process.
+        // Ready fires on every (re)connect; only start listeners once per process. Ready is dispatched
+        // serially on the gateway thread, so the plain bool guard needs no synchronization (same pattern
+        // as DiscordBotService and WorkspaceHostedService).
         if (_started)
         {
             return;

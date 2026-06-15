@@ -38,7 +38,8 @@ public sealed class CredentialStoreTests
         var store = new CredentialStore(context, protector);
 
         var id = await store.UpsertFromPairingAsync(
-            new StoreCredentialRequest(10UL, serverId, 99UL, 76561198000000000UL, "raw-token"));
+            new StoreCredentialRequest(10UL, serverId, 99UL, 76561198000000000UL, "raw-token"),
+            markActive: true);
 
         var saved = await context.PlayerCredentials.SingleAsync();
         Assert.Equal(id, saved.Id);
@@ -56,8 +57,10 @@ public sealed class CredentialStoreTests
         var serverId = await SeedServerAsync(context, 10UL);
         var store = new CredentialStore(context, PassThroughProtector());
 
-        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverId, 1UL, 1UL, "t1"));
-        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverId, 2UL, 2UL, "t2"));
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverId, 1UL, 1UL, "t1"),
+            markActive: true);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverId, 2UL, 2UL, "t2"),
+            markActive: false);
 
         var second = await context.PlayerCredentials.SingleAsync(c => c.OwnerUserId == 2UL);
         Assert.Equal(CredentialStatus.Standby, second.Status);
@@ -73,12 +76,14 @@ public sealed class CredentialStoreTests
         var serverId = await SeedServerAsync(context, 10UL);
         var store = new CredentialStore(context, PassThroughProtector());
 
-        var id = await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverId, 1UL, 1UL, "old"));
+        var id = await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverId, 1UL, 1UL, "old"),
+            markActive: true);
         var row = await context.PlayerCredentials.SingleAsync();
         row.Status = CredentialStatus.Invalid;
         await context.SaveChangesAsync();
 
-        var again = await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverId, 1UL, 1UL, "new"));
+        var again = await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverId, 1UL, 1UL, "new"),
+            markActive: false);
 
         Assert.Equal(id, again);
         var saved = await context.PlayerCredentials.SingleAsync();
@@ -97,10 +102,14 @@ public sealed class CredentialStoreTests
         var serverAGuild20 = await SeedServerAsync(context, 20UL);
         var store = new CredentialStore(context, PassThroughProtector());
 
-        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 1UL, 1UL, "t1"));
-        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 2UL, 2UL, "t2"));
-        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverB, 3UL, 3UL, "t3"));
-        await store.UpsertFromPairingAsync(new StoreCredentialRequest(20UL, serverAGuild20, 4UL, 4UL, "t4"));
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 1UL, 1UL, "t1"),
+            markActive: false);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 2UL, 2UL, "t2"),
+            markActive: false);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverB, 3UL, 3UL, "t3"),
+            markActive: false);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(20UL, serverAGuild20, 4UL, 4UL, "t4"),
+            markActive: false);
 
         Assert.Equal(2, await store.CountForServerAsync(10UL, serverA));
     }

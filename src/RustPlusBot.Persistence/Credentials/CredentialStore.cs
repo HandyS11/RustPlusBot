@@ -12,6 +12,7 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
     /// <inheritdoc />
     public async Task<Guid> UpsertFromPairingAsync(
         StoreCredentialRequest request,
+        bool markActive,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -37,10 +38,6 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
             return existing.Id;
         }
 
-        var isFirstForServer = !await context.PlayerCredentials
-            .AnyAsync(c => c.GuildId == request.GuildId && c.RustServerId == request.RustServerId, cancellationToken)
-            .ConfigureAwait(false);
-
         var credential = new PlayerCredential
         {
             GuildId = request.GuildId,
@@ -48,7 +45,7 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
             OwnerUserId = request.OwnerUserId,
             SteamId = request.SteamId,
             ProtectedPlayerToken = protector.Protect(request.PlayerToken),
-            Status = isFirstForServer ? CredentialStatus.Active : CredentialStatus.Standby,
+            Status = markActive ? CredentialStatus.Active : CredentialStatus.Standby,
         };
 
         context.PlayerCredentials.Add(credential);
