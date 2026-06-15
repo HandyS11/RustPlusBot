@@ -19,20 +19,6 @@ namespace RustPlusBot.Features.Pairing.Tests;
 
 public sealed class PairingSupervisorTests
 {
-    private sealed class Harness : IAsyncDisposable
-    {
-        public required ServiceProvider Provider { get; init; }
-        public required FakePairingSource Source { get; init; }
-        public required RecordingOwnerNotifier Notifier { get; init; }
-        public required PairingSupervisor Supervisor { get; init; }
-
-        public async ValueTask DisposeAsync()
-        {
-            await Supervisor.StopAllAsync();
-            await Provider.DisposeAsync();
-        }
-    }
-
     private static Harness CreateHarness(FakePairingSource source, PairingOptions? options = null)
     {
         var protector = Substitute.For<ICredentialProtector>();
@@ -183,5 +169,19 @@ public sealed class PairingSupervisorTests
         await h.Supervisor.EnsureListenerAsync(10UL, 99UL);
 
         Assert.Equal(2, h.Source.CreateCount);
+    }
+
+    private sealed class Harness : IAsyncDisposable
+    {
+        public required ServiceProvider Provider { get; init; }
+        public required FakePairingSource Source { get; init; }
+        public required RecordingOwnerNotifier Notifier { get; init; }
+        public required PairingSupervisor Supervisor { get; init; }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Supervisor.StopAllAsync();
+            await Provider.DisposeAsync();
+        }
     }
 }

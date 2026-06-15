@@ -20,8 +20,12 @@ public sealed class PairingSchemaTests
         context.RustServers.Add(server);
         context.PlayerCredentials.Add(new PlayerCredential
         {
-            GuildId = 10UL, RustServerId = server.Id, OwnerUserId = 1UL, SteamId = 1UL,
-            ProtectedPlayerToken = "x", Status = CredentialStatus.Active
+            GuildId = 10UL,
+            RustServerId = server.Id,
+            OwnerUserId = 1UL,
+            SteamId = 1UL,
+            ProtectedPlayerToken = "x",
+            Status = CredentialStatus.Active
         });
         await context.SaveChangesAsync();
 

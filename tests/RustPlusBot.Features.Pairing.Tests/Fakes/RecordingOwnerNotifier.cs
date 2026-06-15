@@ -10,7 +10,9 @@ internal sealed class RecordingOwnerNotifier : IOwnerNotifier
     public ConcurrentBag<(ulong Guild, ulong Owner)> Notified { get; } = [];
 
     /// <inheritdoc />
-    public Task NotifyCredentialsExpiredAsync(ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default)
+    public Task NotifyCredentialsExpiredAsync(ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default)
     {
         Notified.Add((guildId, ownerUserId));
         return Task.CompletedTask;

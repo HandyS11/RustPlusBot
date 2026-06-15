@@ -28,50 +28,15 @@ internal sealed partial class PairingSupervisor(
     ILogger<PairingSupervisor> logger) : IPairingSupervisor, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, ulong Owner), Handle> _listeners = new();
-    private readonly CancellationTokenSource _shutdown = new();
     private readonly PairingOptions _options = options.Value;
+    private readonly CancellationTokenSource _shutdown = new();
 
-    private sealed class Handle : IAsyncDisposable
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
     {
-        private readonly CancellationTokenSource _cts;
-        private readonly Task _runTask;
-
-        public Handle(CancellationTokenSource cts, Task runTask)
-        {
-            _cts = cts;
-            _runTask = runTask;
-        }
-
-        public async Task StopAsync()
-        {
-            await _cts.CancelAsync().ConfigureAwait(false);
-            try
-            {
-#pragma warning disable VSTHRD003 // Suppress: task is owned by this Handle and explicitly joined on stop.
-                await _runTask.ConfigureAwait(false);
-#pragma warning restore VSTHRD003
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected on stop.
-            }
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            _cts.Dispose();
-            return ValueTask.CompletedTask;
-        }
+        await StopAllAsync().ConfigureAwait(false);
+        _shutdown.Dispose();
     }
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "Listener loop for owner {OwnerId} faulted.")]
-    private static partial void LogListenerLoopFaulted(ILogger logger, Exception exception, ulong ownerId);
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to handle pairing notification for owner {OwnerId}.")]
-    private static partial void LogNotificationFailed(ILogger logger, Exception exception, ulong ownerId);
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "Stored FCM credentials for owner {OwnerId} are unreadable.")]
-    private static partial void LogUnreadableCredentials(ILogger logger, Exception exception, ulong ownerId);
 
     /// <inheritdoc />
     public async Task<PairingConnectOutcome> EnsureListenerAsync(
@@ -112,7 +77,8 @@ internal sealed partial class PairingSupervisor(
             return PairingConnectOutcome.Timeout;
         }
 
-        var firstOutcome = new TaskCompletionSource<PairingConnectOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstOutcome =
+            new TaskCompletionSource<PairingConnectOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
         var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
         _listeners[key] = new Handle(
             cts,
@@ -150,12 +116,14 @@ internal sealed partial class PairingSupervisor(
         }
     }
 
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        await StopAllAsync().ConfigureAwait(false);
-        _shutdown.Dispose();
-    }
+    [LoggerMessage(Level = LogLevel.Error, Message = "Listener loop for owner {OwnerId} faulted.")]
+    private static partial void LogListenerLoopFaulted(ILogger logger, Exception exception, ulong ownerId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to handle pairing notification for owner {OwnerId}.")]
+    private static partial void LogNotificationFailed(ILogger logger, Exception exception, ulong ownerId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Stored FCM credentials for owner {OwnerId} are unreadable.")]
+    private static partial void LogUnreadableCredentials(ILogger logger, Exception exception, ulong ownerId);
 
     private async Task StopListenerAsync((ulong Guild, ulong Owner) key)
     {
@@ -187,7 +155,8 @@ internal sealed partial class PairingSupervisor(
                 PairingConnectOutcome outcome;
                 try
                 {
-                    outcome = await listener.ConnectAsync(_options.ProbeTimeout, cancellationToken).ConfigureAwait(false);
+                    outcome = await listener.ConnectAsync(_options.ProbeTimeout, cancellationToken)
+                        .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -280,5 +249,38 @@ internal sealed partial class PairingSupervisor(
         }
 
         await notifier.NotifyCredentialsExpiredAsync(key.Guild, key.Owner).ConfigureAwait(false);
+    }
+
+    private sealed class Handle : IAsyncDisposable
+    {
+        private readonly CancellationTokenSource _cts;
+        private readonly Task _runTask;
+
+        public Handle(CancellationTokenSource cts, Task runTask)
+        {
+            _cts = cts;
+            _runTask = runTask;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            _cts.Dispose();
+            return ValueTask.CompletedTask;
+        }
+
+        public async Task StopAsync()
+        {
+            await _cts.CancelAsync().ConfigureAwait(false);
+            try
+            {
+#pragma warning disable VSTHRD003 // Suppress: task is owned by this Handle and explicitly joined on stop.
+                await _runTask.ConfigureAwait(false);
+#pragma warning restore VSTHRD003
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on stop.
+            }
+        }
     }
 }

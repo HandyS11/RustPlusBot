@@ -83,7 +83,11 @@ public sealed class ServerService(BotDbContext context) : IServerService
 
         var server = new RustServer
         {
-            GuildId = guildId, AddedByUserId = addedByUserId, Name = name, Ip = ip, Port = port,
+            GuildId = guildId,
+            AddedByUserId = addedByUserId,
+            Name = name,
+            Ip = ip,
+            Port = port,
         };
         context.RustServers.Add(server);
         try

@@ -10,12 +10,6 @@ namespace RustPlusBot.Features.Pairing.Notifications;
 internal sealed partial class DiscordOwnerNotifier(DiscordSocketClient client, ILogger<DiscordOwnerNotifier> logger)
     : IOwnerNotifier
 {
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Cannot DM owner {OwnerId}: user not found.")]
-    private static partial void LogUserNotFound(ILogger logger, ulong ownerId);
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to DM owner {OwnerId} about expired credentials.")]
-    private static partial void LogDmFailed(ILogger logger, Exception ex, ulong ownerId);
-
     /// <inheritdoc />
     public async Task NotifyCredentialsExpiredAsync(
         ulong guildId,
@@ -32,7 +26,7 @@ internal sealed partial class DiscordOwnerNotifier(DiscordSocketClient client, I
             }
 
             await user.SendMessageAsync(
-                "Your Rust+ credentials were rejected. Reconnect your account in #setup to keep receiving pairings.")
+                    "Your Rust+ credentials were rejected. Reconnect your account in #setup to keep receiving pairings.")
                 .ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // Broad catch is intentional: a closed DM (or any send failure) must not break the supervisor.
@@ -42,4 +36,10 @@ internal sealed partial class DiscordOwnerNotifier(DiscordSocketClient client, I
             LogDmFailed(logger, ex, ownerUserId);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Cannot DM owner {OwnerId}: user not found.")]
+    private static partial void LogUserNotFound(ILogger logger, ulong ownerId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to DM owner {OwnerId} about expired credentials.")]
+    private static partial void LogDmFailed(ILogger logger, Exception ex, ulong ownerId);
 }

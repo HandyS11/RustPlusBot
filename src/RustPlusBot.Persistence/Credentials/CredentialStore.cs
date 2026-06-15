@@ -19,8 +19,8 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
         var existing = await context.PlayerCredentials
             .SingleOrDefaultAsync(
                 c => c.GuildId == request.GuildId
-                    && c.RustServerId == request.RustServerId
-                    && c.OwnerUserId == request.OwnerUserId,
+                     && c.RustServerId == request.RustServerId
+                     && c.OwnerUserId == request.OwnerUserId,
                 cancellationToken)
             .ConfigureAwait(false);
 

@@ -19,10 +19,6 @@ internal sealed class FakePairingSource : IPairingSource
     /// <summary>Signaled when the first Connected outcome fires.</summary>
     public TaskCompletionSource ConnectedSignal { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    /// <summary>Enqueues an outcome to be returned by the next listener created.</summary>
-    /// <param name="outcome">The outcome the next listener will return from <c>ConnectAsync</c>.</param>
-    public void EnqueueOutcome(PairingConnectOutcome outcome) => _outcomes.Enqueue(outcome);
-
     /// <inheritdoc />
     public IPairingListener Create(
         string fcmCredentialsJson,
@@ -33,6 +29,10 @@ internal sealed class FakePairingSource : IPairingSource
         var outcome = _outcomes.TryDequeue(out var next) ? next : PairingConnectOutcome.Connected;
         return new FakeListener(outcome, () => ConnectedSignal.TrySetResult());
     }
+
+    /// <summary>Enqueues an outcome to be returned by the next listener created.</summary>
+    /// <param name="outcome">The outcome the next listener will return from <c>ConnectAsync</c>.</param>
+    public void EnqueueOutcome(PairingConnectOutcome outcome) => _outcomes.Enqueue(outcome);
 
     private sealed class FakeListener(PairingConnectOutcome outcome, Action onConnected) : IPairingListener
     {

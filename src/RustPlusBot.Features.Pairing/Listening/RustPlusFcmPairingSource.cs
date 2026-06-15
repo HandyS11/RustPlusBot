@@ -19,17 +19,14 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
     private sealed partial class RustPlusFcmListener : IPairingListener
     {
         private static readonly JsonSerializerOptions JsonOptions =
-            new() { PropertyNameCaseInsensitive = true };
+            new()
+            {
+                PropertyNameCaseInsensitive = true
+            };
 
         private readonly RustPlusFcm _fcm;
-        private readonly Func<PairingNotification, CancellationToken, Task> _onNotification;
         private readonly ILogger _logger;
-
-        [LoggerMessage(Level = LogLevel.Warning, Message = "FCM credentials rejected or connection failed.")]
-        private static partial void LogConnectionFailed(ILogger logger, Exception ex);
-
-        [LoggerMessage(Level = LogLevel.Warning, Message = "Exception while dispatching pairing notification; it is swallowed to keep the listener alive.")]
-        private static partial void LogNotificationDispatchFailed(ILogger logger, Exception ex);
+        private readonly Func<PairingNotification, CancellationToken, Task> _onNotification;
 
         public RustPlusFcmListener(
             string fcmCredentialsJson,
@@ -37,7 +34,8 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
             ILogger logger)
         {
             var credentials = JsonSerializer.Deserialize<Credentials>(fcmCredentialsJson, JsonOptions)
-                ?? throw new ArgumentException("FCM credentials JSON deserialized to null.", nameof(fcmCredentialsJson));
+                              ?? throw new ArgumentException("FCM credentials JSON deserialized to null.",
+                                  nameof(fcmCredentialsJson));
 
             _onNotification = onNotification;
             _logger = logger;
@@ -76,6 +74,13 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
             _fcm.OnServerPairing -= OnServerPairing;
             await _fcm.DisposeAsync().ConfigureAwait(false);
         }
+
+        [LoggerMessage(Level = LogLevel.Warning, Message = "FCM credentials rejected or connection failed.")]
+        private static partial void LogConnectionFailed(ILogger logger, Exception ex);
+
+        [LoggerMessage(Level = LogLevel.Warning,
+            Message = "Exception while dispatching pairing notification; it is swallowed to keep the listener alive.")]
+        private static partial void LogNotificationDispatchFailed(ILogger logger, Exception ex);
 
         private void OnServerPairing(object? sender, Notification<ServerEvent?> e)
         {

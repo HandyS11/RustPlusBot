@@ -17,9 +17,6 @@ internal sealed partial class PairingHandler(
     IEventBus eventBus,
     ILogger<PairingHandler> logger) : IPairingHandler
 {
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Ignoring {Kind} pairing notification (deferred to a later subsystem).")]
-    private static partial void LogIgnoringKind(ILogger logger, PairingKind kind);
-
     /// <inheritdoc />
     public async Task HandleAsync(
         ulong guildId,
@@ -35,11 +32,12 @@ internal sealed partial class PairingHandler(
         }
 
         var (server, created) = await servers.ResolveOrCreateByEndpointAsync(
-            guildId, ownerUserId, notification.ServerName, notification.Ip, notification.Port, cancellationToken)
+                guildId, ownerUserId, notification.ServerName, notification.Ip, notification.Port, cancellationToken)
             .ConfigureAwait(false);
 
         await credentials.UpsertFromPairingAsync(
-            new StoreCredentialRequest(guildId, server.Id, ownerUserId, notification.PlayerId, notification.PlayerToken),
+            new StoreCredentialRequest(guildId, server.Id, ownerUserId, notification.PlayerId,
+                notification.PlayerToken),
             cancellationToken).ConfigureAwait(false);
 
         if (created)
@@ -48,4 +46,8 @@ internal sealed partial class PairingHandler(
                 .ConfigureAwait(false);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug,
+        Message = "Ignoring {Kind} pairing notification (deferred to a later subsystem).")]
+    private static partial void LogIgnoringKind(ILogger logger, PairingKind kind);
 }
