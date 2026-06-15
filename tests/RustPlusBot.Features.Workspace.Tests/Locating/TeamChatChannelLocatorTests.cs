@@ -43,7 +43,10 @@ public sealed class TeamChatChannelLocatorTests
         await using var context =
             new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options);
 
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
 
@@ -109,7 +112,10 @@ public sealed class TeamChatChannelLocatorTests
         // Insert a server + channel into the DB after the first load.
         await using var insertCtx =
             new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options);
-        var server = new RustServer { GuildId = 20UL, Name = "T", Ip = "2.2.2.2", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 20UL, Name = "T", Ip = "2.2.2.2", Port = 28015
+        };
         insertCtx.RustServers.Add(server);
         await insertCtx.SaveChangesAsync();
         insertCtx.ProvisionedChannels.Add(new ProvisionedChannel

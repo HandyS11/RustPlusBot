@@ -22,7 +22,10 @@ public sealed class WorkspaceStoreByKeyTests
         using var _cleanup = cleanup;
 
         // RustServerId is a FK to RustServers, so insert a real server first.
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
 

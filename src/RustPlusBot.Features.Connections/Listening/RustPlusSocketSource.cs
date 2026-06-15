@@ -150,9 +150,6 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             await _rustPlus.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
         }
 
-        private void OnTeamChatReceived(object? sender, RustPlusApi.Data.Events.TeamMessageEventArg e) =>
-            TeamMessageReceived?.Invoke(this, new TeamChatLine(e.SteamId, e.Name, e.Message));
-
         public async ValueTask DisposeAsync()
         {
             _rustPlus.OnTeamChatReceived -= OnTeamChatReceived;
@@ -169,6 +166,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 LogDisposeFailed(_logger, ex);
             }
         }
+
+        private void OnTeamChatReceived(object? sender, RustPlusApi.Data.Events.TeamMessageEventArg e) =>
+            TeamMessageReceived?.Invoke(this, new TeamChatLine(e.SteamId, e.Name, e.Message));
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "Rust+ socket connect failed.")]
         private static partial void LogConnectFailed(ILogger logger, Exception ex);

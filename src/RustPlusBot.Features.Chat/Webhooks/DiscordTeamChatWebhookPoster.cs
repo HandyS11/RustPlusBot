@@ -21,6 +21,17 @@ internal sealed partial class DiscordTeamChatWebhookPoster(
     private readonly ConcurrentDictionary<ulong, DiscordWebhookClient> _clients = new();
 
     /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        foreach (var c in _clients.Values)
+        {
+            c.Dispose();
+        }
+
+        return ValueTask.CompletedTask;
+    }
+
+    /// <inheritdoc />
     public async Task PostAsync(ulong channelId, string username, string message, CancellationToken cancellationToken)
     {
         try
@@ -40,17 +51,6 @@ internal sealed partial class DiscordTeamChatWebhookPoster(
         {
             LogPostFailed(logger, ex, channelId);
         }
-    }
-
-    /// <inheritdoc />
-    public ValueTask DisposeAsync()
-    {
-        foreach (var c in _clients.Values)
-        {
-            c.Dispose();
-        }
-
-        return ValueTask.CompletedTask;
     }
 
     private async Task<DiscordWebhookClient?> GetOrCreateClientAsync(ulong channelId)

@@ -32,8 +32,8 @@ internal sealed partial class ConnectionSupervisor(
     ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
-    private readonly ConcurrentDictionary<(ulong Guild, Guid Server), LiveSocket> _liveSockets = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly ConcurrentDictionary<(ulong Guild, Guid Server), LiveSocket> _liveSockets = new();
     private readonly ConnectionOptions _options = options.Value;
     private readonly CancellationTokenSource _shutdown = new();
     private bool _disposed;
@@ -122,6 +122,36 @@ internal sealed partial class ConnectionSupervisor(
         finally
         {
             _gate.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<TeamChatSendResult> SendAsync(
+        ulong guildId,
+        Guid serverId,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return TeamChatSendResult.NotConnected;
+        }
+
+        try
+        {
+            await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+            return TeamChatSendResult.Sent;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogSendFailed(logger, ex, serverId);
+            return TeamChatSendResult.Failed;
         }
     }
 
@@ -392,36 +422,6 @@ internal sealed partial class ConnectionSupervisor(
     /// <returns>True when a live socket is registered for (<paramref name="guildId"/>, <paramref name="serverId"/>).</returns>
     internal bool HasLiveSocket(ulong guildId, Guid serverId) => _liveSockets.ContainsKey((guildId, serverId));
 
-    /// <inheritdoc />
-    public async Task<TeamChatSendResult> SendAsync(
-        ulong guildId,
-        Guid serverId,
-        string message,
-        CancellationToken cancellationToken)
-    {
-        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
-        {
-            return TeamChatSendResult.NotConnected;
-        }
-
-        try
-        {
-            await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
-            return TeamChatSendResult.Sent;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
-        catch (Exception ex)
-#pragma warning restore CA1031
-        {
-            LogSendFailed(logger, ex, serverId);
-            return TeamChatSendResult.Failed;
-        }
-    }
-
     private async Task PublishTeamMessageAsync((ulong Guild, Guid Server) key, ulong activeSteamId, TeamChatLine line)
     {
         if (_disposed)
@@ -452,7 +452,8 @@ internal sealed partial class ConnectionSupervisor(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Relaying a message to team chat for server {ServerId} failed.")]
     private static partial void LogSendFailed(ILogger logger, Exception exception, Guid serverId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Publishing a received team message for server {ServerId} failed.")]
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Publishing a received team message for server {ServerId} failed.")]
     private static partial void LogPublishTeamMessageFailed(ILogger logger, Exception exception, Guid serverId);
 
     private TimeSpan NextDelay(TimeSpan delay) =>

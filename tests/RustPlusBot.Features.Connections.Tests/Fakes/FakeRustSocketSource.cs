@@ -81,10 +81,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             return Task.CompletedTask;
         }
 
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
         /// <summary>Raises <see cref="TeamMessageReceived"/> to simulate an inbound team chat line.</summary>
         /// <param name="line">The team chat line to raise.</param>
         public void RaiseTeamMessage(TeamChatLine line) => TeamMessageReceived?.Invoke(this, line);
-
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

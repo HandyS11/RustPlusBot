@@ -69,12 +69,19 @@ public sealed class TeamChatSenderTests
     {
         using var scope = provider.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<BotDbContext>();
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         ctx.RustServers.Add(server);
         ctx.PlayerCredentials.Add(new PlayerCredential
         {
-            GuildId = 10UL, RustServerId = server.Id, OwnerUserId = 1UL, SteamId = steamId,
-            ProtectedPlayerToken = "123", Status = CredentialStatus.Active,
+            GuildId = 10UL,
+            RustServerId = server.Id,
+            OwnerUserId = 1UL,
+            SteamId = steamId,
+            ProtectedPlayerToken = "123",
+            Status = CredentialStatus.Active,
         });
         await ctx.SaveChangesAsync();
         return server.Id;
@@ -89,7 +96,8 @@ public sealed class TeamChatSenderTests
         var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var received = new TaskCompletionSource<TeamMessageReceivedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var received =
+            new TaskCompletionSource<TeamMessageReceivedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
         var subscription = Task.Run(async () =>
         {
             await foreach (var e in bus.SubscribeAsync<TeamMessageReceivedEvent>(cts.Token))

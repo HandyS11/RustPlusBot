@@ -9,7 +9,8 @@ namespace RustPlusBot.Features.Chat.Tests;
 
 public sealed class TeamChatRelayTests
 {
-    private static (TeamChatRelay Relay, ITeamChatWebhookPoster Poster, RelayDedupBuffer Dedup, ITeamChatChannelLocator Locator)
+    private static (TeamChatRelay Relay, ITeamChatWebhookPoster Poster, RelayDedupBuffer Dedup, ITeamChatChannelLocator
+        Locator)
         Build()
     {
         var clock = Substitute.For<IClock>();

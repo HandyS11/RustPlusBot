@@ -34,7 +34,8 @@ internal sealed class TeamChatChannelLocator(IServiceScopeFactory scopeFactory, 
     }
 
     /// <inheritdoc />
-    public async Task<(ulong GuildId, Guid ServerId)?> ResolveAsync(ulong channelId, CancellationToken cancellationToken)
+    public async Task<(ulong GuildId, Guid ServerId)?> ResolveAsync(ulong channelId,
+        CancellationToken cancellationToken)
     {
         await EnsureFreshAsync(cancellationToken).ConfigureAwait(false);
         return _byChannelId.TryGetValue(channelId, out var pair) ? pair : null;

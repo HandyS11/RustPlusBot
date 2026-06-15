@@ -22,5 +22,8 @@ public interface ITeamChatSender
     /// <param name="message">The message text to relay.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The send result.</returns>
-    Task<TeamChatSendResult> SendAsync(ulong guildId, Guid serverId, string message, CancellationToken cancellationToken);
+    Task<TeamChatSendResult> SendAsync(ulong guildId,
+        Guid serverId,
+        string message,
+        CancellationToken cancellationToken);
 }
