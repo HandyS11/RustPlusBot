@@ -1,0 +1,373 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RustPlusBot.Abstractions.Credentials;
+using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Discord.Notifications;
+using RustPlusBot.Domain.Connections;
+using RustPlusBot.Domain.Credentials;
+using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Persistence.Connections;
+using RustPlusBot.Persistence.Servers;
+
+namespace RustPlusBot.Features.Connections.Supervisor;
+
+/// <summary>Default <see cref="IConnectionSupervisor"/>: one connect->heartbeat->failover loop per (guild, server).</summary>
+/// <param name="source">Creates sockets (RustPlusApi in production, a fake in tests).</param>
+/// <param name="scopeFactory">Opens scopes for the scoped stores.</param>
+/// <param name="dmSender">DMs an owner when their credential is rejected.</param>
+/// <param name="protector">Unprotects stored tokens before connecting.</param>
+/// <param name="eventBus">Publishes ConnectionStatusChangedEvent on state changes.</param>
+/// <param name="options">Timeouts/backoff/heartbeat settings.</param>
+/// <param name="logger">The logger.</param>
+internal sealed partial class ConnectionSupervisor(
+    IRustSocketSource source,
+    IServiceScopeFactory scopeFactory,
+    IUserDmSender dmSender,
+    ICredentialProtector protector,
+    IEventBus eventBus,
+    IOptions<ConnectionOptions> options,
+    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, IAsyncDisposable
+{
+    private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
+    private readonly ConnectionOptions _options = options.Value;
+    private readonly CancellationTokenSource _shutdown = new();
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await StopAllAsync().ConfigureAwait(false);
+        _shutdown.Dispose();
+    }
+
+    /// <inheritdoc />
+    public async Task StartAllAsync(CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<(ulong GuildId, Guid ServerId)> servers;
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
+            servers = await store.ListConnectableServersAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (var (guildId, serverId) in servers)
+        {
+            await EnsureConnectionAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task EnsureConnectionAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default)
+    {
+        var key = (guildId, serverId);
+        await StopConnectionAsync(key).ConfigureAwait(false);
+        if (_shutdown.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+        _connections[key] = new Handle(cts, Task.Run(() => RunAsync(key, cts.Token), CancellationToken.None));
+    }
+
+    /// <inheritdoc />
+    public Task StopAsync(ulong guildId, Guid serverId) => StopConnectionAsync((guildId, serverId));
+
+    /// <inheritdoc />
+    public async Task StopAllAsync()
+    {
+        await _shutdown.CancelAsync().ConfigureAwait(false);
+        foreach (var key in _connections.Keys.ToList())
+        {
+            await StopConnectionAsync(key).ConfigureAwait(false);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]
+    private static partial void LogLoopFaulted(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Stored token for credential {CredentialId} is unreadable.")]
+    private static partial void LogUnreadableToken(ILogger logger, Exception exception, Guid credentialId);
+
+    private async Task StopConnectionAsync((ulong Guild, Guid Server) key)
+    {
+        if (!_connections.TryRemove(key, out var handle))
+        {
+            return;
+        }
+
+        await handle.StopAsync().ConfigureAwait(false);
+        await handle.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private async Task RunAsync((ulong Guild, Guid Server) key, CancellationToken ct)
+    {
+        var delay = _options.InitialRetryDelay;
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var prepared = await PrepareAsync(key, ct).ConfigureAwait(false);
+                if (prepared is null)
+                {
+                    await PublishStatusAsync(key, ConnectionStatus.NoCredentials, null, null, ct).ConfigureAwait(false);
+                    return;
+                }
+
+                var p = prepared.Value;
+                await PublishStatusAsync(key, ConnectionStatus.Connecting, null, p.CredentialId, ct)
+                    .ConfigureAwait(false);
+
+                var connection = source.Create(p.Ip, p.Port, p.SteamId, p.PlayerToken);
+                SocketConnectOutcome outcome;
+                try
+                {
+                    outcome = await connection.ConnectAsync(_options.ConnectTimeout, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    await connection.DisposeAsync().ConfigureAwait(false);
+                    throw;
+                }
+
+                if (outcome == SocketConnectOutcome.AuthRejected)
+                {
+                    await connection.DisposeAsync().ConfigureAwait(false);
+                    // No backoff here: failover should be prompt. The loop is bounded — each rejection permanently
+                    // marks one credential Invalid (never re-selected), so an all-reject pool converges to NoCredentials.
+                    await FailoverAsync(p.CredentialId, p.OwnerUserId, p.ServerName, ct).ConfigureAwait(false);
+                    delay = _options.InitialRetryDelay;
+                    continue;
+                }
+
+                if (outcome == SocketConnectOutcome.Unreachable)
+                {
+                    await connection.DisposeAsync().ConfigureAwait(false);
+                    await PublishStatusAsync(key, ConnectionStatus.Unreachable, null, p.CredentialId, ct)
+                        .ConfigureAwait(false);
+                    await Task.Delay(delay, ct).ConfigureAwait(false);
+                    delay = NextDelay(delay);
+                    continue;
+                }
+
+                // Connected: run the heartbeat loop until it signals a reason to reconnect.
+                delay = _options.InitialRetryDelay;
+                ReconnectReason reason;
+                try
+                {
+                    reason = await RunConnectedAsync(key, connection, p.CredentialId, ct).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await connection.DisposeAsync().ConfigureAwait(false);
+                }
+
+                if (reason == ReconnectReason.AuthRejected)
+                {
+                    // No backoff: failover is prompt; pool exhaustion converges to NoCredentials.
+                    await FailoverAsync(p.CredentialId, p.OwnerUserId, p.ServerName, ct).ConfigureAwait(false);
+                }
+                else if (reason == ReconnectReason.Unreachable)
+                {
+                    await PublishStatusAsync(key, ConnectionStatus.Unreachable, null, p.CredentialId, ct)
+                        .ConfigureAwait(false);
+                    await Task.Delay(delay, ct).ConfigureAwait(false);
+                    delay = NextDelay(delay);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopping.
+        }
+#pragma warning disable CA1031 // Broad catch is intentional: a faulting loop must not crash the host or other servers.
+        catch (Exception ex)
+        {
+            LogLoopFaulted(logger, ex, key.Server);
+        }
+#pragma warning restore CA1031
+    }
+
+    private async Task<ReconnectReason> RunConnectedAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        Guid credentialId,
+        CancellationToken ct)
+    {
+        var first = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        if (first.Kind == HeartbeatKind.AuthRejected)
+        {
+            return ReconnectReason.AuthRejected;
+        }
+
+        if (first.Kind == HeartbeatKind.Unreachable)
+        {
+            return ReconnectReason.Unreachable;
+        }
+
+        await PublishStatusAsync(key, ConnectionStatus.Connected, first.PlayerCount, credentialId, ct)
+            .ConfigureAwait(false);
+
+        while (!ct.IsCancellationRequested)
+        {
+            await Task.Delay(_options.HeartbeatInterval, ct).ConfigureAwait(false);
+            var beat = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+            switch (beat.Kind)
+            {
+                case HeartbeatKind.Ok:
+                    await PublishStatusAsync(key, ConnectionStatus.Connected, beat.PlayerCount, credentialId, ct)
+                        .ConfigureAwait(false);
+                    break;
+                case HeartbeatKind.AuthRejected:
+                    return ReconnectReason.AuthRejected;
+                default:
+                    return ReconnectReason.Unreachable;
+            }
+        }
+
+        return ReconnectReason.Stopped;
+    }
+
+    private async Task<Prepared?> PrepareAsync((ulong Guild, Guid Server) key, CancellationToken ct)
+    {
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
+            var servers = scope.ServiceProvider.GetRequiredService<IServerService>();
+
+            var server = await servers.GetAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+            if (server is null)
+            {
+                return null;
+            }
+
+            while (!ct.IsCancellationRequested)
+            {
+                var active = await store.GetActiveCredentialAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+                if (active is null)
+                {
+                    var pool = await store.ListPoolAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+                    var next = pool.FirstOrDefault(c => c.Status == CredentialStatus.Standby);
+                    if (next is null)
+                    {
+                        return null;
+                    }
+
+                    await store.PromoteAsync(key.Guild, key.Server, next.Id, ct).ConfigureAwait(false);
+                    active = next;
+                }
+
+                string token;
+                try
+                {
+                    token = protector.Unprotect(active.ProtectedPlayerToken);
+                }
+                catch (CryptographicException ex)
+                {
+                    LogUnreadableToken(logger, ex, active.Id);
+                    await store.MarkInvalidAsync(active.Id, ct).ConfigureAwait(false);
+                    await dmSender.SendAsync(
+                            active.OwnerUserId,
+                            $"Your Rust+ credential for **{server.Name}** could not be read — reconnect in #setup.",
+                            ct)
+                        .ConfigureAwait(false);
+                    continue;
+                }
+
+                return new Prepared(server.Ip, server.Port, server.Name, active.Id, active.OwnerUserId, active.SteamId,
+                    token);
+            }
+
+            return null;
+        }
+    }
+
+    private async Task FailoverAsync(Guid credentialId, ulong ownerUserId, string serverName, CancellationToken ct)
+    {
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
+            await store.MarkInvalidAsync(credentialId, ct).ConfigureAwait(false);
+        }
+
+        await dmSender.SendAsync(
+                ownerUserId,
+                $"Your Rust+ credential for **{serverName}** was rejected — reconnect in #setup to keep it in the pool.",
+                ct)
+            .ConfigureAwait(false);
+    }
+
+    private async Task PublishStatusAsync(
+        (ulong Guild, Guid Server) key,
+        ConnectionStatus status,
+        int? playerCount,
+        Guid? activeCredentialId,
+        CancellationToken ct)
+    {
+        bool changed;
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
+            changed = await store
+                .UpsertStatusAsync(key.Guild, key.Server, status, playerCount, activeCredentialId, ct)
+                .ConfigureAwait(false);
+        }
+
+        if (changed)
+        {
+            await eventBus.PublishAsync(new ConnectionStatusChangedEvent(key.Guild, key.Server), ct)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private TimeSpan NextDelay(TimeSpan delay) =>
+        delay < _options.MaxRetryDelay
+            ? TimeSpan.FromTicks(Math.Min(delay.Ticks * 2, _options.MaxRetryDelay.Ticks))
+            : _options.MaxRetryDelay;
+
+    private enum ReconnectReason
+    {
+        Stopped = 0,
+        Unreachable = 1,
+        AuthRejected = 2,
+    }
+
+    private readonly record struct Prepared(
+        string Ip,
+        int Port,
+        string ServerName,
+        Guid CredentialId,
+        ulong OwnerUserId,
+        ulong SteamId,
+        string PlayerToken);
+
+    private sealed class Handle(CancellationTokenSource cts, Task runTask) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync()
+        {
+            cts.Dispose();
+            return ValueTask.CompletedTask;
+        }
+
+        public async Task StopAsync()
+        {
+            await cts.CancelAsync().ConfigureAwait(false);
+            try
+            {
+#pragma warning disable VSTHRD003 // Suppress: task is owned by this Handle and explicitly joined on stop.
+                await runTask.ConfigureAwait(false);
+#pragma warning restore VSTHRD003
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on stop.
+            }
+        }
+    }
+}
