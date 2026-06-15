@@ -4,6 +4,7 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Discord.Notifications;
 using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Pairing.Pairing;
 using RustPlusBot.Features.Pairing.Supervisor;
@@ -21,6 +22,7 @@ public sealed class PairingRegistrationTests
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IEventBus, InMemoryEventBus>();
         services.AddSingleton(Substitute.For<ICredentialProtector>());
+        services.AddSingleton(Substitute.For<IUserDmSender>());
         services.AddLogging();
         services.AddBotPersistence("DataSource=:memory:");
         services.AddOptions<PairingOptions>();
