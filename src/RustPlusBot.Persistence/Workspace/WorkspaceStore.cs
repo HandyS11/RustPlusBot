@@ -169,4 +169,13 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
             .Distinct()
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ProvisionedChannel>> GetChannelsByKeyAsync(
+        string channelKey,
+        CancellationToken cancellationToken = default) =>
+        await context.ProvisionedChannels
+            .Where(c => c.ChannelKey == channelKey)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 }

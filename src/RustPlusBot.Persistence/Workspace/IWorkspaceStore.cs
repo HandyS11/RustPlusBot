@@ -78,4 +78,12 @@ public interface IWorkspaceStore
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The distinct guild snowflakes that have at least one provisioned category.</returns>
     Task<IReadOnlyList<ulong>> GetProvisionedGuildIdsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Gets every provisioned channel with the given key across all guilds and scopes.</summary>
+    /// <param name="channelKey">The stable channel key (e.g. "teamchat").</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>All provisioned channels with that key.</returns>
+    Task<IReadOnlyList<ProvisionedChannel>> GetChannelsByKeyAsync(
+        string channelKey,
+        CancellationToken cancellationToken = default);
 }
