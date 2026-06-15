@@ -75,4 +75,17 @@ public sealed class RendererTests
         Assert.Equal("Rustopia EU", payload.Embed!.Title);
         Assert.Contains("1.2.3.4", payload.Embed.Description, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Setup_HasConnectAccountButton()
+    {
+        var renderer = new SetupMessageRenderer(Loc);
+
+        var payload = await renderer.RenderAsync(Global, default);
+
+        Assert.NotNull(payload.Components);
+        var buttons = payload.Components!.Components.OfType<ActionRowComponent>()
+            .SelectMany(r => r.Components).OfType<ButtonComponent>();
+        Assert.Contains(buttons, b => b.CustomId == "workspace:setup:connect");
+    }
 }

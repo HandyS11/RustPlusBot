@@ -5,7 +5,7 @@ using RustPlusBot.Features.Workspace.Registry;
 
 namespace RustPlusBot.Features.Workspace.Messages;
 
-/// <summary>Renders the global #setup instructions (the interactive button arrives in 1b).</summary>
+/// <summary>Renders the global #setup instructions with a Connect account button.</summary>
 /// <param name="localizer">String resolution.</param>
 internal sealed class SetupMessageRenderer(ILocalizer localizer) : IMessageRenderer
 {
@@ -21,6 +21,12 @@ internal sealed class SetupMessageRenderer(ILocalizer localizer) : IMessageRende
             .WithDescription(localizer.Get("setup.body", context.Culture))
             .WithColor(Color.Blue)
             .Build();
-        return ValueTask.FromResult(new MessagePayload(null, embed, null));
+        var components = new ComponentBuilder()
+            .WithButton(
+                localizer.Get("setup.connect.button", context.Culture),
+                WorkspaceComponentIds.ConnectAccount,
+                ButtonStyle.Primary)
+            .Build();
+        return ValueTask.FromResult(new MessagePayload(null, embed, components));
     }
 }
