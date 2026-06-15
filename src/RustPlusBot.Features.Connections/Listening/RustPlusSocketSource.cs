@@ -146,6 +146,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         {
             // CONFIRMED: SendTeamMessageAsync(string, CancellationToken) in 2.0.0-beta.1 returns Task<Response<T>>.
             // Awaiting it discards the response; the interface contract is bare Task.
+            // Intentional: send failures propagate to the caller (the supervisor classifies them), unlike the broad-catch probes.
             await _rustPlus.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
         }
 
