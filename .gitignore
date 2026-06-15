@@ -427,3 +427,6 @@ temp/
 *.db
 *.db-shm
 *.db-wal
+
+.agents/
+.claude/
