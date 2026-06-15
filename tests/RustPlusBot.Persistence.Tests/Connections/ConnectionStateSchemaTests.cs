@@ -13,7 +13,10 @@ public sealed class ConnectionStateSchemaTests
         await using var _ = context;
         await using var __ = connection;
 
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
         var serverId = server.Id;
@@ -40,7 +43,10 @@ public sealed class ConnectionStateSchemaTests
         await using var _ = context;
         await using var __ = connection;
 
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
         var serverId = server.Id;
@@ -64,7 +70,10 @@ public sealed class ConnectionStateSchemaTests
         await using var _ = context;
         await using var __ = connection;
 
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         context.ConnectionStates.Add(new ConnectionState
         {

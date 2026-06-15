@@ -9,7 +9,9 @@ internal interface IAccountDisconnectService
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>Whether the user is connected and the names of servers they would be removed from.</returns>
     Task<AccountDisconnectPreview> PreviewAsync(
-        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default);
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops the user's FCM listener, marks their registration Disabled, removes all their pool credentials
@@ -20,7 +22,9 @@ internal interface IAccountDisconnectService
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The number of servers the user was removed from.</returns>
     Task<int> DisconnectAsync(
-        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default);
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>What an account disconnect would affect.</summary>

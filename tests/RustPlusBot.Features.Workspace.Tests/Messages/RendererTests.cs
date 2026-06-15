@@ -201,7 +201,14 @@ public sealed class RendererTests
         var serverId = Guid.NewGuid();
         var servers = Substitute.For<IServerService>();
         servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = serverId, GuildId = 1, Name = "S", Ip = "1.2.3.4", Port = 28015 });
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
         var connections = Substitute.For<IConnectionStore>();
         connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new DomainConnectionState

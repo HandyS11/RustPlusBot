@@ -15,6 +15,9 @@ namespace RustPlusBot.Features.Pairing.Modules;
 public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
     : InteractionModuleBase<SocketInteractionContext>
 {
+    private const string DisconnectConfirmId = "pairing:account:disconnect:confirm";
+    private const string DisconnectCancelId = "pairing:account:disconnect:cancel";
+
     /// <summary>Opens the credentials modal when the #setup button is clicked.</summary>
     [ComponentInteraction(WorkspaceComponentIds.ConnectAccount)]
     public async Task OpenAsync()
@@ -70,9 +73,6 @@ public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
             await FollowupAsync(message, ephemeral: true).ConfigureAwait(false);
         }
     }
-
-    private const string DisconnectConfirmId = "pairing:account:disconnect:confirm";
-    private const string DisconnectCancelId = "pairing:account:disconnect:cancel";
 
     /// <summary>Opens an ephemeral confirmation listing the servers a disconnect would affect.</summary>
     [ComponentInteraction(WorkspaceComponentIds.DisconnectAccount)]

@@ -22,7 +22,9 @@ internal sealed class AccountDisconnectService(
 {
     /// <inheritdoc />
     public async Task<AccountDisconnectPreview> PreviewAsync(
-        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default)
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default)
     {
         var registration = await registrations.GetAsync(guildId, ownerUserId, cancellationToken).ConfigureAwait(false);
         var serverIds = await credentials.ListServerIdsForOwnerAsync(guildId, ownerUserId, cancellationToken)
@@ -45,7 +47,9 @@ internal sealed class AccountDisconnectService(
 
     /// <inheritdoc />
     public async Task<int> DisconnectAsync(
-        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default)
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default)
     {
         await supervisor.StopListenerAsync(guildId, ownerUserId).ConfigureAwait(false);
 

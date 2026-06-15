@@ -55,7 +55,10 @@ public sealed class ConnectionStoreTests
         var (store, context, conn) = Create();
         await using var _ = conn;
         await using var __ = context;
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
         var serverId = server.Id;

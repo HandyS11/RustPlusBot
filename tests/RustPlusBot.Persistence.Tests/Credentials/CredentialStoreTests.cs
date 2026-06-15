@@ -126,9 +126,11 @@ public sealed class CredentialStoreTests
 
         await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 1UL, 1UL, "t1"), markActive: true);
         await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverB, 1UL, 1UL, "t2"), markActive: true);
-        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 2UL, 2UL, "t3"), markActive: false);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(10UL, serverA, 2UL, 2UL, "t3"),
+            markActive: false);
         var serverOtherGuild = await SeedServerAsync(context, 20UL);
-        await store.UpsertFromPairingAsync(new StoreCredentialRequest(20UL, serverOtherGuild, 1UL, 1UL, "t4"), markActive: true);
+        await store.UpsertFromPairingAsync(new StoreCredentialRequest(20UL, serverOtherGuild, 1UL, 1UL, "t4"),
+            markActive: true);
 
         var affected = await store.RemoveForOwnerAsync(10UL, 1UL);
 

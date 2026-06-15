@@ -36,7 +36,9 @@ public interface ICredentialStore
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The distinct server ids whose pool changed.</returns>
     Task<IReadOnlyList<Guid>> RemoveForOwnerAsync(
-        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default);
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Lists the distinct server ids the owner currently holds a credential for in the guild.</summary>
     /// <param name="guildId">Owning Discord guild snowflake.</param>
@@ -44,5 +46,7 @@ public interface ICredentialStore
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The distinct server ids the owner has a credential for.</returns>
     Task<IReadOnlyList<Guid>> ListServerIdsForOwnerAsync(
-        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default);
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default);
 }

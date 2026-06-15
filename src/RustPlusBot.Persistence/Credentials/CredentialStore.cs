@@ -64,7 +64,9 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Guid>> RemoveForOwnerAsync(
-        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default)
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default)
     {
         var owned = await context.PlayerCredentials
             .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
@@ -83,7 +85,9 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Guid>> ListServerIdsForOwnerAsync(
-        ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default) =>
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default) =>
         await context.PlayerCredentials
             .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
             .Select(c => c.RustServerId)

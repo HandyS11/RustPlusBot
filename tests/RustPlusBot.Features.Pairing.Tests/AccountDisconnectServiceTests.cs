@@ -33,9 +33,15 @@ public sealed class AccountDisconnectServiceTests
         var s1 = Guid.NewGuid();
         var s2 = Guid.NewGuid();
         regs.GetAsync(10UL, 99UL, Arg.Any<CancellationToken>())
-            .Returns(new FcmRegistration { Id = regId, GuildId = 10UL, OwnerUserId = 99UL });
+            .Returns(new FcmRegistration
+            {
+                Id = regId, GuildId = 10UL, OwnerUserId = 99UL
+            });
         creds.RemoveForOwnerAsync(10UL, 99UL, Arg.Any<CancellationToken>())
-            .Returns(new List<Guid> { s1, s2 });
+            .Returns(new List<Guid>
+            {
+                s1, s2
+            });
 
         var count = await sut.DisconnectAsync(10UL, 99UL);
 
@@ -71,11 +77,24 @@ public sealed class AccountDisconnectServiceTests
         var (sut, _, regs, creds, servers, _) = Create();
         var s1 = Guid.NewGuid();
         regs.GetAsync(10UL, 99UL, Arg.Any<CancellationToken>())
-            .Returns(new FcmRegistration { Id = Guid.NewGuid(), GuildId = 10UL, OwnerUserId = 99UL });
+            .Returns(new FcmRegistration
+            {
+                Id = Guid.NewGuid(), GuildId = 10UL, OwnerUserId = 99UL
+            });
         creds.ListServerIdsForOwnerAsync(10UL, 99UL, Arg.Any<CancellationToken>())
-            .Returns(new List<Guid> { s1 });
+            .Returns(new List<Guid>
+            {
+                s1
+            });
         servers.GetAsync(10UL, s1, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = s1, GuildId = 10UL, Name = "Rustopia", Ip = "1.1.1.1", Port = 28015 });
+            .Returns(new RustServer
+            {
+                Id = s1,
+                GuildId = 10UL,
+                Name = "Rustopia",
+                Ip = "1.1.1.1",
+                Port = 28015
+            });
 
         var preview = await sut.PreviewAsync(10UL, 99UL);
 

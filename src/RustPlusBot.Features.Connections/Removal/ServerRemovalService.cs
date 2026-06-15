@@ -15,7 +15,9 @@ internal sealed class ServerRemovalService(
     IServerWorkspaceRemover workspace) : IServerRemovalService
 {
     /// <inheritdoc />
-    public async Task<bool> RemoveServerAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default)
+    public async Task<bool> RemoveServerAsync(ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken = default)
     {
         await supervisor.StopAsync(guildId, serverId).ConfigureAwait(false);
         var removed = await servers.RemoveAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
