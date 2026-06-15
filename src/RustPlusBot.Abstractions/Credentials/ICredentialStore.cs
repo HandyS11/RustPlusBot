@@ -1,13 +1,17 @@
 namespace RustPlusBot.Abstractions.Credentials;
 
-/// <summary>Persists and counts player credentials. Tokens are protected at rest.</summary>
+/// <summary>Persists and counts per-server player credentials. Tokens are protected at rest.</summary>
 public interface ICredentialStore
 {
-    /// <summary>Stores a credential (as Standby) and returns its new id.</summary>
+    /// <summary>
+    /// Inserts or refreshes the credential for (GuildId, RustServerId, OwnerUserId). The first credential
+    /// stored for a server becomes <c>Active</c>; subsequent owners are <c>Standby</c>. Re-pairing refreshes
+    /// the SteamId and token and resets an <c>Invalid</c> credential to <c>Standby</c>. Returns the credential's id.
+    /// </summary>
     /// <param name="request">The plaintext credential inputs.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The new credential's id.</returns>
-    Task<Guid> StoreAsync(StoreCredentialRequest request, CancellationToken cancellationToken = default);
+    /// <returns>The credential's id.</returns>
+    Task<Guid> UpsertFromPairingAsync(StoreCredentialRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Counts stored credentials for a server within a guild.</summary>
     /// <param name="guildId">Owning Discord guild snowflake.</param>

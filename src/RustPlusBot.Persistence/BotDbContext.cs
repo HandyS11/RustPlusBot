@@ -24,6 +24,9 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Stored player credentials.</summary>
     public DbSet<PlayerCredential> PlayerCredentials => Set<PlayerCredential>();
 
+    /// <summary>Per-user FCM listener registrations.</summary>
+    public DbSet<FcmRegistration> FcmRegistrations => Set<FcmRegistration>();
+
     /// <summary>Per-server connection state.</summary>
     public DbSet<ConnectionState> ConnectionStates => Set<ConnectionState>();
 
@@ -54,6 +57,7 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
         modelBuilder
             .ApplyConfiguration(new RustServerConfiguration())
             .ApplyConfiguration(new PlayerCredentialConfiguration())
+            .ApplyConfiguration(new FcmRegistrationConfiguration())
             .ApplyConfiguration(new ConnectionStateConfiguration())
             .ApplyConfiguration(new GuildSettingsConfiguration())
             .ApplyConfiguration(new PairedEntityConfiguration())

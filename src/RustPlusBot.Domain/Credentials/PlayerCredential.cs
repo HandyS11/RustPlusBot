@@ -24,9 +24,6 @@ public sealed class PlayerCredential
     /// <summary>Protected Rust+ player token.</summary>
     public string ProtectedPlayerToken { get; set; } = string.Empty;
 
-    /// <summary>Protected FCM/Expo credential blob (JSON), used by the pairing listener later.</summary>
-    public string ProtectedFcmCredentials { get; set; } = string.Empty;
-
     /// <summary>Pool lifecycle state.</summary>
     public CredentialStatus Status { get; set; } = CredentialStatus.Standby;
 }
