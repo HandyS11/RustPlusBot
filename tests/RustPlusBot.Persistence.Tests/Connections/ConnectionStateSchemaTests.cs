@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RustPlusBot.Domain.Connections;
+using RustPlusBot.Domain.Servers;
 
 namespace RustPlusBot.Persistence.Tests.Connections;
 
@@ -12,7 +13,10 @@ public sealed class ConnectionStateSchemaTests
         await using var _ = context;
         await using var __ = connection;
 
-        var serverId = Guid.NewGuid();
+        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        context.RustServers.Add(server);
+        await context.SaveChangesAsync();
+        var serverId = server.Id;
         context.ConnectionStates.Add(new ConnectionState
         {
             RustServerId = serverId,
@@ -36,7 +40,10 @@ public sealed class ConnectionStateSchemaTests
         await using var _ = context;
         await using var __ = connection;
 
-        var serverId = Guid.NewGuid();
+        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        context.RustServers.Add(server);
+        await context.SaveChangesAsync();
+        var serverId = server.Id;
         context.ConnectionStates.Add(new ConnectionState
         {
             RustServerId = serverId,
@@ -48,5 +55,29 @@ public sealed class ConnectionStateSchemaTests
 
         var read = await context.ConnectionStates.SingleAsync(s => s.RustServerId == serverId);
         Assert.Null(read.PlayerCount);
+    }
+
+    [Fact]
+    public async Task RemovingServer_CascadeDeletesItsConnectionState()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+
+        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        context.RustServers.Add(server);
+        context.ConnectionStates.Add(new ConnectionState
+        {
+            RustServerId = server.Id,
+            GuildId = 10UL,
+            Status = ConnectionStatus.Connected,
+            UpdatedAt = DateTimeOffset.UnixEpoch,
+        });
+        await context.SaveChangesAsync();
+
+        context.RustServers.Remove(server);
+        await context.SaveChangesAsync();
+
+        Assert.Empty(await context.ConnectionStates.ToListAsync());
     }
 }
