@@ -28,7 +28,7 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
         CancellationToken cancellationToken = default)
     {
         var existing = await context.ConnectionStates
-            .SingleOrDefaultAsync(s => s.RustServerId == serverId, cancellationToken)
+            .SingleOrDefaultAsync(s => s.GuildId == guildId && s.RustServerId == serverId, cancellationToken)
             .ConfigureAwait(false);
 
         if (existing is null)

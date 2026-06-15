@@ -46,6 +46,8 @@ builder.Services.AddOptions<ConnectionOptions>()
         "Connections:MaxRetryDelay must be at least InitialRetryDelay.")
     .Validate(static o => o.HeartbeatInterval > TimeSpan.Zero, "Connections:HeartbeatInterval must be positive.")
     .Validate(static o => o.HeartbeatTimeout > TimeSpan.Zero, "Connections:HeartbeatTimeout must be positive.")
+    .Validate(static o => o.HeartbeatTimeout < o.HeartbeatInterval,
+        "Connections:HeartbeatTimeout must be less than HeartbeatInterval.")
     .ValidateOnStart();
 builder.Services.AddConnections();
 
