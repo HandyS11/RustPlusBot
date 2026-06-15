@@ -28,7 +28,7 @@ public sealed class ConnectionComponentModule(IServiceScopeFactory scopeFactory)
         }
 
         if (!Guid.TryParse(serverIdRaw, out var serverId)
-            || selectedValues.Length == 0
+            || selectedValues.Length != 1
             || !Guid.TryParse(selectedValues[0], out var credentialId))
         {
             await RespondAsync("That selection wasn't valid.", ephemeral: true).ConfigureAwait(false);

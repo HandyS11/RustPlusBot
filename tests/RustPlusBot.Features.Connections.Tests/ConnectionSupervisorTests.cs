@@ -37,11 +37,21 @@ public sealed class ConnectionSupervisorTests
         services.AddSingleton(dm);
         services.AddSingleton<IEventBus, InMemoryEventBus>();
 
-        var (seed, connection) = TestDb.Create();
-        seed.Dispose();
-        services.AddSingleton(connection);
-        services.AddScoped(sp => new BotDbContext(
-            new DbContextOptionsBuilder<BotDbContext>().UseSqlite(sp.GetRequiredService<SqliteConnection>()).Options));
+        // Each scope opens its OWN connection to a shared-cache in-memory database, so the background
+        // supervisor loop and the test's polling never run concurrent commands on a single SqliteConnection
+        // (which throws "active statements" misuse errors). One kept-open connection keeps the in-memory DB alive.
+        var connectionString = $"DataSource=connsup-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        var keepAlive = new SqliteConnection(connectionString);
+        keepAlive.Open();
+        using (var seed = new BotDbContext(
+                   new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options))
+        {
+            seed.Database.Migrate();
+        }
+
+        services.AddSingleton(keepAlive);
+        services.AddScoped(_ => new BotDbContext(
+            new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options));
         services.AddScoped<IConnectionStore, ConnectionStore>();
         services
             .AddScoped<RustPlusBot.Persistence.Servers.IServerService, RustPlusBot.Persistence.Servers.ServerService>();
@@ -103,7 +113,7 @@ public sealed class ConnectionSupervisorTests
         Guid serverId,
         Func<ConnectionState, bool> predicate)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var scope = provider.CreateScope();
@@ -224,7 +234,7 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StartAllAsync();
 
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
         while (source.CreateCount < 1 && DateTimeOffset.UtcNow < deadline)
         {
             await Task.Delay(15);

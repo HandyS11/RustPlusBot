@@ -13,11 +13,27 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
     {
         if (!int.TryParse(playerToken, CultureInfo.InvariantCulture, out var token))
         {
-            throw new ArgumentException($"playerToken is not a valid numeric token: '{playerToken}'.",
-                nameof(playerToken));
+            LogInvalidToken(logger);
+            return new RejectedConnection();
         }
 
         return new RustPlusServerConnection(ip, port, steamId, token, logger);
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Player token is not a valid numeric token; treating the credential as rejected.")]
+    private static partial void LogInvalidToken(ILogger logger);
+
+    /// <summary>Returned when the player token is unusable; reports the credential as rejected and does nothing else.</summary>
+    private sealed class RejectedConnection : IRustServerConnection
+    {
+        public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(SocketConnectOutcome.AuthRejected);
+
+        public Task<HeartbeatResult> GetInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(HeartbeatResult.AuthRejected);
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     /// <summary>

@@ -32,6 +32,7 @@ internal sealed partial class ConnectionSupervisor(
     ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
+    private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ConnectionOptions _options = options.Value;
     private readonly CancellationTokenSource _shutdown = new();
 
@@ -40,6 +41,7 @@ internal sealed partial class ConnectionSupervisor(
     {
         await StopAllAsync().ConfigureAwait(false);
         _shutdown.Dispose();
+        _gate.Dispose();
     }
 
     /// <inheritdoc />
@@ -63,26 +65,53 @@ internal sealed partial class ConnectionSupervisor(
     public async Task EnsureConnectionAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default)
     {
         var key = (guildId, serverId);
-        await StopConnectionAsync(key).ConfigureAwait(false);
-        if (_shutdown.IsCancellationRequested)
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            return;
-        }
+            await StopConnectionAsync(key).ConfigureAwait(false);
+            if (_shutdown.IsCancellationRequested)
+            {
+                return;
+            }
 
-        var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
-        _connections[key] = new Handle(cts, Task.Run(() => RunAsync(key, cts.Token), CancellationToken.None));
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+            _connections[key] = new Handle(cts, Task.Run(() => RunAsync(key, cts.Token), CancellationToken.None));
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     /// <inheritdoc />
-    public Task StopAsync(ulong guildId, Guid serverId) => StopConnectionAsync((guildId, serverId));
+    public async Task StopAsync(ulong guildId, Guid serverId)
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await StopConnectionAsync((guildId, serverId)).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
     /// <inheritdoc />
     public async Task StopAllAsync()
     {
         await _shutdown.CancelAsync().ConfigureAwait(false);
-        foreach (var key in _connections.Keys.ToList())
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            await StopConnectionAsync(key).ConfigureAwait(false);
+            foreach (var key in _connections.Keys.ToList())
+            {
+                await StopConnectionAsync(key).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _gate.Release();
         }
     }
 

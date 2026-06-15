@@ -12,13 +12,16 @@ namespace RustPlusBot.Features.Connections.Tests.Fakes;
 /// source creates, consumed in enqueue order. This is intentional: the supervisor tests drive one
 /// server at a time and enqueue a deterministic sequence that must flow across reconnections of that
 /// server. Tests that need concurrent multi-server interleaving would require per-connection queues.
+/// Once the heartbeat queue is exhausted, the fake HOLDS the last dequeued heartbeat (mimicking a
+/// healthy server that keeps reporting the same state), rather than falling back to Ok(0).
 /// </remarks>
 internal sealed class FakeRustSocketSource : IRustSocketSource
 {
     private readonly ConcurrentQueue<SocketConnectOutcome> _connectOutcomes = new();
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
-
     private int _createCount;
+
+    private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
@@ -35,21 +38,31 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         LastIp = ip;
         LastSteamId = steamId;
         var outcome = _connectOutcomes.TryDequeue(out var next) ? next : SocketConnectOutcome.Connected;
-        return new FakeConnection(outcome, _heartbeats);
+        return new FakeConnection(outcome, this);
     }
 
     public void EnqueueConnect(SocketConnectOutcome outcome) => _connectOutcomes.Enqueue(outcome);
 
     public void EnqueueHeartbeat(HeartbeatResult result) => _heartbeats.Enqueue(result);
 
-    private sealed class FakeConnection(SocketConnectOutcome outcome, ConcurrentQueue<HeartbeatResult> heartbeats)
+    internal HeartbeatResult NextHeartbeat()
+    {
+        if (_heartbeats.TryDequeue(out var next))
+        {
+            _lastHeartbeat = next;
+        }
+
+        return _lastHeartbeat;
+    }
+
+    private sealed class FakeConnection(SocketConnectOutcome outcome, FakeRustSocketSource source)
         : IRustServerConnection
     {
         public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(outcome);
 
         public Task<HeartbeatResult> GetInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
-            Task.FromResult(heartbeats.TryDequeue(out var next) ? next : HeartbeatResult.Ok(0));
+            Task.FromResult(source.NextHeartbeat());
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

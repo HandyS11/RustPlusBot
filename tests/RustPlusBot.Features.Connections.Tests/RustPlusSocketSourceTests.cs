@@ -15,4 +15,15 @@ public sealed class RustPlusSocketSourceTests
 
         Assert.NotNull(connection);
     }
+
+    [Fact]
+    public async Task Create_NonNumericToken_YieldsAuthRejectedConnection()
+    {
+        var source = new RustPlusSocketSource(NullLogger<RustPlusSocketSource>.Instance);
+
+        var connection = source.Create("127.0.0.1", 28015, 100UL, "not-a-number");
+        await using var _ = connection;
+
+        Assert.Equal(SocketConnectOutcome.AuthRejected, await connection.ConnectAsync(TimeSpan.Zero, default));
+    }
 }
