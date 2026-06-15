@@ -29,10 +29,6 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// <summary>The Steam ID passed to the most recent <see cref="Create"/> call. Read after the operation under test has settled.</summary>
     public ulong LastSteamId { get; private set; }
 
-    public void EnqueueConnect(SocketConnectOutcome outcome) => _connectOutcomes.Enqueue(outcome);
-
-    public void EnqueueHeartbeat(HeartbeatResult result) => _heartbeats.Enqueue(result);
-
     public IRustServerConnection Create(string ip, int port, ulong steamId, string playerToken)
     {
         Interlocked.Increment(ref _createCount);
@@ -41,6 +37,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         var outcome = _connectOutcomes.TryDequeue(out var next) ? next : SocketConnectOutcome.Connected;
         return new FakeConnection(outcome, _heartbeats);
     }
+
+    public void EnqueueConnect(SocketConnectOutcome outcome) => _connectOutcomes.Enqueue(outcome);
+
+    public void EnqueueHeartbeat(HeartbeatResult result) => _heartbeats.Enqueue(result);
 
     private sealed class FakeConnection(SocketConnectOutcome outcome, ConcurrentQueue<HeartbeatResult> heartbeats)
         : IRustServerConnection

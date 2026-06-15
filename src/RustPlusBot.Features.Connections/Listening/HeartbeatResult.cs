@@ -20,13 +20,13 @@ internal enum HeartbeatKind
 /// and <see cref="AuthRejected"/> are constants.</remarks>
 internal readonly record struct HeartbeatResult(HeartbeatKind Kind, int PlayerCount)
 {
-    /// <summary>A healthy heartbeat carrying the player count.</summary>
-    /// <param name="playerCount">The number of players currently online.</param>
-    public static HeartbeatResult Ok(int playerCount) => new(HeartbeatKind.Ok, playerCount);
-
     /// <summary>An unreachable heartbeat.</summary>
     public static HeartbeatResult Unreachable { get; } = new(HeartbeatKind.Unreachable, 0);
 
     /// <summary>An auth-rejected heartbeat.</summary>
     public static HeartbeatResult AuthRejected { get; } = new(HeartbeatKind.AuthRejected, 0);
+
+    /// <summary>A healthy heartbeat carrying the player count.</summary>
+    /// <param name="playerCount">The number of players currently online.</param>
+    public static HeartbeatResult Ok(int playerCount) => new(HeartbeatKind.Ok, playerCount);
 }

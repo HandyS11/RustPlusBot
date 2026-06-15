@@ -13,7 +13,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
     {
         if (!int.TryParse(playerToken, CultureInfo.InvariantCulture, out var token))
         {
-            throw new ArgumentException($"playerToken is not a valid numeric token: '{playerToken}'.", nameof(playerToken));
+            throw new ArgumentException($"playerToken is not a valid numeric token: '{playerToken}'.",
+                nameof(playerToken));
         }
 
         return new RustPlusServerConnection(ip, port, steamId, token, logger);
@@ -29,8 +30,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
     /// </summary>
     private sealed partial class RustPlusServerConnection : IRustServerConnection
     {
-        private readonly RustPlus _rustPlus;
         private readonly ILogger _logger;
+        private readonly RustPlus _rustPlus;
 
         public RustPlusServerConnection(string ip, int port, ulong steamId, int playerToken, ILogger logger)
         {
@@ -86,7 +87,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 // Response<T>.IsSuccess and Response<T>.Data are the accessors.
                 // CONFIRMED: ServerInfo.PlayerCount is uint? (not int, not .Players).
                 // .WaitAsync guarantees we return within the timeout even if GetInfoAsync doesn't internally honor the token (unverified beta).
-                var response = await _rustPlus.GetInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+                var response = await _rustPlus.GetInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
                 if (!response.IsSuccess)
                 {
                     // VERIFY: detect the specific auth/token-rejected error shape from response or error message

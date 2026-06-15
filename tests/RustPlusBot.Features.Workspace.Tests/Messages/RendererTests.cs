@@ -65,19 +65,37 @@ public sealed class RendererTests
         var credId = Guid.NewGuid();
         var servers = Substitute.For<IServerService>();
         servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = serverId, GuildId = 1, Name = "Rustopia EU", Ip = "1.2.3.4", Port = 28015 });
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "Rustopia EU",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
 
         var connections = Substitute.For<IConnectionStore>();
         connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new DomainConnectionState
             {
-                RustServerId = serverId, GuildId = 1, ActiveCredentialId = credId,
-                Status = ConnectionStatus.Connected, PlayerCount = 12,
+                RustServerId = serverId,
+                GuildId = 1,
+                ActiveCredentialId = credId,
+                Status = ConnectionStatus.Connected,
+                PlayerCount = 12,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new List<PlayerCredential>
             {
-                new() { Id = credId, GuildId = 1, RustServerId = serverId, OwnerUserId = 7, SteamId = 76561198000000000UL, Status = CredentialStatus.Active },
+                new()
+                {
+                    Id = credId,
+                    GuildId = 1,
+                    RustServerId = serverId,
+                    OwnerUserId = 7,
+                    SteamId = 76561198000000000UL,
+                    Status = CredentialStatus.Active
+                },
             });
 
         var renderer = new ServerInfoMessageRenderer(servers, connections, Loc);
@@ -86,7 +104,8 @@ public sealed class RendererTests
 
         Assert.Contains("Rustopia EU", payload.Embed!.Title, StringComparison.Ordinal);
         Assert.Contains("12", string.Concat(payload.Embed.Fields.Select(f => f.Value)), StringComparison.Ordinal);
-        Assert.Contains("76561198000000000", string.Concat(payload.Embed.Fields.Select(f => f.Value)), StringComparison.Ordinal);
+        Assert.Contains("76561198000000000", string.Concat(payload.Embed.Fields.Select(f => f.Value)),
+            StringComparison.Ordinal);
         var selects = payload.Components!.Components.OfType<ActionRowComponent>()
             .SelectMany(r => r.Components).OfType<SelectMenuComponent>();
         Assert.Contains(selects, s => s.CustomId == $"workspace:info:swap:{serverId}");
@@ -98,10 +117,20 @@ public sealed class RendererTests
         var serverId = Guid.NewGuid();
         var servers = Substitute.For<IServerService>();
         servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = serverId, GuildId = 1, Name = "S", Ip = "1.2.3.4", Port = 28015 });
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
         var connections = Substitute.For<IConnectionStore>();
         connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new DomainConnectionState { RustServerId = serverId, GuildId = 1, Status = ConnectionStatus.NoCredentials });
+            .Returns(new DomainConnectionState
+            {
+                RustServerId = serverId, GuildId = 1, Status = ConnectionStatus.NoCredentials
+            });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new List<PlayerCredential>());
 
@@ -119,7 +148,14 @@ public sealed class RendererTests
         var serverId = Guid.NewGuid();
         var servers = Substitute.For<IServerService>();
         servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = serverId, GuildId = 1, Name = "S", Ip = "1.2.3.4", Port = 28015 });
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
         var connections = Substitute.For<IConnectionStore>();
         connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns((DomainConnectionState?)null);

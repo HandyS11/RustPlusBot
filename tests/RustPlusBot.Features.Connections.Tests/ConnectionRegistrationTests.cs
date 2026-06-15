@@ -28,7 +28,10 @@ public sealed class ConnectionRegistrationTests
         services.AddOptions<ConnectionOptions>();
         services.AddConnections();
 
-        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true
+        });
 
         Assert.NotNull(provider.GetRequiredService<IConnectionSupervisor>());
         await using var scope = provider.CreateAsyncScope();

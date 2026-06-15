@@ -133,7 +133,10 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
     {
         var rows = await context.PlayerCredentials
             .Where(c => c.Status != CredentialStatus.Invalid)
-            .Select(c => new { c.GuildId, c.RustServerId })
+            .Select(c => new
+            {
+                c.GuildId, c.RustServerId
+            })
             .Distinct()
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);

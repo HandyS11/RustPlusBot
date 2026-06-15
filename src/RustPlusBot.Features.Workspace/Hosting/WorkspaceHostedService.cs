@@ -20,8 +20,8 @@ internal sealed class WorkspaceHostedService(
     ILogger<WorkspaceHostedService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
-    private Task? _serverRegisteredLoop;
     private Task? _connectionStatusLoop;
+    private Task? _serverRegisteredLoop;
     private bool _startupDone;
 
     /// <inheritdoc />
@@ -43,7 +43,10 @@ internal sealed class WorkspaceHostedService(
         client.Ready -= OnReadyAsync;
         client.ChannelDestroyed -= OnChannelDestroyedAsync;
         await _cts.CancelAsync().ConfigureAwait(false);
-        foreach (var loop in new[] { _serverRegisteredLoop, _connectionStatusLoop })
+        foreach (var loop in new[]
+                 {
+                     _serverRegisteredLoop, _connectionStatusLoop
+                 })
         {
             if (loop is null)
             {

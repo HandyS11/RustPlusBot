@@ -21,17 +21,28 @@ public sealed class ConnectionStoreTests
 
     private static async Task<(Guid ServerId, Guid CredA, Guid CredB)> SeedServerWithPoolAsync(BotDbContext context)
     {
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         var a = new PlayerCredential
         {
-            GuildId = 10UL, RustServerId = server.Id, OwnerUserId = 1UL, SteamId = 100UL,
-            ProtectedPlayerToken = "ta", Status = CredentialStatus.Active,
+            GuildId = 10UL,
+            RustServerId = server.Id,
+            OwnerUserId = 1UL,
+            SteamId = 100UL,
+            ProtectedPlayerToken = "ta",
+            Status = CredentialStatus.Active,
         };
         var b = new PlayerCredential
         {
-            GuildId = 10UL, RustServerId = server.Id, OwnerUserId = 2UL, SteamId = 200UL,
-            ProtectedPlayerToken = "tb", Status = CredentialStatus.Standby,
+            GuildId = 10UL,
+            RustServerId = server.Id,
+            OwnerUserId = 2UL,
+            SteamId = 200UL,
+            ProtectedPlayerToken = "tb",
+            Status = CredentialStatus.Standby,
         };
         await context.PlayerCredentials.AddRangeAsync(a, b);
         await context.SaveChangesAsync();

@@ -43,7 +43,8 @@ public sealed class ConnectionSupervisorTests
         services.AddScoped(sp => new BotDbContext(
             new DbContextOptionsBuilder<BotDbContext>().UseSqlite(sp.GetRequiredService<SqliteConnection>()).Options));
         services.AddScoped<IConnectionStore, ConnectionStore>();
-        services.AddScoped<RustPlusBot.Persistence.Servers.IServerService, RustPlusBot.Persistence.Servers.ServerService>();
+        services
+            .AddScoped<RustPlusBot.Persistence.Servers.IServerService, RustPlusBot.Persistence.Servers.ServerService>();
 
         services.AddSingleton<IRustSocketSource>(source);
         services.AddSingleton(Options.Create(new ConnectionOptions
@@ -57,25 +58,40 @@ public sealed class ConnectionSupervisorTests
         services.AddSingleton<ConnectionSupervisor>();
 
         var provider = services.BuildServiceProvider();
-        return new Harness { Provider = provider, Dm = dm, Supervisor = provider.GetRequiredService<ConnectionSupervisor>() };
+        return new Harness
+        {
+            Provider = provider, Dm = dm, Supervisor = provider.GetRequiredService<ConnectionSupervisor>()
+        };
     }
 
     private static async Task<(Guid ServerId, Guid CredA, Guid CredB)> SeedAsync(
-        ServiceProvider provider, CredentialStatus bStatus = CredentialStatus.Standby)
+        ServiceProvider provider,
+        CredentialStatus bStatus = CredentialStatus.Standby)
     {
         using var scope = provider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<BotDbContext>();
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         var a = new PlayerCredential
         {
-            GuildId = 10UL, RustServerId = server.Id, OwnerUserId = 1UL, SteamId = 100UL,
-            ProtectedPlayerToken = "111", Status = CredentialStatus.Active,
+            GuildId = 10UL,
+            RustServerId = server.Id,
+            OwnerUserId = 1UL,
+            SteamId = 100UL,
+            ProtectedPlayerToken = "111",
+            Status = CredentialStatus.Active,
         };
         var b = new PlayerCredential
         {
-            GuildId = 10UL, RustServerId = server.Id, OwnerUserId = 2UL, SteamId = 200UL,
-            ProtectedPlayerToken = "222", Status = bStatus,
+            GuildId = 10UL,
+            RustServerId = server.Id,
+            OwnerUserId = 2UL,
+            SteamId = 200UL,
+            ProtectedPlayerToken = "222",
+            Status = bStatus,
         };
         await context.PlayerCredentials.AddRangeAsync(a, b);
         await context.SaveChangesAsync();
@@ -83,7 +99,9 @@ public sealed class ConnectionSupervisorTests
     }
 
     private static async Task<ConnectionState?> WaitForStateAsync(
-        ServiceProvider provider, Guid serverId, Func<ConnectionState, bool> predicate)
+        ServiceProvider provider,
+        Guid serverId,
+        Func<ConnectionState, bool> predicate)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
         while (DateTimeOffset.UtcNow < deadline)
@@ -130,7 +148,7 @@ public sealed class ConnectionSupervisorTests
     {
         var source = new FakeRustSocketSource();
         source.EnqueueConnect(SocketConnectOutcome.AuthRejected); // credential A
-        source.EnqueueConnect(SocketConnectOutcome.Connected);    // credential B
+        source.EnqueueConnect(SocketConnectOutcome.Connected); // credential B
         source.EnqueueHeartbeat(HeartbeatResult.Ok(3));
         await using var h = CreateHarness(source);
         var (serverId, credA, credB) = await SeedAsync(h.Provider);
@@ -181,8 +199,8 @@ public sealed class ConnectionSupervisorTests
     {
         var source = new FakeRustSocketSource();
         source.EnqueueConnect(SocketConnectOutcome.Connected);
-        source.EnqueueHeartbeat(HeartbeatResult.Ok(2));        // first heartbeat -> Connected
-        source.EnqueueHeartbeat(HeartbeatResult.Unreachable);  // next heartbeat -> drop
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(2)); // first heartbeat -> Connected
+        source.EnqueueHeartbeat(HeartbeatResult.Unreachable); // next heartbeat -> drop
         source.EnqueueConnect(SocketConnectOutcome.Connected); // reconnect
         source.EnqueueHeartbeat(HeartbeatResult.Ok(4));
         await using var h = CreateHarness(source);
