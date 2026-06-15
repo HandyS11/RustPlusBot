@@ -253,8 +253,12 @@ internal sealed partial class ConnectionSupervisor(
             .ConfigureAwait(false);
 
 #pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<TeamChatLine> delegate shape.
-        void OnTeamMessage(object? sender, TeamChatLine line) =>
+        void OnTeamMessage(object? sender, TeamChatLine line)
+        {
+            // Fire-and-forget: PublishTeamMessageAsync catches everything internally, so the discarded task
+            // never surfaces an unobserved exception. Team chat is low-volume, so unbounded concurrency is fine.
             _ = PublishTeamMessageAsync(key, activeSteamId, line);
+        }
 #pragma warning restore RCS1163
 
         connection.TeamMessageReceived += OnTeamMessage;
@@ -420,10 +424,17 @@ internal sealed partial class ConnectionSupervisor(
 
     private async Task PublishTeamMessageAsync((ulong Guild, Guid Server) key, ulong activeSteamId, TeamChatLine line)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         try
         {
             var evt = new TeamMessageReceivedEvent(
                 key.Guild, key.Server, line.SteamId, line.Name, line.Message, line.SteamId == activeSteamId);
+            // Use the supervisor-wide shutdown token (not a per-connection ct): an inbound line should publish
+            // regardless of one connection's reconnect cycle, stopping only on global shutdown.
             await eventBus.PublishAsync(evt, _shutdown.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
