@@ -21,5 +21,6 @@
     <ProjectReference Include="..\RustPlusBot.Features.Workspace\RustPlusBot.Features.Workspace.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Pairing\RustPlusBot.Features.Pairing.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Connections\RustPlusBot.Features.Connections.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.Chat\RustPlusBot.Features.Chat.csproj" />
   </ItemGroup>
 </Project>

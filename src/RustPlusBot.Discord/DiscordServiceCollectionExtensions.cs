@@ -18,7 +18,8 @@ public static class DiscordServiceCollectionExtensions
 
         var socketConfig = new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.Guilds, AlwaysDownloadUsers = false,
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent,
+            AlwaysDownloadUsers = false,
         };
 
         services.AddSingleton(socketConfig);

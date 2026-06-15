@@ -6,6 +6,7 @@ using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord;
+using RustPlusBot.Features.Chat;
 using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Workspace;
@@ -50,6 +51,7 @@ builder.Services.AddOptions<ConnectionOptions>()
         "Connections:HeartbeatTimeout must be less than HeartbeatInterval.")
     .ValidateOnStart();
 builder.Services.AddConnections();
+builder.Services.AddChat();
 
 var host = builder.Build();
 
