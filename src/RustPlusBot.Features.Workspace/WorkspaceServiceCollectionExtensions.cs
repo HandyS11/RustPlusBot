@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Localization;
+using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Features.Workspace.Messages;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Registry;
@@ -53,6 +54,9 @@ public static class WorkspaceServiceCollectionExtensions
 
         // Contribute this assembly's interaction modules to the Discord layer.
         services.AddSingleton(new InteractionModuleAssembly(typeof(WorkspaceServiceCollectionExtensions).Assembly));
+
+        // Channel locator (singleton with TTL cache; IClock + IServiceScopeFactory provided by the host).
+        services.AddSingleton<ITeamChatChannelLocator, TeamChatChannelLocator>();
 
         services.AddHostedService<Hosting.WorkspaceHostedService>();
 
