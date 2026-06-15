@@ -30,5 +30,6 @@ public sealed class WorkspaceRegistrationTests
 
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IWorkspaceTeardownService>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IServerWorkspaceRemover>());
     }
 }

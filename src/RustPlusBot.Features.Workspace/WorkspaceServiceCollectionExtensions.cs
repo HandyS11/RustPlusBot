@@ -44,6 +44,7 @@ public static class WorkspaceServiceCollectionExtensions
         // Reconciler + teardown (scoped).
         services.AddScoped<IWorkspaceReconciler, WorkspaceReconciler>();
         services.AddScoped<IWorkspaceTeardownService, WorkspaceTeardownService>();
+        services.AddScoped<IServerWorkspaceRemover, WorkspaceTeardownService>();
 
         // Options (Host binds the "Workspace" section; default = danger commands off).
         services.AddOptions<WorkspaceOptions>();
