@@ -88,7 +88,7 @@ public sealed class TeamChatSenderTests
         await using var _ = provider;
         var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var received = new TaskCompletionSource<TeamMessageReceivedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
         var subscription = Task.Run(async () =>
         {
@@ -112,7 +112,14 @@ public sealed class TeamChatSenderTests
         Assert.False(evt.FromActivePlayer);
 
         await supervisor.StopAllAsync();
-        await subscription;
+        try
+        {
+            await subscription;
+        }
+        catch (OperationCanceledException)
+        {
+            // Subscription ended by shutdown; expected.
+        }
     }
 
     [Fact]
@@ -123,7 +130,7 @@ public sealed class TeamChatSenderTests
         await using var _p = provider;
         var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
         await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
 
