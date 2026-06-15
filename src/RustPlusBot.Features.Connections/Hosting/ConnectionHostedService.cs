@@ -50,19 +50,17 @@ internal sealed partial class ConnectionHostedService(
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
-        // Subscription is registered when this loop first awaits the bus, after StartAllAsync completes.
+        // Subscriptions register when each loop first awaits the bus, after StartAllAsync completes.
         // The in-process bus does not replay, so events published before this point are not delivered. Safe:
-        // the server-registered event is only raised by the FCM pairing flow at runtime, long after startup.
+        // both events are only raised at runtime, long after startup.
         try
         {
             await supervisor.StartAllAsync(cancellationToken).ConfigureAwait(false);
 
-            await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await supervisor.EnsureConnectionAsync(registered.GuildId, registered.ServerId, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            await Task.WhenAll(
+                    ConsumeRegisteredAsync(cancellationToken),
+                    ConsumeCredentialsChangedAsync(cancellationToken))
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -74,6 +72,26 @@ internal sealed partial class ConnectionHostedService(
             LogLoopFaulted(logger, ex);
         }
 #pragma warning restore CA1031
+    }
+
+    private async Task ConsumeRegisteredAsync(CancellationToken cancellationToken)
+    {
+        await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken)
+                           .ConfigureAwait(false))
+        {
+            await supervisor.EnsureConnectionAsync(registered.GuildId, registered.ServerId, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task ConsumeCredentialsChangedAsync(CancellationToken cancellationToken)
+    {
+        await foreach (var changed in eventBus.SubscribeAsync<ServerCredentialsChangedEvent>(cancellationToken)
+                           .ConfigureAwait(false))
+        {
+            await supervisor.EnsureConnectionAsync(changed.GuildId, changed.ServerId, cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection hosted-service loop faulted.")]
