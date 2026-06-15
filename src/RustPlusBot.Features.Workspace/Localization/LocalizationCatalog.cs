@@ -25,6 +25,8 @@ internal sealed class LocalizationCatalog
                 ["setup.body"] =
                     "Click **Connect account** below and paste your Rust+ FCM credentials. Then pair a server in-game and its channels appear automatically.",
                 ["setup.connect.button"] = "Connect account",
+                ["setup.disconnect.button"] = "Disconnect account",
+                ["server.info.remove.button"] = "Remove server",
                 ["settings.title"] = "Settings",
                 ["settings.body"] = "Configure the bot for this server.",
                 ["settings.language.label"] = "Language",
@@ -54,6 +56,8 @@ internal sealed class LocalizationCatalog
                 ["setup.body"] =
                     "Cliquez sur **Connecter le compte** ci-dessous et collez vos identifiants FCM Rust+. Appairez ensuite un serveur en jeu et ses salons apparaitront automatiquement.",
                 ["setup.connect.button"] = "Connecter le compte",
+                ["setup.disconnect.button"] = "Déconnecter le compte",
+                ["server.info.remove.button"] = "Supprimer le serveur",
                 ["settings.title"] = "Parametres",
                 ["settings.body"] = "Configurez le bot pour ce serveur.",
                 ["settings.language.label"] = "Langue",

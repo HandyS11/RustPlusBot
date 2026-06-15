@@ -11,4 +11,10 @@ public static class WorkspaceComponentIds
 
     /// <summary>Prefix for the #info "swap active player" select; the server id is appended. Handled by Connections.</summary>
     public const string ServerInfoSwapPrefix = "workspace:info:swap:";
+
+    /// <summary>The #setup "Disconnect account" button; handled by the Pairing feature.</summary>
+    public const string DisconnectAccount = "workspace:setup:disconnect";
+
+    /// <summary>Prefix for the #info "remove server" button; the server id is appended. Handled by Connections.</summary>
+    public const string ServerInfoRemovePrefix = "workspace:info:remove:";
 }

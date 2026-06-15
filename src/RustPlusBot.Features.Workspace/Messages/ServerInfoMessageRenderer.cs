@@ -65,7 +65,7 @@ internal sealed class ServerInfoMessageRenderer(
             .Where(c => c.Status != CredentialStatus.Invalid)
             .Take(SelectMenuBuilder.MaxOptionCount) // Discord hard-limits a select menu to 25 options.
             .ToList();
-        MessageComponent? components = null;
+        var builder = new ComponentBuilder();
         if (eligible.Count > 0)
         {
             var select = new SelectMenuBuilder()
@@ -77,10 +77,15 @@ internal sealed class ServerInfoMessageRenderer(
                 select.AddOption(label, credential.Id.ToString(), isDefault: credential.Id == active?.Id);
             }
 
-            components = new ComponentBuilder().WithSelectMenu(select).Build();
+            builder.WithSelectMenu(select);
         }
 
-        return new MessagePayload(null, embed.Build(), components);
+        builder.WithButton(
+            localizer.Get("server.info.remove.button", context.Culture),
+            $"{WorkspaceComponentIds.ServerInfoRemovePrefix}{serverId}",
+            ButtonStyle.Danger);
+
+        return new MessagePayload(null, embed.Build(), builder.Build());
     }
 
     private static string Glyph(ConnectionStatus status) => status switch

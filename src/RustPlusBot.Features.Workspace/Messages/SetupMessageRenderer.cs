@@ -26,6 +26,10 @@ internal sealed class SetupMessageRenderer(ILocalizer localizer) : IMessageRende
                 localizer.Get("setup.connect.button", context.Culture),
                 WorkspaceComponentIds.ConnectAccount,
                 ButtonStyle.Primary)
+            .WithButton(
+                localizer.Get("setup.disconnect.button", context.Culture),
+                WorkspaceComponentIds.DisconnectAccount,
+                ButtonStyle.Danger)
             .Build();
         return ValueTask.FromResult(new MessagePayload(null, embed, components));
     }
