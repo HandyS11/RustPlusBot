@@ -13,7 +13,7 @@ namespace RustPlusBot.Features.Workspace.Tests.Locating;
 
 public sealed class TeamChatChannelLocatorTests
 {
-    private static (TeamChatChannelLocator Locator, ServiceProvider Provider, string ConnectionString)
+    private static (TeamChatChannelLocator Locator, ServiceProvider Provider, string ConnectionString, IClock Clock)
         CreateLocator()
     {
         var clock = Substitute.For<IClock>();
@@ -35,7 +35,7 @@ public sealed class TeamChatChannelLocatorTests
         var provider = services.BuildServiceProvider();
 
         var locator = new TeamChatChannelLocator(provider.GetRequiredService<IServiceScopeFactory>(), clock);
-        return (locator, provider, cs);
+        return (locator, provider, cs, clock);
     }
 
     private static async Task<Guid> SeedAsync(string connectionString)
@@ -63,8 +63,8 @@ public sealed class TeamChatChannelLocatorTests
     [Fact]
     public async Task GetChannelIdAsync_returns_provisioned_channel()
     {
-        var (locator, provider, cs) = CreateLocator();
-        await using var _ = provider;
+        var (locator, provider, cs, _) = CreateLocator();
+        await using var _p = provider;
         var serverId = await SeedAsync(cs);
 
         var channelId = await locator.GetChannelIdAsync(10UL, serverId, CancellationToken.None);
@@ -75,8 +75,8 @@ public sealed class TeamChatChannelLocatorTests
     [Fact]
     public async Task ResolveAsync_maps_channel_to_guild_and_server()
     {
-        var (locator, provider, cs) = CreateLocator();
-        await using var _ = provider;
+        var (locator, provider, cs, _) = CreateLocator();
+        await using var _p = provider;
         var serverId = await SeedAsync(cs);
 
         var resolved = await locator.ResolveAsync(777UL, CancellationToken.None);
@@ -89,10 +89,47 @@ public sealed class TeamChatChannelLocatorTests
     [Fact]
     public async Task ResolveAsync_returns_null_for_unknown_channel()
     {
-        var (locator, provider, cs) = CreateLocator();
+        var (locator, provider, cs, _) = CreateLocator();
         await using var _p = provider;
         await SeedAsync(cs);
 
         Assert.Null(await locator.ResolveAsync(123456UL, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Cache_refreshes_after_ttl_expires()
+    {
+        var (locator, provider, cs, clock) = CreateLocator();
+        await using var _p = provider;
+
+        // Cold load with empty DB — cache built at UnixEpoch, no rows.
+        var firstResult = await locator.GetChannelIdAsync(20UL, Guid.NewGuid(), CancellationToken.None);
+        Assert.Null(firstResult);
+
+        // Insert a server + channel into the DB after the first load.
+        await using var insertCtx =
+            new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options);
+        var server = new RustServer { GuildId = 20UL, Name = "T", Ip = "2.2.2.2", Port = 28015 };
+        insertCtx.RustServers.Add(server);
+        await insertCtx.SaveChangesAsync();
+        insertCtx.ProvisionedChannels.Add(new ProvisionedChannel
+        {
+            GuildId = 20UL,
+            RustServerId = server.Id,
+            ChannelKey = "teamchat",
+            DiscordChannelId = 888UL,
+            CreatedAt = DateTimeOffset.UnixEpoch,
+        });
+        await insertCtx.SaveChangesAsync();
+
+        // Clock still at UnixEpoch — within the 30 s TTL, cache must NOT be reloaded.
+        var withinTtlResult = await locator.GetChannelIdAsync(20UL, server.Id, CancellationToken.None);
+        Assert.Null(withinTtlResult);
+
+        // Advance the clock past the 30 s TTL — next call must rebuild the cache.
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(31));
+
+        var afterTtlResult = await locator.GetChannelIdAsync(20UL, server.Id, CancellationToken.None);
+        Assert.Equal(888UL, afterTtlResult);
     }
 }

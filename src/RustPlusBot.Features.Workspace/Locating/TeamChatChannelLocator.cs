@@ -19,11 +19,9 @@ internal sealed class TeamChatChannelLocator(IServiceScopeFactory scopeFactory, 
 
     private DateTimeOffset _builtAt = DateTimeOffset.MinValue;
 
-    private Dictionary<ulong, (ulong GuildId, Guid ServerId)> _byChannelId =
-        new Dictionary<ulong, (ulong GuildId, Guid ServerId)>();
+    private Dictionary<ulong, (ulong GuildId, Guid ServerId)> _byChannelId = new();
 
-    private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer =
-        new Dictionary<(ulong GuildId, Guid ServerId), ulong>();
+    private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer = new();
 
     /// <inheritdoc />
     public void Dispose() => _refreshGate.Dispose();
