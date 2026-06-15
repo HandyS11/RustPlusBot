@@ -20,7 +20,8 @@ internal sealed class WorkspaceHostedService(
     ILogger<WorkspaceHostedService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
-    private Task? _eventLoop;
+    private Task? _serverRegisteredLoop;
+    private Task? _connectionStatusLoop;
     private bool _startupDone;
 
     /// <inheritdoc />
@@ -31,7 +32,8 @@ internal sealed class WorkspaceHostedService(
     {
         client.Ready += OnReadyAsync;
         client.ChannelDestroyed += OnChannelDestroyedAsync;
-        _eventLoop = Task.Run(() => ConsumeServerRegisteredAsync(_cts.Token), CancellationToken.None);
+        _serverRegisteredLoop = Task.Run(() => ConsumeServerRegisteredAsync(_cts.Token), CancellationToken.None);
+        _connectionStatusLoop = Task.Run(() => ConsumeConnectionStatusAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
 
@@ -41,12 +43,17 @@ internal sealed class WorkspaceHostedService(
         client.Ready -= OnReadyAsync;
         client.ChannelDestroyed -= OnChannelDestroyedAsync;
         await _cts.CancelAsync().ConfigureAwait(false);
-        if (_eventLoop is not null)
+        foreach (var loop in new[] { _serverRegisteredLoop, _connectionStatusLoop })
         {
+            if (loop is null)
+            {
+                continue;
+            }
+
             try
             {
-#pragma warning disable VSTHRD003 // Avoid awaiting or returning a Task representing work that was not started within your context
-                await _eventLoop.ConfigureAwait(false);
+#pragma warning disable VSTHRD003 // Avoid awaiting foreign Tasks — these are our own loop tasks, joined on stop.
+                await loop.ConfigureAwait(false);
 #pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)
@@ -95,6 +102,34 @@ internal sealed class WorkspaceHostedService(
         catch (Exception ex) // Broad catch is intentional: a faulting self-heal must not crash the host.
         {
             logger.LogError(ex, "Self-heal failed for guild {GuildId}.", guildChannel.Guild.Id);
+        }
+    }
+
+    private async Task ConsumeConnectionStatusAsync(CancellationToken cancellationToken)
+    {
+        // If this loop faults (broad catch), the consumer exits permanently and info channels stop
+        // updating until the host restarts. Acceptable: the reconciler is idempotent and a restart heals.
+        try
+        {
+            await foreach (var changed in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                var scope = scopeFactory.CreateAsyncScope();
+                await using (scope.ConfigureAwait(false))
+                {
+                    var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
+                    await reconciler.ReconcileServerAsync(changed.GuildId, changed.ServerId, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+        catch (Exception ex) // Broad catch is intentional: a faulting consumer must not crash the host.
+        {
+            logger.LogError(ex, "ConnectionStatusChanged consumer faulted.");
         }
     }
 
