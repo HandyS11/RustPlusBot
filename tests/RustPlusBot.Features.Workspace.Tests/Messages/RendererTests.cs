@@ -1,10 +1,14 @@
 using Discord;
 using NSubstitute;
+using RustPlusBot.Domain.Connections;
+using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Messages;
 using RustPlusBot.Features.Workspace.Registry;
+using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
+using DomainConnectionState = RustPlusBot.Domain.Connections.ConnectionState;
 
 namespace RustPlusBot.Features.Workspace.Tests.Messages;
 
@@ -55,9 +59,10 @@ public sealed class RendererTests
     }
 
     [Fact]
-    public async Task ServerInfo_TitleIsServerName_AndEndpointShown()
+    public async Task ServerInfo_Connected_ShowsStatusActivePlayerAndCount_AndSwapSelect()
     {
         var serverId = Guid.NewGuid();
+        var credId = Guid.NewGuid();
         var servers = Substitute.For<IServerService>();
         servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new RustServer
@@ -68,12 +73,101 @@ public sealed class RendererTests
                 Ip = "1.2.3.4",
                 Port = 28015
             });
-        var renderer = new ServerInfoMessageRenderer(servers, Loc);
+
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new DomainConnectionState
+            {
+                RustServerId = serverId,
+                GuildId = 1,
+                ActiveCredentialId = credId,
+                Status = ConnectionStatus.Connected,
+                PlayerCount = 12,
+            });
+        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new List<PlayerCredential>
+            {
+                new()
+                {
+                    Id = credId,
+                    GuildId = 1,
+                    RustServerId = serverId,
+                    OwnerUserId = 7,
+                    SteamId = 76561198000000000UL,
+                    Status = CredentialStatus.Active
+                },
+            });
+
+        var renderer = new ServerInfoMessageRenderer(servers, connections, Loc);
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
-        Assert.Equal("Rustopia EU", payload.Embed!.Title);
-        Assert.Contains("1.2.3.4", payload.Embed.Description, StringComparison.Ordinal);
+        Assert.Contains("Rustopia EU", payload.Embed!.Title, StringComparison.Ordinal);
+        Assert.Contains("12", string.Concat(payload.Embed.Fields.Select(f => f.Value)), StringComparison.Ordinal);
+        Assert.Contains("76561198000000000", string.Concat(payload.Embed.Fields.Select(f => f.Value)),
+            StringComparison.Ordinal);
+        var selects = payload.Components!.Components.OfType<ActionRowComponent>()
+            .SelectMany(r => r.Components).OfType<SelectMenuComponent>();
+        Assert.Contains(selects, s => s.CustomId == $"workspace:info:swap:{serverId}");
+    }
+
+    [Fact]
+    public async Task ServerInfo_NoCredentials_ShowsNoCredentialsAndNoCount()
+    {
+        var serverId = Guid.NewGuid();
+        var servers = Substitute.For<IServerService>();
+        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new DomainConnectionState
+            {
+                RustServerId = serverId, GuildId = 1, Status = ConnectionStatus.NoCredentials
+            });
+        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new List<PlayerCredential>());
+
+        var renderer = new ServerInfoMessageRenderer(servers, connections, Loc);
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
+
+        Assert.Contains("No working credentials",
+            string.Concat(payload.Embed!.Fields.Select(f => f.Value)), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ServerInfo_NullState_DefaultsToNoCredentials()
+    {
+        var serverId = Guid.NewGuid();
+        var servers = Substitute.For<IServerService>();
+        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns((DomainConnectionState?)null);
+        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new List<PlayerCredential>());
+
+        var renderer = new ServerInfoMessageRenderer(servers, connections, Loc);
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
+
+        Assert.Contains("No working credentials",
+            string.Concat(payload.Embed!.Fields.Select(f => f.Value)), StringComparison.Ordinal);
     }
 
     [Fact]

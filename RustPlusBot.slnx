@@ -4,12 +4,14 @@
     <Project Path="src/RustPlusBot.Discord/RustPlusBot.Discord.csproj" />
     <Project Path="src/RustPlusBot.Domain/RustPlusBot.Domain.csproj" />
     <Project Path="src/RustPlusBot.Host/RustPlusBot.Host.csproj" />
+    <Project Path="src/RustPlusBot.Features.Connections/RustPlusBot.Features.Connections.csproj" />
     <Project Path="src/RustPlusBot.Features.Pairing/RustPlusBot.Features.Pairing.csproj" />
     <Project Path="src/RustPlusBot.Features.Workspace/RustPlusBot.Features.Workspace.csproj" />
     <Project Path="src/RustPlusBot.Persistence/RustPlusBot.Persistence.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RustPlusBot.Abstractions.Tests/RustPlusBot.Abstractions.Tests.csproj" />
+    <Project Path="tests/RustPlusBot.Features.Connections.Tests/RustPlusBot.Features.Connections.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Pairing.Tests/RustPlusBot.Features.Pairing.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Workspace.Tests/RustPlusBot.Features.Workspace.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Persistence.Tests/RustPlusBot.Persistence.Tests.csproj" />
