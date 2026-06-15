@@ -416,6 +416,7 @@ docs/_site/
 docs/api/
 docs/obj/
 docs/superpowers/
+docs/product/
 
 # Stryker mutation testing output
 StrykerOutput/
