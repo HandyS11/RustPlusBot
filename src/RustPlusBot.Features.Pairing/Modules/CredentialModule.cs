@@ -1,5 +1,7 @@
+using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Features.Pairing.Accounts;
 using RustPlusBot.Features.Pairing.Listening;
 using RustPlusBot.Features.Pairing.Supervisor;
 using RustPlusBot.Features.Pairing.Validation;
@@ -68,4 +70,71 @@ public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
             await FollowupAsync(message, ephemeral: true).ConfigureAwait(false);
         }
     }
+
+    private const string DisconnectConfirmId = "pairing:account:disconnect:confirm";
+    private const string DisconnectCancelId = "pairing:account:disconnect:cancel";
+
+    /// <summary>Opens an ephemeral confirmation listing the servers a disconnect would affect.</summary>
+    [ComponentInteraction(WorkspaceComponentIds.DisconnectAccount)]
+    public async Task DisconnectPromptAsync()
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var disconnect = scope.ServiceProvider.GetRequiredService<IAccountDisconnectService>();
+            var preview = await disconnect.PreviewAsync(Context.Guild.Id, Context.User.Id).ConfigureAwait(false);
+            if (!preview.IsConnected)
+            {
+                await FollowupAsync("You're not connected.", ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
+            var servers = preview.AffectedServerNames.Count > 0
+                ? string.Join(", ", preview.AffectedServerNames)
+                : "no servers yet";
+            var components = new ComponentBuilder()
+                .WithButton("Disconnect", DisconnectConfirmId, ButtonStyle.Danger)
+                .WithButton("Cancel", DisconnectCancelId, ButtonStyle.Secondary)
+                .Build();
+            await FollowupAsync(
+                    $"This disconnects your account and removes your credentials from: {servers}. Continue?",
+                    ephemeral: true, components: components)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Performs the disconnect after confirmation.</summary>
+    [ComponentInteraction(DisconnectConfirmId)]
+    public async Task DisconnectConfirmAsync()
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var disconnect = scope.ServiceProvider.GetRequiredService<IAccountDisconnectService>();
+            var count = await disconnect.DisconnectAsync(Context.Guild.Id, Context.User.Id).ConfigureAwait(false);
+            await FollowupAsync($"Account disconnected. Removed from {count} server(s).", ephemeral: true)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Cancels the disconnect.</summary>
+    [ComponentInteraction(DisconnectCancelId)]
+    public async Task DisconnectCancelAsync() =>
+        await RespondAsync("Cancelled.", ephemeral: true).ConfigureAwait(false);
 }
