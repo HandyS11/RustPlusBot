@@ -14,4 +14,13 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The heartbeat result.</returns>
     Task<HeartbeatResult> GetInfoAsync(TimeSpan timeout, CancellationToken cancellationToken);
+
+    /// <summary>Sends a message to in-game team chat.</summary>
+    /// <param name="message">The message text to send.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the send has been issued.</returns>
+    Task SendTeamMessageAsync(string message, CancellationToken cancellationToken);
+
+    /// <summary>Raised for every in-game team chat line received on this socket.</summary>
+    event EventHandler<TeamChatLine>? TeamMessageReceived;
 }

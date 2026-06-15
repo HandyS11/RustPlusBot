@@ -32,13 +32,18 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// <summary>The Steam ID passed to the most recent <see cref="Create"/> call. Read after the operation under test has settled.</summary>
     public ulong LastSteamId { get; private set; }
 
+    /// <summary>The connection produced by the most recent <see cref="Create"/> call (for driving inbound/inspecting sends).</summary>
+    internal FakeConnection? LastConnection { get; private set; }
+
     public IRustServerConnection Create(string ip, int port, ulong steamId, string playerToken)
     {
         Interlocked.Increment(ref _createCount);
         LastIp = ip;
         LastSteamId = steamId;
         var outcome = _connectOutcomes.TryDequeue(out var next) ? next : SocketConnectOutcome.Connected;
-        return new FakeConnection(outcome, this);
+        var connection = new FakeConnection(outcome, this);
+        LastConnection = connection;
+        return connection;
     }
 
     public void EnqueueConnect(SocketConnectOutcome outcome) => _connectOutcomes.Enqueue(outcome);
@@ -55,14 +60,30 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         return _lastHeartbeat;
     }
 
-    private sealed class FakeConnection(SocketConnectOutcome outcome, FakeRustSocketSource source)
+    internal sealed class FakeConnection(SocketConnectOutcome outcome, FakeRustSocketSource source)
         : IRustServerConnection
     {
+        /// <summary>Gets the messages sent via <see cref="SendTeamMessageAsync"/>.</summary>
+        public List<string> SentMessages { get; } = [];
+
+        /// <summary>Raised when a team chat message arrives on this connection.</summary>
+        public event EventHandler<TeamChatLine>? TeamMessageReceived;
+
         public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(outcome);
 
         public Task<HeartbeatResult> GetInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(source.NextHeartbeat());
+
+        public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken)
+        {
+            SentMessages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        /// <summary>Raises <see cref="TeamMessageReceived"/> to simulate an inbound team chat line.</summary>
+        /// <param name="line">The team chat line to raise.</param>
+        public void RaiseTeamMessage(TeamChatLine line) => TeamMessageReceived?.Invoke(this, line);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

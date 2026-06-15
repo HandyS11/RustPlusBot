@@ -33,6 +33,15 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task<HeartbeatResult> GetInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(HeartbeatResult.AuthRejected);
 
+        public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public event EventHandler<TeamChatLine>? TeamMessageReceived
+        {
+            add { _ = value; }
+            remove { _ = value; }
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -55,6 +64,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             // CONFIRMED: RustPlusConnection(string Server, int Port, ulong PlayerId, int PlayerToken, bool UseFacepunchProxy).
             var connection = new RustPlusConnection(ip, port, steamId, playerToken, UseFacepunchProxy: false);
             _rustPlus = new RustPlus(connection);
+            _rustPlus.OnTeamChatReceived += OnTeamChatReceived;
         }
 
         public async Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
@@ -130,8 +140,21 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             }
         }
 
+        public event EventHandler<TeamChatLine>? TeamMessageReceived;
+
+        public async Task SendTeamMessageAsync(string message, CancellationToken cancellationToken)
+        {
+            // CONFIRMED: SendTeamMessageAsync(string, CancellationToken) in 2.0.0-beta.1 returns Task<Response<T>>.
+            // Awaiting it discards the response; the interface contract is bare Task.
+            await _rustPlus.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+        }
+
+        private void OnTeamChatReceived(object? sender, RustPlusApi.Data.Events.TeamMessageEventArg e) =>
+            TeamMessageReceived?.Invoke(this, new TeamChatLine(e.SteamId, e.Name, e.Message));
+
         public async ValueTask DisposeAsync()
         {
+            _rustPlus.OnTeamChatReceived -= OnTeamChatReceived;
             try
             {
                 // CONFIRMED: RustPlusSocket implements IAsyncDisposable in 2.0.0-beta.1.
