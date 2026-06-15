@@ -69,7 +69,14 @@ internal sealed partial class DiscordTeamChatWebhookPoster(
         var hook = hooks.FirstOrDefault(h => h.Name == WebhookName)
                    ?? await channel.CreateWebhookAsync(WebhookName).ConfigureAwait(false);
         var webhookClient = new DiscordWebhookClient(hook);
-        return _clients.GetOrAdd(channelId, webhookClient);
+        var stored = _clients.GetOrAdd(channelId, webhookClient);
+        if (!ReferenceEquals(stored, webhookClient))
+        {
+            // Lost the race to cache the client (another caller cached one first); dispose the redundant one.
+            webhookClient.Dispose();
+        }
+
+        return stored;
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Posting a team chat line to channel {ChannelId} failed.")]
