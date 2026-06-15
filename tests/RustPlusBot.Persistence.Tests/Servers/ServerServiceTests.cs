@@ -50,4 +50,50 @@ public sealed class ServerServiceTests
         Assert.True(await service.RemoveAsync(10UL, server.Id));
         Assert.Empty(await service.ListAsync(10UL));
     }
+
+    [Fact]
+    public async Task ResolveOrCreateByEndpoint_CreatesWhenNew()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+
+        var (server, created) = await service.ResolveOrCreateByEndpointAsync(10UL, 99UL, "Main", "1.2.3.4", 28015);
+
+        Assert.True(created);
+        Assert.NotEqual(Guid.Empty, server.Id);
+        Assert.Single(await service.ListAsync(10UL));
+    }
+
+    [Fact]
+    public async Task ResolveOrCreateByEndpoint_ReturnsExistingForSameEndpoint()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+
+        var first = await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "Main", "1.2.3.4", 28015);
+        var second = await service.ResolveOrCreateByEndpointAsync(10UL, 2UL, "Main again", "1.2.3.4", 28015);
+
+        Assert.True(first.Created);
+        Assert.False(second.Created);
+        Assert.Equal(first.Server.Id, second.Server.Id);
+        Assert.Single(await service.ListAsync(10UL));
+    }
+
+    [Fact]
+    public async Task ResolveOrCreateByEndpoint_DifferentPortIsDistinct()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+
+        await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "A", "1.2.3.4", 28015);
+        await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "B", "1.2.3.4", 28016);
+
+        Assert.Equal(2, (await service.ListAsync(10UL)).Count);
+    }
 }

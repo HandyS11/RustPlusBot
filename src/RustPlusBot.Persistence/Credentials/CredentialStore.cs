@@ -10,9 +10,33 @@ namespace RustPlusBot.Persistence.Credentials;
 public sealed class CredentialStore(BotDbContext context, ICredentialProtector protector) : ICredentialStore
 {
     /// <inheritdoc />
-    public async Task<Guid> StoreAsync(StoreCredentialRequest request, CancellationToken cancellationToken = default)
+    public async Task<Guid> UpsertFromPairingAsync(
+        StoreCredentialRequest request,
+        bool markActive,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var existing = await context.PlayerCredentials
+            .SingleOrDefaultAsync(
+                c => c.GuildId == request.GuildId
+                     && c.RustServerId == request.RustServerId
+                     && c.OwnerUserId == request.OwnerUserId,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (existing is not null)
+        {
+            existing.SteamId = request.SteamId;
+            existing.ProtectedPlayerToken = protector.Protect(request.PlayerToken);
+            if (existing.Status == CredentialStatus.Invalid)
+            {
+                existing.Status = CredentialStatus.Standby;
+            }
+
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return existing.Id;
+        }
 
         var credential = new PlayerCredential
         {
@@ -21,8 +45,7 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
             OwnerUserId = request.OwnerUserId,
             SteamId = request.SteamId,
             ProtectedPlayerToken = protector.Protect(request.PlayerToken),
-            ProtectedFcmCredentials = protector.Protect(request.FcmCredentialsJson),
-            Status = CredentialStatus.Standby,
+            Status = markActive ? CredentialStatus.Active : CredentialStatus.Standby,
         };
 
         context.PlayerCredentials.Add(credential);

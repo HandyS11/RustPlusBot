@@ -6,6 +6,7 @@ using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord;
+using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Workspace;
 using RustPlusBot.Host.Credentials;
 using RustPlusBot.Persistence;
@@ -28,6 +29,14 @@ builder.Services.AddDiscordBot();
 builder.Services.AddOptions<WorkspaceOptions>()
     .Bind(builder.Configuration.GetSection("Workspace"));
 builder.Services.AddWorkspace();
+builder.Services.AddOptions<PairingOptions>()
+    .Bind(builder.Configuration.GetSection("Pairing"))
+    .Validate(static o => o.ProbeTimeout > TimeSpan.Zero, "Pairing:ProbeTimeout must be positive.")
+    .Validate(static o => o.InitialRetryDelay > TimeSpan.Zero, "Pairing:InitialRetryDelay must be positive.")
+    .Validate(static o => o.MaxRetryDelay >= o.InitialRetryDelay,
+        "Pairing:MaxRetryDelay must be at least InitialRetryDelay.")
+    .ValidateOnStart();
+builder.Services.AddPairing();
 
 var host = builder.Build();
 
