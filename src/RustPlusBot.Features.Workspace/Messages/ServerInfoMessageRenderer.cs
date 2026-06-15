@@ -77,13 +77,15 @@ internal sealed class ServerInfoMessageRenderer(
                 select.AddOption(label, credential.Id.ToString(), isDefault: credential.Id == active?.Id);
             }
 
-            builder.WithSelectMenu(select);
+            builder.WithSelectMenu(select, row: 0);
         }
 
+        // Keep the remove button on its own row: Discord rejects an action row that mixes a select with buttons.
         builder.WithButton(
             localizer.Get("server.info.remove.button", context.Culture),
             $"{WorkspaceComponentIds.ServerInfoRemovePrefix}{serverId}",
-            ButtonStyle.Danger);
+            ButtonStyle.Danger,
+            row: eligible.Count > 0 ? 1 : 0);
 
         return new MessagePayload(null, embed.Build(), builder.Build());
     }

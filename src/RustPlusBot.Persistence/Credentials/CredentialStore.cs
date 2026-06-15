@@ -68,18 +68,22 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
         ulong ownerUserId,
         CancellationToken cancellationToken = default)
     {
-        var owned = await context.PlayerCredentials
+        // Project the affected server ids first (no token material loaded), then delete set-based.
+        var serverIds = await context.PlayerCredentials
             .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
+            .Select(c => c.RustServerId)
+            .Distinct()
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
-        if (owned.Count == 0)
+        if (serverIds.Count == 0)
         {
             return [];
         }
 
-        var serverIds = owned.Select(c => c.RustServerId).Distinct().ToList();
-        context.PlayerCredentials.RemoveRange(owned);
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await context.PlayerCredentials
+            .Where(c => c.GuildId == guildId && c.OwnerUserId == ownerUserId)
+            .ExecuteDeleteAsync(cancellationToken)
+            .ConfigureAwait(false);
         return serverIds;
     }
 

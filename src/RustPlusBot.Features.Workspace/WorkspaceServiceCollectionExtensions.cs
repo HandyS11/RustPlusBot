@@ -41,10 +41,12 @@ public static class WorkspaceServiceCollectionExtensions
         services.AddScoped<IMessageRenderer, SettingsMessageRenderer>();
         services.AddScoped<IMessageRenderer, ServerInfoMessageRenderer>();
 
-        // Reconciler + teardown (scoped).
+        // Reconciler + teardown (scoped). Register the teardown service once and expose both interfaces
+        // off the same scoped instance, so resolving either does not create a second instance.
         services.AddScoped<IWorkspaceReconciler, WorkspaceReconciler>();
-        services.AddScoped<IWorkspaceTeardownService, WorkspaceTeardownService>();
-        services.AddScoped<IServerWorkspaceRemover, WorkspaceTeardownService>();
+        services.AddScoped<WorkspaceTeardownService>();
+        services.AddScoped<IWorkspaceTeardownService>(sp => sp.GetRequiredService<WorkspaceTeardownService>());
+        services.AddScoped<IServerWorkspaceRemover>(sp => sp.GetRequiredService<WorkspaceTeardownService>());
 
         // Options (Host binds the "Workspace" section; default = danger commands off).
         services.AddOptions<WorkspaceOptions>();

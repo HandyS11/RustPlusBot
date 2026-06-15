@@ -76,22 +76,48 @@ internal sealed partial class ConnectionHostedService(
 
     private async Task ConsumeRegisteredAsync(CancellationToken cancellationToken)
     {
-        await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken)
-                           .ConfigureAwait(false))
+        try
         {
-            await supervisor.EnsureConnectionAsync(registered.GuildId, registered.ServerId, cancellationToken)
-                .ConfigureAwait(false);
+            await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await supervisor.EnsureConnectionAsync(registered.GuildId, registered.ServerId, cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch is intentional: one faulting consumer must not stop the other or crash the host.
+        catch (Exception ex)
+        {
+            LogLoopFaulted(logger, ex);
+        }
+#pragma warning restore CA1031
     }
 
     private async Task ConsumeCredentialsChangedAsync(CancellationToken cancellationToken)
     {
-        await foreach (var changed in eventBus.SubscribeAsync<ServerCredentialsChangedEvent>(cancellationToken)
-                           .ConfigureAwait(false))
+        try
         {
-            await supervisor.EnsureConnectionAsync(changed.GuildId, changed.ServerId, cancellationToken)
-                .ConfigureAwait(false);
+            await foreach (var changed in eventBus.SubscribeAsync<ServerCredentialsChangedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await supervisor.EnsureConnectionAsync(changed.GuildId, changed.ServerId, cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch is intentional: one faulting consumer must not stop the other or crash the host.
+        catch (Exception ex)
+        {
+            LogLoopFaulted(logger, ex);
+        }
+#pragma warning restore CA1031
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection hosted-service loop faulted.")]
