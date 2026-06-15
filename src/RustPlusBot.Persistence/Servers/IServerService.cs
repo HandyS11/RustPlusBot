@@ -39,4 +39,23 @@ public interface IServerService
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The server, or null if not found in this guild.</returns>
     Task<RustServer?> GetAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the server matching (guild, ip, port), creating it if none exists. Handles the
+    /// concurrent-create race (two pairings for the same new server) by re-reading the winner.
+    /// </summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="addedByUserId">The Discord user whose pairing created it (only used on create).</param>
+    /// <param name="name">Display name (only used on create).</param>
+    /// <param name="ip">Server host or ip.</param>
+    /// <param name="port">Rust+ app port.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The resolved server and whether it was newly created.</returns>
+    Task<(RustServer Server, bool Created)> ResolveOrCreateByEndpointAsync(
+        ulong guildId,
+        ulong addedByUserId,
+        string name,
+        string ip,
+        int port,
+        CancellationToken cancellationToken = default);
 }

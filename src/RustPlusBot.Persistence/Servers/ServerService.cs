@@ -63,4 +63,42 @@ public sealed class ServerService(BotDbContext context) : IServerService
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return true;
     }
+
+    /// <inheritdoc />
+    public async Task<(RustServer Server, bool Created)> ResolveOrCreateByEndpointAsync(
+        ulong guildId,
+        ulong addedByUserId,
+        string name,
+        string ip,
+        int port,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await context.RustServers
+            .SingleOrDefaultAsync(s => s.GuildId == guildId && s.Ip == ip && s.Port == port, cancellationToken)
+            .ConfigureAwait(false);
+        if (existing is not null)
+        {
+            return (existing, false);
+        }
+
+        var server = new RustServer
+        {
+            GuildId = guildId, AddedByUserId = addedByUserId, Name = name, Ip = ip, Port = port,
+        };
+        context.RustServers.Add(server);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return (server, true);
+        }
+        catch (DbUpdateException)
+        {
+            // Another pairing created the same endpoint between the read and the write; re-read the winner.
+            context.Entry(server).State = EntityState.Detached;
+            var winner = await context.RustServers
+                .SingleAsync(s => s.GuildId == guildId && s.Ip == ip && s.Port == port, cancellationToken)
+                .ConfigureAwait(false);
+            return (winner, false);
+        }
+    }
 }
