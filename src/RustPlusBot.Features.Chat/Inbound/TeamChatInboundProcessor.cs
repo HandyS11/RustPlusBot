@@ -1,7 +1,9 @@
 using System.Globalization;
+using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Features.Chat.Relaying;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Persistence.Commands;
 
 namespace RustPlusBot.Features.Chat.Inbound;
 
@@ -9,10 +11,12 @@ namespace RustPlusBot.Features.Chat.Inbound;
 /// <param name="locator">Resolves whether/which server a channel maps to.</param>
 /// <param name="sender">Relays the formatted line into the game.</param>
 /// <param name="dedup">Records the relayed line so its in-game echo can be dropped.</param>
+/// <param name="scopeFactory">Opens a scope to read the scoped <see cref="IMuteStore"/> mute gate.</param>
 internal sealed class TeamChatInboundProcessor(
     ITeamChatChannelLocator locator,
     ITeamChatSender sender,
-    RelayDedupBuffer dedup)
+    RelayDedupBuffer dedup,
+    IServiceScopeFactory scopeFactory)
 {
     /// <summary>Processes one observed Discord message.</summary>
     /// <param name="message">The reduced message.</param>
@@ -29,6 +33,18 @@ internal sealed class TeamChatInboundProcessor(
         if (target is not { } t)
         {
             return InboundOutcome.Ignored;
+        }
+
+        // A muted server silences ALL bot->game output: ignore fully (neither record a dedup entry nor send).
+        // IMuteStore is scoped, so resolve it from a fresh scope rather than capturing it on this singleton.
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var muteStore = scope.ServiceProvider.GetRequiredService<IMuteStore>();
+            if (await muteStore.GetMutedAsync(t.GuildId, t.ServerId, cancellationToken).ConfigureAwait(false))
+            {
+                return InboundOutcome.Ignored;
+            }
         }
 
         var key = (t.GuildId, t.ServerId);

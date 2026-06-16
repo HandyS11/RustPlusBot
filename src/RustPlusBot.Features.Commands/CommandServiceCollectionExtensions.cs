@@ -1,0 +1,37 @@
+using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Features.Commands.Dispatching;
+using RustPlusBot.Features.Commands.Handlers;
+using RustPlusBot.Features.Commands.Hosting;
+using RustPlusBot.Features.Commands.Localization;
+
+namespace RustPlusBot.Features.Commands;
+
+/// <summary>DI registration for the in-game command framework.</summary>
+public static class CommandServiceCollectionExtensions
+{
+    /// <summary>Registers the dispatcher, cooldown, localizer, handlers, and hosted service.</summary>
+    /// <param name="services">The service collection to add to.</param>
+    /// <returns>The same service collection, for chaining.</returns>
+    public static IServiceCollection AddCommands(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<CommandCooldown>();
+        services.AddSingleton<BotUptime>();
+        // CommandLocalizationCatalog has a required member, so register the prebuilt Default instance.
+        services.AddSingleton(CommandLocalizationCatalog.Default);
+        services.AddSingleton<ICommandLocalizer, CommandLocalizer>();
+
+        services.AddScoped<ICommandHandler, MuteCommandHandler>();
+        services.AddScoped<ICommandHandler, UnmuteCommandHandler>();
+        services.AddScoped<ICommandHandler, UptimeCommandHandler>();
+        services.AddScoped<ICommandHandler, PopCommandHandler>();
+        services.AddScoped<ICommandHandler, WipeCommandHandler>();
+        services.AddScoped<ICommandHandler, TimeCommandHandler>();
+
+        services.AddScoped<CommandDispatcher>();
+        services.AddHostedService<CommandsHostedService>();
+
+        return services;
+    }
+}

@@ -10,6 +10,7 @@ using RustPlusBot.Features.Chat.Relaying;
 using RustPlusBot.Features.Chat.Webhooks;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Persistence.Commands;
 
 namespace RustPlusBot.Features.Chat.Tests;
 
@@ -70,6 +71,10 @@ public sealed class ChatRegistrationTests
         services.AddSingleton(locator);
         services.AddSingleton(sender);
         services.AddLogging();
+
+        // IMuteStore is scoped in production; register it scoped here so ValidateScopes catches any captive
+        // dependency on the singleton inbound processor (it must resolve the store per message, not capture it).
+        services.AddScoped(_ => Substitute.For<IMuteStore>());
         services.AddChat();
 
         // Override the real webhook poster so the relay's (non-)posting can be asserted.

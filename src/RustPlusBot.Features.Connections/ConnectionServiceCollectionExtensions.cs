@@ -21,6 +21,7 @@ public static class ConnectionServiceCollectionExtensions
         services.AddSingleton<ConnectionSupervisor>();
         services.AddSingleton<IConnectionSupervisor>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddSingleton<ITeamChatSender>(sp => sp.GetRequiredService<ConnectionSupervisor>());
+        services.AddSingleton<IRustServerQuery>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddScoped<IServerRemovalService, ServerRemovalService>();
 
         // Contribute this assembly's interaction modules to the Discord layer.

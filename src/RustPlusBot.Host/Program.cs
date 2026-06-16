@@ -7,6 +7,7 @@ using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Chat;
+using RustPlusBot.Features.Commands;
 using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Workspace;
@@ -52,6 +53,11 @@ builder.Services.AddOptions<ConnectionOptions>()
     .ValidateOnStart();
 builder.Services.AddConnections();
 builder.Services.AddChat();
+builder.Services.AddOptions<CommandOptions>()
+    .Bind(builder.Configuration.GetSection("Commands"))
+    .Validate(static o => o.Cooldown > TimeSpan.Zero, "Commands:Cooldown must be positive.")
+    .ValidateOnStart();
+builder.Services.AddCommands();
 
 var host = builder.Build();
 

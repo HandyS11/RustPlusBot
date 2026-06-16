@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Persistord.Core;
+using RustPlusBot.Domain.Commands;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Entities;
@@ -30,6 +31,9 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Per-server connection state.</summary>
     public DbSet<ConnectionState> ConnectionStates => Set<ConnectionState>();
 
+    /// <summary>Per-server command settings (trigger prefix and mute state).</summary>
+    public DbSet<ServerCommandSettings> ServerCommandSettings => Set<ServerCommandSettings>();
+
     /// <summary>Per-guild settings.</summary>
     public DbSet<GuildSettings> GuildSettings => Set<GuildSettings>();
 
@@ -59,6 +63,7 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new PlayerCredentialConfiguration())
             .ApplyConfiguration(new FcmRegistrationConfiguration())
             .ApplyConfiguration(new ConnectionStateConfiguration())
+            .ApplyConfiguration(new ServerCommandSettingsConfiguration())
             .ApplyConfiguration(new GuildSettingsConfiguration())
             .ApplyConfiguration(new PairedEntityConfiguration())
             .ApplyConfiguration(new EventSubscriptionConfiguration())
