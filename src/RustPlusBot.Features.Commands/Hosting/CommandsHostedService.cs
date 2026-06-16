@@ -56,9 +56,12 @@ internal sealed partial class CommandsHostedService(
             {
                 try
                 {
-                    using var scope = scopeFactory.CreateScope();
-                    var dispatcher = scope.ServiceProvider.GetRequiredService<CommandDispatcher>();
-                    await dispatcher.DispatchAsync(evt, cancellationToken).ConfigureAwait(false);
+                    var scope = scopeFactory.CreateAsyncScope();
+                    await using (scope.ConfigureAwait(false))
+                    {
+                        var dispatcher = scope.ServiceProvider.GetRequiredService<CommandDispatcher>();
+                        await dispatcher.DispatchAsync(evt, cancellationToken).ConfigureAwait(false);
+                    }
                 }
                 catch (OperationCanceledException)
                 {

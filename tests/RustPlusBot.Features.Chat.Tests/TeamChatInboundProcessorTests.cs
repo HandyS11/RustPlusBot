@@ -1,9 +1,11 @@
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Chat.Inbound;
 using RustPlusBot.Features.Chat.Relaying;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Persistence.Commands;
 
 namespace RustPlusBot.Features.Chat.Tests;
 
@@ -11,8 +13,8 @@ public sealed class TeamChatInboundProcessorTests
 {
     private static readonly Guid ServerId = Guid.NewGuid();
 
-    private static (TeamChatInboundProcessor Processor, ITeamChatSender Sender, RelayDedupBuffer Dedup) Build(
-        TeamChatSendResult sendResult = TeamChatSendResult.Sent)
+    private static (TeamChatInboundProcessor Processor, ITeamChatSender Sender, RelayDedupBuffer Dedup, IMuteStore Mute)
+        Build(TeamChatSendResult sendResult = TeamChatSendResult.Sent)
     {
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
@@ -24,14 +26,22 @@ public sealed class TeamChatInboundProcessorTests
         locator.ResolveAsync(777UL, Arg.Any<CancellationToken>()).Returns(((ulong, Guid)?)(10UL, ServerId));
         locator.ResolveAsync(Arg.Is<ulong>(c => c != 777UL), Arg.Any<CancellationToken>())
             .Returns(((ulong, Guid)?)null);
-        var processor = new TeamChatInboundProcessor(locator, sender, dedup);
-        return (processor, sender, dedup);
+        var muteStore = Substitute.For<IMuteStore>();
+        muteStore.GetMutedAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(false);
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
+        var scope = Substitute.For<IServiceScope>();
+        var scopeProvider = Substitute.For<IServiceProvider>();
+        scopeProvider.GetService(typeof(IMuteStore)).Returns(muteStore);
+        scope.ServiceProvider.Returns(scopeProvider);
+        scopeFactory.CreateScope().Returns(scope);
+        var processor = new TeamChatInboundProcessor(locator, sender, dedup, scopeFactory);
+        return (processor, sender, dedup, muteStore);
     }
 
     [Fact]
     public async Task Ignores_bot_or_webhook_authors()
     {
-        var (processor, sender, _) = Build();
+        var (processor, sender, _, _) = Build();
         var msg = new InboundMessage(AuthorIsBotOrWebhook: true, 777UL, "Alice", "hi");
 
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
@@ -44,7 +54,7 @@ public sealed class TeamChatInboundProcessorTests
     [Fact]
     public async Task Ignores_non_teamchat_channels()
     {
-        var (processor, sender, _) = Build();
+        var (processor, sender, _, _) = Build();
         var msg = new InboundMessage(AuthorIsBotOrWebhook: false, 555UL, "Alice", "hi");
 
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
@@ -57,7 +67,7 @@ public sealed class TeamChatInboundProcessorTests
     [Fact]
     public async Task Ignores_empty_content()
     {
-        var (processor, sender, _) = Build();
+        var (processor, sender, _, _) = Build();
         var msg = new InboundMessage(AuthorIsBotOrWebhook: false, 777UL, "Alice", "   ");
 
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
@@ -70,7 +80,7 @@ public sealed class TeamChatInboundProcessorTests
     [Fact]
     public async Task Formats_records_and_sends()
     {
-        var (processor, sender, dedup) = Build();
+        var (processor, sender, dedup, _) = Build();
         var msg = new InboundMessage(AuthorIsBotOrWebhook: false, 777UL, "Alice", "hello");
 
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
@@ -83,11 +93,25 @@ public sealed class TeamChatInboundProcessorTests
     [Fact]
     public async Task Reports_failed_when_not_connected()
     {
-        var (processor, _, _) = Build(TeamChatSendResult.NotConnected);
+        var (processor, _, _, _) = Build(TeamChatSendResult.NotConnected);
         var msg = new InboundMessage(AuthorIsBotOrWebhook: false, 777UL, "Alice", "hello");
 
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
 
         Assert.Equal(InboundOutcome.Failed, outcome);
+    }
+
+    [Fact]
+    public async Task Ignores_muted_server()
+    {
+        var (processor, sender, _, mute) = Build();
+        mute.GetMutedAsync(10UL, ServerId, Arg.Any<CancellationToken>()).Returns(true);
+        var msg = new InboundMessage(AuthorIsBotOrWebhook: false, 777UL, "Alice", "hello");
+
+        var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
+
+        Assert.Equal(InboundOutcome.Ignored, outcome);
+        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 }
