@@ -22,10 +22,7 @@ public sealed class ServerCommandSettingsSchemaTests
         var serverId = server.Id;
         context.ServerCommandSettings.Add(new ServerCommandSettings
         {
-            ServerId = serverId,
-            GuildId = 1UL,
-            Prefix = "?",
-            Muted = true,
+            ServerId = serverId, GuildId = 1UL, Prefix = "?", Muted = true,
         });
         await context.SaveChangesAsync();
 
@@ -48,10 +45,7 @@ public sealed class ServerCommandSettingsSchemaTests
         context.RustServers.Add(server);
         context.ServerCommandSettings.Add(new ServerCommandSettings
         {
-            ServerId = server.Id,
-            GuildId = 1UL,
-            Prefix = "!",
-            Muted = false,
+            ServerId = server.Id, GuildId = 1UL, Prefix = "!", Muted = false,
         });
         await context.SaveChangesAsync();
 

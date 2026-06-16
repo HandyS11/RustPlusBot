@@ -9,8 +9,8 @@ namespace RustPlusBot.Features.Commands.Dispatching;
 /// <param name="options">The command options carrying the cooldown window.</param>
 internal sealed class CommandCooldown(IClock clock, IOptions<CommandOptions> options)
 {
-    private readonly ConcurrentDictionary<(Guid Server, string Name), DateTimeOffset> _last = new();
     private readonly TimeSpan _cooldown = options.Value.Cooldown;
+    private readonly ConcurrentDictionary<(Guid Server, string Name), DateTimeOffset> _last = new();
 
     /// <summary>Returns true if the command may run now (and records the run); false if on cooldown.</summary>
     /// <param name="serverId">The server id.</param>

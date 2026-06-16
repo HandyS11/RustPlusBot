@@ -12,21 +12,10 @@ namespace RustPlusBot.Features.Commands.Tests.Dispatching;
 
 public sealed class CommandDispatcherTests
 {
-    private sealed class TestClock : IClock { public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch; }
-
-    private sealed class StubHandler(string name) : ICommandHandler
-    {
-        public int Calls { get; private set; }
-        public string Name => name;
-        public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
-        {
-            Calls++;
-            return Task.FromResult<string?>("reply");
-        }
-    }
-
     private static (CommandDispatcher Sut, ITeamChatSender Sender, StubHandler Handler) Build(
-        bool muted = false, string prefix = "!", string handlerName = "pop")
+        bool muted = false,
+        string prefix = "!",
+        string handlerName = "pop")
     {
         var sender = Substitute.For<ITeamChatSender>();
         var settings = Substitute.For<IMuteStore>();
@@ -35,7 +24,8 @@ public sealed class CommandDispatcherTests
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
         var handler = new StubHandler(handlerName);
-        var cooldown = new CommandCooldown(new TestClock(), Microsoft.Extensions.Options.Options.Create(new CommandOptions()));
+        var cooldown = new CommandCooldown(new TestClock(),
+            Microsoft.Extensions.Options.Options.Create(new CommandOptions()));
         var sut = new CommandDispatcher([handler], cooldown, settings, workspace, sender,
             NullLogger<CommandDispatcher>.Instance);
         return (sut, sender, handler);
@@ -59,7 +49,8 @@ public sealed class CommandDispatcherTests
         var (sut, sender, handler) = Build();
         await sut.DispatchAsync(Evt("!pop", fromActive: true), CancellationToken.None);
         Assert.Equal(0, handler.Calls);
-        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -76,7 +67,8 @@ public sealed class CommandDispatcherTests
         var (sut, sender, handler) = Build();
         await sut.DispatchAsync(Evt("!nope"), CancellationToken.None);
         Assert.Equal(0, handler.Calls);
-        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -85,7 +77,8 @@ public sealed class CommandDispatcherTests
         var (sut, sender, handler) = Build(muted: true); // handler is "pop"
         await sut.DispatchAsync(Evt("!pop"), CancellationToken.None);
         Assert.Equal(0, handler.Calls);
-        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -113,5 +106,22 @@ public sealed class CommandDispatcherTests
         await sut.DispatchAsync(evt, CancellationToken.None);
         await sut.DispatchAsync(evt, CancellationToken.None); // same server+command within window
         Assert.Equal(1, handler.Calls);
+    }
+
+    private sealed class TestClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
+    }
+
+    private sealed class StubHandler(string name) : ICommandHandler
+    {
+        public int Calls { get; private set; }
+        public string Name => name;
+
+        public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult<string?>("reply");
+        }
     }
 }

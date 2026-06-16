@@ -7,13 +7,11 @@ namespace RustPlusBot.Features.Commands.Tests.Dispatching;
 
 public sealed class CommandCooldownTests
 {
-    private sealed class TestClock : IClock
-    {
-        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
-    }
-
     private static CommandCooldown Make(TestClock clock) =>
-        new(clock, Options.Create(new CommandOptions { Cooldown = TimeSpan.FromSeconds(4) }));
+        new(clock, Options.Create(new CommandOptions
+        {
+            Cooldown = TimeSpan.FromSeconds(4)
+        }));
 
     [Fact]
     public void FirstUse_IsAllowed()
@@ -52,5 +50,10 @@ public sealed class CommandCooldownTests
         Assert.True(cd.TryConsume(server, "pop"));
         Assert.True(cd.TryConsume(server, "time"));
         Assert.True(cd.TryConsume(Guid.NewGuid(), "pop"));
+    }
+
+    private sealed class TestClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
     }
 }

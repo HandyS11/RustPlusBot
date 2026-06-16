@@ -17,7 +17,10 @@ public sealed class MuteStore(BotDbContext context) : IMuteStore
     }
 
     /// <inheritdoc />
-    public async Task SetMutedAsync(ulong guildId, Guid serverId, bool muted, CancellationToken cancellationToken = default)
+    public async Task SetMutedAsync(ulong guildId,
+        Guid serverId,
+        bool muted,
+        CancellationToken cancellationToken = default)
     {
         var existing = await context.ServerCommandSettings
             .SingleOrDefaultAsync(s => s.GuildId == guildId && s.ServerId == serverId, cancellationToken)
@@ -27,9 +30,7 @@ public sealed class MuteStore(BotDbContext context) : IMuteStore
         {
             context.ServerCommandSettings.Add(new ServerCommandSettings
             {
-                GuildId = guildId,
-                ServerId = serverId,
-                Muted = muted,
+                GuildId = guildId, ServerId = serverId, Muted = muted,
             });
         }
         else
@@ -41,7 +42,9 @@ public sealed class MuteStore(BotDbContext context) : IMuteStore
     }
 
     /// <inheritdoc />
-    public async Task<string> GetPrefixAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default)
+    public async Task<string> GetPrefixAsync(ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken = default)
     {
         var row = await context.ServerCommandSettings
             .SingleOrDefaultAsync(s => s.GuildId == guildId && s.ServerId == serverId, cancellationToken)

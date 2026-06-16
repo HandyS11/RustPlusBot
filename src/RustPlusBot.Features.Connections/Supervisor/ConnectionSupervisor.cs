@@ -126,6 +126,34 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<ServerInfoSnapshot?> GetServerInfoAsync(
+        ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection.GetServerInfoAsync(_options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<ServerTimeSnapshot?> GetTimeAsync(ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection.GetTimeAsync(_options.HeartbeatTimeout, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<TeamChatSendResult> SendAsync(
         ulong guildId,
         Guid serverId,
@@ -153,32 +181,6 @@ internal sealed partial class ConnectionSupervisor(
             LogSendFailed(logger, ex, serverId);
             return TeamChatSendResult.Failed;
         }
-    }
-
-    /// <inheritdoc />
-    public async Task<ServerInfoSnapshot?> GetServerInfoAsync(
-        ulong guildId,
-        Guid serverId,
-        CancellationToken cancellationToken)
-    {
-        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
-        {
-            return null;
-        }
-
-        return await live.Connection.GetServerInfoAsync(_options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task<ServerTimeSnapshot?> GetTimeAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
-    {
-        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
-        {
-            return null;
-        }
-
-        return await live.Connection.GetTimeAsync(_options.HeartbeatTimeout, cancellationToken).ConfigureAwait(false);
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]

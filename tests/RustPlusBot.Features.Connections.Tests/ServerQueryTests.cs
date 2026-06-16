@@ -20,7 +20,8 @@ namespace RustPlusBot.Features.Connections.Tests;
 
 public sealed class ServerQueryTests
 {
-    private static (ServiceProvider Provider, ConnectionSupervisor Supervisor) CreateHarness(FakeRustSocketSource source)
+    private static (ServiceProvider Provider, ConnectionSupervisor Supervisor) CreateHarness(
+        FakeRustSocketSource source)
     {
         var protector = Substitute.For<ICredentialProtector>();
         protector.Unprotect(Arg.Any<string>()).Returns(c => c.Arg<string>());

@@ -7,7 +7,6 @@ namespace RustPlusBot.Features.Commands.Localization;
 /// <param name="catalog">The string catalog.</param>
 internal sealed class CommandLocalizer(CommandLocalizationCatalog catalog) : ICommandLocalizer
 {
-
     private const string FallbackCulture = "en";
 
     /// <inheritdoc />

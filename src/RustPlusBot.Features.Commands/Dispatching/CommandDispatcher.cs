@@ -9,14 +9,18 @@ namespace RustPlusBot.Features.Commands.Dispatching;
 /// <summary>Turns a received in-game line into a parsed, authorized, rate-limited command + reply.</summary>
 internal sealed partial class CommandDispatcher
 {
-    private static readonly HashSet<string> MuteExempt = new(StringComparer.Ordinal) { "mute", "unmute" };
+    private static readonly HashSet<string> MuteExempt = new(StringComparer.Ordinal)
+    {
+        "mute", "unmute"
+    };
+
+    private readonly CommandCooldown _cooldown;
 
     private readonly Dictionary<string, ICommandHandler> _handlers;
-    private readonly CommandCooldown _cooldown;
-    private readonly IMuteStore _muteStore;
-    private readonly IWorkspaceStore _workspace;
-    private readonly ITeamChatSender _sender;
     private readonly ILogger<CommandDispatcher> _logger;
+    private readonly IMuteStore _muteStore;
+    private readonly ITeamChatSender _sender;
+    private readonly IWorkspaceStore _workspace;
 
     /// <summary>Initializes the dispatcher.</summary>
     /// <param name="handlers">The available command handlers.</param>
@@ -55,7 +59,8 @@ internal sealed partial class CommandDispatcher
             return;
         }
 
-        var prefix = await _muteStore.GetPrefixAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
+        var prefix = await _muteStore.GetPrefixAsync(evt.GuildId, evt.ServerId, cancellationToken)
+            .ConfigureAwait(false);
         if (!CommandLine.TryParse(prefix, evt.Message, out var line) ||
             !_handlers.TryGetValue(line.Name, out var handler))
         {
@@ -75,7 +80,8 @@ internal sealed partial class CommandDispatcher
         }
 
         var culture = await _workspace.GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
-        var context = new CommandContext(evt.GuildId, evt.ServerId, culture, evt.SenderSteamId, evt.SenderName, line.Args);
+        var context = new CommandContext(evt.GuildId, evt.ServerId, culture, evt.SenderSteamId, evt.SenderName,
+            line.Args);
 
         string? reply;
         try

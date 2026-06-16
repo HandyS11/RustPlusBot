@@ -10,7 +10,8 @@ namespace RustPlusBot.Features.Commands.Handlers;
 /// <param name="query">The live server query.</param>
 /// <param name="localizer">The reply localizer.</param>
 /// <param name="clock">The clock used to compute the elapsed time since wipe.</param>
-internal sealed class WipeCommandHandler(IRustServerQuery query, ICommandLocalizer localizer, IClock clock) : ICommandHandler
+internal sealed class WipeCommandHandler(IRustServerQuery query, ICommandLocalizer localizer, IClock clock)
+    : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "wipe";
@@ -19,7 +20,8 @@ internal sealed class WipeCommandHandler(IRustServerQuery query, ICommandLocaliz
     public async Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var info = await query.GetServerInfoAsync(context.GuildId, context.ServerId, cancellationToken).ConfigureAwait(false);
+        var info = await query.GetServerInfoAsync(context.GuildId, context.ServerId, cancellationToken)
+            .ConfigureAwait(false);
         if (info is null)
         {
             return localizer.Get("command.notconnected", context.Culture);
@@ -30,6 +32,7 @@ internal sealed class WipeCommandHandler(IRustServerQuery query, ICommandLocaliz
             return localizer.Get("command.wipe.unknown", context.Culture);
         }
 
-        return localizer.Get("command.wipe.ok", context.Culture, DurationFormat.Compact(clock.UtcNow - info.WipeTimeUtc.Value));
+        return localizer.Get("command.wipe.ok", context.Culture,
+            DurationFormat.Compact(clock.UtcNow - info.WipeTimeUtc.Value));
     }
 }

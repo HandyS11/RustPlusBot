@@ -16,7 +16,8 @@ internal sealed class PopCommandHandler(IRustServerQuery query, ICommandLocalize
     public async Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var info = await query.GetServerInfoAsync(context.GuildId, context.ServerId, cancellationToken).ConfigureAwait(false);
+        var info = await query.GetServerInfoAsync(context.GuildId, context.ServerId, cancellationToken)
+            .ConfigureAwait(false);
         if (info is null)
         {
             return localizer.Get("command.notconnected", context.Culture);

@@ -12,7 +12,6 @@ public sealed class QueryHandlersTests
 {
     private static readonly ICommandLocalizer Loc = new CommandLocalizer(CommandLocalizationCatalog.Default);
     private static CommandContext Ctx() => new(1, Guid.NewGuid(), "en", 7, "alice", []);
-    private sealed class TestClock : IClock { public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch; }
 
     [Fact]
     public async Task Pop_FormatsPlayersMaxQueued()
@@ -38,7 +37,10 @@ public sealed class QueryHandlersTests
     [Fact]
     public async Task Wipe_ReportsAgo()
     {
-        var clock = new TestClock { UtcNow = DateTimeOffset.UnixEpoch.AddDays(2) };
+        var clock = new TestClock
+        {
+            UtcNow = DateTimeOffset.UnixEpoch.AddDays(2)
+        };
         var query = Substitute.For<IRustServerQuery>();
         var ctx = Ctx();
         query.GetServerInfoAsync(ctx.GuildId, ctx.ServerId, Arg.Any<CancellationToken>())
@@ -109,5 +111,10 @@ public sealed class QueryHandlersTests
         clock.UtcNow = clock.UtcNow.AddHours(3);
         var reply = await new UptimeCommandHandler(uptime, Loc).ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.Equal("Uptime: 3h 0m", reply);
+    }
+
+    private sealed class TestClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
     }
 }
