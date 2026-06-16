@@ -29,7 +29,7 @@ internal sealed partial class ConnectionSupervisor(
     ICredentialProtector protector,
     IEventBus eventBus,
     IOptions<ConnectionOptions> options,
-    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IAsyncDisposable
+    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -153,6 +153,32 @@ internal sealed partial class ConnectionSupervisor(
             LogSendFailed(logger, ex, serverId);
             return TeamChatSendResult.Failed;
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<ServerInfoSnapshot?> GetServerInfoAsync(
+        ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection.GetServerInfoAsync(_options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<ServerTimeSnapshot?> GetTimeAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection.GetTimeAsync(_options.HeartbeatTimeout, cancellationToken).ConfigureAwait(false);
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]

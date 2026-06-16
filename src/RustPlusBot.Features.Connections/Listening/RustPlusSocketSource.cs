@@ -33,6 +33,12 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task<HeartbeatResult> GetInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(HeartbeatResult.AuthRejected);
 
+        public Task<ServerInfoSnapshot?> GetServerInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<ServerInfoSnapshot?>(null);
+
+        public Task<ServerTimeSnapshot?> GetTimeAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<ServerTimeSnapshot?>(null);
+
         public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
@@ -140,6 +146,76 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             }
         }
 
+        public async Task<ServerInfoSnapshot?> GetServerInfoAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.1): GetInfoAsync returns Task<Response<ServerInfo?>>; Response.IsSuccess/.Data.
+                // ServerInfo getters: PlayerCount/MaxPlayerCount/QueuedPlayerCount are uint?; WipeTime is DateTime?
+                // documented as "UTC time of the last forced wipe" (the AppInfo->ServerInfo mapper yields Kind=Utc).
+                var response = await _rustPlus.GetInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                if (!response.IsSuccess || response.Data is null)
+                {
+                    return null;
+                }
+
+                var info = response.Data;
+                DateTimeOffset? wipeTime = info.WipeTime is { } wipe
+                    ? new DateTimeOffset(DateTime.SpecifyKind(wipe, DateTimeKind.Utc))
+                    : null;
+                return new ServerInfoSnapshot(
+                    (int)(info.PlayerCount ?? 0u),
+                    (int)(info.MaxPlayerCount ?? 0u),
+                    (int)(info.QueuedPlayerCount ?? 0u),
+                    wipeTime);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: any info-query failure maps to null; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return null;
+            }
+        }
+
+        public async Task<ServerTimeSnapshot?> GetTimeAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.1): GetTimeAsync returns Task<Response<TimeInfo?>>; Response.IsSuccess/.Data.
+                // TimeInfo getters Time/Sunrise/Sunset are float. 'Time' is the current in-game time of day.
+                var response = await _rustPlus.GetTimeAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                if (!response.IsSuccess || response.Data is null)
+                {
+                    return null;
+                }
+
+                var time = response.Data;
+                return new ServerTimeSnapshot(time.Time, time.Sunrise, time.Sunset);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: any time-query failure maps to null; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return null;
+            }
+        }
+
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
         public async Task SendTeamMessageAsync(string message, CancellationToken cancellationToken)
@@ -175,6 +251,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "Rust+ heartbeat (GetInfo) failed.")]
         private static partial void LogHeartbeatFailed(ILogger logger, Exception ex);
+
+        [LoggerMessage(Level = LogLevel.Warning, Message = "Rust+ server query failed.")]
+        private static partial void LogQueryFailed(ILogger logger, Exception ex);
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "Rust+ socket teardown failed.")]
         private static partial void LogDisposeFailed(ILogger logger, Exception ex);
