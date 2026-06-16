@@ -8,7 +8,6 @@ public sealed class CommandOptionsTests
     public void Defaults_AreSensible()
     {
         var options = new CommandOptions();
-        Assert.Equal("!", options.DefaultPrefix);
-        Assert.True(options.Cooldown > TimeSpan.Zero);
+        Assert.Equal(TimeSpan.FromSeconds(4), options.Cooldown);
     }
 }

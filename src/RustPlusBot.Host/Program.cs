@@ -55,7 +55,6 @@ builder.Services.AddConnections();
 builder.Services.AddChat();
 builder.Services.AddOptions<CommandOptions>()
     .Bind(builder.Configuration.GetSection("Commands"))
-    .Validate(static o => !string.IsNullOrWhiteSpace(o.DefaultPrefix), "Commands:DefaultPrefix must not be empty.")
     .Validate(static o => o.Cooldown > TimeSpan.Zero, "Commands:Cooldown must be positive.")
     .ValidateOnStart();
 builder.Services.AddCommands();
