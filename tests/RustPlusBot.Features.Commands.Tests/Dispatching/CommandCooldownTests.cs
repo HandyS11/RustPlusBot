@@ -52,6 +52,24 @@ public sealed class CommandCooldownTests
         Assert.True(cd.TryConsume(Guid.NewGuid(), "pop"));
     }
 
+    [Fact]
+    public void ConcurrentCallers_ForSameKey_LetExactlyOneThrough()
+    {
+        var cd = Make(new TestClock());
+        var server = Guid.NewGuid();
+        var allowedCount = 0;
+
+        Parallel.For(0, 64, _ =>
+        {
+            if (cd.TryConsume(server, "pop"))
+            {
+                Interlocked.Increment(ref allowedCount);
+            }
+        });
+
+        Assert.Equal(1, allowedCount);
+    }
+
     private sealed class TestClock : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;

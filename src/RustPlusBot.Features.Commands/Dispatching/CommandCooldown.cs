@@ -15,24 +15,39 @@ internal sealed class CommandCooldown(IClock clock, IOptions<CommandOptions> opt
     /// <summary>Returns true if the command may run now (and records the run); false if on cooldown.</summary>
     /// <param name="serverId">The server id.</param>
     /// <param name="name">The lowercase command name.</param>
+    /// <remarks>
+    /// Uses a lock-free compare-and-swap so concurrent callers for the same key are gated atomically:
+    /// exactly one thread wins the write and returns true. (The dispatcher is single-threaded per event,
+    /// but this keeps the gate correct under any caller.)
+    /// </remarks>
     public bool TryConsume(Guid serverId, string name)
     {
         var now = clock.UtcNow;
         var key = (serverId, name);
-        var allowed = true;
-        _last.AddOrUpdate(
-            key,
-            now,
-            (_, previous) =>
+
+        while (true)
+        {
+            if (!_last.TryGetValue(key, out var previous))
             {
-                if (now - previous < _cooldown)
+                // No prior run: the thread that inserts first wins; others fall through to the update path.
+                if (_last.TryAdd(key, now))
                 {
-                    allowed = false;
-                    return previous;
+                    return true;
                 }
 
-                return now;
-            });
-        return allowed;
+                continue;
+            }
+
+            if (now - previous < _cooldown)
+            {
+                return false;
+            }
+
+            // Window elapsed: only the thread whose CAS replaces this exact 'previous' wins.
+            if (_last.TryUpdate(key, now, previous))
+            {
+                return true;
+            }
+        }
     }
 }
