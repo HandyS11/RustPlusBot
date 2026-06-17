@@ -56,6 +56,10 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             CancellationToken cancellationToken = default) =>
             Task.FromResult<MapDimensions?>(null);
 
+        public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonumentSnapshot>>([]);
+
         public event EventHandler<TeamChatLine>? TeamMessageReceived
         {
             add { _ = value; }
@@ -372,6 +376,36 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 LogQueryFailed(_logger, ex);
                 return null;
             }
+        }
+
+        public async Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            // CONFIRMED (2.0.0-beta.1): GetMapAsync returns Task<Response<RustPlusApi.Data.ServerMap>>.
+            // ServerMap.Monuments is List<ServerMapMonument> with Name (= protobuf token, e.g. "oilrig_1"),
+            // Nullable<float> X/Y. We surface (token, x, y) and skip monuments with incomplete coordinates.
+            var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                .ConfigureAwait(false);
+            if (!response.IsSuccess || response.Data is null)
+            {
+                throw new InvalidOperationException("GetMap returned no data.");
+            }
+
+            var monuments = new List<MonumentSnapshot>();
+            foreach (var m in response.Data.Monuments ?? [])
+            {
+                if (m.Name is null || m.X is not { } x || m.Y is not { } y)
+                {
+                    continue;
+                }
+
+                monuments.Add(new MonumentSnapshot(m.Name, x, y));
+            }
+
+            return monuments;
         }
 
         public async ValueTask DisposeAsync()
