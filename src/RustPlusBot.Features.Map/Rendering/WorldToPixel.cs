@@ -15,14 +15,16 @@ public static class WorldToPixel
     {
         ArgumentNullException.ThrowIfNull(dims);
 
-        // The full tile (with ocean margin on each side) spans [-margin, Width+margin].
+        // The full tile adds the ocean margin on each side, so each axis spans
+        // [-margin, dimension+margin]. Each axis is scaled by its own dimension so the projection
+        // is correct even if a server ever reports a non-square map (Rust maps are square today).
         var margin = dims.OceanMargin;
-        var span = dims.Width + (2f * margin);
-        var perUnit = outputSize / span;
+        var perUnitX = outputSize / (dims.Width + (2f * margin));
+        var perUnitY = outputSize / (dims.Height + (2f * margin));
 
-        var px = (worldX + margin) * perUnit;
+        var px = (worldX + margin) * perUnitX;
         // Flip Y: world south (0) is the visual bottom (image y = outputSize), world north is the top.
-        var py = outputSize - ((worldY + margin) * perUnit);
+        var py = outputSize - ((worldY + margin) * perUnitY);
         return (px, py);
     }
 }

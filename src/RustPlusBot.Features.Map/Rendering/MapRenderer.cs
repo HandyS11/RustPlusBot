@@ -82,12 +82,18 @@ public sealed class MapRenderer
 
         image.Mutate(ctx =>
         {
-            for (var world = 0f; world <= dims.Width; world += GridDiameter)
+            // Vertical lines step across the X axis (width); horizontal lines step across the Y axis
+            // (height). Driving each axis from its own dimension keeps the grid correct on a
+            // non-square map (Rust maps are square today, so Width == Height in practice).
+            for (var worldX = 0f; worldX <= dims.Width; worldX += GridDiameter)
             {
-                var (vx, _) = WorldToPixel.ToPixel(world, 0f, dims, OutputSize);
+                var (vx, _) = WorldToPixel.ToPixel(worldX, 0f, dims, OutputSize);
                 ctx.DrawLine(gridColor, OutlinePenWidth, new PointF(vx, 0), new PointF(vx, OutputSize));
+            }
 
-                var (_, hy) = WorldToPixel.ToPixel(0f, world, dims, OutputSize);
+            for (var worldY = 0f; worldY <= dims.Height; worldY += GridDiameter)
+            {
+                var (_, hy) = WorldToPixel.ToPixel(0f, worldY, dims, OutputSize);
                 ctx.DrawLine(gridColor, OutlinePenWidth, new PointF(0, hy), new PointF(OutputSize, hy));
             }
         });

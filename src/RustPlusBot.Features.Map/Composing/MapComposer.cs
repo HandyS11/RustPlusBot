@@ -7,8 +7,9 @@ namespace RustPlusBot.Features.Map.Composing;
 /// <summary>Gathers the cached base map + live markers and renders the map PNG.</summary>
 /// <param name="cache">The base-map cache.</param>
 /// <param name="events">Live marker state.</param>
+/// <param name="query">Live query seam (supplies the static map dimensions).</param>
 /// <param name="renderer">The image renderer.</param>
-public sealed class MapComposer(BaseMapCache cache, IEventState events, MapRenderer renderer)
+public sealed class MapComposer(BaseMapCache cache, IEventState events, IRustServerQuery query, MapRenderer renderer)
 {
     private static readonly MarkerKind[] DrawnKinds =
     [
@@ -28,23 +29,24 @@ public sealed class MapComposer(BaseMapCache cache, IEventState events, MapRende
             return null;
         }
 
-        var active = DrawnKinds
-            .SelectMany(kind => events.GetActiveMarkers(guildId, serverId, kind))
-            .ToList();
-
-        var dims = active.FirstOrDefault(m => m.Dimensions is not null)?.Dimensions;
+        // Dimensions come from the map itself (not from a marker), so the grid renders even when no
+        // markers are present — e.g. on a freshly-connected or low-activity server.
+        var dims = await query.GetMapDimensionsAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (dims is null)
         {
-            // No dimensions known yet: render the base tile only (no grid/markers need world→pixel).
+            // Dimensions unavailable: render the base tile only (grid/markers both need world→pixel).
             return renderer.Render(baseImage, new MapDimensions(0, 0, 0), markers: [],
                 new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Rigs: false));
         }
 
-        var placements = active.ConvertAll(m =>
-        {
-            var (px, py) = WorldToPixel.ToPixel(m.X, m.Y, dims, MapRenderer.OutputSize);
-            return new MarkerPlacement(m.Kind, px, py);
-        });
+        var placements = DrawnKinds
+            .SelectMany(kind => events.GetActiveMarkers(guildId, serverId, kind))
+            .Select(m =>
+            {
+                var (px, py) = WorldToPixel.ToPixel(m.X, m.Y, dims, MapRenderer.OutputSize);
+                return new MarkerPlacement(m.Kind, px, py);
+            })
+            .ToList();
 
         return renderer.Render(baseImage, dims, placements, MapLayerSet.Default2b);
     }

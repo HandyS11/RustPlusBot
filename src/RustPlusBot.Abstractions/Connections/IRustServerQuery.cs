@@ -38,4 +38,11 @@ public interface IRustServerQuery
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The base-map JPEG bytes, or null when there is no live socket.</returns>
     Task<byte[]?> GetMapImageAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
+
+    /// <summary>Gets the static map dimensions (for grid rendering), or null when there is no live socket.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The map dimensions, or null when there is no live socket.</returns>
+    Task<MapDimensions?> GetMapDimensionsAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
 }

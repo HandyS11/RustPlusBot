@@ -1,7 +1,7 @@
 namespace RustPlusBot.Features.Map.Rendering;
 
 /// <summary>Which overlay layers the renderer should draw. 2b uses <see cref="Default2b"/>; 2b-ii feeds this from per-server settings.</summary>
-/// <param name="Grid">Draw the A0–Z grid lines and labels.</param>
+/// <param name="Grid">Draw the map grid lines (cell labels are a 2b-ii addition).</param>
 /// <param name="Markers">Draw live cargo/heli/chinook markers.</param>
 /// <param name="Monuments">Draw monument icons (2b-ii).</param>
 /// <param name="Vendor">Draw the travelling-vendor marker (2b-ii).</param>
