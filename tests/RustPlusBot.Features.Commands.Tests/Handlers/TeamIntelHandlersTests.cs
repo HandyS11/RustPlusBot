@@ -81,4 +81,64 @@ public sealed class TeamIntelHandlersTests
         var reply = await new OfflineCommandHandler(query, Loc).ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.Equal("Everyone is online.", reply);
     }
+
+    [Fact]
+    public async Task Team_ListsAllMembers()
+    {
+        var query = QueryReturning(new TeamInfoSnapshot(7UL,
+        [
+            Member(7UL, "alice"),
+            Member(8UL, "bob", online: false),
+        ]));
+        var reply = await new TeamCommandHandler(query, Loc).ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("Team (2): alice, bob", reply);
+    }
+
+    [Fact]
+    public async Task Team_None_WhenNoMembers()
+    {
+        var reply = await new TeamCommandHandler(QueryReturning(new TeamInfoSnapshot(0UL, [])), Loc)
+            .ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("No team members.", reply);
+    }
+
+    [Fact]
+    public async Task SteamId_NoArg_ListsAll()
+    {
+        var query = QueryReturning(new TeamInfoSnapshot(7UL,
+        [
+            Member(7UL, "alice"),
+            Member(8UL, "bob"),
+        ]));
+        var reply = await new SteamIdCommandHandler(query, Loc).ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("alice 7, bob 8", reply);
+    }
+
+    [Fact]
+    public async Task SteamId_NameArg_FiltersToOne()
+    {
+        var query = QueryReturning(new TeamInfoSnapshot(7UL,
+        [
+            Member(7UL, "alice"),
+            Member(8UL, "bob"),
+        ]));
+        var reply = await new SteamIdCommandHandler(query, Loc).ExecuteAsync(Ctx("bob"), CancellationToken.None);
+        Assert.Equal("bob 8", reply);
+    }
+
+    [Fact]
+    public async Task SteamId_NameArg_NoMatch_ReportsNoMatch()
+    {
+        var query = QueryReturning(new TeamInfoSnapshot(7UL, [Member(7UL, "alice")]));
+        var reply = await new SteamIdCommandHandler(query, Loc).ExecuteAsync(Ctx("zed"), CancellationToken.None);
+        Assert.Equal("No teammate matches 'zed'.", reply);
+    }
+
+    [Fact]
+    public async Task SteamId_None_WhenNoMembers()
+    {
+        var reply = await new SteamIdCommandHandler(QueryReturning(new TeamInfoSnapshot(0UL, [])), Loc)
+            .ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("No team members.", reply);
+    }
 }
