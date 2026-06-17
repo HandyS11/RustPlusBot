@@ -16,4 +16,11 @@ public interface IRustServerQuery
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>An in-game time snapshot, or null when there is no live socket.</returns>
     Task<ServerTimeSnapshot?> GetTimeAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
+
+    /// <summary>Gets a team snapshot, or null when there is no live socket.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A team snapshot, or null when there is no live socket.</returns>
+    Task<TeamInfoSnapshot?> GetTeamInfoAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
 }

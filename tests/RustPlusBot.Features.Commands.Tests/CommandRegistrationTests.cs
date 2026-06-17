@@ -40,9 +40,15 @@ public sealed class CommandRegistrationTests
         using var scope = provider.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CommandDispatcher>());
         var handlers = scope.ServiceProvider.GetServices<ICommandHandler>().ToList();
-        Assert.Equal(6, handlers.Count);
+        Assert.Equal(12, handlers.Count);
         Assert.Contains(handlers, h => h.Name == "mute");
         Assert.Contains(handlers, h => h.Name == "pop");
         Assert.Contains(handlers, h => h.Name == "time");
+        Assert.Contains(handlers, h => h.Name == "online");
+        Assert.Contains(handlers, h => h.Name == "offline");
+        Assert.Contains(handlers, h => h.Name == "team");
+        Assert.Contains(handlers, h => h.Name == "steamid");
+        Assert.Contains(handlers, h => h.Name == "alive");
+        Assert.Contains(handlers, h => h.Name == "prox");
     }
 }

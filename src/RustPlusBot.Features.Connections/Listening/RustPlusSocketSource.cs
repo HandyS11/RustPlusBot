@@ -39,6 +39,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task<ServerTimeSnapshot?> GetTimeAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<ServerTimeSnapshot?>(null);
 
+        public Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<TeamInfoSnapshot?>(null);
+
         public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
@@ -208,6 +211,48 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 return null;
             }
 #pragma warning disable CA1031 // Broad catch: any time-query failure maps to null; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return null;
+            }
+        }
+
+        public async Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.1): GetTeamInfoAsync returns Task<Response<TeamInfo?>>; Response.IsSuccess/.Data.
+                // TeamInfo.LeaderSteamId (ulong), TeamInfo.Members (IEnumerable<MemberInfo>?).
+                // MemberInfo: SteamId/Name?/X/Y/IsOnline/IsAlive/LastSpawnTime(DateTime,UTC)/LastDeathTime(DateTime,UTC).
+                var response = await _rustPlus.GetTeamInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                if (!response.IsSuccess || response.Data is null)
+                {
+                    return null;
+                }
+
+                var members = (response.Data.Members ?? [])
+                    .Select(m => new TeamMemberSnapshot(
+                        m.SteamId,
+                        m.Name ?? string.Empty,
+                        m.X,
+                        m.Y,
+                        m.IsOnline,
+                        m.IsAlive,
+                        new DateTimeOffset(DateTime.SpecifyKind(m.LastSpawnTime, DateTimeKind.Utc)),
+                        new DateTimeOffset(DateTime.SpecifyKind(m.LastDeathTime, DateTimeKind.Utc))))
+                    .ToList();
+                return new TeamInfoSnapshot(response.Data.LeaderSteamId, members);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: any team-query failure maps to null; never surface a token/secret.
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
