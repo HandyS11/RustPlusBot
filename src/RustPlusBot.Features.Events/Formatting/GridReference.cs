@@ -23,12 +23,13 @@ public static class GridReference
                 $"({Math.Round(x)}, {Math.Round(y)})");
         }
 
-        var mapSize = dims.Width;
-        var columns = (int)Math.Ceiling(mapSize / GridDiameter);
-        var col = (int)Math.Floor(Math.Clamp(x, 0f, mapSize - 1) / GridDiameter);
+        // Columns run along X (Width); rows along Y (Height). Rust maps are square in practice, but
+        // derive each axis from its own dimension so the math is correct by construction, not by accident.
+        var col = (int)Math.Floor(Math.Clamp(x, 0f, dims.Width - 1) / GridDiameter);
+        var rowCount = (int)Math.Ceiling(dims.Height / GridDiameter);
         // Rows are numbered from the TOP; world Y increases upward, so invert.
-        var rowFromBottom = (int)Math.Floor(Math.Clamp(y, 0f, mapSize - 1) / GridDiameter);
-        var row = Math.Max(0, columns - rowFromBottom - 1);
+        var rowFromBottom = (int)Math.Floor(Math.Clamp(y, 0f, dims.Height - 1) / GridDiameter);
+        var row = Math.Max(0, rowCount - rowFromBottom - 1);
 
         return string.Create(CultureInfo.InvariantCulture, $"{ColumnLetters(col)}{row}");
     }
