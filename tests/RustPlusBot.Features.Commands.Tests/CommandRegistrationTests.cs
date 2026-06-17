@@ -7,8 +7,10 @@ using RustPlusBot.Discord;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Features.Commands.Servers;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Persistence.Commands;
+using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Commands.Tests;
@@ -26,6 +28,7 @@ public sealed class CommandRegistrationTests
         services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
         services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
+        services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
         services.AddOptions<CommandOptions>();
         services.AddCommands();
 
@@ -45,12 +48,15 @@ public sealed class CommandRegistrationTests
         Assert.Contains(handlers, h => h.Name == "mute");
         Assert.Contains(handlers, h => h.Name == "pop");
         Assert.Contains(handlers, h => h.Name == "time");
+        Assert.Contains(handlers, h => h.Name == "wipe");
         Assert.Contains(handlers, h => h.Name == "online");
         Assert.Contains(handlers, h => h.Name == "offline");
         Assert.Contains(handlers, h => h.Name == "team");
         Assert.Contains(handlers, h => h.Name == "steamid");
         Assert.Contains(handlers, h => h.Name == "alive");
         Assert.Contains(handlers, h => h.Name == "prox");
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerResolver>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerQueryService>());
     }
 
     [Fact]
@@ -64,6 +70,7 @@ public sealed class CommandRegistrationTests
         services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
         services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
+        services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
         services.AddOptions<CommandOptions>();
         services.AddCommands();
 

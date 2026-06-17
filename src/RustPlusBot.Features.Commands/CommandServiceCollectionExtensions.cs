@@ -6,6 +6,7 @@ using RustPlusBot.Features.Commands.Help;
 using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Leader;
 using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Features.Commands.Servers;
 
 namespace RustPlusBot.Features.Commands;
 
@@ -44,6 +45,8 @@ public static class CommandServiceCollectionExtensions
         // Discord surfaces (3c): help renderer, leader service, and the interaction modules.
         services.AddScoped<HelpEmbedRenderer>();
         services.AddScoped<LeaderService>();
+        services.AddScoped<ServerResolver>();
+        services.AddScoped<ServerQueryService>();
         services.AddSingleton(new InteractionModuleAssembly(typeof(CommandServiceCollectionExtensions).Assembly));
 
         return services;
