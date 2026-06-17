@@ -154,6 +154,42 @@ public sealed class ServerQueryTests
         Assert.Null(snapshot);
     }
 
+    [Fact]
+    public async Task GetTeamInfo_ReturnsSnapshot_WhenConnected()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+        var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        source.LastConnection!.TeamResult = new TeamInfoSnapshot(
+            555UL,
+            [new TeamMemberSnapshot(555UL, "alice", 1f, 2f, true, true, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)]);
+        var snapshot = await supervisor.GetTeamInfoAsync(10UL, serverId, cts.Token);
+
+        Assert.NotNull(snapshot);
+        Assert.Equal(555UL, snapshot.LeaderSteamId);
+        Assert.Single(snapshot.Members);
+        Assert.Equal("alice", snapshot.Members[0].Name);
+        await supervisor.StopAllAsync();
+    }
+
+    [Fact]
+    public async Task GetTeamInfo_ReturnsNull_WhenNoLiveSocket()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+
+        var snapshot = await supervisor.GetTeamInfoAsync(10UL, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Null(snapshot);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
     {
         while (!condition())

@@ -72,6 +72,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The snapshot returned by <see cref="GetTimeAsync"/>. Defaults to a non-null zero snapshot.</summary>
         public ServerTimeSnapshot? TimeResult { get; set; } = new(0f, 0f, 0f);
 
+        /// <summary>The snapshot returned by <see cref="GetTeamInfoAsync"/>. Defaults to a non-null empty snapshot.</summary>
+        public TeamInfoSnapshot? TeamResult { get; set; } = new(0UL, []);
+
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
@@ -86,6 +89,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         public Task<ServerTimeSnapshot?> GetTimeAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(TimeResult);
+
+        public Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(TeamResult);
 
         public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken)
         {
