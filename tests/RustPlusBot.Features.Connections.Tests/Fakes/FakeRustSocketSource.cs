@@ -99,6 +99,20 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             return Task.CompletedTask;
         }
 
+        /// <summary>The result returned by <see cref="PromoteToLeaderAsync"/>. Defaults to true.</summary>
+        public bool PromoteResult { get; set; } = true;
+
+        /// <summary>The Steam ID passed to the most recent <see cref="PromoteToLeaderAsync"/> call.</summary>
+        public ulong LastPromotedSteamId { get; private set; }
+
+#pragma warning disable RCS1163 // Unused parameters for fake implementation
+        public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken)
+#pragma warning restore RCS1163
+        {
+            LastPromotedSteamId = steamId;
+            return Task.FromResult(PromoteResult);
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         /// <summary>Raises <see cref="TeamMessageReceived"/> to simulate an inbound team chat line.</summary>
