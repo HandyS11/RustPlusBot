@@ -23,12 +23,15 @@ public sealed class ServerAutocompleteHandler : AutocompleteHandler
             return AutocompletionResult.FromSuccess();
         }
 
+        var typed = autocompleteInteraction.Data.Current.Value as string;
         var scope = services.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
             var servers = scope.ServiceProvider.GetRequiredService<IServerService>();
             var known = await servers.ListAsync(context.Guild.Id).ConfigureAwait(false);
             var results = known
+                .Where(s => string.IsNullOrEmpty(typed) ||
+                            s.Name.Contains(typed, StringComparison.OrdinalIgnoreCase))
                 .Take(25)
                 .Select(s => new AutocompleteResult(s.Name, s.Id.ToString()));
             return AutocompletionResult.FromSuccess(results);

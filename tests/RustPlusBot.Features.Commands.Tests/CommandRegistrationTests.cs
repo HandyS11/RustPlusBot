@@ -48,6 +48,7 @@ public sealed class CommandRegistrationTests
         Assert.Contains(handlers, h => h.Name == "mute");
         Assert.Contains(handlers, h => h.Name == "pop");
         Assert.Contains(handlers, h => h.Name == "time");
+        Assert.Contains(handlers, h => h.Name == "wipe");
         Assert.Contains(handlers, h => h.Name == "online");
         Assert.Contains(handlers, h => h.Name == "offline");
         Assert.Contains(handlers, h => h.Name == "team");
