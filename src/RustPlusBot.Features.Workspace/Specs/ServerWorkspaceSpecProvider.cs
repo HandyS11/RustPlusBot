@@ -12,6 +12,8 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
             ChannelPermissionProfile.ReadOnly, 0),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerTeamChat, "channel.teamchat.name",
             ChannelPermissionProfile.Interactive, 1),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerEvents, "channel.events.name",
+            ChannelPermissionProfile.ReadOnly, 2),
     ];
 
     /// <inheritdoc />

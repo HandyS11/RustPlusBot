@@ -64,13 +64,17 @@ public sealed class ConnectionSupervisorTests
             MaxRetryDelay = TimeSpan.FromMilliseconds(20),
             HeartbeatInterval = TimeSpan.FromMilliseconds(20),
             HeartbeatTimeout = TimeSpan.FromMilliseconds(200),
+            MarkerPollInterval = TimeSpan.FromMilliseconds(20),
         }));
         services.AddSingleton<ConnectionSupervisor>();
 
         var provider = services.BuildServiceProvider();
         return new Harness
         {
-            Provider = provider, Dm = dm, Supervisor = provider.GetRequiredService<ConnectionSupervisor>()
+            Provider = provider,
+            Dm = dm,
+            Supervisor = provider.GetRequiredService<ConnectionSupervisor>(),
+            Bus = provider.GetRequiredService<IEventBus>(),
         };
     }
 
@@ -243,11 +247,192 @@ public sealed class ConnectionSupervisorTests
         Assert.True(source.CreateCount >= 1);
     }
 
+    [Fact]
+    public async Task First_marker_poll_is_a_silent_baseline()
+    {
+        // Contract: the FIRST poll after connect must not publish any event even when markers are
+        // present on that first poll (the baseline records them silently). Only LATER changes alert.
+        //
+        // Script:
+        //   Poll 1 → [CargoShip]     (baseline — must NOT fire an event)
+        //   Poll 2 → [CargoShip]     (no change — still no event)
+        //   Poll 3 → [CargoShip, PatrolHelicopter]  (heli added — ONE event, Added=[heli])
+        //
+        // Waiting for the definite heli-event signal proves both that baseline suppression held AND
+        // that the diff works, without any fixed-sleep assertion.
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<MapMarkersChangedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<MapMarkersChangedEvent>(cts.Token))
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        // Script the three polls before EnsureConnectionAsync so the script is in place before the
+        // poll loop starts — no race between test setup and the supervisor's background poll task.
+        var cargo = new MapMarkerSnapshot(1UL, MarkerKind.CargoShip, 1f, 1f, null);
+        var heli = new MapMarkerSnapshot(2UL, MarkerKind.PatrolHelicopter, 2f, 2f, null);
+        source.EnqueueMarkers([cargo]); // poll 1: baseline (silent)
+        source.EnqueueMarkers([cargo]); // poll 2: no change
+        source.EnqueueMarkers([cargo, heli]); // poll 3: heli added → one event
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        // Wait for the heli-added event — its arrival is the definite signal that at least three
+        // poll cycles have completed and proves the baseline CargoShip never triggered an event.
+        await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
+
+        Assert.Single(captured);
+        Assert.True(captured.TryPeek(out var evt));
+        Assert.Single(evt!.Added);
+        Assert.Equal(MarkerKind.PatrolHelicopter, evt.Added[0].Kind);
+        Assert.Empty(evt.Removed);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task Marker_added_on_a_later_poll_publishes_changed_event()
+    {
+        // Contract: first poll is a silent baseline; a new marker on a subsequent poll fires exactly
+        // one MapMarkersChangedEvent with the correct Added entry and the connect-time dimensions.
+        //
+        // Script:
+        //   Poll 1 → []              (baseline — no event)
+        //   Poll 2 → [CargoShip]     (added → one event)
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<MapMarkersChangedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<MapMarkersChangedEvent>(cts.Token))
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        // FakeConnection default DimensionsResult is new(4000u, 4000u, 500); assert those exact values.
+        var expectedDims = new MapDimensions(4000u, 4000u, 500);
+
+        // Script polls before EnsureConnectionAsync so the marker script is in the connection before
+        // the poll loop can start — eliminates any setup race.
+        source.EnqueueMarkers([]); // poll 1: baseline
+        source.EnqueueMarkers([new MapMarkerSnapshot(2UL, MarkerKind.CargoShip, 1f, 1f, "Cargo A")]); // poll 2
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        // Wait for the definite signal: the CargoShip-added event.
+        await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
+
+        Assert.Single(captured);
+        Assert.True(captured.TryPeek(out var evt));
+        Assert.NotNull(evt);
+        Assert.Single(evt!.Added);
+        Assert.Equal(MarkerKind.CargoShip, evt.Added[0].Kind);
+        Assert.Empty(evt.Removed);
+        Assert.Equal(expectedDims, evt.Dimensions);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task Failed_marker_poll_retains_previous_snapshot()
+    {
+        // Contract: a thrown poll does not corrupt the previous snapshot.
+        //
+        // Script:
+        //   Poll 1 → []          (baseline — no event)
+        //   Poll 2 → [CargoShip] (added → exactly one event; queue empties, hold-last = CargoShip)
+        //   Poll 3 → throws      (MarkersThrow = true; no event, snapshot retained)
+        //   Poll 4 → [CargoShip] (same as held-last → no spurious diff, still exactly one event total)
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<MapMarkersChangedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<MapMarkersChangedEvent>(cts.Token))
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        var cargo = new MapMarkerSnapshot(3UL, MarkerKind.CargoShip, 2f, 2f, null);
+        // Script polls before EnsureConnectionAsync to eliminate the setup race.
+        source.EnqueueMarkers([]); // poll 1: baseline
+        source.EnqueueMarkers([cargo]); // poll 2: CargoShip added; queue empties → hold-last = [cargo]
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        // Wait for the one cargo-added event — definite signal that poll 2 completed.
+        await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
+        Assert.Single(captured);
+
+        // Poll 3: make the next poll throw; the poll loop catches the exception and retains the snapshot.
+        source.LastConnection!.MarkersThrow = true;
+        // Give enough time for at least one failing poll to be attempted.
+        await Task.Delay(TimeSpan.FromMilliseconds(60), cts.Token);
+
+        // Poll 4: recover — hold-last still returns [cargo], so snapshot is unchanged, no new event.
+        source.LastConnection!.MarkersThrow = false;
+        await Task.Delay(TimeSpan.FromMilliseconds(100), cts.Token);
+
+        // Still only one event total — the failed poll did not corrupt the snapshot.
+        Assert.Single(captured);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
+    {
+        while (!condition())
+        {
+            ct.ThrowIfCancellationRequested();
+            await Task.Delay(10, ct);
+        }
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         public required ServiceProvider Provider { get; init; }
         public required IUserDmSender Dm { get; init; }
         public required ConnectionSupervisor Supervisor { get; init; }
+        public required IEventBus Bus { get; init; }
 
         public async ValueTask DisposeAsync()
         {

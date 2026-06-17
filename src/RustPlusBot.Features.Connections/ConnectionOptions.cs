@@ -17,4 +17,7 @@ public sealed class ConnectionOptions
 
     /// <summary>How long a single heartbeat may take before the socket is considered unreachable.</summary>
     public TimeSpan HeartbeatTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>How often to poll map markers for live-event detection. Default 10s.</summary>
+    public TimeSpan MarkerPollInterval { get; set; } = TimeSpan.FromSeconds(10);
 }

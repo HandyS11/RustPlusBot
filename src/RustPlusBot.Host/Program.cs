@@ -9,6 +9,7 @@ using RustPlusBot.Discord;
 using RustPlusBot.Features.Chat;
 using RustPlusBot.Features.Commands;
 using RustPlusBot.Features.Connections;
+using RustPlusBot.Features.Events;
 using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Workspace;
 using RustPlusBot.Host.Credentials;
@@ -50,6 +51,7 @@ builder.Services.AddOptions<ConnectionOptions>()
     .Validate(static o => o.HeartbeatTimeout > TimeSpan.Zero, "Connections:HeartbeatTimeout must be positive.")
     .Validate(static o => o.HeartbeatTimeout < o.HeartbeatInterval,
         "Connections:HeartbeatTimeout must be less than HeartbeatInterval.")
+    .Validate(static o => o.MarkerPollInterval > TimeSpan.Zero, "Connections:MarkerPollInterval must be positive.")
     .ValidateOnStart();
 builder.Services.AddConnections();
 builder.Services.AddChat();
@@ -58,6 +60,7 @@ builder.Services.AddOptions<CommandOptions>()
     .Validate(static o => o.Cooldown > TimeSpan.Zero, "Commands:Cooldown must be positive.")
     .ValidateOnStart();
 builder.Services.AddCommands();
+builder.Services.AddEvents();
 
 var host = builder.Build();
 

@@ -47,6 +47,19 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <returns>True if the promotion succeeded; false on failure/timeout.</returns>
     Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken);
 
+    /// <summary>Polls the current map markers the bot tracks (cargo ship, patrol helicopter, chinook), for diffing by id. Throws on failure.</summary>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The current cargo-ship / patrol-helicopter / chinook markers. Other marker types are not surfaced (the mapped RustPlusApi facade exposes no others the bot reasons about; crates are no longer sent by the game).</returns>
+    Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Gets the static map dimensions for grid-reference rendering, or null on failure/timeout.</summary>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The map dimensions, or null on failure/timeout.</returns>
+    Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
+
     /// <summary>Raised for every in-game team chat line received on this socket.</summary>
     event EventHandler<TeamChatLine>? TeamMessageReceived;
 }

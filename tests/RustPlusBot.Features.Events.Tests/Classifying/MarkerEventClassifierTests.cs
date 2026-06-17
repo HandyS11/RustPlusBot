@@ -1,0 +1,90 @@
+using NSubstitute;
+using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Features.Events.Classifying;
+
+namespace RustPlusBot.Features.Events.Tests.Classifying;
+
+public sealed class MarkerEventClassifierTests
+{
+    private static readonly Guid Server = Guid.NewGuid();
+    private static readonly DateTimeOffset Now = new(2026, 6, 17, 12, 0, 0, TimeSpan.Zero);
+
+    private static MarkerEventClassifier Build()
+    {
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(Now);
+        return new MarkerEventClassifier(clock);
+    }
+
+    private static MapMarkersChangedEvent Evt(
+        IReadOnlyList<MapMarkerSnapshot> added,
+        IReadOnlyList<MapMarkerSnapshot> removed) =>
+        new(1UL, Server, new MapDimensions(4000u, 4000u, 500), added, removed);
+
+    [Fact]
+    public void Cargo_added_is_CargoEntered()
+    {
+        var result = Build().Classify(Evt(
+            [new MapMarkerSnapshot(1, MarkerKind.CargoShip, 10f, 20f, null)], []));
+
+        var e = Assert.Single(result);
+        Assert.Equal(MapEventKind.CargoEntered, e.Kind);
+        Assert.Equal(Now, e.AtUtc);
+        Assert.NotNull(e.Dimensions);
+    }
+
+    [Fact]
+    public void Cargo_removed_is_CargoLeft()
+    {
+        var result = Build().Classify(Evt([],
+            [new MapMarkerSnapshot(1, MarkerKind.CargoShip, 10f, 20f, null)]));
+        Assert.Equal(MapEventKind.CargoLeft, Assert.Single(result).Kind);
+    }
+
+    [Fact]
+    public void Heli_added_and_removed_map_to_entered_and_left()
+    {
+        Assert.Equal(MapEventKind.HeliEntered, Assert.Single(Build().Classify(
+            Evt([new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 0f, 0f, null)], []))).Kind);
+        Assert.Equal(MapEventKind.HeliLeft, Assert.Single(Build().Classify(
+            Evt([], [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 0f, 0f, null)]))).Kind);
+    }
+
+    [Fact]
+    public void Chinook_added_is_spawned_but_removal_is_silent()
+    {
+        Assert.Equal(MapEventKind.ChinookSpawned, Assert.Single(Build().Classify(
+            Evt([new MapMarkerSnapshot(3, MarkerKind.Chinook, 0f, 0f, null)], []))).Kind);
+        Assert.Empty(Build().Classify(
+            Evt([], [new MapMarkerSnapshot(3, MarkerKind.Chinook, 0f, 0f, null)])));
+    }
+
+    [Fact]
+    public void Crate_and_other_markers_produce_nothing()
+    {
+        // The game no longer sends crate markers; MarkerKind.Crate (and Other) classify to nothing.
+        Assert.Empty(Build().Classify(Evt(
+            [
+                new MapMarkerSnapshot(4, MarkerKind.Crate, 0f, 0f, null),
+                new MapMarkerSnapshot(5, MarkerKind.Other, 0f, 0f, null)
+            ],
+            [
+                new MapMarkerSnapshot(6, MarkerKind.Crate, 0f, 0f, null),
+                new MapMarkerSnapshot(7, MarkerKind.Other, 0f, 0f, null)
+            ])));
+    }
+
+    [Fact]
+    public void Multiple_deltas_produce_multiple_events()
+    {
+        var result = Build().Classify(Evt(
+            [
+                new MapMarkerSnapshot(1, MarkerKind.CargoShip, 0f, 0f, null),
+                new MapMarkerSnapshot(3, MarkerKind.Chinook, 0f, 0f, null)
+            ],
+            [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 0f, 0f, null)]));
+        Assert.Equal(3, result.Count);
+    }
+}

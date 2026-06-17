@@ -8,6 +8,7 @@
     <Project Path="src/RustPlusBot.Features.Connections/RustPlusBot.Features.Connections.csproj" />
     <Project Path="src/RustPlusBot.Features.Pairing/RustPlusBot.Features.Pairing.csproj" />
     <Project Path="src/RustPlusBot.Features.Chat/RustPlusBot.Features.Chat.csproj" />
+    <Project Path="src/RustPlusBot.Features.Events/RustPlusBot.Features.Events.csproj" />
     <Project Path="src/RustPlusBot.Features.Workspace/RustPlusBot.Features.Workspace.csproj" />
     <Project Path="src/RustPlusBot.Persistence/RustPlusBot.Persistence.csproj" />
   </Folder>
@@ -18,6 +19,7 @@
     <Project Path="tests/RustPlusBot.Features.Pairing.Tests/RustPlusBot.Features.Pairing.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Workspace.Tests/RustPlusBot.Features.Workspace.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Chat.Tests/RustPlusBot.Features.Chat.Tests.csproj" />
+    <Project Path="tests/RustPlusBot.Features.Events.Tests/RustPlusBot.Features.Events.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Persistence.Tests/RustPlusBot.Persistence.Tests.csproj" />
   </Folder>
 </Solution>

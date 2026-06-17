@@ -350,8 +350,12 @@ internal sealed partial class ConnectionSupervisor(
         }
 #pragma warning restore RCS1163
 
+        var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+
         connection.TeamMessageReceived += OnTeamMessage;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId);
+        using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, pollCts.Token), CancellationToken.None);
         try
         {
             while (!ct.IsCancellationRequested)
@@ -375,8 +379,65 @@ internal sealed partial class ConnectionSupervisor(
         }
         finally
         {
+            await pollCts.CancelAsync().ConfigureAwait(false);
+            try
+            {
+#pragma warning disable VSTHRD003 // Suppress: markerPoll is owned by this connected window and explicitly joined on exit.
+                await markerPoll.ConfigureAwait(false);
+#pragma warning restore VSTHRD003
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on stop.
+            }
+
             _liveSockets.TryRemove(key, out _);
             connection.TeamMessageReceived -= OnTeamMessage;
+        }
+    }
+
+    private async Task PollMarkersAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        MapDimensions? dims,
+        CancellationToken ct)
+    {
+        IReadOnlyList<MapMarkerSnapshot>? previous = null;
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var current = await connection.GetMapMarkersAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+                if (previous is null)
+                {
+                    previous = current; // first poll: silent baseline
+                }
+                else
+                {
+                    var added = current.Where(c => previous.All(p => p.Id != c.Id)).ToList();
+                    var removed = previous.Where(p => current.All(c => c.Id != p.Id)).ToList();
+                    previous = current;
+                    if (added.Count > 0 || removed.Count > 0)
+                    {
+                        await eventBus.PublishAsync(
+                                new MapMarkersChangedEvent(key.Guild, key.Server, dims, added, removed), ct)
+                            .ConfigureAwait(false);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return; // stopping
+            }
+#pragma warning disable CA1031 // Broad catch: a failed poll is logged and skipped; the previous snapshot is retained.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogMarkerPollFailed(logger, ex, key.Server);
+                // previous is retained, so a transient failure does not produce a spurious despawn/respawn diff.
+            }
+
+            await Task.Delay(_options.MarkerPollInterval, ct).ConfigureAwait(false);
         }
     }
 
@@ -507,6 +568,9 @@ internal sealed partial class ConnectionSupervisor(
             LogPublishTeamMessageFailed(logger, ex, key.Server);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Marker poll for server {ServerId} failed.")]
+    private static partial void LogMarkerPollFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Relaying a message to team chat for server {ServerId} failed.")]
     private static partial void LogSendFailed(ILogger logger, Exception exception, Guid serverId);

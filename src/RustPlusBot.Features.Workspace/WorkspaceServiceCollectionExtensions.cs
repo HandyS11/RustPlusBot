@@ -57,8 +57,9 @@ public static class WorkspaceServiceCollectionExtensions
         // Contribute this assembly's interaction modules to the Discord layer.
         services.AddSingleton(new InteractionModuleAssembly(typeof(WorkspaceServiceCollectionExtensions).Assembly));
 
-        // Channel locator (singleton with TTL cache; IClock + IServiceScopeFactory provided by the host).
+        // Channel locators (singleton with TTL cache; IClock + IServiceScopeFactory provided by the host).
         services.AddSingleton<ITeamChatChannelLocator, TeamChatChannelLocator>();
+        services.AddSingleton<IEventChannelLocator, EventChannelLocator>();
 
         services.AddHostedService<Hosting.WorkspaceHostedService>();
 
