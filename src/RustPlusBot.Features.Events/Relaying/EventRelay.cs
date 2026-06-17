@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.Posting;
 using RustPlusBot.Features.Events.Rendering;
@@ -9,12 +10,14 @@ using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Events.Relaying;
 
-/// <summary>Classifies one marker delta, updates state, and posts one embed per event to #events.</summary>
+/// <summary>Posts every live event to #events AND in-game team chat; tracks rig state.</summary>
 /// <param name="classifier">Classifies raw marker deltas into domain events.</param>
 /// <param name="state">Tracks active markers and recent events per server.</param>
-/// <param name="renderer">Renders events as Discord embeds.</param>
+/// <param name="renderer">Renders events as embeds and in-game lines.</param>
 /// <param name="locator">Resolves the #events Discord channel id.</param>
 /// <param name="poster">Posts embeds to the Discord channel.</param>
+/// <param name="teamChatSender">Broadcasts the in-game team-chat line.</param>
+/// <param name="rigStore">Tracks oil-rig state (Apply on Activated).</param>
 /// <param name="scopeFactory">Opens scopes to read guild culture.</param>
 internal sealed class EventRelay(
     MarkerEventClassifier classifier,
@@ -22,9 +25,11 @@ internal sealed class EventRelay(
     EventEmbedRenderer renderer,
     IEventChannelLocator locator,
     IEventChannelPoster poster,
+    ITeamChatSender teamChatSender,
+    RigStateStore rigStore,
     IServiceScopeFactory scopeFactory)
 {
-    /// <summary>Handles one <see cref="MapMarkersChangedEvent"/>.</summary>
+    /// <summary>Handles one <see cref="MapMarkersChangedEvent"/>: updates state, posts embeds, broadcasts in-game.</summary>
     /// <param name="evt">The marker delta.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the delta has been processed.</returns>
@@ -38,18 +43,44 @@ internal sealed class EventRelay(
             return;
         }
 
+        var culture = await GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
         var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
             .ConfigureAwait(false);
-        if (channelId is null)
+
+        foreach (var e in events)
         {
-            return;
+            await teamChatSender
+                .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderLine(e, culture), cancellationToken)
+                .ConfigureAwait(false);
+            if (channelId is { } id)
+            {
+                await poster.PostAsync(id, renderer.Render(e, culture), cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>Handles one <see cref="RigStateChangedEvent"/>: applies activation, posts an embed, broadcasts in-game.</summary>
+    /// <param name="evt">The rig boundary event.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the rig event has been processed.</returns>
+    public async Task RelayRigAsync(RigStateChangedEvent evt, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evt);
+        if (evt.Kind == RigEventKind.Activated)
+        {
+            rigStore.Apply(evt);
         }
 
         var culture = await GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
-        foreach (var e in events)
+        await teamChatSender
+            .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderRigLine(evt, culture), cancellationToken)
+            .ConfigureAwait(false);
+
+        var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
+            .ConfigureAwait(false);
+        if (channelId is { } id)
         {
-            var embed = renderer.Render(e, culture);
-            await poster.PostAsync(channelId.Value, embed, cancellationToken).ConfigureAwait(false);
+            await poster.PostAsync(id, renderer.RenderRig(evt, culture), cancellationToken).ConfigureAwait(false);
         }
     }
 
