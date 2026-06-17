@@ -9,6 +9,7 @@ using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Commands.Servers;
 using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Features.Events.State;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.Workspace;
@@ -26,6 +27,7 @@ public sealed class CommandRegistrationTests
         services.AddSingleton<IEventBus>(Substitute.For<IEventBus>());
         services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
         services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
+        services.AddSingleton<IEventState>(_ => Substitute.For<IEventState>());
         services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
@@ -44,7 +46,7 @@ public sealed class CommandRegistrationTests
         using var scope = provider.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CommandDispatcher>());
         var handlers = scope.ServiceProvider.GetServices<ICommandHandler>().ToList();
-        Assert.Equal(12, handlers.Count);
+        Assert.Equal(16, handlers.Count);
         Assert.Contains(handlers, h => h.Name == "mute");
         Assert.Contains(handlers, h => h.Name == "pop");
         Assert.Contains(handlers, h => h.Name == "time");
@@ -55,6 +57,10 @@ public sealed class CommandRegistrationTests
         Assert.Contains(handlers, h => h.Name == "steamid");
         Assert.Contains(handlers, h => h.Name == "alive");
         Assert.Contains(handlers, h => h.Name == "prox");
+        Assert.Contains(handlers, h => h.Name == "cargo");
+        Assert.Contains(handlers, h => h.Name == "heli");
+        Assert.Contains(handlers, h => h.Name == "chinook");
+        Assert.Contains(handlers, h => h.Name == "events");
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerResolver>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerQueryService>());
     }
@@ -68,6 +74,7 @@ public sealed class CommandRegistrationTests
         services.AddSingleton<IEventBus>(Substitute.For<IEventBus>());
         services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
         services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
+        services.AddSingleton<IEventState>(_ => Substitute.For<IEventState>());
         services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());

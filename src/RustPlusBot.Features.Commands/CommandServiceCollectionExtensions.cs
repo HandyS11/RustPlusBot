@@ -38,6 +38,10 @@ public static class CommandServiceCollectionExtensions
         services.AddScoped<ICommandHandler, SteamIdCommandHandler>();
         services.AddScoped<ICommandHandler, AliveCommandHandler>();
         services.AddScoped<ICommandHandler, ProxCommandHandler>();
+        services.AddScoped<ICommandHandler, CargoCommandHandler>();
+        services.AddScoped<ICommandHandler, HeliCommandHandler>();
+        services.AddScoped<ICommandHandler, ChinookCommandHandler>();
+        services.AddScoped<ICommandHandler, EventsCommandHandler>();
 
         services.AddScoped<CommandDispatcher>();
         services.AddHostedService<CommandsHostedService>();
