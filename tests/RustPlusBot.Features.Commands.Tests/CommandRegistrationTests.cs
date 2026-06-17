@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Discord;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Localization;
@@ -50,5 +51,25 @@ public sealed class CommandRegistrationTests
         Assert.Contains(handlers, h => h.Name == "steamid");
         Assert.Contains(handlers, h => h.Name == "alive");
         Assert.Contains(handlers, h => h.Name == "prox");
+    }
+
+    [Fact]
+    public void Commands_contribute_an_interaction_module_assembly()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IClock>(Substitute.For<IClock>());
+        services.AddSingleton<IEventBus>(Substitute.For<IEventBus>());
+        services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
+        services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
+        services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
+        services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
+        services.AddOptions<CommandOptions>();
+        services.AddCommands();
+
+        using var provider = services.BuildServiceProvider(validateScopes: true);
+
+        var assemblies = provider.GetServices<InteractionModuleAssembly>();
+        Assert.Contains(assemblies, a => a.Assembly == typeof(CommandServiceCollectionExtensions).Assembly);
     }
 }

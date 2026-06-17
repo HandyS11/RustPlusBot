@@ -40,6 +40,13 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <remarks>Unlike the probe methods, this surfaces send failures to the caller (the supervisor maps them to a failed send result).</remarks>
     Task SendTeamMessageAsync(string message, CancellationToken cancellationToken);
 
+    /// <summary>Promotes a team member to team leader; returns true on success.</summary>
+    /// <param name="steamId">Steam64 id of the member to promote.</param>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>True if the promotion succeeded; false on failure/timeout.</returns>
+    Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken);
+
     /// <summary>Raised for every in-game team chat line received on this socket.</summary>
     event EventHandler<TeamChatLine>? TeamMessageReceived;
 }

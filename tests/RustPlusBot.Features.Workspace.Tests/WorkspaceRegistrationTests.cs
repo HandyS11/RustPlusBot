@@ -1,7 +1,9 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Teardown;
@@ -18,6 +20,7 @@ public sealed class WorkspaceRegistrationTests
         services.AddSingleton(new DiscordSocketClient());
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IEventBus, InMemoryEventBus>();
+        services.AddSingleton(Substitute.For<IRustServerQuery>());
         services.AddLogging();
         services.AddBotPersistence("DataSource=:memory:");
         services.AddWorkspace();

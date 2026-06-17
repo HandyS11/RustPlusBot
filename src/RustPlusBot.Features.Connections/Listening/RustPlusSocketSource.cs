@@ -45,6 +45,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
         public event EventHandler<TeamChatLine>? TeamMessageReceived
         {
             add { _ = value; }
@@ -269,6 +272,34 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             // Awaiting it discards the response; the interface contract is bare Task.
             // Intentional: send failures propagate to the caller (the supervisor classifies them), unlike the broad-catch probes.
             await _rustPlus.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task<bool> PromoteToLeaderAsync(ulong steamId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.1): PromoteToLeaderAsync(ulong, CancellationToken) returns a payload-free
+                // Task<Response>; Response.IsSuccess indicates the outcome.
+                var response = await _rustPlus.PromoteToLeaderAsync(steamId, timeoutCts.Token)
+                    .WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                return response.IsSuccess;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+#pragma warning disable CA1031 // Broad catch: any promote failure maps to false; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return false;
+            }
         }
 
         public async ValueTask DisposeAsync()

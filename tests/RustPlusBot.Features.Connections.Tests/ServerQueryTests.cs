@@ -193,6 +193,57 @@ public sealed class ServerQueryTests
         Assert.Null(snapshot);
     }
 
+    [Fact]
+    public async Task PromoteToLeader_ReturnsTrueAndForwardsSteamId_WhenConnected()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+        var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        source.LastConnection!.PromoteResult = true;
+        var promoted = await supervisor.PromoteToLeaderAsync(10UL, serverId, 999UL, cts.Token);
+
+        Assert.True(promoted);
+        Assert.Equal(999UL, source.LastConnection.LastPromotedSteamId);
+        await supervisor.StopAllAsync();
+    }
+
+    [Fact]
+    public async Task PromoteToLeader_ReturnsFalse_WhenApiNonSuccess()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+        var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        source.LastConnection!.PromoteResult = false;
+        var promoted = await supervisor.PromoteToLeaderAsync(10UL, serverId, 999UL, cts.Token);
+
+        Assert.False(promoted);
+        await supervisor.StopAllAsync();
+    }
+
+    [Fact]
+    public async Task PromoteToLeader_ReturnsFalse_WhenNoLiveSocket()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+
+        var promoted = await supervisor.PromoteToLeaderAsync(10UL, Guid.NewGuid(), 999UL, CancellationToken.None);
+
+        Assert.False(promoted);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
     {
         while (!condition())

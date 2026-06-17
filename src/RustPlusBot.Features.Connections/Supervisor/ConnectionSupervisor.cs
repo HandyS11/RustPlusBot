@@ -169,6 +169,22 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<bool> PromoteToLeaderAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong steamId,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return false;
+        }
+
+        return await live.Connection.PromoteToLeaderAsync(steamId, _options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<TeamChatSendResult> SendAsync(
         ulong guildId,
         Guid serverId,

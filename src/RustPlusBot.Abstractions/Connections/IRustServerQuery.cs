@@ -23,4 +23,12 @@ public interface IRustServerQuery
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A team snapshot, or null when there is no live socket.</returns>
     Task<TeamInfoSnapshot?> GetTeamInfoAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
+
+    /// <summary>Promotes a team member to team leader; returns false when there is no live socket or the API fails.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="steamId">Steam64 id of the member to promote.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>True if promoted; false when no live socket or the API fails.</returns>
+    Task<bool> PromoteToLeaderAsync(ulong guildId, Guid serverId, ulong steamId, CancellationToken cancellationToken);
 }
