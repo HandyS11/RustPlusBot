@@ -17,6 +17,9 @@ internal static class WorkspaceChannelKeys
 
     /// <summary>Key for the per-server #teamchat channel.</summary>
     public const string ServerTeamChat = "teamchat";
+
+    /// <summary>Key for the per-server #events channel.</summary>
+    public const string ServerEvents = "events";
 }
 
 /// <summary>Stable message keys persisted as <c>ProvisionedMessage.MessageKey</c>.</summary>
