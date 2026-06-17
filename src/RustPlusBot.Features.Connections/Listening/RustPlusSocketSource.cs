@@ -274,7 +274,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             await _rustPlus.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<bool> PromoteToLeaderAsync(ulong steamId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
@@ -282,7 +284,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             {
                 // CONFIRMED (2.0.0-beta.1): PromoteToLeaderAsync(ulong, CancellationToken) returns a payload-free
                 // Task<Response>; Response.IsSuccess indicates the outcome.
-                var response = await _rustPlus.PromoteToLeaderAsync(steamId, timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                var response = await _rustPlus.PromoteToLeaderAsync(steamId, timeoutCts.Token)
+                    .WaitAsync(timeoutCts.Token)
                     .ConfigureAwait(false);
                 return response.IsSuccess;
             }

@@ -299,19 +299,36 @@ public sealed class RendererTests
         var credId = Guid.NewGuid();
         var servers = Substitute.For<IServerService>();
         servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = serverId, GuildId = 1, Name = "S", Ip = "1.2.3.4", Port = 28015 });
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
         var connections = Substitute.For<IConnectionStore>();
         connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new DomainConnectionState
             {
-                RustServerId = serverId, GuildId = 1, ActiveCredentialId = credId,
-                Status = ConnectionStatus.Connected, PlayerCount = 5,
+                RustServerId = serverId,
+                GuildId = 1,
+                ActiveCredentialId = credId,
+                Status = ConnectionStatus.Connected,
+                PlayerCount = 5,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new List<PlayerCredential>
             {
-                new() { Id = credId, GuildId = 1, RustServerId = serverId, OwnerUserId = 7, SteamId = 5UL,
-                    Status = CredentialStatus.Active },
+                new()
+                {
+                    Id = credId,
+                    GuildId = 1,
+                    RustServerId = serverId,
+                    OwnerUserId = 7,
+                    SteamId = 5UL,
+                    Status = CredentialStatus.Active
+                },
             });
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
@@ -339,19 +356,36 @@ public sealed class RendererTests
         var credId = Guid.NewGuid();
         var servers = Substitute.For<IServerService>();
         servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer { Id = serverId, GuildId = 1, Name = "S", Ip = "1.2.3.4", Port = 28015 });
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
         var connections = Substitute.For<IConnectionStore>();
         connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new DomainConnectionState
             {
-                RustServerId = serverId, GuildId = 1, ActiveCredentialId = credId,
-                Status = ConnectionStatus.Connected, PlayerCount = 5,
+                RustServerId = serverId,
+                GuildId = 1,
+                ActiveCredentialId = credId,
+                Status = ConnectionStatus.Connected,
+                PlayerCount = 5,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new List<PlayerCredential>
             {
-                new() { Id = credId, GuildId = 1, RustServerId = serverId, OwnerUserId = 7, SteamId = 5UL,
-                    Status = CredentialStatus.Active },
+                new()
+                {
+                    Id = credId,
+                    GuildId = 1,
+                    RustServerId = serverId,
+                    OwnerUserId = 7,
+                    SteamId = 5UL,
+                    Status = CredentialStatus.Active
+                },
             });
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())

@@ -27,6 +27,7 @@
 ## File Structure
 
 **Connections (extend the existing seam):**
+
 - Modify `src/RustPlusBot.Features.Connections/Listening/IRustServerQuery.cs` — add `PromoteToLeaderAsync`.
 - Modify `src/RustPlusBot.Features.Connections/Listening/IRustServerConnection.cs` — add `PromoteToLeaderAsync`.
 - Modify `src/RustPlusBot.Features.Connections/Supervisor/ConnectionSupervisor.cs` — implement the query method over `_liveSockets`.
@@ -35,6 +36,7 @@
 - Modify `tests/RustPlusBot.Features.Connections.Tests/ServerQueryTests.cs` — add promote tests.
 
 **Commands (new surfaces):**
+
 - Create `src/RustPlusBot.Features.Commands/Help/CommandGroup.cs` — the grouping enum.
 - Create `src/RustPlusBot.Features.Commands/Help/CommandHelpCatalog.cs` — curated manifest.
 - Create `src/RustPlusBot.Features.Commands/Help/HelpEmbedRenderer.cs` — pure embed builder.
@@ -48,6 +50,7 @@
 - Modify `tests/RustPlusBot.Features.Commands.Tests/CommandRegistrationTests.cs` — assert new registrations resolve.
 
 **Workspace (`#info` summary):**
+
 - Modify `src/RustPlusBot.Features.Workspace/Messages/ServerInfoMessageRenderer.cs` — add the team field.
 - Modify `src/RustPlusBot.Features.Workspace/Localization/LocalizationCatalog.cs` — new EN/FR keys.
 - Modify `tests/RustPlusBot.Features.Workspace.Tests/Messages/RendererTests.cs` — new ctor arg + team-field cases.
@@ -57,6 +60,7 @@
 ## Task 1: `PromoteToLeaderAsync` on the connection seam
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Connections/Listening/IRustServerConnection.cs`
 - Modify: `src/RustPlusBot.Features.Connections/Listening/IRustServerQuery.cs`
 - Modify: `src/RustPlusBot.Features.Connections/Supervisor/ConnectionSupervisor.cs`
@@ -65,6 +69,7 @@
 - Test: `tests/RustPlusBot.Features.Connections.Tests/ServerQueryTests.cs`
 
 **Interfaces:**
+
 - Produces:
   - `IRustServerQuery.PromoteToLeaderAsync(ulong guildId, Guid serverId, ulong steamId, CancellationToken)` → `Task<bool>` (true = promoted; false = no live socket or API non-success).
   - `IRustServerConnection.PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken)` → `Task<bool>`.
@@ -258,12 +263,14 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 2: `CommandGroup` + `CommandHelpCatalog` with a drift/i18n guard
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Help/CommandGroup.cs`
 - Create: `src/RustPlusBot.Features.Commands/Help/CommandHelpCatalog.cs`
 - Modify: `src/RustPlusBot.Features.Commands/Localization/CommandLocalizationCatalog.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Help/CommandHelpCatalogTests.cs`
 
 **Interfaces:**
+
 - Consumes: the existing `ICommandHandler.Name` registry (12 handlers: `mute`, `unmute`, `uptime`, `pop`, `wipe`, `time`, `online`, `offline`, `team`, `steamid`, `alive`, `prox`).
 - Produces:
   - `enum CommandGroup { Control, Server, TeamIntel, Bot }`.
@@ -486,10 +493,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 3: `HelpEmbedRenderer` (pure)
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Help/HelpEmbedRenderer.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Help/HelpEmbedRendererTests.cs`
 
 **Interfaces:**
+
 - Consumes: `CommandHelpCatalog`, `ICommandLocalizer`.
 - Produces: `HelpEmbedRenderer(ICommandLocalizer localizer)` with
   `Discord.Embed Render(string prefix, string culture, bool showPrefixNote)`.
@@ -638,10 +647,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 4: `LeaderService` (testable promote/fetch logic)
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Leader/LeaderService.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Leader/LeaderServiceTests.cs`
 
 **Interfaces:**
+
 - Consumes: `IRustServerQuery` (`GetTeamInfoAsync`, `PromoteToLeaderAsync`), `ICommandLocalizer`, `TeamInfoSnapshot`/`TeamMemberSnapshot` (from `RustPlusBot.Features.Connections.Listening`).
 - Produces:
   - `sealed record LeaderMemberOption(ulong SteamId, string Name, bool IsLeader)`.
@@ -848,12 +859,14 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 5: Slash + component modules and DI registration
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Modules/CommandSurfaceModule.cs`
 - Create: `src/RustPlusBot.Features.Commands/Modules/LeaderComponentModule.cs`
 - Modify: `src/RustPlusBot.Features.Commands/CommandServiceCollectionExtensions.cs`
 - Modify: `tests/RustPlusBot.Features.Commands.Tests/CommandRegistrationTests.cs`
 
 **Interfaces:**
+
 - Consumes: `HelpEmbedRenderer`, `LeaderService`, `BotUptime`, `ICommandLocalizer`, `IServerService`, `IMuteStore`, `IWorkspaceStore`, `IServiceScopeFactory`, `RustPlusBot.Discord.InteractionModuleAssembly`, `DurationFormat`.
 - Produces (custom-id contracts used across the two modules):
   - server-pick: `leader-server:` + serverId value carried as the select option value.
@@ -1241,11 +1254,13 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ## Task 6: `#info` team summary field
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Workspace/Messages/ServerInfoMessageRenderer.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/Localization/LocalizationCatalog.cs`
 - Test: `tests/RustPlusBot.Features.Workspace.Tests/Messages/RendererTests.cs`
 
 **Interfaces:**
+
 - Consumes: `IRustServerQuery.GetTeamInfoAsync` (added to the renderer ctor), `TeamInfoSnapshot`/`TeamMemberSnapshot`.
 - Produces: a new embed field "Online: {online}/{total} · leader {name}" rendered only when `Status == Connected` and the team query returns non-null.
 
@@ -1487,6 +1502,7 @@ EOF
 ## Self-Review
 
 **1. Spec coverage:**
+
 - `/help` (in-game + slash, grouped, prefix, EN/FR, catalog-driven, drift guard) → Tasks 2, 3, 5. ✓
 - `/uptime` (bot process) → Task 5 (reuses `BotUptime`). ✓
 - `/leader` (ManageGuild, member select, server pick when >1, promote) → Tasks 1, 4, 5. ✓
@@ -1500,6 +1516,7 @@ EOF
 **2. Placeholder scan:** No "TBD"/"add error handling"/"similar to". Every code step shows full code. The `_ = provider;` discard in `ShowMemberSelectAsync` is intentional (the helper resolves nothing further; it could be simplified during implementation but is shown complete and compiling). ✓
 
 **3. Type consistency:**
+
 - `PromoteToLeaderAsync` query signature `(ulong, Guid, ulong, CancellationToken)→Task<bool>` and connection signature `(ulong, TimeSpan, CancellationToken)→Task<bool>` are consistent across Task 1 (definition), Task 4 (`LeaderService` consumes the query form), and the fake. ✓
 - Custom-ids: `LeaderServerSelectId = "leader-server"` and `LeaderPromotePrefix = "leader-promote:"` defined in Task 5 `CommandSurfaceModule` and consumed in `LeaderComponentModule` (`$"{…LeaderPromotePrefix}*"`). ✓
 - Localization keys used in `HelpEmbedRenderer`/`LeaderService`/`CommandSurfaceModule`/renderer all match the keys added in Tasks 2 and 6 (`help.*`, `uptime.ok`, `leader.*`, `server.info.team.*`). ✓

@@ -75,6 +75,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The snapshot returned by <see cref="GetTeamInfoAsync"/>. Defaults to a non-null empty snapshot.</summary>
         public TeamInfoSnapshot? TeamResult { get; set; } = new(0UL, []);
 
+        /// <summary>The result returned by <see cref="PromoteToLeaderAsync"/>. Defaults to true.</summary>
+        public bool PromoteResult { get; set; } = true;
+
+        /// <summary>The Steam ID passed to the most recent <see cref="PromoteToLeaderAsync"/> call.</summary>
+        public ulong LastPromotedSteamId { get; private set; }
+
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
@@ -98,12 +104,6 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             SentMessages.Add(message);
             return Task.CompletedTask;
         }
-
-        /// <summary>The result returned by <see cref="PromoteToLeaderAsync"/>. Defaults to true.</summary>
-        public bool PromoteResult { get; set; } = true;
-
-        /// <summary>The Steam ID passed to the most recent <see cref="PromoteToLeaderAsync"/> call.</summary>
-        public ulong LastPromotedSteamId { get; private set; }
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken)
