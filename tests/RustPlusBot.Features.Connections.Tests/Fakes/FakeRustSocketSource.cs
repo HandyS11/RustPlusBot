@@ -19,6 +19,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 {
     private readonly ConcurrentQueue<SocketConnectOutcome> _connectOutcomes = new();
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
+    private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _pendingMarkerScript = new();
     private int _createCount;
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
@@ -42,6 +43,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         LastSteamId = steamId;
         var outcome = _connectOutcomes.TryDequeue(out var next) ? next : SocketConnectOutcome.Connected;
         var connection = new FakeConnection(outcome, this);
+        // Transfer any pre-staged marker script so it is in place before the poll loop starts.
+        while (_pendingMarkerScript.TryDequeue(out var markers))
+        {
+            connection.EnqueueMarkers(markers);
+        }
+
         LastConnection = connection;
         return connection;
     }
@@ -49,6 +56,16 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     public void EnqueueConnect(SocketConnectOutcome outcome) => _connectOutcomes.Enqueue(outcome);
 
     public void EnqueueHeartbeat(HeartbeatResult result) => _heartbeats.Enqueue(result);
+
+    /// <summary>
+    /// Pre-stages a scripted marker list for the NEXT connection created by <see cref="Create"/>.
+    /// All items enqueued here are transferred to the new <see cref="FakeConnection"/> at creation
+    /// time, before the supervisor can start the poll loop, eliminating the setup race. Call this
+    /// before <see cref="EnsureConnectionAsync"/> so the script is in place when polls begin.
+    /// </summary>
+    /// <param name="markers">The marker list to deliver on the corresponding poll.</param>
+    public void EnqueueMarkers(IReadOnlyList<MapMarkerSnapshot> markers) =>
+        _pendingMarkerScript.Enqueue(markers);
 
     internal HeartbeatResult NextHeartbeat()
     {
@@ -63,6 +80,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     internal sealed class FakeConnection(SocketConnectOutcome outcome, FakeRustSocketSource source)
         : IRustServerConnection
     {
+        private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _markerScript = new();
+        private IReadOnlyList<MapMarkerSnapshot> _lastMarkers = [];
+        private bool _markerScriptStarted;
+
         /// <summary>Gets the messages sent via <see cref="SendTeamMessageAsync"/>.</summary>
         public List<string> SentMessages { get; } = [];
 
@@ -81,10 +102,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The Steam ID passed to the most recent <see cref="PromoteToLeaderAsync"/> call.</summary>
         public ulong LastPromotedSteamId { get; private set; }
 
-        /// <summary>The markers returned by <see cref="GetMapMarkersAsync"/>. Defaults to empty (nothing on the map).</summary>
+        /// <summary>
+        /// The fallback markers returned by <see cref="GetMapMarkersAsync"/> when no scripted results remain.
+        /// Defaults to empty (nothing on the map). Callers that do not use <see cref="EnqueueMarkers"/> see
+        /// this value on every poll, matching the original Task-2 behavior.
+        /// </summary>
         public IReadOnlyList<MapMarkerSnapshot> MarkersResult { get; set; } = [];
 
-        /// <summary>When true, <see cref="GetMapMarkersAsync"/> throws (simulates a failed poll).</summary>
+        /// <summary>When true, <see cref="GetMapMarkersAsync"/> throws regardless of any enqueued script.</summary>
         public bool MarkersThrow { get; set; }
 
         /// <summary>The dimensions returned by <see cref="GetMapDimensionsAsync"/>. Defaults to a non-null snapshot.</summary>
@@ -123,16 +148,40 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         }
 
         public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
-            CancellationToken cancellationToken = default) =>
-            MarkersThrow
-                ? Task.FromException<IReadOnlyList<MapMarkerSnapshot>>(new InvalidOperationException("poll failed"))
-                : Task.FromResult(MarkersResult);
+            CancellationToken cancellationToken = default)
+        {
+            if (MarkersThrow)
+            {
+                return Task.FromException<IReadOnlyList<MapMarkerSnapshot>>(
+                    new InvalidOperationException("poll failed"));
+            }
+
+            if (_markerScript.TryDequeue(out var scripted))
+            {
+                _markerScriptStarted = true;
+                _lastMarkers = scripted;
+                return Task.FromResult(_lastMarkers);
+            }
+
+            // Once any scripted result has been dequeued, hold the last one (mirroring NextHeartbeat).
+            // If the script was never started, fall back to MarkersResult so Task-2 callers are unaffected.
+            return Task.FromResult(_markerScriptStarted ? _lastMarkers : MarkersResult);
+        }
 
         public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(DimensionsResult);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        /// <summary>
+        /// Enqueues a scripted marker list to be returned by the next <see cref="GetMapMarkersAsync"/> call.
+        /// Once the queue empties the last dequeued list is held and returned on every subsequent poll,
+        /// mirroring the heartbeat "hold last" pattern. Enqueued results take priority over
+        /// <see cref="MarkersResult"/>; if nothing has been enqueued, <see cref="MarkersResult"/> is used.
+        /// </summary>
+        /// <param name="markers">The marker list to return for the next poll.</param>
+        public void EnqueueMarkers(IReadOnlyList<MapMarkerSnapshot> markers) => _markerScript.Enqueue(markers);
 
         /// <summary>Raises <see cref="TeamMessageReceived"/> to simulate an inbound team chat line.</summary>
         /// <param name="line">The team chat line to raise.</param>

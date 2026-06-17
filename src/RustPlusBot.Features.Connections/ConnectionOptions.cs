@@ -19,5 +19,5 @@ public sealed class ConnectionOptions
     public TimeSpan HeartbeatTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>How often to poll map markers for live-event detection. Default 10s.</summary>
-    public TimeSpan MarkerPollInterval { get; init; } = TimeSpan.FromSeconds(10);
+    public TimeSpan MarkerPollInterval { get; set; } = TimeSpan.FromSeconds(10);
 }
