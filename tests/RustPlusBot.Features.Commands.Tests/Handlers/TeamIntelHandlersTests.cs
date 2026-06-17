@@ -27,12 +27,10 @@ public sealed class TeamIntelHandlersTests
         return query;
     }
 
-#pragma warning disable S1144, CA1812 // Shared test helper: instantiated by Tasks 9–11 facts appended to this class.
     private sealed class TestClock : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
     }
-#pragma warning restore S1144, CA1812
 
     [Fact]
     public async Task Online_ListsOnlineMembers()
@@ -140,5 +138,36 @@ public sealed class TeamIntelHandlersTests
         var reply = await new SteamIdCommandHandler(QueryReturning(new TeamInfoSnapshot(0UL, [])), Loc)
             .ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.Equal("No team members.", reply);
+    }
+
+    [Fact]
+    public async Task Alive_SortsBySurvivalDesc_ThenDeadLast()
+    {
+        var clock = new TestClock { UtcNow = DateTimeOffset.UnixEpoch.AddHours(3) };
+        // carl spawned at epoch -> 3h survival; alice spawned at +2h -> 1h survival; bob dead.
+        var query = QueryReturning(new TeamInfoSnapshot(7UL,
+        [
+            Member(7UL, "alice", alive: true, spawn: DateTimeOffset.UnixEpoch.AddHours(2)),
+            Member(8UL, "bob", alive: false),
+            Member(9UL, "carl", alive: true, spawn: DateTimeOffset.UnixEpoch),
+        ]));
+        var reply = await new AliveCommandHandler(query, Loc, clock).ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("Alive: carl 3h 0m, alice 1h 0m, bob dead", reply);
+    }
+
+    [Fact]
+    public async Task Alive_None_WhenNoMembers()
+    {
+        var reply = await new AliveCommandHandler(QueryReturning(new TeamInfoSnapshot(0UL, [])), Loc, new TestClock())
+            .ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("No team members.", reply);
+    }
+
+    [Fact]
+    public async Task Alive_NotConnected_WhenNull()
+    {
+        var reply = await new AliveCommandHandler(QueryReturning(null), Loc, new TestClock())
+            .ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("Not connected to the server.", reply);
     }
 }
