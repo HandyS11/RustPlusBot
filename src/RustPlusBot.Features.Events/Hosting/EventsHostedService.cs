@@ -1,30 +1,41 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Connections;
+using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Events.Relaying;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Persistence.Connections;
 
 namespace RustPlusBot.Features.Events.Hosting;
 
-/// <summary>Runs the marker-change relay loop and the disconnect-clear loop.</summary>
+/// <summary>Runs the marker relay loop, the rig-event relay loop, the rig-timer tick, and the disconnect-clear loop.</summary>
 /// <param name="eventBus">The in-process event bus.</param>
-/// <param name="relay">Relays marker deltas into Discord #events.</param>
-/// <param name="store">Cleared on disconnect.</param>
+/// <param name="relay">Relays marker + rig events into Discord #events and in-game chat.</param>
+/// <param name="store">The marker state store, cleared on disconnect.</param>
+/// <param name="rigStore">The rig state store, advanced by the tick and cleared on disconnect.</param>
+/// <param name="clock">Supplies the current time for the tick.</param>
+/// <param name="options">Supplies the rig-tick interval.</param>
 /// <param name="scopeFactory">Opens scopes to read connection state.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class EventsHostedService(
     IEventBus eventBus,
     EventRelay relay,
     EventStateStore store,
+    RigStateStore rigStore,
+    IClock clock,
+    IOptions<ConnectionOptions> options,
     IServiceScopeFactory scopeFactory,
     ILogger<EventsHostedService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
     private Task? _disconnectLoop;
     private Task? _relayLoop;
+    private Task? _rigLoop;
+    private Task? _tickLoop;
 
     /// <inheritdoc />
     public void Dispose() => _cts.Dispose();
@@ -33,6 +44,8 @@ internal sealed partial class EventsHostedService(
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _relayLoop = Task.Run(() => ConsumeMarkerEventsAsync(_cts.Token), CancellationToken.None);
+        _rigLoop = Task.Run(() => ConsumeRigEventsAsync(_cts.Token), CancellationToken.None);
+        _tickLoop = Task.Run(() => RunRigTickAsync(_cts.Token), CancellationToken.None);
         _disconnectLoop = Task.Run(() => ConsumeConnectionStatusEventsAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
@@ -43,12 +56,12 @@ internal sealed partial class EventsHostedService(
         await _cts.CancelAsync().ConfigureAwait(false);
         foreach (var loop in new[]
                  {
-                     _relayLoop, _disconnectLoop
+                     _relayLoop, _rigLoop, _tickLoop, _disconnectLoop
                  }.Where(t => t is not null))
         {
             try
             {
-#pragma warning disable VSTHRD003 // Avoid awaiting foreign Tasks — these are our own loop tasks, joined on stop.
+#pragma warning disable VSTHRD003 // Our own loop tasks, joined on stop.
                 await loop!.ConfigureAwait(false);
 #pragma warning restore VSTHRD003
             }
@@ -56,6 +69,42 @@ internal sealed partial class EventsHostedService(
             {
                 // Expected on shutdown.
             }
+        }
+    }
+
+    /// <summary>Runs one rig-timer tick: advances rig phases and publishes any timed boundary crossings.</summary>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the tick has published all crossings.</returns>
+    internal async Task TickOnceAsync(CancellationToken cancellationToken)
+    {
+        foreach (var c in rigStore.Advance(clock.UtcNow))
+        {
+            await eventBus.PublishAsync(
+                    new RigStateChangedEvent(c.GuildId, c.ServerId, c.Rig, c.Kind, c.X, c.Y, c.Dimensions),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private async Task RunRigTickAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await TickOnceAsync(cancellationToken).ConfigureAwait(false);
+                await Task.Delay(options.Value.RigTickInterval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting tick must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogRigTickFaulted(logger, ex);
         }
     }
 
@@ -78,6 +127,28 @@ internal sealed partial class EventsHostedService(
 #pragma warning restore CA1031
         {
             LogRelayLoopFaulted(logger, ex);
+        }
+    }
+
+    private async Task ConsumeRigEventsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<RigStateChangedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await relay.RelayRigAsync(evt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogRigLoopFaulted(logger, ex);
         }
     }
 
@@ -114,12 +185,19 @@ internal sealed partial class EventsHostedService(
             if (state is null || state.Status != ConnectionStatus.Connected)
             {
                 store.Clear(evt.GuildId, evt.ServerId);
+                rigStore.Clear(evt.GuildId, evt.ServerId);
             }
         }
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Event relay loop faulted.")]
     private static partial void LogRelayLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Rig relay loop faulted.")]
+    private static partial void LogRigLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Rig tick loop faulted.")]
+    private static partial void LogRigTickFaulted(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Disconnect-clear loop faulted.")]
     private static partial void LogDisconnectLoopFaulted(ILogger logger, Exception exception);
