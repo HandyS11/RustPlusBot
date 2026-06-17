@@ -122,12 +122,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             return Task.FromResult(PromoteResult);
         }
 
-        public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+        public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
+            CancellationToken cancellationToken = default) =>
             MarkersThrow
                 ? Task.FromException<IReadOnlyList<MapMarkerSnapshot>>(new InvalidOperationException("poll failed"))
                 : Task.FromResult(MarkersResult);
 
-        public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+        public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult(DimensionsResult);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

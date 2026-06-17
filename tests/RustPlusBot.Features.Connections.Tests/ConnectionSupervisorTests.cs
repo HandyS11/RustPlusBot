@@ -64,13 +64,17 @@ public sealed class ConnectionSupervisorTests
             MaxRetryDelay = TimeSpan.FromMilliseconds(20),
             HeartbeatInterval = TimeSpan.FromMilliseconds(20),
             HeartbeatTimeout = TimeSpan.FromMilliseconds(200),
+            MarkerPollInterval = TimeSpan.FromMilliseconds(20),
         }));
         services.AddSingleton<ConnectionSupervisor>();
 
         var provider = services.BuildServiceProvider();
         return new Harness
         {
-            Provider = provider, Dm = dm, Supervisor = provider.GetRequiredService<ConnectionSupervisor>()
+            Provider = provider,
+            Dm = dm,
+            Supervisor = provider.GetRequiredService<ConnectionSupervisor>(),
+            Bus = provider.GetRequiredService<IEventBus>(),
         };
     }
 
@@ -243,11 +247,184 @@ public sealed class ConnectionSupervisorTests
         Assert.True(source.CreateCount >= 1);
     }
 
+    [Fact]
+    public async Task First_marker_poll_is_a_silent_baseline()
+    {
+        // Arrange: the connection always returns an empty marker list.
+        // After two full poll cycles the first (silent baseline) plus one repeated poll should
+        // produce no MapMarkersChangedEvent because there is no diff to report.
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<MapMarkersChangedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<MapMarkersChangedEvent>(cts.Token))
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        // FakeConnection defaults to empty MarkersResult — baseline poll sees nothing.
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        // Wait two full poll cycles so the baseline and one follow-up are definitely consumed.
+        await Task.Delay(TimeSpan.FromMilliseconds(100), cts.Token);
+
+        // The first poll establishes a silent baseline; repeated empty polls produce no event.
+        Assert.Empty(captured);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task Marker_added_on_a_later_poll_publishes_changed_event()
+    {
+        // Arrange: first poll sees nothing (baseline); second poll sees a CargoShip → one event.
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<MapMarkersChangedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<MapMarkersChangedEvent>(cts.Token))
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        // Wait for the fake connection to exist; start with empty markers (baseline poll sees nothing).
+        await WaitUntilAsync(() => source.LastConnection is not null, cts.Token);
+        source.LastConnection!.MarkersResult = [];
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        // Wait one poll cycle for the baseline to be established, then add a CargoShip.
+        await Task.Delay(TimeSpan.FromMilliseconds(60), cts.Token);
+        source.LastConnection!.MarkersResult =
+            [new MapMarkerSnapshot(2UL, MarkerKind.CargoShip, 1f, 1f, "Cargo A")];
+
+        // Wait until the event arrives (up to 30s deadline).
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (captured.IsEmpty && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(15, cts.Token);
+        }
+
+        Assert.Single(captured);
+        var evt = captured.TryPeek(out var e) ? e : null;
+        Assert.NotNull(evt);
+        Assert.Single(evt!.Added);
+        Assert.Equal(MarkerKind.CargoShip, evt.Added[0].Kind);
+        Assert.Empty(evt.Removed);
+        // Dimensions should ride along from the connect-time fetch.
+        Assert.NotNull(evt.Dimensions);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task Failed_marker_poll_retains_previous_snapshot()
+    {
+        // Arrange: baseline is empty. The second poll adds a CargoShip (event published).
+        // The third poll throws (no event). The fourth returns the same CargoShip (no spurious diff).
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<MapMarkersChangedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<MapMarkersChangedEvent>(cts.Token))
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        await WaitUntilAsync(() => source.LastConnection is not null, cts.Token);
+        source.LastConnection!.MarkersResult = [];
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        // Let baseline settle.
+        await Task.Delay(TimeSpan.FromMilliseconds(60), cts.Token);
+
+        // Poll 2: add CargoShip → expect exactly one event.
+        var cargo = new MapMarkerSnapshot(3UL, MarkerKind.CargoShip, 2f, 2f, null);
+        source.LastConnection!.MarkersResult = [cargo];
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (captured.IsEmpty && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(15, cts.Token);
+        }
+
+        Assert.Single(captured);
+
+        // Poll 3: make the poll throw.
+        source.LastConnection!.MarkersThrow = true;
+        // Give it time to attempt the failing poll.
+        await Task.Delay(TimeSpan.FromMilliseconds(60), cts.Token);
+
+        // Poll 4: recover; same CargoShip → snapshot unchanged, no new event.
+        source.LastConnection!.MarkersThrow = false;
+        source.LastConnection!.MarkersResult = [cargo];
+        await Task.Delay(TimeSpan.FromMilliseconds(100), cts.Token);
+
+        // Still only one event total — the failed poll did not corrupt the snapshot.
+        Assert.Single(captured);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
+    {
+        while (!condition())
+        {
+            ct.ThrowIfCancellationRequested();
+            await Task.Delay(10, ct);
+        }
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         public required ServiceProvider Provider { get; init; }
         public required IUserDmSender Dm { get; init; }
         public required ConnectionSupervisor Supervisor { get; init; }
+        public required IEventBus Bus { get; init; }
 
         public async ValueTask DisposeAsync()
         {

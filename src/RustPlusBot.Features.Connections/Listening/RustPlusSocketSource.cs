@@ -48,10 +48,12 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+        public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<MapMarkerSnapshot>>([]);
 
-        public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+        public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult<MapDimensions?>(null);
 
         public event EventHandler<TeamChatLine>? TeamMessageReceived
@@ -333,18 +335,6 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             return markers;
         }
 
-        private static void AddMarkers<TMarker>(
-            List<MapMarkerSnapshot> into,
-            IReadOnlyDictionary<ulong, TMarker> source,
-            MarkerKind kind)
-            where TMarker : RustPlusApi.Data.Markers.Marker
-        {
-            foreach (var (id, marker) in source)
-            {
-                into.Add(new MapMarkerSnapshot(id, kind, marker.X ?? 0f, marker.Y ?? 0f, Name: null));
-            }
-        }
-
         public async Task<MapDimensions?> GetMapDimensionsAsync(
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -398,6 +388,18 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 #pragma warning restore CA1031
             {
                 LogDisposeFailed(_logger, ex);
+            }
+        }
+
+        private static void AddMarkers<TMarker>(
+            List<MapMarkerSnapshot> into,
+            IReadOnlyDictionary<ulong, TMarker> source,
+            MarkerKind kind)
+            where TMarker : RustPlusApi.Data.Markers.Marker
+        {
+            foreach (var (id, marker) in source)
+            {
+                into.Add(new MapMarkerSnapshot(id, kind, marker.X ?? 0f, marker.Y ?? 0f, Name: null));
             }
         }
 
