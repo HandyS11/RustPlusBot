@@ -350,6 +350,61 @@ public sealed class RendererTests
     }
 
     [Fact]
+    public async Task ServerInfo_Connected_LeaderHasEmptyName_FallsBackToSteamId()
+    {
+        var serverId = Guid.NewGuid();
+        var credId = Guid.NewGuid();
+        var servers = Substitute.For<IServerService>();
+        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "S",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new DomainConnectionState
+            {
+                RustServerId = serverId,
+                GuildId = 1,
+                ActiveCredentialId = credId,
+                Status = ConnectionStatus.Connected,
+                PlayerCount = 1,
+            });
+        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new List<PlayerCredential>
+            {
+                new()
+                {
+                    Id = credId,
+                    GuildId = 1,
+                    RustServerId = serverId,
+                    OwnerUserId = 7,
+                    SteamId = 5UL,
+                    Status = CredentialStatus.Active
+                },
+            });
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new TeamInfoSnapshot(
+                10UL,
+                [
+                    // Leader is present but the API reported no display name.
+                    new TeamMemberSnapshot(10UL, string.Empty, 0f, 0f, true, true,
+                        DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch),
+                ]));
+        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
+
+        var body = string.Concat(payload.Embed!.Fields.Select(f => f.Value));
+        Assert.Contains("leader 10", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ServerInfo_Connected_NullTeam_OmitsTeamSummary()
     {
         var serverId = Guid.NewGuid();

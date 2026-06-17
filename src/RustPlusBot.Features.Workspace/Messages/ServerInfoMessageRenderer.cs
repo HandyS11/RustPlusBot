@@ -70,8 +70,11 @@ internal sealed class ServerInfoMessageRenderer(
             if (team is not null)
             {
                 var online = team.Members.Count(m => m.IsOnline);
-                var leaderName = team.Members.FirstOrDefault(m => m.SteamId == team.LeaderSteamId)?.Name
-                                 ?? team.LeaderSteamId.ToString(CultureInfo.InvariantCulture);
+                var leaderEntry = team.Members.FirstOrDefault(m => m.SteamId == team.LeaderSteamId);
+                // The API can report a member with no display name, so treat an empty name as missing.
+                var leaderName = string.IsNullOrWhiteSpace(leaderEntry?.Name)
+                    ? team.LeaderSteamId.ToString(CultureInfo.InvariantCulture)
+                    : leaderEntry.Name;
                 embed.AddField(
                     localizer.Get("server.info.team.label", context.Culture),
                     localizer.Get("server.info.team.value", context.Culture,

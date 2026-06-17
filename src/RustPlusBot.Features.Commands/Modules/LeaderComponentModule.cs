@@ -20,6 +20,13 @@ public sealed class LeaderComponentModule(IServiceScopeFactory scopeFactory)
     [ComponentInteraction(CommandSurfaceModule.LeaderServerSelectId, ignoreGroupNames: true)]
     public async Task OnServerSelectedAsync(string[] values)
     {
+        // Component payloads can be forged, so guard against a null guild before dereferencing it.
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         if (!await EnsureManageGuildAsync().ConfigureAwait(false) ||
             values is not [var raw] || !Guid.TryParse(raw, out var serverId))
         {
@@ -65,6 +72,13 @@ public sealed class LeaderComponentModule(IServiceScopeFactory scopeFactory)
     [ComponentInteraction($"{CommandSurfaceModule.LeaderPromotePrefix}*", ignoreGroupNames: true)]
     public async Task OnMemberSelectedAsync(string serverIdRaw, string[] values)
     {
+        // Component payloads can be forged, so guard against a null guild before dereferencing it.
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
         if (!await EnsureManageGuildAsync().ConfigureAwait(false) ||
             !Guid.TryParse(serverIdRaw, out var serverId) ||
             values is not [var rawSteamId] ||
@@ -82,9 +96,16 @@ public sealed class LeaderComponentModule(IServiceScopeFactory scopeFactory)
 
             var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
 
-            // Re-resolve the member name for the success message; fall back to the SteamId.
+            // The socket may have dropped between selection and click; surface that rather than a generic
+            // promote failure (GetMembersAsync also gives us the member name for the success message).
             var team = await leader.GetMembersAsync(Context.Guild.Id, serverId, culture, CancellationToken.None)
                 .ConfigureAwait(false);
+            if (team.ErrorMessage is { } error)
+            {
+                await FollowupAsync(error, ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
             var name = team.Members.FirstOrDefault(m => m.SteamId == steamId)?.Name
                        ?? steamId.ToString(CultureInfo.InvariantCulture);
 
