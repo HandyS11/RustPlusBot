@@ -52,6 +52,11 @@ builder.Services.AddOptions<ConnectionOptions>()
     .Validate(static o => o.HeartbeatTimeout < o.HeartbeatInterval,
         "Connections:HeartbeatTimeout must be less than HeartbeatInterval.")
     .Validate(static o => o.MarkerPollInterval > TimeSpan.Zero, "Connections:MarkerPollInterval must be positive.")
+    .Validate(static o => o.MarkerPollFastInterval > TimeSpan.Zero, "Connections:MarkerPollFastInterval must be positive.")
+    .Validate(static o => o.RigRadius > 0f, "Connections:RigRadius must be positive.")
+    .Validate(static o => o.RigActiveWindow > TimeSpan.Zero, "Connections:RigActiveWindow must be positive.")
+    .Validate(static o => o.RigOfflineWindow > TimeSpan.Zero, "Connections:RigOfflineWindow must be positive.")
+    .Validate(static o => o.RigTickInterval > TimeSpan.Zero, "Connections:RigTickInterval must be positive.")
     .ValidateOnStart();
 builder.Services.AddConnections();
 builder.Services.AddChat();
