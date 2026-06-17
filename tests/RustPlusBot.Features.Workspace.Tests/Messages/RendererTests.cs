@@ -360,7 +360,7 @@ public sealed class RendererTests
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
-        Assert.DoesNotContain("online", string.Concat(payload.Embed!.Fields.Select(f => f.Value)),
-            StringComparison.OrdinalIgnoreCase);
+        var teamLabel = Loc.Get("server.info.team.label", "en");
+        Assert.DoesNotContain(payload.Embed!.Fields, f => f.Name == teamLabel);
     }
 }
