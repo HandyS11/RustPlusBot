@@ -29,7 +29,8 @@ public sealed class MapRenderer
     {
         var asm = typeof(MapRenderer).Assembly;
         using var stream = asm.GetManifestResourceStream("RustPlusBot.Features.Map.Assets.LiberationSans-Regular.ttf")
-            ?? throw new InvalidOperationException("Embedded map font 'RustPlusBot.Features.Map.Assets.LiberationSans-Regular.ttf' not found.");
+                           ?? throw new InvalidOperationException(
+                               "Embedded map font 'RustPlusBot.Features.Map.Assets.LiberationSans-Regular.ttf' not found.");
         var collection = new FontCollection();
         var family = collection.Add(stream, CultureInfo.InvariantCulture);
         return family.CreateFont(12f);
@@ -43,7 +44,10 @@ public sealed class MapRenderer
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
     /// <remarks>Kept as an instance method so the class can be registered as a DI singleton.</remarks>
 #pragma warning disable CA1822, S2325 // Kept as instance method for DI singleton registration
-    public byte[] Render(byte[] baseJpeg, MapDimensions dims, IReadOnlyList<MarkerPlacement> markers, MapLayerSet layers)
+    public byte[] Render(byte[] baseJpeg,
+        MapDimensions dims,
+        IReadOnlyList<MarkerPlacement> markers,
+        MapLayerSet layers)
 #pragma warning restore CA1822, S2325
     {
         ArgumentNullException.ThrowIfNull(baseJpeg);

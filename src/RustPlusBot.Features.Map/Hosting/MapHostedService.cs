@@ -35,8 +35,8 @@ internal sealed partial class MapHostedService(
 {
     private readonly CancellationTokenSource _cts = new();
     private readonly MapRefreshThrottle _throttle = new(clock);
-    private Task? _markerLoop;
     private Task? _disconnectLoop;
+    private Task? _markerLoop;
 
     /// <inheritdoc />
     public void Dispose() => _cts.Dispose();
@@ -53,7 +53,10 @@ internal sealed partial class MapHostedService(
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await _cts.CancelAsync().ConfigureAwait(false);
-        foreach (var loop in new[] { _markerLoop, _disconnectLoop }.Where(t => t is not null))
+        foreach (var loop in new[]
+                 {
+                     _markerLoop, _disconnectLoop
+                 }.Where(t => t is not null))
         {
             try
             {

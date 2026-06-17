@@ -20,7 +20,10 @@ internal sealed partial class DiscordMapChannelPoster(
         ArgumentNullException.ThrowIfNull(pngBytes);
         try
         {
-            var options = new RequestOptions { CancelToken = cancellationToken };
+            var options = new RequestOptions
+            {
+                CancelToken = cancellationToken
+            };
             if (await client.GetChannelAsync(channelId, options).ConfigureAwait(false) is not ITextChannel channel)
             {
                 return;
@@ -73,6 +76,7 @@ internal sealed partial class DiscordMapChannelPoster(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Posting the map image to channel {ChannelId} failed.")]
     private static partial void LogPostFailed(ILogger logger, Exception exception, ulong channelId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Deleting prior map messages in channel {ChannelId} failed; reposting anyway.")]
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Deleting prior map messages in channel {ChannelId} failed; reposting anyway.")]
     private static partial void LogDeleteFailed(ILogger logger, Exception exception, ulong channelId);
 }

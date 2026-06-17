@@ -7,22 +7,31 @@ namespace RustPlusBot.Features.Map.Tests;
 
 public sealed class BaseMapCacheTests
 {
-    private static readonly Guid Server = Guid.NewGuid();
     private const ulong Guild = 1UL;
+    private static readonly Guid Server = Guid.NewGuid();
 
     [Fact]
     public async Task GetAsync_fetches_once_then_serves_from_cache()
     {
         var query = Substitute.For<IRustServerQuery>();
         query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns(new byte[] { 9 });
+            .Returns(new byte[]
+            {
+                9
+            });
         var cache = new BaseMapCache(query);
 
         var first = await cache.GetAsync(Guild, Server, CancellationToken.None);
         var second = await cache.GetAsync(Guild, Server, CancellationToken.None);
 
-        Assert.Equal(new byte[] { 9 }, first);
-        Assert.Equal(new byte[] { 9 }, second);
+        Assert.Equal(new byte[]
+        {
+            9
+        }, first);
+        Assert.Equal(new byte[]
+        {
+            9
+        }, second);
         await query.Received(1).GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>());
     }
 
@@ -31,14 +40,20 @@ public sealed class BaseMapCacheTests
     {
         var query = Substitute.For<IRustServerQuery>();
         query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns((byte[]?)null, new byte[] { 7 });
+            .Returns((byte[]?)null, new byte[]
+            {
+                7
+            });
         var cache = new BaseMapCache(query);
 
         var first = await cache.GetAsync(Guild, Server, CancellationToken.None);
         var second = await cache.GetAsync(Guild, Server, CancellationToken.None);
 
         Assert.Null(first);
-        Assert.Equal(new byte[] { 7 }, second);
+        Assert.Equal(new byte[]
+        {
+            7
+        }, second);
         await query.Received(2).GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>());
     }
 
@@ -46,7 +61,10 @@ public sealed class BaseMapCacheTests
     public async Task Clear_evicts_so_next_get_refetches()
     {
         var query = Substitute.For<IRustServerQuery>();
-        query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(new byte[] { 1 });
+        query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(new byte[]
+        {
+            1
+        });
         var cache = new BaseMapCache(query);
 
         await cache.GetAsync(Guild, Server, CancellationToken.None);

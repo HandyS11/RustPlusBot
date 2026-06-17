@@ -6,11 +6,6 @@ namespace RustPlusBot.Features.Map.Tests;
 
 public sealed class MapRefreshThrottleTests
 {
-    private sealed class TestClock : IClock
-    {
-        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
-    }
-
     private static readonly Guid Server = Guid.NewGuid();
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(45);
 
@@ -45,5 +40,10 @@ public sealed class MapRefreshThrottleTests
 
         Assert.True(throttle.ShouldRefresh(1UL, Server, Interval));
         Assert.True(throttle.ShouldRefresh(1UL, other, Interval));
+    }
+
+    private sealed class TestClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
     }
 }
