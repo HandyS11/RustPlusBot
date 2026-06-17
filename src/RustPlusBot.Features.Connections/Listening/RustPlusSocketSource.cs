@@ -60,6 +60,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<MonumentSnapshot>>([]);
 
+        public Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            Task.FromResult<byte[]?>(null);
+
         public event EventHandler<TeamChatLine>? TeamMessageReceived
         {
             add { _ = value; }
@@ -406,6 +409,30 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             }
 
             return monuments;
+        }
+
+        public async Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.1): GetMapAsync -> Response<ServerMap>; ServerMap.JpgImage is byte[] (raw JPEG bytes).
+                var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                return response.IsSuccess ? response.Data?.JpgImage : null;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: any map-query failure maps to null; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return null;
+            }
         }
 
         public async ValueTask DisposeAsync()

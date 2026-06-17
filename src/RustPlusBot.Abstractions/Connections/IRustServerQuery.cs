@@ -31,4 +31,11 @@ public interface IRustServerQuery
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>True if promoted; false when no live socket or the API fails.</returns>
     Task<bool> PromoteToLeaderAsync(ulong guildId, Guid serverId, ulong steamId, CancellationToken cancellationToken);
+
+    /// <summary>Gets the base map image (JPEG bytes), or null when there is no live socket.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The base-map JPEG bytes, or null when there is no live socket.</returns>
+    Task<byte[]?> GetMapImageAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
 }

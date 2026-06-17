@@ -67,6 +67,12 @@ internal interface IRustServerConnection : IAsyncDisposable
     Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Gets the base map image (JPEG bytes), or null on failure/unavailable.</summary>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The base-map JPEG bytes, or null on failure/unavailable.</returns>
+    Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
+
     /// <summary>Raised for every in-game team chat line received on this socket.</summary>
     event EventHandler<TeamChatLine>? TeamMessageReceived;
 }

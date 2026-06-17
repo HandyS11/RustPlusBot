@@ -133,6 +133,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The monuments returned by <see cref="GetMonumentsAsync"/>. Defaults to empty.</summary>
         public IReadOnlyList<MonumentSnapshot> MonumentsResult { get; set; } = [];
 
+        /// <summary>The bytes returned by <see cref="GetMapImageAsync"/>. Defaults to null.</summary>
+        public byte[]? MapImageResult { get; set; }
+
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
@@ -193,6 +196,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(MonumentsResult);
+
+        public Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            Task.FromResult(MapImageResult);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
