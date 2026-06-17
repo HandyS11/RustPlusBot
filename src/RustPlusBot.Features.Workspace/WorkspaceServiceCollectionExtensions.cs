@@ -60,6 +60,7 @@ public static class WorkspaceServiceCollectionExtensions
         // Channel locators (singleton with TTL cache; IClock + IServiceScopeFactory provided by the host).
         services.AddSingleton<ITeamChatChannelLocator, TeamChatChannelLocator>();
         services.AddSingleton<IEventChannelLocator, EventChannelLocator>();
+        services.AddSingleton<IMapChannelLocator, MapChannelLocator>();
 
         services.AddHostedService<Hosting.WorkspaceHostedService>();
 
