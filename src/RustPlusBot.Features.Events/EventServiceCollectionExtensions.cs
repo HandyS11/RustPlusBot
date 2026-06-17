@@ -20,6 +20,8 @@ public static class EventServiceCollectionExtensions
 
         services.AddSingleton<EventStateStore>();
         services.AddSingleton<IEventState>(sp => sp.GetRequiredService<EventStateStore>());
+        services.AddSingleton<RigStateStore>();
+        services.AddSingleton<IRigState>(sp => sp.GetRequiredService<RigStateStore>());
         services.AddSingleton(EventLocalizationCatalog.Default);
         services.AddSingleton<IEventLocalizer, EventLocalizer>();
         services.AddSingleton<MarkerEventClassifier>();

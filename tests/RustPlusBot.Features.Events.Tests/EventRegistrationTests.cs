@@ -1,9 +1,12 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Features.Connections;
+using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Hosting;
 using RustPlusBot.Features.Events.Relaying;
 using RustPlusBot.Features.Events.State;
@@ -39,6 +42,8 @@ public sealed class EventRegistrationTests
         services.AddSingleton<IEventChannelLocator>(Substitute.For<IEventChannelLocator>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IConnectionStore>(_ => Substitute.For<IConnectionStore>());
+        services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
+        services.AddSingleton(Options.Create(new ConnectionOptions()));
         services.AddEvents();
 
         return services.BuildServiceProvider(validateScopes: true);

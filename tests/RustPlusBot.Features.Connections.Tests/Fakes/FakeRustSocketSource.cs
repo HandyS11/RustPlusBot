@@ -23,6 +23,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private int _createCount;
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
+    private IReadOnlyList<MonumentSnapshot> _pendingMonuments = [];
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
@@ -49,6 +50,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             connection.EnqueueMarkers(markers);
         }
 
+        // Transfer any pre-staged monuments so they are available before the supervisor fetches them on connect.
+        // Reset after transfer so the staging applies to the NEXT connection only (no leak across connections).
+        connection.MonumentsResult = _pendingMonuments;
+        _pendingMonuments = [];
+
         LastConnection = connection;
         return connection;
     }
@@ -66,6 +72,15 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// <param name="markers">The marker list to deliver on the corresponding poll.</param>
     public void EnqueueMarkers(IReadOnlyList<MapMarkerSnapshot> markers) =>
         _pendingMarkerScript.Enqueue(markers);
+
+    /// <summary>
+    /// Pre-stages the monument list returned by <see cref="FakeConnection.GetMonumentsAsync"/> for the NEXT
+    /// connection created by <see cref="Create"/>. The list is transferred to the new connection at creation
+    /// time, before the supervisor fetches monuments on connect, eliminating the setup race.
+    /// Call this before <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    /// <param name="monuments">The monument list to return from <see cref="IRustServerConnection.GetMonumentsAsync"/>.</param>
+    public void SetMonuments(IReadOnlyList<MonumentSnapshot> monuments) => _pendingMonuments = monuments;
 
     internal HeartbeatResult NextHeartbeat()
     {
@@ -114,6 +129,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         /// <summary>The dimensions returned by <see cref="GetMapDimensionsAsync"/>. Defaults to a non-null snapshot.</summary>
         public MapDimensions? DimensionsResult { get; set; } = new(4000u, 4000u, 500);
+
+        /// <summary>The monuments returned by <see cref="GetMonumentsAsync"/>. Defaults to empty.</summary>
+        public IReadOnlyList<MonumentSnapshot> MonumentsResult { get; set; } = [];
 
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
@@ -171,6 +189,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(DimensionsResult);
+
+        public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(MonumentsResult);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 

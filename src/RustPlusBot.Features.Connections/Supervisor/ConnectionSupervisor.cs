@@ -351,11 +351,13 @@ internal sealed partial class ConnectionSupervisor(
 #pragma warning restore RCS1163
 
         var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
 
         connection.TeamMessageReceived += OnTeamMessage;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId);
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, pollCts.Token), CancellationToken.None);
+        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, pollCts.Token),
+            CancellationToken.None);
         try
         {
             while (!ct.IsCancellationRequested)
@@ -400,14 +402,19 @@ internal sealed partial class ConnectionSupervisor(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
         MapDimensions? dims,
+        IReadOnlyList<RigPosition> rigs,
         CancellationToken ct)
     {
         IReadOnlyList<MapMarkerSnapshot>? previous = null;
+        var rigsInRadius = new HashSet<RigKind>();
         while (!ct.IsCancellationRequested)
         {
+            var anyCh47 = false;
             try
             {
                 var current = await connection.GetMapMarkersAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+                anyCh47 = current.Any(m => m.Kind == MarkerKind.Chinook);
+
                 if (previous is null)
                 {
                     previous = current; // first poll: silent baseline
@@ -424,6 +431,8 @@ internal sealed partial class ConnectionSupervisor(
                             .ConfigureAwait(false);
                     }
                 }
+
+                await DetectRigActivationsAsync(key, current, rigs, dims, rigsInRadius, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -434,10 +443,94 @@ internal sealed partial class ConnectionSupervisor(
 #pragma warning restore CA1031
             {
                 LogMarkerPollFailed(logger, ex, key.Server);
-                // previous is retained, so a transient failure does not produce a spurious despawn/respawn diff.
             }
 
-            await Task.Delay(_options.MarkerPollInterval, ct).ConfigureAwait(false);
+            var delay = anyCh47 ? _options.MarkerPollFastInterval : _options.MarkerPollInterval;
+            await Task.Delay(delay, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task DetectRigActivationsAsync(
+        (ulong Guild, Guid Server) key,
+        IReadOnlyList<MapMarkerSnapshot> current,
+        IReadOnlyList<RigPosition> rigs,
+        MapDimensions? dims,
+        HashSet<RigKind> rigsInRadius,
+        CancellationToken ct)
+    {
+        if (rigs.Count == 0)
+        {
+            return;
+        }
+
+        var radiusSquared = _options.RigRadius * _options.RigRadius;
+        var nowInRadius = new HashSet<RigKind>();
+        foreach (var rig in rigs)
+        {
+            foreach (var m in current)
+            {
+                if (m.Kind != MarkerKind.Chinook)
+                {
+                    continue;
+                }
+
+                var dx = m.X - rig.X;
+                var dy = m.Y - rig.Y;
+                if ((dx * dx) + (dy * dy) <= radiusSquared)
+                {
+                    nowInRadius.Add(rig.Kind);
+                    if (!rigsInRadius.Contains(rig.Kind))
+                    {
+                        await eventBus.PublishAsync(
+                                new RigStateChangedEvent(key.Guild, key.Server, rig.Kind, RigEventKind.Activated,
+                                    rig.X, rig.Y, dims), ct)
+                            .ConfigureAwait(false);
+                    }
+
+                    break; // one CH47 in radius is enough for this rig
+                }
+            }
+        }
+
+        rigsInRadius.Clear();
+        rigsInRadius.UnionWith(nowInRadius);
+    }
+
+    private async Task<IReadOnlyList<RigPosition>> GetRigPositionsAsync(
+        Guid serverId,
+        IRustServerConnection connection,
+        CancellationToken ct)
+    {
+        try
+        {
+            var monuments = await connection.GetMonumentsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+            var rigs = new List<RigPosition>();
+            foreach (var m in monuments)
+            {
+                RigKind? kind = m.Token switch
+                {
+                    "oilrig_1" => RigKind.Small,
+                    "large_oil_rig" => RigKind.Large,
+                    _ => null,
+                };
+                if (kind is { } k)
+                {
+                    rigs.Add(new RigPosition(k, m.X, m.Y));
+                }
+            }
+
+            return rigs;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a monuments-fetch failure just disables rig detection this window.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogMonumentsFetchFailed(logger, ex, serverId); // rig detection degrades gracefully for this window
+            return [];
         }
     }
 
@@ -572,6 +665,11 @@ internal sealed partial class ConnectionSupervisor(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Marker poll for server {ServerId} failed.")]
     private static partial void LogMarkerPollFailed(ILogger logger, Exception exception, Guid serverId);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message =
+            "Fetching monuments for oil-rig detection on server {ServerId} failed; rig detection disabled for this connection.")]
+    private static partial void LogMonumentsFetchFailed(ILogger logger, Exception exception, Guid serverId);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Relaying a message to team chat for server {ServerId} failed.")]
     private static partial void LogSendFailed(ILogger logger, Exception exception, Guid serverId);
 
@@ -590,6 +688,8 @@ internal sealed partial class ConnectionSupervisor(
         Unreachable = 1,
         AuthRejected = 2,
     }
+
+    private readonly record struct RigPosition(RigKind Kind, float X, float Y);
 
     private readonly record struct Prepared(
         string Ip,

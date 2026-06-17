@@ -70,6 +70,22 @@ public sealed partial class ServerCommandModule(
         [Autocomplete(typeof(ServerAutocompleteHandler))]
         string? server = null) => RunAsync("alive", server);
 
+    /// <summary>Shows the small oil rig's status.</summary>
+    /// <param name="server">The target server (only needed if more than one is registered).</param>
+    [SlashCommand("small", "Show the small oil rig status")]
+    public Task SmallAsync(
+        [Summary("server", "Which server (only needed if more than one)")]
+        [Autocomplete(typeof(ServerAutocompleteHandler))]
+        string? server = null) => RunAsync("small", server);
+
+    /// <summary>Shows the large oil rig's status.</summary>
+    /// <param name="server">The target server (only needed if more than one is registered).</param>
+    [SlashCommand("large", "Show the large oil rig status")]
+    public Task LargeAsync(
+        [Summary("server", "Which server (only needed if more than one)")]
+        [Autocomplete(typeof(ServerAutocompleteHandler))]
+        string? server = null) => RunAsync("large", server);
+
     private async Task RunAsync(string commandName, string? server)
     {
         if (Context.Guild is null)

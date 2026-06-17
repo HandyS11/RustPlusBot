@@ -65,6 +65,7 @@ public sealed class ConnectionSupervisorTests
             HeartbeatInterval = TimeSpan.FromMilliseconds(20),
             HeartbeatTimeout = TimeSpan.FromMilliseconds(200),
             MarkerPollInterval = TimeSpan.FromMilliseconds(20),
+            MarkerPollFastInterval = TimeSpan.FromMilliseconds(20),
         }));
         services.AddSingleton<ConnectionSupervisor>();
 
@@ -412,6 +413,119 @@ public sealed class ConnectionSupervisorTests
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
         try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task Ch47_entering_rig_radius_publishes_activated_once_per_visit()
+    {
+        // Rig at (1000, 1000). Poll 1: CH47 far away (no event). Poll 2: CH47 within radius (Activated).
+        // Poll 3: CH47 still within radius (no re-fire). Poll 4: CH47 gone (no event).
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        source.SetMonuments([new MonumentSnapshot("oilrig_1", 1000f, 1000f)]);
+        source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 0f, 0f, null)]); // poll 1: far
+        source.EnqueueMarkers([
+            new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 1010f, 1010f, null)
+        ]); // poll 2: in radius
+        source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 1005f, 1005f, null)]); // poll 3: still in
+        source.EnqueueMarkers([]); // poll 4: gone
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var rigEvents = new System.Collections.Concurrent.ConcurrentQueue<RigStateChangedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<RigStateChangedEvent>(cts.Token))
+            {
+                rigEvents.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        // Wait for the Activated event — its arrival proves poll 2 completed.
+        await WaitUntilAsync(() => !rigEvents.IsEmpty, cts.Token);
+
+        // Give a little more time so poll 3 can complete (should NOT fire again).
+        await Task.Delay(TimeSpan.FromMilliseconds(100), cts.Token);
+
+        Assert.Single(rigEvents);
+        Assert.True(rigEvents.TryPeek(out var evt));
+        Assert.NotNull(evt);
+        Assert.Equal(RigKind.Small, evt!.Rig);
+        Assert.Equal(RigEventKind.Activated, evt.Kind);
+        Assert.Equal(1000f, evt.X);
+        Assert.Equal(1000f, evt.Y);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task Ch47_far_from_rig_publishes_chinook_event_but_no_rig_event()
+    {
+        // Rig at (1000, 1000). CH47 spawns far away at (0, 0) — no rig activation.
+        // Expects: a MapMarkersChangedEvent with an Added Chinook, and zero RigStateChangedEvents.
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        source.SetMonuments([new MonumentSnapshot("oilrig_1", 1000f, 1000f)]);
+        source.EnqueueMarkers([]); // poll 1: baseline
+        source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 0f, 0f, null)]); // poll 2: CH47 far
+        source.EnqueueMarkers([]); // poll 3: gone
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var markerEvents = new System.Collections.Concurrent.ConcurrentQueue<MapMarkersChangedEvent>();
+        var rigEvents = new System.Collections.Concurrent.ConcurrentQueue<RigStateChangedEvent>();
+        var markerSub = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<MapMarkersChangedEvent>(cts.Token))
+            {
+                markerEvents.Enqueue(e);
+            }
+        }, CancellationToken.None);
+        var rigSub = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<RigStateChangedEvent>(cts.Token))
+            {
+                rigEvents.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        // Wait for the Chinook-added marker event — definite signal that poll 2 completed.
+        await WaitUntilAsync(
+            () => markerEvents.Any(e => e.Added.Any(m => m.Kind == MarkerKind.Chinook)), cts.Token);
+
+        // Give a little more time so poll 3 can complete — still no rig event.
+        await Task.Delay(TimeSpan.FromMilliseconds(100), cts.Token);
+
+        Assert.Contains(markerEvents, e => e.Added.Any(m => m.Kind == MarkerKind.Chinook));
+        Assert.Empty(rigEvents);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await markerSub; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+
+        try { await rigSub; }
         catch (OperationCanceledException)
         {
             /* expected */

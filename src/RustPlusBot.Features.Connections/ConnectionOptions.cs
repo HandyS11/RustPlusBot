@@ -18,6 +18,21 @@ public sealed class ConnectionOptions
     /// <summary>How long a single heartbeat may take before the socket is considered unreachable.</summary>
     public TimeSpan HeartbeatTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
-    /// <summary>How often to poll map markers for live-event detection. Default 10s.</summary>
-    public TimeSpan MarkerPollInterval { get; set; } = TimeSpan.FromSeconds(10);
+    /// <summary>How often to poll map markers for live-event detection. Default 5s.</summary>
+    public TimeSpan MarkerPollInterval { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>Faster poll cadence used while a CH47 marker is live (to catch its brief oil-rig visit). Default 2s.</summary>
+    public TimeSpan MarkerPollFastInterval { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>Distance (world units) within which a CH47 is considered to be "at" an oil rig. Default 150.</summary>
+    public float RigRadius { get; set; } = 150f;
+
+    /// <summary>How long an oil rig stays in the combat (Active) phase before the crate becomes lootable. Default 15m.</summary>
+    public TimeSpan RigActiveWindow { get; set; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>How long an oil rig stays dormant (Offline) before the crate respawns (Online). Default 15m.</summary>
+    public TimeSpan RigOfflineWindow { get; set; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>How often the rig-timer tick advances rig phases and emits timed boundary events. Default 30s.</summary>
+    public TimeSpan RigTickInterval { get; set; } = TimeSpan.FromSeconds(30);
 }

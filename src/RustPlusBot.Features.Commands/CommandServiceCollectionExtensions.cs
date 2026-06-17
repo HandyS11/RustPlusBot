@@ -42,6 +42,8 @@ public static class CommandServiceCollectionExtensions
         services.AddScoped<ICommandHandler, HeliCommandHandler>();
         services.AddScoped<ICommandHandler, ChinookCommandHandler>();
         services.AddScoped<ICommandHandler, EventsCommandHandler>();
+        services.AddScoped<ICommandHandler, SmallCommandHandler>();
+        services.AddScoped<ICommandHandler, LargeCommandHandler>();
 
         services.AddScoped<CommandDispatcher>();
         services.AddHostedService<CommandsHostedService>();
