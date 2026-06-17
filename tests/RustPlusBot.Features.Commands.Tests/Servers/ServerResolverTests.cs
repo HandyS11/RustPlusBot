@@ -10,7 +10,10 @@ public sealed class ServerResolverTests
 {
     private static readonly CommandLocalizer Loc = new(CommandLocalizationCatalog.Default);
 
-    private static RustServer Server(Guid id, string name) => new() { Id = id, Name = name, GuildId = 1UL };
+    private static RustServer Server(Guid id, string name) => new()
+    {
+        Id = id, Name = name, GuildId = 1UL
+    };
 
     private static ServerResolver Build(params RustServer[] servers)
     {

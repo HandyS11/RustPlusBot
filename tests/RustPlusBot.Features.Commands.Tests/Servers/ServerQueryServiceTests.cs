@@ -5,18 +5,6 @@ namespace RustPlusBot.Features.Commands.Tests.Servers;
 
 public sealed class ServerQueryServiceTests
 {
-    private sealed class StubHandler(string name, string? reply) : ICommandHandler
-    {
-        public CommandContext? Seen { get; private set; }
-        public string Name => name;
-
-        public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
-        {
-            Seen = context;
-            return Task.FromResult(reply);
-        }
-    }
-
     [Fact]
     public async Task RunsMatchingHandler_AndReturnsReply()
     {
@@ -44,5 +32,17 @@ public sealed class ServerQueryServiceTests
         var reply = await service.RunAsync("time", 1UL, Guid.NewGuid(), "en", CancellationToken.None);
 
         Assert.Null(reply);
+    }
+
+    private sealed class StubHandler(string name, string? reply) : ICommandHandler
+    {
+        public CommandContext? Seen { get; private set; }
+        public string Name => name;
+
+        public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+        {
+            Seen = context;
+            return Task.FromResult(reply);
+        }
     }
 }

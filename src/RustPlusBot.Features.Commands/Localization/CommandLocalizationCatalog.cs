@@ -100,7 +100,8 @@ internal sealed class CommandLocalizationCatalog
                 ["command.prox.selfunknown"] = "Impossible de vous localiser.",
                 ["command.prox.alone"] = "Aucun coéquipier à proximité.",
                 ["command.server.none"] = "Aucun serveur n'est encore configuré.",
-                ["command.server.specify"] = "Plusieurs serveurs sont configurés — choisissez-en un avec l'option serveur.",
+                ["command.server.specify"] =
+                    "Plusieurs serveurs sont configurés — choisissez-en un avec l'option serveur.",
                 ["command.server.unknown"] = "Ce serveur n'est pas configuré.",
                 ["help.title"] = "Commandes",
                 ["help.group.control"] = "Contrôle",
