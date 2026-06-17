@@ -12,6 +12,7 @@
     <ProjectReference Include="..\RustPlusBot.Domain\RustPlusBot.Domain.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Workspace\RustPlusBot.Features.Workspace.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Connections\RustPlusBot.Features.Connections.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.Events\RustPlusBot.Features.Events.csproj" />
   </ItemGroup>
 
   <ItemGroup>
