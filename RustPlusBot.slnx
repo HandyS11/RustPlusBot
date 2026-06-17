@@ -6,6 +6,7 @@
     <Project Path="src/RustPlusBot.Host/RustPlusBot.Host.csproj" />
     <Project Path="src/RustPlusBot.Features.Commands/RustPlusBot.Features.Commands.csproj" />
     <Project Path="src/RustPlusBot.Features.Connections/RustPlusBot.Features.Connections.csproj" />
+    <Project Path="src/RustPlusBot.Features.Map/RustPlusBot.Features.Map.csproj" />
     <Project Path="src/RustPlusBot.Features.Pairing/RustPlusBot.Features.Pairing.csproj" />
     <Project Path="src/RustPlusBot.Features.Chat/RustPlusBot.Features.Chat.csproj" />
     <Project Path="src/RustPlusBot.Features.Events/RustPlusBot.Features.Events.csproj" />
@@ -16,6 +17,7 @@
     <Project Path="tests/RustPlusBot.Abstractions.Tests/RustPlusBot.Abstractions.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Commands.Tests/RustPlusBot.Features.Commands.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Connections.Tests/RustPlusBot.Features.Connections.Tests.csproj" />
+    <Project Path="tests/RustPlusBot.Features.Map.Tests/RustPlusBot.Features.Map.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Pairing.Tests/RustPlusBot.Features.Pairing.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Workspace.Tests/RustPlusBot.Features.Workspace.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Chat.Tests/RustPlusBot.Features.Chat.Tests.csproj" />

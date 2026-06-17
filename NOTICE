@@ -1,0 +1,29 @@
+RustPlusBot
+Copyright (c) HandyS11 and contributors
+Licensed under the MIT License. See LICENSE for the full license text.
+
+-------------------------------------------------------------------------------
+BUNDLED ASSETS
+-------------------------------------------------------------------------------
+
+Liberation Sans (Regular)
+  File:    src/RustPlusBot.Features.Map/Assets/LiberationSans-Regular.ttf
+  Origin:  Liberation Fonts project, Copyright (C) 2007 Red Hat, Inc.
+  License: SIL Open Font License, Version 1.1
+           https://scripts.sil.org/OFL
+  Use:     Embedded and used solely for rendering text on the map image.
+           The OFL permits embedding and redistribution in software products.
+
+-------------------------------------------------------------------------------
+MAP MARKER / MONUMENT ICONS (future 2b-ii slice)
+-------------------------------------------------------------------------------
+
+The current 2b slice draws all map markers programmatically as glyphs; NO
+third-party image assets are bundled.
+
+When marker and monument icons are added in the 2b-ii slice, they will
+originate as Facepunch / Rust game art. They are used under the same
+companion-app norms that govern the official Rust+ app and established
+reference bots — NOT under the GPL of the third-party repositories that
+merely redistribute them. Attribution for those assets will be added to this
+file at that time.

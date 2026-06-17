@@ -10,6 +10,7 @@ using RustPlusBot.Features.Chat;
 using RustPlusBot.Features.Commands;
 using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Events;
+using RustPlusBot.Features.Map;
 using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Workspace;
 using RustPlusBot.Host.Credentials;
@@ -67,6 +68,11 @@ builder.Services.AddOptions<CommandOptions>()
     .ValidateOnStart();
 builder.Services.AddCommands();
 builder.Services.AddEvents();
+builder.Services.AddOptions<MapOptions>()
+    .Bind(builder.Configuration.GetSection("Map"))
+    .Validate(static o => o.MapRefreshInterval > TimeSpan.Zero, "Map:MapRefreshInterval must be positive.")
+    .ValidateOnStart();
+builder.Services.AddMap();
 
 var host = builder.Build();
 

@@ -185,6 +185,33 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<byte[]?> GetMapImageAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection.GetMapImageAsync(_options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<MapDimensions?> GetMapDimensionsAsync(
+        ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<TeamChatSendResult> SendAsync(
         ulong guildId,
         Guid serverId,

@@ -20,6 +20,9 @@ internal static class WorkspaceChannelKeys
 
     /// <summary>Key for the per-server #events channel.</summary>
     public const string ServerEvents = "events";
+
+    /// <summary>The per-server rendered-map channel.</summary>
+    public const string ServerMap = "map";
 }
 
 /// <summary>Stable message keys persisted as <c>ProvisionedMessage.MessageKey</c>.</summary>
