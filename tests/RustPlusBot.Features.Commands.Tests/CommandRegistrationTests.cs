@@ -28,6 +28,7 @@ public sealed class CommandRegistrationTests
         services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
         services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
         services.AddSingleton<IEventState>(_ => Substitute.For<IEventState>());
+        services.AddSingleton<IRigState>(_ => Substitute.For<IRigState>());
         services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
@@ -46,7 +47,7 @@ public sealed class CommandRegistrationTests
         using var scope = provider.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CommandDispatcher>());
         var handlers = scope.ServiceProvider.GetServices<ICommandHandler>().ToList();
-        Assert.Equal(16, handlers.Count);
+        Assert.Equal(18, handlers.Count);
         Assert.Contains(handlers, h => h.Name == "mute");
         Assert.Contains(handlers, h => h.Name == "pop");
         Assert.Contains(handlers, h => h.Name == "time");
@@ -61,6 +62,8 @@ public sealed class CommandRegistrationTests
         Assert.Contains(handlers, h => h.Name == "heli");
         Assert.Contains(handlers, h => h.Name == "chinook");
         Assert.Contains(handlers, h => h.Name == "events");
+        Assert.Contains(handlers, h => h.Name == "small");
+        Assert.Contains(handlers, h => h.Name == "large");
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerResolver>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerQueryService>());
     }
@@ -75,6 +78,7 @@ public sealed class CommandRegistrationTests
         services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
         services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
         services.AddSingleton<IEventState>(_ => Substitute.For<IEventState>());
+        services.AddSingleton<IRigState>(_ => Substitute.For<IRigState>());
         services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
