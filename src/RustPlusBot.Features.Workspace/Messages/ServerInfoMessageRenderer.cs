@@ -2,6 +2,7 @@ using System.Globalization;
 using Discord;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
+using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Registry;
@@ -13,10 +14,12 @@ namespace RustPlusBot.Features.Workspace.Messages;
 /// <summary>Renders a server's #info embed with live connection status and the ManageGuild swap select.</summary>
 /// <param name="servers">Server lookup.</param>
 /// <param name="connections">Live connection state + pool.</param>
+/// <param name="query">Live team query.</param>
 /// <param name="localizer">String resolution.</param>
 internal sealed class ServerInfoMessageRenderer(
     IServerService servers,
     IConnectionStore connections,
+    IRustServerQuery query,
     ILocalizer localizer) : IMessageRenderer
 {
     /// <inheritdoc />
@@ -59,6 +62,23 @@ internal sealed class ServerInfoMessageRenderer(
         {
             embed.AddField(localizer.Get("server.info.players.label", context.Culture),
                 count.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (status == ConnectionStatus.Connected)
+        {
+            var team = await query.GetTeamInfoAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
+            if (team is not null)
+            {
+                var online = team.Members.Count(m => m.IsOnline);
+                var leaderName = team.Members.FirstOrDefault(m => m.SteamId == team.LeaderSteamId)?.Name
+                                 ?? team.LeaderSteamId.ToString(CultureInfo.InvariantCulture);
+                embed.AddField(
+                    localizer.Get("server.info.team.label", context.Culture),
+                    localizer.Get("server.info.team.value", context.Culture,
+                        online.ToString(CultureInfo.InvariantCulture),
+                        team.Members.Count.ToString(CultureInfo.InvariantCulture),
+                        leaderName));
+            }
         }
 
         var eligible = pool
