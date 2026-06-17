@@ -170,4 +170,58 @@ public sealed class TeamIntelHandlersTests
             .ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.Equal("Not connected to the server.", reply);
     }
+
+    [Fact]
+    public async Task Prox_ListsDistancesToOtherMembers()
+    {
+        // caller alice (steamId 7) at (0,0); bob at (3,4) -> 5m; carl at (0,10) -> 10m.
+        var query = QueryReturning(new TeamInfoSnapshot(7UL,
+        [
+            Member(7UL, "alice", x: 0f, y: 0f),
+            Member(8UL, "bob", x: 3f, y: 4f),
+            Member(9UL, "carl", x: 0f, y: 10f),
+        ]));
+        var reply = await new ProxCommandHandler(query, Loc).ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("Prox: bob 5m, carl 10m", reply);
+    }
+
+    [Fact]
+    public async Task Prox_NameArg_FiltersToOne()
+    {
+        var query = QueryReturning(new TeamInfoSnapshot(7UL,
+        [
+            Member(7UL, "alice", x: 0f, y: 0f),
+            Member(8UL, "bob", x: 3f, y: 4f),
+        ]));
+        var reply = await new ProxCommandHandler(query, Loc).ExecuteAsync(Ctx("bob"), CancellationToken.None);
+        Assert.Equal("Prox: bob 5m", reply);
+    }
+
+    [Fact]
+    public async Task Prox_NameArg_NoMatch_ReportsNoMatch()
+    {
+        var query = QueryReturning(new TeamInfoSnapshot(7UL,
+        [
+            Member(7UL, "alice", x: 0f, y: 0f),
+            Member(8UL, "bob", x: 3f, y: 4f),
+        ]));
+        var reply = await new ProxCommandHandler(query, Loc).ExecuteAsync(Ctx("zed"), CancellationToken.None);
+        Assert.Equal("No teammate matches 'zed'.", reply);
+    }
+
+    [Fact]
+    public async Task Prox_SelfUnknown_WhenCallerNotInSnapshot()
+    {
+        var query = QueryReturning(new TeamInfoSnapshot(8UL, [Member(8UL, "bob", x: 3f, y: 4f)]));
+        var reply = await new ProxCommandHandler(query, Loc).ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("Can't locate you.", reply);
+    }
+
+    [Fact]
+    public async Task Prox_None_WhenNoMembers()
+    {
+        var reply = await new ProxCommandHandler(QueryReturning(new TeamInfoSnapshot(0UL, [])), Loc)
+            .ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("No team members.", reply);
+    }
 }
