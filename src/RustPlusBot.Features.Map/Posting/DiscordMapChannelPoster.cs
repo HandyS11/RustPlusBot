@@ -11,6 +11,7 @@ internal sealed partial class DiscordMapChannelPoster(
     DiscordSocketClient client,
     ILogger<DiscordMapChannelPoster> logger) : IMapChannelPoster
 {
+    /// <summary>Scan the last N messages for the bot's own prior map post (only one is expected).</summary>
     private const int RecentMessageScan = 10;
 
     /// <inheritdoc />
@@ -25,7 +26,20 @@ internal sealed partial class DiscordMapChannelPoster(
                 return;
             }
 
-            await DeletePriorBotMessagesAsync(channel, options).ConfigureAwait(false);
+            try
+            {
+                await DeletePriorBotMessagesAsync(channel, options).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+#pragma warning disable CA1031 // Broad catch: a failed delete must not abort the repost (best-effort).
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogDeleteFailed(logger, ex, channelId);
+            }
 
             var stream = new MemoryStream(pngBytes);
             await using (stream.ConfigureAwait(false))
@@ -58,4 +72,7 @@ internal sealed partial class DiscordMapChannelPoster(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Posting the map image to channel {ChannelId} failed.")]
     private static partial void LogPostFailed(ILogger logger, Exception exception, ulong channelId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Deleting prior map messages in channel {ChannelId} failed; reposting anyway.")]
+    private static partial void LogDeleteFailed(ILogger logger, Exception exception, ulong channelId);
 }
