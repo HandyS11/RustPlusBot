@@ -10,14 +10,19 @@ namespace RustPlusBot.Features.Commands.Tests.Handlers;
 public sealed class TeamIntelHandlersTests
 {
     private static readonly ICommandLocalizer Loc = new CommandLocalizer(CommandLocalizationCatalog.Default);
+    private static readonly Guid ServerId = Guid.NewGuid();
 
     private static CommandContext Ctx(params string[] args) =>
         new(1, ServerId, "en", 7UL, "alice", args); // Caller alice = steamId 7, present in every snapshot at (0,0).
-    private static readonly Guid ServerId = Guid.NewGuid();
 
     private static TeamMemberSnapshot Member(
-        ulong id, string name, bool online = true, bool alive = true,
-        float x = 0f, float y = 0f, DateTimeOffset? spawn = null) =>
+        ulong id,
+        string name,
+        bool online = true,
+        bool alive = true,
+        float x = 0f,
+        float y = 0f,
+        DateTimeOffset? spawn = null) =>
         new(id, name, x, y, online, alive, spawn ?? DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
 
     private static IRustServerQuery QueryReturning(TeamInfoSnapshot? snapshot)
@@ -25,11 +30,6 @@ public sealed class TeamIntelHandlersTests
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(snapshot);
         return query;
-    }
-
-    private sealed class TestClock : IClock
-    {
-        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
     }
 
     [Fact]
@@ -56,7 +56,8 @@ public sealed class TeamIntelHandlersTests
     [Fact]
     public async Task Online_NotConnected_WhenNull()
     {
-        var reply = await new OnlineCommandHandler(QueryReturning(null), Loc).ExecuteAsync(Ctx(), CancellationToken.None);
+        var reply = await new OnlineCommandHandler(QueryReturning(null), Loc).ExecuteAsync(Ctx(),
+            CancellationToken.None);
         Assert.Equal("Not connected to the server.", reply);
     }
 
@@ -143,7 +144,10 @@ public sealed class TeamIntelHandlersTests
     [Fact]
     public async Task Alive_SortsBySurvivalDesc_ThenDeadLast()
     {
-        var clock = new TestClock { UtcNow = DateTimeOffset.UnixEpoch.AddHours(3) };
+        var clock = new TestClock
+        {
+            UtcNow = DateTimeOffset.UnixEpoch.AddHours(3)
+        };
         // carl spawned at epoch -> 3h survival; alice spawned at +2h -> 1h survival; bob dead.
         var query = QueryReturning(new TeamInfoSnapshot(7UL,
         [
@@ -223,5 +227,10 @@ public sealed class TeamIntelHandlersTests
         var reply = await new ProxCommandHandler(QueryReturning(new TeamInfoSnapshot(0UL, [])), Loc)
             .ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.Equal("No team members.", reply);
+    }
+
+    private sealed class TestClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;
     }
 }

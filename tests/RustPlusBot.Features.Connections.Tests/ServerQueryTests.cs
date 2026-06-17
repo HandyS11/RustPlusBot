@@ -168,7 +168,10 @@ public sealed class ServerQueryTests
 
         source.LastConnection!.TeamResult = new TeamInfoSnapshot(
             555UL,
-            [new TeamMemberSnapshot(555UL, "alice", 1f, 2f, true, true, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)]);
+            [
+                new TeamMemberSnapshot(555UL, "alice", 1f, 2f, true, true, DateTimeOffset.UnixEpoch,
+                    DateTimeOffset.UnixEpoch)
+            ]);
         var snapshot = await supervisor.GetTeamInfoAsync(10UL, serverId, cts.Token);
 
         Assert.NotNull(snapshot);
