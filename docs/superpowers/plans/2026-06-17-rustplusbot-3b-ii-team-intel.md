@@ -17,6 +17,7 @@
 ## File Structure
 
 **Connections (the seam):**
+
 - Create `src/RustPlusBot.Features.Connections/Listening/TeamInfoSnapshot.cs` — boundary DTOs `TeamInfoSnapshot` + `TeamMemberSnapshot`.
 - Modify `src/RustPlusBot.Features.Connections/Listening/IRustServerQuery.cs` — add `GetTeamInfoAsync` (public).
 - Modify `src/RustPlusBot.Features.Connections/Listening/IRustServerConnection.cs` — add `GetTeamInfoAsync` (internal).
@@ -24,6 +25,7 @@
 - Modify `src/RustPlusBot.Features.Connections/Supervisor/ConnectionSupervisor.cs` — implement `IRustServerQuery.GetTeamInfoAsync`.
 
 **Commands (helpers + handlers):**
+
 - Create `src/RustPlusBot.Features.Commands/Formatting/Distance.cs` — pure distance helper.
 - Create `src/RustPlusBot.Features.Commands/Formatting/TeamMemberFilter.cs` — shared partial name match.
 - Create `src/RustPlusBot.Features.Commands/Handlers/OnlineCommandHandler.cs`
@@ -36,6 +38,7 @@
 - Modify `src/RustPlusBot.Features.Commands/CommandServiceCollectionExtensions.cs` — register the six handlers.
 
 **Tests / fakes:**
+
 - Modify `tests/RustPlusBot.Features.Connections.Tests/Fakes/FakeRustSocketSource.cs` — add `TeamResult` + `GetTeamInfoAsync`.
 - Modify `tests/RustPlusBot.Features.Connections.Tests/ServerQueryTests.cs` — supervisor `GetTeamInfoAsync` coverage.
 - Create `tests/RustPlusBot.Features.Commands.Tests/Formatting/DistanceTests.cs`
@@ -47,6 +50,7 @@
 ## Task 1: Boundary DTOs (`TeamInfoSnapshot`, `TeamMemberSnapshot`)
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Connections/Listening/TeamInfoSnapshot.cs`
 
 - [ ] **Step 1: Create the DTO file**
@@ -96,6 +100,7 @@ git commit -m "feat(connections): add TeamInfoSnapshot/TeamMemberSnapshot DTOs"
 ## Task 2: Extend the seam interfaces
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Connections/Listening/IRustServerQuery.cs`
 - Modify: `src/RustPlusBot.Features.Connections/Listening/IRustServerConnection.cs`
 
@@ -141,6 +146,7 @@ git commit -m "feat(connections): add GetTeamInfoAsync to query/connection seams
 ## Task 3: Implement `GetTeamInfoAsync` on `RustPlusSocketSource` (untested shim)
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Connections/Listening/RustPlusSocketSource.cs`
 
 This is the integration shim — by design it has no unit tests. Mapping verified against the real 2.0.0-beta.1 DLL: `RustPlus.GetTeamInfoAsync(CancellationToken)` returns `Task<Response<TeamInfo?>>`; `TeamInfo.Members` is `IEnumerable<MemberInfo>?`; each `MemberInfo` has `SteamId`/`Name?`/`X`/`Y`/`IsOnline`/`IsAlive`/`LastSpawnTime` (DateTime, UTC)/`LastDeathTime` (DateTime, UTC).
@@ -221,6 +227,7 @@ git commit -m "feat(connections): map GetTeamInfoAsync in RustPlusSocketSource s
 ## Task 4: Implement `GetTeamInfoAsync` on `ConnectionSupervisor`
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Connections/Supervisor/ConnectionSupervisor.cs`
 - Test: `tests/RustPlusBot.Features.Connections.Tests/Fakes/FakeRustSocketSource.cs`
 - Test: `tests/RustPlusBot.Features.Connections.Tests/ServerQueryTests.cs`
@@ -326,6 +333,7 @@ git commit -m "feat(connections): implement supervisor GetTeamInfoAsync over liv
 ## Task 5: `Distance` helper
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Formatting/Distance.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Formatting/DistanceTests.cs`
 
@@ -404,6 +412,7 @@ git commit -m "feat(commands): add Distance helper for !prox"
 ## Task 6: `TeamMemberFilter` helper (shared partial name match)
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Formatting/TeamMemberFilter.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Formatting/TeamMemberFilterTests.cs`
 
@@ -510,6 +519,7 @@ git commit -m "feat(commands): add TeamMemberFilter for partial name matching"
 ## Task 7: Localization keys
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Commands/Localization/CommandLocalizationCatalog.cs`
 
 All six handlers depend on these keys. Add them now so handler tests can assert exact strings.
@@ -573,6 +583,7 @@ git commit -m "feat(commands): add EN/FR strings for team-intel commands"
 ## Task 8: `!online` and `!offline` handlers
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Handlers/OnlineCommandHandler.cs`
 - Create: `src/RustPlusBot.Features.Commands/Handlers/OfflineCommandHandler.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Handlers/TeamIntelHandlersTests.cs`
@@ -766,6 +777,7 @@ git commit -m "feat(commands): add !online and !offline handlers"
 ## Task 9: `!team` and `!steamid` handlers
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Handlers/TeamCommandHandler.cs`
 - Create: `src/RustPlusBot.Features.Commands/Handlers/SteamIdCommandHandler.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Handlers/TeamIntelHandlersTests.cs`
@@ -946,6 +958,7 @@ git commit -m "feat(commands): add !team and !steamid handlers"
 ## Task 10: `!alive` handler
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Handlers/AliveCommandHandler.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Handlers/TeamIntelHandlersTests.cs`
 
@@ -1064,6 +1077,7 @@ git commit -m "feat(commands): add !alive handler with per-member survival times
 ## Task 11: `!prox` handler
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Commands/Handlers/ProxCommandHandler.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/Handlers/TeamIntelHandlersTests.cs`
 
@@ -1206,6 +1220,7 @@ git commit -m "feat(commands): add !prox handler with caller-relative distances"
 ## Task 12: Register the six handlers
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Commands/CommandServiceCollectionExtensions.cs`
 - Test: `tests/RustPlusBot.Features.Commands.Tests/CommandRegistrationTests.cs` (verify, may already assert resolvability)
 
@@ -1306,6 +1321,7 @@ git commit -m "style: apply jb ReformatAndReorder for team-intel changes"
 ## Task 14: Update the feature catalog
 
 **Files:**
+
 - Modify: `docs/product/feature-catalog.md` (TRACKED — normal `git add`, no `-f`).
 
 - [ ] **Step 1: Flip the shipped rows to Done**
