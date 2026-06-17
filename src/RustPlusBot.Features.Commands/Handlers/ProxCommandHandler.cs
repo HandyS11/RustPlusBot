@@ -36,6 +36,11 @@ internal sealed class ProxCommandHandler(IRustServerQuery query, ICommandLocaliz
         }
 
         var others = team.Members.Where(m => m.SteamId != context.SenderSteamId).ToList();
+        if (others.Count == 0)
+        {
+            return localizer.Get("command.prox.alone", context.Culture);
+        }
+
         var nameArg = context.Args.Count > 0 ? context.Args[0] : null;
         var matches = TeamMemberFilter.ByName(others, nameArg);
         if (matches.Count == 0)

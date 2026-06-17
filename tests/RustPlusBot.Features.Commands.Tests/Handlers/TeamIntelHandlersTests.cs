@@ -229,6 +229,14 @@ public sealed class TeamIntelHandlersTests
         Assert.Equal("No team members.", reply);
     }
 
+    [Fact]
+    public async Task Prox_Alone_WhenCallerIsOnlyMember()
+    {
+        var query = QueryReturning(new TeamInfoSnapshot(7UL, [Member(7UL, "alice", x: 0f, y: 0f)]));
+        var reply = await new ProxCommandHandler(query, Loc).ExecuteAsync(Ctx(), CancellationToken.None);
+        Assert.Equal("No teammates nearby.", reply);
+    }
+
     private sealed class TestClock : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UnixEpoch;

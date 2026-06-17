@@ -37,6 +37,7 @@ internal sealed class CommandLocalizationCatalog
                 ["command.prox.ok"] = "Prox: {0}",
                 ["command.prox.member"] = "{0} {1}m",
                 ["command.prox.selfunknown"] = "Can't locate you.",
+                ["command.prox.alone"] = "No teammates nearby.",
             },
             ["fr"] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -64,6 +65,7 @@ internal sealed class CommandLocalizationCatalog
                 ["command.prox.ok"] = "Prox : {0}",
                 ["command.prox.member"] = "{0} {1}m",
                 ["command.prox.selfunknown"] = "Impossible de vous localiser.",
+                ["command.prox.alone"] = "Aucun coéquipier à proximité.",
             },
         },
     };
