@@ -27,6 +27,12 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <returns>An in-game time snapshot, or null on failure/timeout.</returns>
     Task<ServerTimeSnapshot?> GetTimeAsync(TimeSpan timeout, CancellationToken cancellationToken);
 
+    /// <summary>Gets a team snapshot, or null on failure/timeout.</summary>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A team snapshot, or null on failure/timeout.</returns>
+    Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken);
+
     /// <summary>Sends a message to in-game team chat.</summary>
     /// <param name="message">The message text to send.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
