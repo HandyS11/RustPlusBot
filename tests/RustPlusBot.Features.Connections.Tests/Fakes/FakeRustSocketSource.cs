@@ -81,6 +81,15 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The Steam ID passed to the most recent <see cref="PromoteToLeaderAsync"/> call.</summary>
         public ulong LastPromotedSteamId { get; private set; }
 
+        /// <summary>The markers returned by <see cref="GetMapMarkersAsync"/>. Defaults to empty (nothing on the map).</summary>
+        public IReadOnlyList<MapMarkerSnapshot> MarkersResult { get; set; } = [];
+
+        /// <summary>When true, <see cref="GetMapMarkersAsync"/> throws (simulates a failed poll).</summary>
+        public bool MarkersThrow { get; set; }
+
+        /// <summary>The dimensions returned by <see cref="GetMapDimensionsAsync"/>. Defaults to a non-null snapshot.</summary>
+        public MapDimensions? DimensionsResult { get; set; } = new(4000u, 4000u, 500);
+
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
@@ -112,6 +121,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             LastPromotedSteamId = steamId;
             return Task.FromResult(PromoteResult);
         }
+
+        public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            MarkersThrow
+                ? Task.FromException<IReadOnlyList<MapMarkerSnapshot>>(new InvalidOperationException("poll failed"))
+                : Task.FromResult(MarkersResult);
+
+        public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            Task.FromResult(DimensionsResult);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 

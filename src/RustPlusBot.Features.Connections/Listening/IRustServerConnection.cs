@@ -47,6 +47,18 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <returns>True if the promotion succeeded; false on failure/timeout.</returns>
     Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken);
 
+    /// <summary>Polls the current map markers (all kinds; the caller diffs by id). Throws on failure.</summary>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The current markers (every kind, unclassified ones as <see cref="MarkerKind.Other"/>).</returns>
+    Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
+
+    /// <summary>Gets the static map dimensions for grid-reference rendering, or null on failure/timeout.</summary>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The map dimensions, or null on failure/timeout.</returns>
+    Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
+
     /// <summary>Raised for every in-game team chat line received on this socket.</summary>
     event EventHandler<TeamChatLine>? TeamMessageReceived;
 }

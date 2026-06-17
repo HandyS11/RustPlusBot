@@ -48,6 +48,12 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
+        public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MapMarkerSnapshot>>([]);
+
+        public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            Task.FromResult<MapDimensions?>(null);
+
         public event EventHandler<TeamChatLine>? TeamMessageReceived
         {
             add { _ = value; }
@@ -299,6 +305,82 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             {
                 LogQueryFailed(_logger, ex);
                 return false;
+            }
+        }
+
+        public async Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            // CONFIRMED (2.0.0-beta.1): GetMapMarkersAsync returns Task<Response<RustPlusApi.Data.MapMarkers>>.
+            // MapMarkers has typed dictionaries CargoShipMarkers/PatrolHelicopterMarkers/Ch47Markers
+            // (Dictionary<ulong, XMarker>); each marker exposes Nullable<ulong> Id, Nullable<float> X/Y.
+            // No flat list, no Type field, NO crate bucket (the game stopped sending crate markers) → core-3.
+            var response = await _rustPlus.GetMapMarkersAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                .ConfigureAwait(false);
+            if (!response.IsSuccess || response.Data is null)
+            {
+                throw new InvalidOperationException("GetMapMarkers returned no data.");
+            }
+
+            var data = response.Data;
+            var markers = new List<MapMarkerSnapshot>();
+            AddMarkers(markers, data.CargoShipMarkers, MarkerKind.CargoShip);
+            AddMarkers(markers, data.PatrolHelicopterMarkers, MarkerKind.PatrolHelicopter);
+            AddMarkers(markers, data.Ch47Markers, MarkerKind.Chinook);
+            return markers;
+        }
+
+        private static void AddMarkers<TMarker>(
+            List<MapMarkerSnapshot> into,
+            IReadOnlyDictionary<ulong, TMarker> source,
+            MarkerKind kind)
+            where TMarker : RustPlusApi.Data.Markers.Marker
+        {
+            foreach (var (id, marker) in source)
+            {
+                into.Add(new MapMarkerSnapshot(id, kind, marker.X ?? 0f, marker.Y ?? 0f, Name: null));
+            }
+        }
+
+        public async Task<MapDimensions?> GetMapDimensionsAsync(
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.1): GetMapAsync returns Task<Response<RustPlusApi.Data.ServerMap>>.
+                // ServerMap has Nullable<uint> Width/Height, Nullable<int> OceanMargin, JpgImage, Monuments.
+                // 2a uses dims only; if any dim is null, treat the whole thing as unavailable (return null).
+                var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                if (!response.IsSuccess || response.Data is null)
+                {
+                    return null;
+                }
+
+                var map = response.Data;
+                if (map.Width is not { } width || map.Height is not { } height || map.OceanMargin is not { } margin)
+                {
+                    return null;
+                }
+
+                return new MapDimensions(width, height, margin);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: any map-query failure maps to null; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return null;
             }
         }
 
