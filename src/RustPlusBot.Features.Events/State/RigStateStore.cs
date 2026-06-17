@@ -67,10 +67,18 @@ public sealed class RigStateStore(IClock clock, IOptions<ConnectionOptions> opti
     }
 
     /// <summary>Sets a rig Active (the CH47 ground-truth override from any state).</summary>
-    /// <param name="activated">The activation event (must be <see cref="RigEventKind.Activated"/>).</param>
+    /// <param name="activated">The activation event; its <see cref="RigStateChangedEvent.Kind"/> must be <see cref="RigEventKind.Activated"/>.</param>
+    /// <exception cref="ArgumentException">The event's kind is not <see cref="RigEventKind.Activated"/> (the timed kinds are produced by <see cref="Advance"/>, not applied here).</exception>
     public void Apply(RigStateChangedEvent activated)
     {
         ArgumentNullException.ThrowIfNull(activated);
+        if (activated.Kind != RigEventKind.Activated)
+        {
+            throw new ArgumentException(
+                $"Apply only accepts {nameof(RigEventKind.Activated)} events; got {activated.Kind}.",
+                nameof(activated));
+        }
+
         var key = (activated.GuildId, activated.ServerId, activated.Rig);
         lock (Gate)
         {

@@ -51,7 +51,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         }
 
         // Transfer any pre-staged monuments so they are available before the supervisor fetches them on connect.
+        // Reset after transfer so the staging applies to the NEXT connection only (no leak across connections).
         connection.MonumentsResult = _pendingMonuments;
+        _pendingMonuments = [];
 
         LastConnection = connection;
         return connection;

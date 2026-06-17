@@ -1,9 +1,7 @@
 using Microsoft.Extensions.Options;
-using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Connections;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.State;
 
 namespace RustPlusBot.Features.Events.Tests.State;
@@ -43,6 +41,16 @@ public sealed class RigStateStoreTests
         var state = store.Get(Guild, Server, RigKind.Small);
         Assert.Equal(RigStatus.Active, state.Status);
         Assert.Equal(TimeSpan.FromMinutes(15), state.Remaining);
+    }
+
+    [Theory]
+    [InlineData(RigEventKind.CrateLootable)]
+    [InlineData(RigEventKind.Respawned)]
+    public void Apply_rejects_non_activated_events(RigEventKind kind)
+    {
+        var (store, _) = Create();
+        var evt = new RigStateChangedEvent(Guild, Server, RigKind.Small, kind, 100f, 200f, null);
+        Assert.Throws<ArgumentException>(() => store.Apply(evt));
     }
 
     [Fact]

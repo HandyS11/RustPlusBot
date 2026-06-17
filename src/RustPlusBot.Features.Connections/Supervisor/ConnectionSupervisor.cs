@@ -351,7 +351,7 @@ internal sealed partial class ConnectionSupervisor(
 #pragma warning restore RCS1163
 
         var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-        var rigs = await GetRigPositionsAsync(connection, ct).ConfigureAwait(false);
+        var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
 
         connection.TeamMessageReceived += OnTeamMessage;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId);
@@ -497,6 +497,7 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     private async Task<IReadOnlyList<RigPosition>> GetRigPositionsAsync(
+        Guid serverId,
         IRustServerConnection connection,
         CancellationToken ct)
     {
@@ -528,8 +529,7 @@ internal sealed partial class ConnectionSupervisor(
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            LogMarkerPollFailed(logger, ex,
-                Guid.Empty); // reuse the marker-poll-failed log; rig detection degrades gracefully
+            LogMonumentsFetchFailed(logger, ex, serverId); // rig detection degrades gracefully for this window
             return [];
         }
     }
@@ -664,6 +664,11 @@ internal sealed partial class ConnectionSupervisor(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Marker poll for server {ServerId} failed.")]
     private static partial void LogMarkerPollFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message =
+            "Fetching monuments for oil-rig detection on server {ServerId} failed; rig detection disabled for this connection.")]
+    private static partial void LogMonumentsFetchFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Relaying a message to team chat for server {ServerId} failed.")]
     private static partial void LogSendFailed(ILogger logger, Exception exception, Guid serverId);
