@@ -4,7 +4,7 @@ using RustPlusBot.Persistence.Servers;
 namespace RustPlusBot.Features.Commands.Servers;
 
 /// <summary>Picks the target server for a slash command from an optional (autocompleted) server argument.</summary>
-/// <param name="servers">The guild's server list.</param>
+/// <param name="servers">The server service used to list the guild's servers.</param>
 /// <param name="localizer">Resolves the error messages.</param>
 internal sealed class ServerResolver(IServerService servers, ICommandLocalizer localizer)
 {

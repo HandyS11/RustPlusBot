@@ -31,7 +31,7 @@ public sealed class ServerResolverTests
     }
 
     [Fact]
-    public async Task DefaultsToSingleServer_IgnoringArg()
+    public async Task DefaultsToSingleServer_WhenNoArg()
     {
         var id = Guid.NewGuid();
         var r = await Build(Server(id, "Main")).ResolveAsync(1UL, null, "en", CancellationToken.None);
