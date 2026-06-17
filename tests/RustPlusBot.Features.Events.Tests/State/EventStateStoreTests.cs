@@ -48,7 +48,7 @@ public sealed class EventStateStoreTests
     }
 
     [Fact]
-    public void Removed_marker_leaves_active_even_when_unalerted()
+    public void Removed_marker_is_cleared_from_active_even_when_unalerted()
     {
         var store = Build();
         // A Crate marker produces NO classified event (core-3), but is still tracked in the active set...

@@ -399,7 +399,14 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         {
             foreach (var (id, marker) in source)
             {
-                into.Add(new MapMarkerSnapshot(id, kind, marker.X ?? 0f, marker.Y ?? 0f, Name: null));
+                // Skip markers with incomplete coordinates rather than placing a phantom at the origin,
+                // which would otherwise diff as a spurious spawn/despawn at (0, 0).
+                if (marker.X is not { } x || marker.Y is not { } y)
+                {
+                    continue;
+                }
+
+                into.Add(new MapMarkerSnapshot(id, kind, x, y, Name: null));
             }
         }
 

@@ -12,6 +12,7 @@ internal sealed class EventEmbedRenderer(IEventLocalizer localizer)
     /// <param name="evt">The event to render.</param>
     /// <param name="culture">The guild culture ("en"/"fr").</param>
     /// <returns>The built embed.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The event kind is not a supported <see cref="MapEventKind"/>.</exception>
     public Embed Render(RustMapEvent evt, string culture)
     {
         ArgumentNullException.ThrowIfNull(evt);
@@ -23,7 +24,7 @@ internal sealed class EventEmbedRenderer(IEventLocalizer localizer)
             MapEventKind.HeliEntered => "event.heli.entered",
             MapEventKind.HeliLeft => "event.heli.left",
             MapEventKind.ChinookSpawned => "event.chinook.spawned",
-            _ => "event.chinook.spawned",
+            _ => throw new ArgumentOutOfRangeException(nameof(evt), evt.Kind, "Unsupported map event kind."),
         };
 
         return new EmbedBuilder()

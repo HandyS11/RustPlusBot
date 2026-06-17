@@ -17,12 +17,20 @@ internal sealed partial class DiscordEventChannelPoster(
     {
         try
         {
-            if (await client.GetChannelAsync(channelId).ConfigureAwait(false) is not ITextChannel channel)
+            var options = new RequestOptions
+            {
+                CancelToken = cancellationToken
+            };
+            if (await client.GetChannelAsync(channelId, options).ConfigureAwait(false) is not ITextChannel channel)
             {
                 return;
             }
 
-            await channel.SendMessageAsync(embed: embed).ConfigureAwait(false);
+            await channel.SendMessageAsync(embed: embed, options: options).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw; // Cancellation (shutdown) is not a post failure; let the relay loop unwind cleanly.
         }
 #pragma warning disable CA1031 // Broad catch: a Discord hiccup must not crash the relay.
         catch (Exception ex)

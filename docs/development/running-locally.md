@@ -64,7 +64,8 @@ overwritten on every startup, so a normal run after the reset leaves only the cu
    `/workspace simulate-server name:<n> ip:<host> port:<port>` to create a server category, and
    `/workspace reset` to delete the whole workspace.
 
-Each provisioned server category also includes an `#events` channel, which receives live alerts for
-**cargo ship, patrol helicopter, and chinook** arrivals and departures. No new Discord gateway intent
-is required — event markers are detected by polling the Rust+ socket, not the Discord gateway; only the
-existing **Send Messages** and **Embed Links** permissions on the provisioned channel are used.
+Each provisioned server category also includes an `#events` channel, which receives live alerts when a
+**cargo ship** or **patrol helicopter** enters or leaves the map and when a **chinook** spawns. No new
+Discord gateway intent is required — event markers are detected by polling the Rust+ socket, not the
+Discord gateway; only the existing **Send Messages** and **Embed Links** permissions on the provisioned
+channel are used.

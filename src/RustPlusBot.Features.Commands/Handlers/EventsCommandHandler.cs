@@ -15,6 +15,7 @@ internal sealed class EventsCommandHandler(IEventState state, ICommandLocalizer 
     public string Name => "events";
 
     /// <inheritdoc />
+    /// <exception cref="ArgumentOutOfRangeException">A recent event has an unsupported <see cref="MapEventKind"/>.</exception>
     public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -34,7 +35,7 @@ internal sealed class EventsCommandHandler(IEventState state, ICommandLocalizer 
                 MapEventKind.HeliEntered => "command.event.helientered",
                 MapEventKind.HeliLeft => "command.event.helileft",
                 MapEventKind.ChinookSpawned => "command.event.chinookspawned",
-                _ => "command.event.chinookspawned",
+                _ => throw new ArgumentOutOfRangeException(nameof(e), e.Kind, "Unsupported map event kind."),
             };
             return localizer.Get(key, context.Culture, grid);
         });
