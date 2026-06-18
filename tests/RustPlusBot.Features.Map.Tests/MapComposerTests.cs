@@ -153,4 +153,28 @@ public sealed class MapComposerTests
         await query.Received().GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>());
         await query.Received().GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Renders_the_grid_even_with_no_markers()
+    {
+        // Regression guard: on a low-activity / just-connected server there are zero active markers.
+        // The composer must still render the grid (and produce a different image than with grid off),
+        // proving it does NOT early-return on an empty marker list.
+        var jpeg = BaseJpeg();
+
+        var composerOn = Build(jpeg, Dims, NewQuery(), NewEvents(), NewRigs(),
+            NewSettings(new MapLayerSettings(
+                Grid: true, Markers: true, Monuments: false, Vendor: false, Players: false, Rigs: false)));
+        var composerOff = Build(jpeg, Dims, NewQuery(), NewEvents(), NewRigs(),
+            NewSettings(new MapLayerSettings(
+                Grid: false, Markers: true, Monuments: false, Vendor: false, Players: false, Rigs: false)));
+
+        var pngOn = await composerOn.ComposeAsync(Guild, Server, CancellationToken.None);
+        var pngOff = await composerOff.ComposeAsync(Guild, Server, CancellationToken.None);
+
+        Assert.NotNull(pngOn);
+        Assert.NotNull(pngOff);
+        // The grid layer must have painted at least one pixel differently.
+        Assert.False(pngOn!.SequenceEqual(pngOff!), "Grid-on and grid-off renders must differ.");
+    }
 }

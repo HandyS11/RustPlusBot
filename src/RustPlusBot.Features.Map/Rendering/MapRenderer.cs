@@ -197,7 +197,8 @@ public sealed class MapRenderer
                     ctx.Draw(Color.Black, OutlinePenWidth, dot);
                 }
 
-                var label = isActive ? player.Name : player.Name + " (dead)";
+                var suffix = player.IsAlive ? " (offline)" : " (dead)";
+                var label = isActive ? player.Name : player.Name + suffix;
                 var labelColor = isActive ? Color.White : Color.Gray;
                 var textOptions = new RichTextOptions(Font)
                 {
