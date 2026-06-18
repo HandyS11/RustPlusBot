@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord.Notifications;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
@@ -20,6 +21,7 @@ namespace RustPlusBot.Features.Connections.Supervisor;
 /// <param name="dmSender">DMs an owner when their credential is rejected.</param>
 /// <param name="protector">Unprotects stored tokens before connecting.</param>
 /// <param name="eventBus">Publishes ConnectionStatusChangedEvent on state changes.</param>
+/// <param name="clock">Wall-clock source used for AFK hysteresis timestamps.</param>
 /// <param name="options">Timeouts/backoff/heartbeat settings.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class ConnectionSupervisor(
@@ -28,6 +30,7 @@ internal sealed partial class ConnectionSupervisor(
     IUserDmSender dmSender,
     ICredentialProtector protector,
     IEventBus eventBus,
+    IClock clock,
     IOptions<ConnectionOptions> options,
     ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAsyncDisposable
 {
@@ -478,7 +481,7 @@ internal sealed partial class ConnectionSupervisor(
                 await DetectRigActivationsAsync(key, current, rigs, dims, rigsInRadius, ct).ConfigureAwait(false);
 
                 var team = await connection.GetTeamInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-                var transitions = tracker.Diff(team);
+                var transitions = tracker.Diff(team, clock.UtcNow, _options.AfkThreshold, _options.AfkEpsilon);
                 if (transitions.Count > 0)
                 {
                     await eventBus.PublishAsync(

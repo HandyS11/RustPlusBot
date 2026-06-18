@@ -7,11 +7,17 @@ namespace RustPlusBot.Features.Connections.Listening;
 internal sealed class TeamStateTracker
 {
     private Dictionary<ulong, TeamMemberSnapshot>? _baseline;
+    private readonly Dictionary<ulong, DateTimeOffset> _stillSince = new();
+    private readonly HashSet<ulong> _afk = new();
 
     /// <summary>Diffs <paramref name="snapshot"/> against the previous one. First non-null call primes silently.</summary>
     /// <param name="snapshot">The latest team snapshot, or null when the poll returned no data.</param>
+    /// <param name="now">Current wall-clock time (from <c>IClock.UtcNow</c>).</param>
+    /// <param name="afkThreshold">How long a member must be still before being flagged AFK.</param>
+    /// <param name="afkEpsilon">Movement tolerance (world units) below which a member is considered still.</param>
     /// <returns>The transitions since the previous snapshot; empty on prime, null input, or no change.</returns>
-    public IReadOnlyList<PlayerTransition> Diff(TeamInfoSnapshot? snapshot)
+    public IReadOnlyList<PlayerTransition> Diff(
+        TeamInfoSnapshot? snapshot, DateTimeOffset now, TimeSpan afkThreshold, float afkEpsilon)
     {
         if (snapshot is null)
         {
@@ -22,42 +28,91 @@ internal sealed class TeamStateTracker
 
         if (_baseline is null)
         {
-            _baseline = current; // first poll: silent baseline
+            _baseline = current;
+            foreach (var m in current.Values)
+            {
+                _stillSince[m.SteamId] = now;
+            }
+
             return [];
         }
 
         var transitions = new List<PlayerTransition>();
-        foreach (var (id, now) in current)
+        foreach (var (id, nowMember) in current)
         {
             if (!_baseline.TryGetValue(id, out var was))
             {
-                continue; // brand-new member: prime silently this poll
+                _stillSince[id] = now; // prime new member's stillness clock
+                continue;
             }
 
-            if (now.IsOnline && !was.IsOnline)
-            {
-                transitions.Add(new PlayerTransition(PlayerTransitionKind.Connect, id, now.Name, null));
-            }
-            else if (!now.IsOnline && was.IsOnline)
-            {
-                transitions.Add(new PlayerTransition(PlayerTransitionKind.Disconnect, id, now.Name, null));
-            }
-
-            if (now.LastDeathTimeUtc > was.LastDeathTimeUtc)
-            {
-                transitions.Add(new PlayerTransition(
-                    PlayerTransitionKind.Death, id, now.Name, ResolveDeathLocation(id, snapshot, was)));
-            }
-
-            if (now.LastSpawnTimeUtc > was.LastSpawnTimeUtc)
-            {
-                transitions.Add(new PlayerTransition(
-                    PlayerTransitionKind.Respawn, id, now.Name, (now.X, now.Y)));
-            }
+            AddPresenceTransitions(transitions, id, was, nowMember, snapshot);
+            UpdateAfk(transitions, id, was, nowMember, now, afkThreshold, afkEpsilon);
         }
 
         _baseline = current;
         return transitions;
+    }
+
+    private static void AddPresenceTransitions(
+        List<PlayerTransition> transitions, ulong id,
+        TeamMemberSnapshot was, TeamMemberSnapshot now, TeamInfoSnapshot snapshot)
+    {
+        if (now.IsOnline && !was.IsOnline)
+        {
+            transitions.Add(new PlayerTransition(PlayerTransitionKind.Connect, id, now.Name, null));
+        }
+        else if (!now.IsOnline && was.IsOnline)
+        {
+            transitions.Add(new PlayerTransition(PlayerTransitionKind.Disconnect, id, now.Name, null));
+        }
+
+        if (now.LastDeathTimeUtc > was.LastDeathTimeUtc)
+        {
+            transitions.Add(new PlayerTransition(
+                PlayerTransitionKind.Death, id, now.Name, ResolveDeathLocation(id, snapshot, was)));
+        }
+
+        if (now.LastSpawnTimeUtc > was.LastSpawnTimeUtc)
+        {
+            transitions.Add(new PlayerTransition(PlayerTransitionKind.Respawn, id, now.Name, (now.X, now.Y)));
+        }
+    }
+
+    private void UpdateAfk(
+        List<PlayerTransition> transitions, ulong id,
+        TeamMemberSnapshot was, TeamMemberSnapshot now, DateTimeOffset clock, TimeSpan threshold, float epsilon)
+    {
+        var eligible = now.IsOnline && now.IsAlive;
+        if (!eligible)
+        {
+            if (_afk.Remove(id))
+            {
+                transitions.Add(new PlayerTransition(PlayerTransitionKind.ReturnedFromAfk, id, now.Name, null));
+            }
+
+            _stillSince[id] = clock;
+            return;
+        }
+
+        var moved = Math.Abs(now.X - was.X) > epsilon || Math.Abs(now.Y - was.Y) > epsilon;
+        if (moved)
+        {
+            _stillSince[id] = clock;
+            if (_afk.Remove(id))
+            {
+                transitions.Add(new PlayerTransition(PlayerTransitionKind.ReturnedFromAfk, id, now.Name, null));
+            }
+
+            return;
+        }
+
+        var since = _stillSince.TryGetValue(id, out var s) ? s : clock;
+        _stillSince.TryAdd(id, since);
+        if (clock - since >= threshold && _afk.Add(id))
+        {
+            transitions.Add(new PlayerTransition(PlayerTransitionKind.BecameAfk, id, now.Name, (now.X, now.Y)));
+        }
     }
 
     private static (float X, float Y)? ResolveDeathLocation(
