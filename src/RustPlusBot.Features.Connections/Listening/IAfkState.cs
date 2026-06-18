@@ -14,5 +14,7 @@ public interface IAfkState
     /// <param name="serverId">The target server id.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The currently-AFK members, or null when there is no live socket.</returns>
-    Task<IReadOnlyList<AfkMember>?> GetAfkMembersAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AfkMember>?> GetAfkMembersAsync(ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken);
 }

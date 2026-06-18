@@ -32,7 +32,8 @@ internal sealed partial class ConnectionSupervisor(
     IEventBus eventBus,
     IClock clock,
     IOptions<ConnectionOptions> options,
-    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAfkState, IAsyncDisposable
+    ILogger<ConnectionSupervisor> logger)
+    : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAfkState, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -40,6 +41,20 @@ internal sealed partial class ConnectionSupervisor(
     private readonly ConnectionOptions _options = options.Value;
     private readonly CancellationTokenSource _shutdown = new();
     private bool _disposed;
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<AfkMember>?> GetAfkMembersAsync(
+        ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        if (_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return Task.FromResult<IReadOnlyList<AfkMember>?>(live.Tracker.CurrentAfk(clock.UtcNow));
+        }
+
+        return Task.FromResult<IReadOnlyList<AfkMember>?>(null);
+    }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -257,18 +272,6 @@ internal sealed partial class ConnectionSupervisor(
             LogSendFailed(logger, ex, serverId);
             return TeamChatSendResult.Failed;
         }
-    }
-
-    /// <inheritdoc />
-    public Task<IReadOnlyList<AfkMember>?> GetAfkMembersAsync(
-        ulong guildId, Guid serverId, CancellationToken cancellationToken)
-    {
-        if (_liveSockets.TryGetValue((guildId, serverId), out var live))
-        {
-            return Task.FromResult<IReadOnlyList<AfkMember>?>(live.Tracker.CurrentAfk(clock.UtcNow));
-        }
-
-        return Task.FromResult<IReadOnlyList<AfkMember>?>(null);
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]

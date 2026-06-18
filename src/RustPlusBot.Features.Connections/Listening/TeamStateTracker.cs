@@ -5,10 +5,10 @@ namespace RustPlusBot.Features.Connections.Listening;
 /// <summary>Diffs successive team snapshots into presence transitions. One instance per connected window.</summary>
 internal sealed class TeamStateTracker
 {
-    private readonly object _gate = new();
-    private Dictionary<ulong, TeamMemberSnapshot>? _baseline;
-    private readonly Dictionary<ulong, DateTimeOffset> _stillSince = new();
     private readonly HashSet<ulong> _afk = new();
+    private readonly object _gate = new();
+    private readonly Dictionary<ulong, DateTimeOffset> _stillSince = new();
+    private Dictionary<ulong, TeamMemberSnapshot>? _baseline;
 
     /// <summary>Diffs <paramref name="snapshot"/> against the previous one. First non-null call primes silently.</summary>
     /// <param name="snapshot">The latest team snapshot, or null when the poll returned no data.</param>
@@ -17,7 +17,10 @@ internal sealed class TeamStateTracker
     /// <param name="afkEpsilon">Movement tolerance (world units) below which a member is considered still.</param>
     /// <returns>The transitions since the previous snapshot; empty on prime, null input, or no change.</returns>
     public IReadOnlyList<PlayerTransition> Diff(
-        TeamInfoSnapshot? snapshot, DateTimeOffset now, TimeSpan afkThreshold, float afkEpsilon)
+        TeamInfoSnapshot? snapshot,
+        DateTimeOffset now,
+        TimeSpan afkThreshold,
+        float afkEpsilon)
     {
         if (snapshot is null)
         {
@@ -49,17 +52,22 @@ internal sealed class TeamStateTracker
                 }
 
                 AddPresenceTransitions(transitions, id, was, nowMember, snapshot);
-                UpdateAfk(transitions, id, was, nowMember, now, afkThreshold, afkEpsilon);
+                var diedThisPoll = nowMember.LastDeathTimeUtc > was.LastDeathTimeUtc;
+                UpdateAfk(transitions, id, was, nowMember, now, afkThreshold, afkEpsilon, diedThisPoll);
             }
 
+            PruneDepartedMembers(current);
             _baseline = current;
             return transitions;
         }
     }
 
     private static void AddPresenceTransitions(
-        List<PlayerTransition> transitions, ulong id,
-        TeamMemberSnapshot was, TeamMemberSnapshot now, TeamInfoSnapshot snapshot)
+        List<PlayerTransition> transitions,
+        ulong id,
+        TeamMemberSnapshot was,
+        TeamMemberSnapshot now,
+        TeamInfoSnapshot snapshot)
     {
         if (now.IsOnline && !was.IsOnline)
         {
@@ -83,22 +91,31 @@ internal sealed class TeamStateTracker
     }
 
     private void UpdateAfk(
-        List<PlayerTransition> transitions, ulong id,
-        TeamMemberSnapshot was, TeamMemberSnapshot now, DateTimeOffset clock, TimeSpan threshold, float epsilon)
+        List<PlayerTransition> transitions,
+        ulong id,
+        TeamMemberSnapshot was,
+        TeamMemberSnapshot now,
+        DateTimeOffset clock,
+        TimeSpan threshold,
+        float epsilon,
+        bool diedThisPoll)
     {
-        var eligible = now.IsOnline && now.IsAlive;
-        if (!eligible)
+        // A member who goes offline, is dead, or died this poll (even if a slow poll already shows them
+        // respawned) can no longer be AFK. Clear the AFK latch SILENTLY — the disconnect/death transition
+        // already speaks for them, and a "back" line alongside "disconnected"/"died" would contradict it —
+        // and reset the stillness clock so AFK must be re-earned after the state change.
+        if (!now.IsOnline || !now.IsAlive || diedThisPoll)
         {
-            if (_afk.Remove(id))
-            {
-                transitions.Add(new PlayerTransition(PlayerTransitionKind.ReturnedFromAfk, id, now.Name, null));
-            }
-
+            _afk.Remove(id);
             _stillSince[id] = clock;
             return;
         }
 
-        var moved = Math.Abs(now.X - was.X) > epsilon || Math.Abs(now.Y - was.Y) > epsilon;
+        // Squared-distance check so epsilon is a true movement radius (per-axis would treat diagonal
+        // movement of dx=dy=0.8, epsilon=1 — distance ≈ 1.13 — as still).
+        var dx = now.X - was.X;
+        var dy = now.Y - was.Y;
+        var moved = (dx * dx) + (dy * dy) > epsilon * epsilon;
         if (moved)
         {
             _stillSince[id] = clock;
@@ -116,6 +133,23 @@ internal sealed class TeamStateTracker
         {
             transitions.Add(new PlayerTransition(PlayerTransitionKind.BecameAfk, id, now.Name, (now.X, now.Y)));
         }
+    }
+
+    /// <summary>Drops per-member AFK/stillness state for ids no longer present in the team snapshot.</summary>
+    /// <param name="current">The members in the latest snapshot, keyed by Steam id.</param>
+    private void PruneDepartedMembers(Dictionary<ulong, TeamMemberSnapshot> current)
+    {
+        if (_stillSince.Count == 0 && _afk.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var id in _stillSince.Keys.Where(id => !current.ContainsKey(id)).ToList())
+        {
+            _stillSince.Remove(id);
+        }
+
+        _afk.RemoveWhere(id => !current.ContainsKey(id));
     }
 
     /// <summary>The members currently flagged AFK and how long each has been still, as of <paramref name="now"/>.</summary>
@@ -139,7 +173,9 @@ internal sealed class TeamStateTracker
     }
 
     private static (float X, float Y)? ResolveDeathLocation(
-        ulong steamId, TeamInfoSnapshot snapshot, TeamMemberSnapshot previous)
+        ulong steamId,
+        TeamInfoSnapshot snapshot,
+        TeamMemberSnapshot previous)
     {
         // Leader: the single DeathNote is the true death spot (player respawns elsewhere).
         if (steamId == snapshot.LeaderSteamId && snapshot.DeathNote is { } note)

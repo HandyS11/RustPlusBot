@@ -6,6 +6,7 @@ public sealed class PlayerLocalizationCatalogTests
 {
     private static readonly string[] Keys =
     [
+        "player.title",
         "player.connect", "player.connect.line",
         "player.disconnect", "player.disconnect.line",
         "player.death", "player.death.line",

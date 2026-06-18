@@ -60,7 +60,8 @@ public sealed class PlayerEventRelayTests
         await relay.RelayAsync(
             Evt(new PlayerTransition(PlayerTransitionKind.Disconnect, 1, "Bob", null)), CancellationToken.None);
 
-        await _poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<global::Discord.Embed>(), Arg.Any<CancellationToken>());
+        await _poster.DidNotReceive()
+            .PostAsync(Arg.Any<ulong>(), Arg.Any<global::Discord.Embed>(), Arg.Any<CancellationToken>());
         await _sender.ReceivedWithAnyArgs(1).SendAsync(default, Guid.Empty, default!, default);
     }
 

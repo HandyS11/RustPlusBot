@@ -39,7 +39,8 @@ internal sealed class PlayerEventRelay(
         foreach (var t in evt.Transitions)
         {
             await teamChatSender
-                .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderLine(t, evt.Dimensions, culture), cancellationToken)
+                .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderLine(t, evt.Dimensions, culture),
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (channelId is { } id)
             {
