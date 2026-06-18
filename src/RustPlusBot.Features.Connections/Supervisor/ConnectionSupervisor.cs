@@ -32,7 +32,7 @@ internal sealed partial class ConnectionSupervisor(
     IEventBus eventBus,
     IClock clock,
     IOptions<ConnectionOptions> options,
-    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAsyncDisposable
+    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAfkState, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -259,6 +259,18 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
+    /// <inheritdoc />
+    public Task<IReadOnlyList<AfkMember>?> GetAfkMembersAsync(
+        ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    {
+        if (_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return Task.FromResult<IReadOnlyList<AfkMember>?>(live.Tracker.CurrentAfk(clock.UtcNow));
+        }
+
+        return Task.FromResult<IReadOnlyList<AfkMember>?>(null);
+    }
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]
     private static partial void LogLoopFaulted(ILogger logger, Exception exception, Guid serverId);
 
@@ -398,10 +410,11 @@ internal sealed partial class ConnectionSupervisor(
         var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
         var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
 
+        var tracker = new TeamStateTracker();
         connection.TeamMessageReceived += OnTeamMessage;
-        _liveSockets[key] = new LiveSocket(connection, activeSteamId);
+        _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, pollCts.Token),
+        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
             CancellationToken.None);
         try
         {
@@ -448,11 +461,11 @@ internal sealed partial class ConnectionSupervisor(
         IRustServerConnection connection,
         MapDimensions? dims,
         IReadOnlyList<RigPosition> rigs,
+        TeamStateTracker tracker,
         CancellationToken ct)
     {
         IReadOnlyList<MapMarkerSnapshot>? previous = null;
         var rigsInRadius = new HashSet<RigKind>();
-        var tracker = new TeamStateTracker();
         while (!ct.IsCancellationRequested)
         {
             var anyCh47 = false;
@@ -755,7 +768,7 @@ internal sealed partial class ConnectionSupervisor(
         ulong SteamId,
         string PlayerToken);
 
-    private sealed record LiveSocket(IRustServerConnection Connection, ulong ActiveSteamId);
+    private sealed record LiveSocket(IRustServerConnection Connection, ulong ActiveSteamId, TeamStateTracker Tracker);
 
     private sealed class Handle(CancellationTokenSource cts, Task runTask) : IAsyncDisposable
     {

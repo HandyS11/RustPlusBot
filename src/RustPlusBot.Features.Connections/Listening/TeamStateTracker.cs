@@ -115,6 +115,23 @@ internal sealed class TeamStateTracker
         }
     }
 
+    /// <summary>The members currently flagged AFK and how long each has been still, as of <paramref name="now"/>.</summary>
+    /// <param name="now">The current wall-clock time used to compute each member's still duration.</param>
+    public IReadOnlyList<AfkMember> CurrentAfk(DateTimeOffset now)
+    {
+        var result = new List<AfkMember>();
+        foreach (var id in _afk)
+        {
+            if (_baseline is not null && _baseline.TryGetValue(id, out var m))
+            {
+                var since = _stillSince.TryGetValue(id, out var s) ? s : now;
+                result.Add(new AfkMember(id, m.Name, now - since));
+            }
+        }
+
+        return result;
+    }
+
     private static (float X, float Y)? ResolveDeathLocation(
         ulong steamId, TeamInfoSnapshot snapshot, TeamMemberSnapshot previous)
     {
