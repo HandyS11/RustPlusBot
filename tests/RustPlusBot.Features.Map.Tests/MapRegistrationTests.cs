@@ -4,6 +4,7 @@ using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Map.Composing;
 using RustPlusBot.Features.Map.Rendering;
+using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Map.Tests;
 
@@ -35,6 +36,8 @@ public sealed class MapRegistrationTests
         services.AddLogging();
         services.AddSingleton(Substitute.For<IRustServerQuery>());
         services.AddSingleton(Substitute.For<IEventState>());
+        services.AddSingleton(Substitute.For<IRigState>());
+        services.AddScoped(_ => Substitute.For<IMapSettingsStore>());
         services.AddMap();
 
         return services.BuildServiceProvider(validateScopes: true);
