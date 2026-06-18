@@ -34,4 +34,8 @@ public sealed class MapIconsTests
     [InlineData(RigKind.Large)]
     public void Rig_resolves_for_known_kinds(RigKind kind) =>
         Assert.NotNull(MapIcons.Rig(kind, active: false));
+
+    [Fact]
+    public void Player_resolves_to_vendored_icon() =>
+        Assert.NotNull(MapIcons.Player());
 }

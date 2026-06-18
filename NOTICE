@@ -24,3 +24,6 @@ companion-app fair-use basis as the official Rust+ application. They were
 sourced via the rustplus-desktop project, which redistributes the game art;
 the icons are Facepunch's game assets, not original GPL-licensed work, and are
 not treated as GPL-licensed nor as encumbering this MIT-licensed project.
+
+The player position icon (player.png) was sourced from the rustplusplus project
+on the same Facepunch-game-art fair-use basis described above.

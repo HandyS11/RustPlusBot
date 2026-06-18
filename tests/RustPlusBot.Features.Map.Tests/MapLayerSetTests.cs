@@ -6,14 +6,15 @@ namespace RustPlusBot.Features.Map.Tests;
 public sealed class MapLayerSetTests
 {
     [Fact]
-    public void Default2b_enables_grid_and_markers_only()
+    public void AllOn_enables_every_layer()
     {
-        var set = MapLayerSet.Default2b;
+        var set = MapLayerSet.AllOn;
 
         Assert.True(set.Grid);
         Assert.True(set.Markers);
-        Assert.False(set.Monuments);
-        Assert.False(set.Vendor);
-        Assert.False(set.Rigs);
+        Assert.True(set.Monuments);
+        Assert.True(set.Vendor);
+        Assert.True(set.Players);
+        Assert.True(set.Rigs);
     }
 }

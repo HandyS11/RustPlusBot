@@ -49,7 +49,7 @@ public static class MapIcons
     };
 #pragma warning restore RCS1163
 
-    /// <summary>Gets the travelling vendor icon (vendor.png). Used by Task 4 until MarkerKind.TravellingVendor is added to the switch.</summary>
+    /// <summary>Gets the travelling vendor icon.</summary>
     /// <returns>The cached vendor icon image, or null.</returns>
     public static Image<Rgba32>? Vendor() => Load("vendor");
 

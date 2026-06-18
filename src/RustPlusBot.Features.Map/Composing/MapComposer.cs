@@ -35,8 +35,10 @@ public sealed class MapComposer(BaseMapCache cache, IEventState events, IRustSer
         if (dims is null)
         {
             // Dimensions unavailable: render the base tile only (grid/markers both need world→pixel).
-            return renderer.Render(baseImage, new MapDimensions(0, 0, 0), markers: [],
-                new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Rigs: false));
+            return renderer.Render(baseImage, new MapDimensions(0, 0, 0), markers: [], monuments: [], players: [],
+                rigs: [],
+                new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false,
+                    Rigs: false));
         }
 
         var placements = DrawnKinds
@@ -48,6 +50,6 @@ public sealed class MapComposer(BaseMapCache cache, IEventState events, IRustSer
             })
             .ToList();
 
-        return renderer.Render(baseImage, dims, placements, MapLayerSet.Default2b);
+        return renderer.Render(baseImage, dims, placements, monuments: [], players: [], rigs: [], MapLayerSet.AllOn);
     }
 }

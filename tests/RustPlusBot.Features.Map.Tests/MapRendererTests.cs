@@ -1,3 +1,4 @@
+using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Map.Rendering;
 using SixLabors.ImageSharp;
@@ -23,7 +24,8 @@ public sealed class MapRendererTests
     {
         var renderer = new MapRenderer();
 
-        var bytes = renderer.Render(BaseJpeg(), Dims, markers: [], MapLayerSet.Default2b);
+        var bytes = renderer.Render(BaseJpeg(), Dims, markers: [], monuments: [], players: [], rigs: [],
+            MapLayerSet.AllOn);
 
         using var result = Image.Load<Rgba32>(bytes);
         Assert.Equal(MapRenderer.OutputSize, result.Width);
@@ -36,11 +38,28 @@ public sealed class MapRendererTests
         var renderer = new MapRenderer();
         var jpeg = BaseJpeg();
 
-        var without = renderer.Render(jpeg, Dims, markers: [], new MapLayerSet(false, true, false, false, false));
+        var without = renderer.Render(jpeg, Dims, markers: [], monuments: [], players: [], rigs: [],
+            new MapLayerSet(false, true, false, false, false, false));
         var with = renderer.Render(jpeg, Dims,
             markers: [new MarkerPlacement(MarkerKind.CargoShip, 512f, 512f)],
-            new MapLayerSet(false, true, false, false, false));
+            monuments: [], players: [], rigs: [],
+            new MapLayerSet(false, true, false, false, false, false));
 
         Assert.NotEqual(without, with); // The drawn marker changes the bytes.
+    }
+
+    [Fact]
+    public void Render_with_all_layers_produces_valid_png()
+    {
+        var renderer = new MapRenderer();
+        var markers = new[] { new MarkerPlacement(MarkerKind.CargoShip, 100, 100) };
+        var monuments = new[] { new MonumentPlacement("launchsite", 200, 200) };
+        var players = new[] { new PlayerPlacement("Alice", 300, 300, IsAlive: true, IsOnline: true) };
+        var rigs = new[] { new RigPlacement(RigKind.Large, 400, 400, Active: true) };
+
+        var png = renderer.Render(BaseJpeg(), Dims, markers, monuments, players, rigs, MapLayerSet.AllOn);
+
+        using var img = Image.Load(png); // throws if not a valid image
+        Assert.Equal(MapRenderer.OutputSize, img.Width);
     }
 }

@@ -64,8 +64,8 @@ public sealed class MapComposerTests
         // markers still renders the gridded map (not a bare base tile).
         var composer = Build(BaseJpeg(), Dims);
 
-        var withoutGrid = new MapRenderer().Render(BaseJpeg(), Dims, markers: [],
-            new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Rigs: false));
+        var withoutGrid = new MapRenderer().Render(BaseJpeg(), Dims, markers: [], monuments: [], players: [], rigs: [],
+            new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false, Rigs: false));
         var png = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
         Assert.NotNull(png);
