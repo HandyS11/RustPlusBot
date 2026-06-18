@@ -22,5 +22,6 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
     public IEnumerable<MessageSpec> GetMessageSpecs() =>
     [
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerInfo, WorkspaceChannelKeys.ServerInfo),
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerMap, WorkspaceChannelKeys.ServerMap),
     ];
 }

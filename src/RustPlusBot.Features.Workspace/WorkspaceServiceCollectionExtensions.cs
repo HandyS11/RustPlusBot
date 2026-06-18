@@ -43,6 +43,7 @@ public static class WorkspaceServiceCollectionExtensions
         // ServerInfoMessageRenderer requires IRustServerQuery, which is registered by AddConnections —
         // the host must compose both AddWorkspace and AddConnections.
         services.AddScoped<IMessageRenderer, ServerInfoMessageRenderer>();
+        services.AddScoped<IMessageRenderer, MapControlMessageRenderer>();
 
         // Reconciler + teardown (scoped). Register the teardown service once and expose both interfaces
         // off the same scoped instance, so resolving either does not create a second instance.
