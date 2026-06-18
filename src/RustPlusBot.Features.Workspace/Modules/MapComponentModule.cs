@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Persistence.Map;
+using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Workspace.Modules;
 
@@ -39,6 +40,13 @@ public sealed class MapComponentModule(IServiceScopeFactory scopeFactory, IEvent
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
+            var servers = scope.ServiceProvider.GetRequiredService<IServerService>();
+            if (await servers.GetAsync(Context.Guild.Id, serverId).ConfigureAwait(false) is null)
+            {
+                await FollowupAsync("That server isn't available.", ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
             var store = scope.ServiceProvider.GetRequiredService<IMapSettingsStore>();
             var current = await store.GetAsync(Context.Guild.Id, serverId).ConfigureAwait(false);
             var newValue = !IsEnabled(current, layer);
