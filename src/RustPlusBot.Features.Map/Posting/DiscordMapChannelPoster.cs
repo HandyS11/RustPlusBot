@@ -67,7 +67,9 @@ internal sealed partial class DiscordMapChannelPoster(
     {
         var batch = await channel.GetMessagesAsync(RecentMessageScan, options: options).FlattenAsync()
             .ConfigureAwait(false);
-        foreach (var message in batch.Where(m => m.Author.Id == client.CurrentUser.Id))
+        // Delete only our prior IMAGE posts (they carry a file attachment); leave the persistent
+        // control message (text + toggle components, no attachment) for the workspace reconciler.
+        foreach (var message in batch.Where(m => m.Author.Id == client.CurrentUser.Id && m.Attachments.Count > 0))
         {
             await message.DeleteAsync(options).ConfigureAwait(false);
         }
