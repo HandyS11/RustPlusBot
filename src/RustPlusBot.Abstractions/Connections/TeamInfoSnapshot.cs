@@ -3,7 +3,11 @@ namespace RustPlusBot.Features.Connections.Listening;
 /// <summary>A point-in-time view of a team, decoupled from RustPlusApi types.</summary>
 /// <param name="LeaderSteamId">Steam64 id of the current team leader.</param>
 /// <param name="Members">Status snapshots for all team members.</param>
-public sealed record TeamInfoSnapshot(ulong LeaderSteamId, IReadOnlyList<TeamMemberSnapshot> Members);
+/// <param name="DeathNote">The leader's death-note map coordinate, if one is set; null otherwise.</param>
+public sealed record TeamInfoSnapshot(
+    ulong LeaderSteamId,
+    IReadOnlyList<TeamMemberSnapshot> Members,
+    (float X, float Y)? DeathNote = null);
 
 /// <summary>A point-in-time view of one team member.</summary>
 /// <param name="SteamId">Steam64 id of the member.</param>

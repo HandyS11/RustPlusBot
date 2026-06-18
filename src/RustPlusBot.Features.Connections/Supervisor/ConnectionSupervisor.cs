@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord.Notifications;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
@@ -20,6 +21,7 @@ namespace RustPlusBot.Features.Connections.Supervisor;
 /// <param name="dmSender">DMs an owner when their credential is rejected.</param>
 /// <param name="protector">Unprotects stored tokens before connecting.</param>
 /// <param name="eventBus">Publishes ConnectionStatusChangedEvent on state changes.</param>
+/// <param name="clock">Wall-clock source used for AFK hysteresis timestamps.</param>
 /// <param name="options">Timeouts/backoff/heartbeat settings.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class ConnectionSupervisor(
@@ -28,8 +30,10 @@ internal sealed partial class ConnectionSupervisor(
     IUserDmSender dmSender,
     ICredentialProtector protector,
     IEventBus eventBus,
+    IClock clock,
     IOptions<ConnectionOptions> options,
-    ILogger<ConnectionSupervisor> logger) : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAsyncDisposable
+    ILogger<ConnectionSupervisor> logger)
+    : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAfkState, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -37,6 +41,20 @@ internal sealed partial class ConnectionSupervisor(
     private readonly ConnectionOptions _options = options.Value;
     private readonly CancellationTokenSource _shutdown = new();
     private bool _disposed;
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<AfkMember>?> GetAfkMembersAsync(
+        ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        if (_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return Task.FromResult<IReadOnlyList<AfkMember>?>(live.Tracker.CurrentAfk(clock.UtcNow));
+        }
+
+        return Task.FromResult<IReadOnlyList<AfkMember>?>(null);
+    }
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
@@ -395,10 +413,11 @@ internal sealed partial class ConnectionSupervisor(
         var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
         var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
 
+        var tracker = new TeamStateTracker();
         connection.TeamMessageReceived += OnTeamMessage;
-        _liveSockets[key] = new LiveSocket(connection, activeSteamId);
+        _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, pollCts.Token),
+        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
             CancellationToken.None);
         try
         {
@@ -445,6 +464,7 @@ internal sealed partial class ConnectionSupervisor(
         IRustServerConnection connection,
         MapDimensions? dims,
         IReadOnlyList<RigPosition> rigs,
+        TeamStateTracker tracker,
         CancellationToken ct)
     {
         IReadOnlyList<MapMarkerSnapshot>? previous = null;
@@ -475,6 +495,15 @@ internal sealed partial class ConnectionSupervisor(
                 }
 
                 await DetectRigActivationsAsync(key, current, rigs, dims, rigsInRadius, ct).ConfigureAwait(false);
+
+                var team = await connection.GetTeamInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+                var transitions = tracker.Diff(team, clock.UtcNow, _options.AfkThreshold, _options.AfkEpsilon);
+                if (transitions.Count > 0)
+                {
+                    await eventBus.PublishAsync(
+                            new PlayerStateChangedEvent(key.Guild, key.Server, dims, transitions), ct)
+                        .ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -742,7 +771,7 @@ internal sealed partial class ConnectionSupervisor(
         ulong SteamId,
         string PlayerToken);
 
-    private sealed record LiveSocket(IRustServerConnection Connection, ulong ActiveSteamId);
+    private sealed record LiveSocket(IRustServerConnection Connection, ulong ActiveSteamId, TeamStateTracker Tracker);
 
     private sealed class Handle(CancellationTokenSource cts, Task runTask) : IAsyncDisposable
     {

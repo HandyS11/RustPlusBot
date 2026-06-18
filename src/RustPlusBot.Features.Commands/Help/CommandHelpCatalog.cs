@@ -22,6 +22,7 @@ internal static class CommandHelpCatalog
         new("team", CommandGroup.TeamIntel, "help.team"),
         new("steamid", CommandGroup.TeamIntel, "help.steamid"),
         new("alive", CommandGroup.TeamIntel, "help.alive"),
+        new("afk", CommandGroup.TeamIntel, "help.afk"),
         new("prox", CommandGroup.TeamIntel, "help.prox"),
         new("uptime", CommandGroup.Bot, "help.uptime"),
     ];

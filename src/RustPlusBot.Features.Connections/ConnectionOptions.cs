@@ -35,4 +35,10 @@ public sealed class ConnectionOptions
 
     /// <summary>How often the rig-timer tick advances rig phases and emits timed boundary events. Default 30s.</summary>
     public TimeSpan RigTickInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>How long a member must be still (and online + alive) before being flagged AFK. Default 5m.</summary>
+    public TimeSpan AfkThreshold { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>Movement tolerance (world units) below which a member is considered still. Default 1.</summary>
+    public float AfkEpsilon { get; set; } = 1f;
 }
