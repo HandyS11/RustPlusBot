@@ -11,10 +11,8 @@ namespace RustPlusBot.Features.Map.Assets;
 /// Cached images are immutable inputs the renderer draws from; never mutate them.
 /// </summary>
 /// <remarks>
-/// <c>MapIcons.Marker</c> does not include a <c>TravellingVendor</c> arm because
-/// <c>MarkerKind.TravellingVendor</c> is added in Task 4.  The vendor PNG is already
-/// embedded; Task 4 adds the switch arm once the enum member exists.
-/// Use <see cref="Vendor"/> to access vendor.png until then.
+/// <c>MapIcons.Marker</c> includes a <c>TravellingVendor</c> arm that returns the embedded vendor.png.
+/// <see cref="Vendor"/> is retained as a bridge accessor for callers that reference it directly.
 /// </remarks>
 public static class MapIcons
 {
@@ -30,7 +28,7 @@ public static class MapIcons
         MarkerKind.CargoShip => Load("cargo"),
         MarkerKind.PatrolHelicopter => Load("patrol"),
         MarkerKind.Chinook => Load("ch47"),
-        // MarkerKind.TravellingVendor => Load("vendor"),  -- Task 4: add arm when enum member is added
+        MarkerKind.TravellingVendor => Load("vendor"),
         _ => null,
     };
 
