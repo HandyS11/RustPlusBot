@@ -212,6 +212,21 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(
+        ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return [];
+        }
+
+        return await live.Connection.GetMonumentsAsync(_options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<TeamChatSendResult> SendAsync(
         ulong guildId,
         Guid serverId,

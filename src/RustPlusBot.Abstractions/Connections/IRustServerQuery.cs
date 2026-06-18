@@ -45,4 +45,14 @@ public interface IRustServerQuery
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The map dimensions, or null when there is no live socket.</returns>
     Task<MapDimensions?> GetMapDimensionsAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
+
+    /// <summary>Gets the server's monuments, or an empty list when there is no live socket.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The monuments, or an empty list when there is no live socket.</returns>
+    Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(
+        ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken);
 }
