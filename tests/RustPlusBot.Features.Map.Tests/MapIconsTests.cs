@@ -1,5 +1,7 @@
+using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Map.Assets;
+using Xunit;
 
 namespace RustPlusBot.Features.Map.Tests;
 
@@ -26,4 +28,10 @@ public sealed class MapIconsTests
         Assert.Equal("oilrig", MonumentIconMap.IconKeyFor("oilrig_1"));
         Assert.Equal("largeoilrig", MonumentIconMap.IconKeyFor("large_oil_rig"));
     }
+
+    [Theory]
+    [InlineData(RigKind.Small)]
+    [InlineData(RigKind.Large)]
+    public void Rig_resolves_for_known_kinds(RigKind kind) =>
+        Assert.NotNull(MapIcons.Rig(kind, active: false));
 }

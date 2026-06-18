@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Connections.Listening;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -32,6 +33,23 @@ public static class MapIcons
         // MarkerKind.TravellingVendor => Load("vendor"),  -- Task 4: add arm when enum member is added
         _ => null,
     };
+
+    /// <summary>Gets the rig icon for a rig kind, or null when there is no icon for that kind.</summary>
+    /// <param name="kind">Which rig.</param>
+    /// <param name="active">Whether the rig is currently active (reserved; activation styling is applied by the renderer).</param>
+    /// <returns>The cached rig icon image, or null.</returns>
+    /// <remarks>
+    /// The <paramref name="active"/> parameter is reserved for future use: the renderer is responsible
+    /// for overlaying activation styling; this method always returns the base icon regardless of state.
+    /// </remarks>
+#pragma warning disable RCS1163 // Unused parameter — 'active' is part of the public API contract; activation styling is applied by the renderer, not here.
+    public static Image<Rgba32>? Rig(RigKind kind, bool active) => kind switch
+    {
+        RigKind.Small => Load("oilrig"),
+        RigKind.Large => Load("largeoilrig"),
+        _ => null,
+    };
+#pragma warning restore RCS1163
 
     /// <summary>Gets the travelling vendor icon (vendor.png). Used by Task 4 until MarkerKind.TravellingVendor is added to the switch.</summary>
     /// <returns>The cached vendor icon image, or null.</returns>
