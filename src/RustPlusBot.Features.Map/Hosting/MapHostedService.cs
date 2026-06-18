@@ -44,6 +44,7 @@ internal sealed partial class MapHostedService(
     private readonly CancellationTokenSource _cts = new();
     private readonly MapRefreshThrottle _throttle = new(clock);
     private Task? _markerLoop;
+    private Task? _settingsLoop;
     private Task? _statusLoop;
     private Task? _tickLoop;
 
@@ -54,6 +55,7 @@ internal sealed partial class MapHostedService(
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _markerLoop = Task.Run(() => ConsumeMarkerEventsAsync(_cts.Token), CancellationToken.None);
+        _settingsLoop = Task.Run(() => ConsumeSettingsEventsAsync(_cts.Token), CancellationToken.None);
         _statusLoop = Task.Run(() => ConsumeConnectionStatusEventsAsync(_cts.Token), CancellationToken.None);
         _tickLoop = Task.Run(() => RunPeriodicRefreshAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
@@ -65,7 +67,7 @@ internal sealed partial class MapHostedService(
         await _cts.CancelAsync().ConfigureAwait(false);
         foreach (var loop in new[]
                  {
-                     _markerLoop, _statusLoop, _tickLoop
+                     _markerLoop, _settingsLoop, _statusLoop, _tickLoop
                  }.Where(t => t is not null))
         {
             try
@@ -100,6 +102,36 @@ internal sealed partial class MapHostedService(
 #pragma warning restore CA1031
         {
             LogMarkerLoopFaulted(logger, ex);
+        }
+    }
+
+    /// <summary>Drains <see cref="MapSettingsChangedEvent"/> from the bus and triggers an immediate repaint.</summary>
+    /// <remarks>
+    /// Throttle caveat: the immediate toggle repaint passes through the same <see cref="MapRefreshThrottle"/>
+    /// as the periodic tick. If a toggle lands inside a recent paint's throttle window, the immediate repaint
+    /// is skipped and the change shows on the next tick (≤ <see cref="MapOptions.MapRefreshInterval"/>).
+    /// This is intentional — matches 2b's coalescing design.
+    /// </remarks>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    private async Task ConsumeSettingsEventsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<MapSettingsChangedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await RefreshAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogSettingsLoopFaulted(logger, ex);
         }
     }
 
@@ -204,6 +236,9 @@ internal sealed partial class MapHostedService(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Map marker loop faulted.")]
     private static partial void LogMarkerLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Map settings loop faulted.")]
+    private static partial void LogSettingsLoopFaulted(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Map connection-status loop faulted.")]
     private static partial void LogStatusLoopFaulted(ILogger logger, Exception exception);

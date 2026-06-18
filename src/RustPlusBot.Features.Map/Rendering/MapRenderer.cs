@@ -20,8 +20,10 @@ public sealed class MapRenderer
     public const int OutputSize = 1024;
 
     private const float GridDiameter = 146.25f;
-    private const float MarkerRadius = 9f;
+    private const float PlayerRadius = 6f;
     private const float OutlinePenWidth = 1f;
+    private const float ActiveRingWidth = 3f;
+    private const float PlayerLabelOffset = 12f;
 
     private static readonly Font Font = LoadFont();
 
@@ -40,6 +42,9 @@ public sealed class MapRenderer
     /// <param name="baseJpeg">The raw base-map JPEG bytes.</param>
     /// <param name="dims">The map dimensions (world size + ocean margin).</param>
     /// <param name="markers">Marker placements already projected to pixel coordinates.</param>
+    /// <param name="monuments">Monument placements already projected to pixel coordinates.</param>
+    /// <param name="players">Player placements already projected to pixel coordinates.</param>
+    /// <param name="rigs">Oil-rig placements already projected to pixel coordinates.</param>
     /// <param name="layers">Which overlay layers to draw.</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
     /// <remarks>Kept as an instance method so the class can be registered as a DI singleton.</remarks>
@@ -47,12 +52,18 @@ public sealed class MapRenderer
     public byte[] Render(byte[] baseJpeg,
         MapDimensions dims,
         IReadOnlyList<MarkerPlacement> markers,
+        IReadOnlyList<MonumentPlacement> monuments,
+        IReadOnlyList<PlayerPlacement> players,
+        IReadOnlyList<RigPlacement> rigs,
         MapLayerSet layers)
 #pragma warning restore CA1822, S2325
     {
         ArgumentNullException.ThrowIfNull(baseJpeg);
         ArgumentNullException.ThrowIfNull(dims);
         ArgumentNullException.ThrowIfNull(markers);
+        ArgumentNullException.ThrowIfNull(monuments);
+        ArgumentNullException.ThrowIfNull(players);
+        ArgumentNullException.ThrowIfNull(rigs);
         ArgumentNullException.ThrowIfNull(layers);
 
         using var image = Image.Load<Rgba32>(baseJpeg);
@@ -63,12 +74,24 @@ public sealed class MapRenderer
             DrawGrid(image, dims);
         }
 
+        if (layers.Monuments)
+        {
+            DrawMonuments(image, monuments);
+        }
+
         if (layers.Markers)
         {
-            foreach (var marker in markers)
-            {
-                DrawMarker(image, marker);
-            }
+            DrawMarkers(image, markers);
+        }
+
+        if (layers.Rigs)
+        {
+            DrawRigs(image, rigs);
+        }
+
+        if (layers.Players)
+        {
+            DrawPlayers(image, players);
         }
 
         using var ms = new MemoryStream();
@@ -99,23 +122,101 @@ public sealed class MapRenderer
         });
     }
 
-    private static void DrawMarker(Image<Rgba32> image, MarkerPlacement m)
+    private static void DrawMarkers(Image<Rgba32> image, IReadOnlyList<MarkerPlacement> markers)
     {
-        var (color, letter) = MarkerGlyphs.For(m.Kind);
-        var circle = new EllipsePolygon(m.PixelX, m.PixelY, MarkerRadius);
+        // One Mutate for the whole layer: each Mutate builds and runs a fresh processing pipeline,
+        // so batching all the layer's DrawImage calls into a single Mutate avoids per-item overhead.
+        image.Mutate(ctx =>
+        {
+            foreach (var marker in markers)
+            {
+                var icon = MapIcons.Marker(marker.Kind);
+                if (icon is not null)
+                {
+                    ctx.DrawImage(icon, CenterAt(marker.PixelX, marker.PixelY, icon), 1f);
+                }
+            }
+        });
+    }
+
+    private static void DrawMonuments(Image<Rgba32> image, IReadOnlyList<MonumentPlacement> monuments)
+    {
+        // One Mutate for the whole layer (see DrawMarkers): monuments can be numerous, so a single
+        // pipeline beats one Mutate per monument.
+        image.Mutate(ctx =>
+        {
+            foreach (var monument in monuments)
+            {
+                var icon = MapIcons.Monument(monument.Token);
+                if (icon is not null)
+                {
+                    ctx.DrawImage(icon, CenterAt(monument.PixelX, monument.PixelY, icon), 1f);
+                }
+            }
+        });
+    }
+
+    private static void DrawRigs(Image<Rgba32> image, IReadOnlyList<RigPlacement> rigs)
+    {
+        image.Mutate(ctx =>
+        {
+            foreach (var rig in rigs)
+            {
+                var icon = MapIcons.Rig(rig.Kind, rig.Active);
+                if (icon is null)
+                {
+                    continue;
+                }
+
+                ctx.DrawImage(icon, CenterAt(rig.PixelX, rig.PixelY, icon), 1f);
+
+                if (rig.Active)
+                {
+                    // Active rigs are in their combat window: ring them in red to flag the danger.
+                    var radius = (Math.Max(icon.Width, icon.Height) / 2f) + ActiveRingWidth;
+                    var ring = new EllipsePolygon(rig.PixelX, rig.PixelY, radius);
+                    ctx.Draw(Color.Red, ActiveRingWidth, ring);
+                }
+            }
+        });
+    }
+
+    private static void DrawPlayers(Image<Rgba32> image, IReadOnlyList<PlayerPlacement> players)
+    {
+        var icon = MapIcons.Player();
 
         image.Mutate(ctx =>
         {
-            ctx.Fill(color, circle);
-            ctx.Draw(Color.Black, OutlinePenWidth, circle);
-
-            var textOptions = new RichTextOptions(Font)
+            foreach (var player in players)
             {
-                Origin = new PointF(m.PixelX, m.PixelY),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            ctx.DrawText(textOptions, letter, Color.White);
+                var isActive = player is { IsAlive: true, IsOnline: true };
+
+                if (icon is not null)
+                {
+                    ctx.DrawImage(icon, CenterAt(player.PixelX, player.PixelY, icon), 1f);
+                }
+                else
+                {
+                    var dotColor = isActive ? Color.LimeGreen : Color.Gray;
+                    var dot = new EllipsePolygon(player.PixelX, player.PixelY, PlayerRadius);
+                    ctx.Fill(dotColor, dot);
+                    ctx.Draw(Color.Black, OutlinePenWidth, dot);
+                }
+
+                var suffix = player.IsAlive ? " (offline)" : " (dead)";
+                var label = isActive ? player.Name : player.Name + suffix;
+                var labelColor = isActive ? Color.White : Color.Gray;
+                var textOptions = new RichTextOptions(Font)
+                {
+                    Origin = new PointF(player.PixelX, player.PixelY + PlayerLabelOffset),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Top,
+                };
+                ctx.DrawText(textOptions, label, labelColor);
+            }
         });
     }
+
+    private static Point CenterAt(float x, float y, Image<Rgba32> icon) =>
+        new((int)(x - (icon.Width / 2f)), (int)(y - (icon.Height / 2f)));
 }

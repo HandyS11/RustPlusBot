@@ -45,6 +45,13 @@ internal sealed class LocalizationCatalog
                 ["server.info.team.value"] = "{0}/{1} online · leader {2}",
                 ["server.info.swap.placeholder"] = "Switch active player",
                 ["server.info.none"] = "—",
+                ["map.control.header"] = "Map layers — toggle to show/hide:",
+                ["map.layer.grid"] = "Grid",
+                ["map.layer.markers"] = "Markers",
+                ["map.layer.monuments"] = "Monuments",
+                ["map.layer.vendor"] = "Vendor",
+                ["map.layer.players"] = "Players",
+                ["map.layer.rigs"] = "Rigs",
             },
             ["fr"] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -81,6 +88,13 @@ internal sealed class LocalizationCatalog
                 ["server.info.team.value"] = "{0}/{1} en ligne · chef {2}",
                 ["server.info.swap.placeholder"] = "Changer le joueur actif",
                 ["server.info.none"] = "—",
+                ["map.control.header"] = "Calques de la carte — activer/désactiver :",
+                ["map.layer.grid"] = "Grille",
+                ["map.layer.markers"] = "Marqueurs",
+                ["map.layer.monuments"] = "Monuments",
+                ["map.layer.vendor"] = "Marchand",
+                ["map.layer.players"] = "Joueurs",
+                ["map.layer.rigs"] = "Plateformes",
             },
         },
     };

@@ -1,20 +1,29 @@
+using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Map.Rendering;
+using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Map.Composing;
 
-/// <summary>Gathers the cached base map + live markers and renders the map PNG.</summary>
+/// <summary>Gathers the cached base map, per-server settings, and live layer data, then renders the map PNG.</summary>
 /// <param name="cache">The base-map cache.</param>
 /// <param name="events">Live marker state.</param>
-/// <param name="query">Live query seam (supplies the static map dimensions).</param>
+/// <param name="rigs">Inferred oil-rig state.</param>
+/// <param name="query">Live query seam (dimensions, monuments, team).</param>
 /// <param name="renderer">The image renderer.</param>
-public sealed class MapComposer(BaseMapCache cache, IEventState events, IRustServerQuery query, MapRenderer renderer)
+/// <param name="scopeFactory">Opens a scope to read the scoped settings store.</param>
+public sealed class MapComposer(
+    BaseMapCache cache,
+    IEventState events,
+    IRigState rigs,
+    IRustServerQuery query,
+    MapRenderer renderer,
+    IServiceScopeFactory scopeFactory)
 {
-    private static readonly MarkerKind[] DrawnKinds =
-    [
-        MarkerKind.CargoShip, MarkerKind.PatrolHelicopter, MarkerKind.Chinook,
-    ];
+    private static readonly MarkerKind[] LiveMarkerKinds =
+        [MarkerKind.CargoShip, MarkerKind.PatrolHelicopter, MarkerKind.Chinook];
 
     /// <summary>Composes the map PNG for a server, or null when no base map is available yet.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
@@ -29,25 +38,142 @@ public sealed class MapComposer(BaseMapCache cache, IEventState events, IRustSer
             return null;
         }
 
+        // The settings store is scoped (EF context); this composer is a singleton, so we open a scope per
+        // call to resolve it (mirroring MapHostedService.OnConnectionStatusAsync) — avoids a captive dependency.
+        MapLayerSettings settings;
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IMapSettingsStore>();
+            settings = await store.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        }
+
+        var layers = new MapLayerSet(settings.Grid, settings.Markers, settings.Monuments,
+            settings.Vendor, settings.Players, settings.Rigs);
+
         // Dimensions come from the map itself (not from a marker), so the grid renders even when no
         // markers are present — e.g. on a freshly-connected or low-activity server.
         var dims = await query.GetMapDimensionsAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (dims is null)
         {
-            // Dimensions unavailable: render the base tile only (grid/markers both need world→pixel).
-            return renderer.Render(baseImage, new MapDimensions(0, 0, 0), markers: [],
-                new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Rigs: false));
+            // Dimensions unavailable: render the base tile only (every overlay needs world→pixel).
+            return renderer.Render(baseImage, new MapDimensions(0, 0, 0), markers: [], monuments: [], players: [],
+                rigs: [],
+                new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false,
+                    Rigs: false));
         }
 
-        var placements = DrawnKinds
-            .SelectMany(kind => events.GetActiveMarkers(guildId, serverId, kind))
-            .Select(m =>
+        var markers = GatherMarkers(guildId, serverId, dims, layers);
+
+        // Monuments feed both the monuments layer and the rig-styling layer; fetch them once when either is on.
+        IReadOnlyList<MonumentSnapshot> serverMonuments = [];
+        if (layers.Monuments || layers.Rigs)
+        {
+            serverMonuments = await query.GetMonumentsAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        }
+
+        var monuments = GatherMonuments(serverMonuments, dims, layers);
+        var players = await GatherPlayersAsync(guildId, serverId, dims, layers, cancellationToken)
+            .ConfigureAwait(false);
+        var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, dims, layers);
+
+        return renderer.Render(baseImage, dims, markers, monuments, players, rigPlacements, layers);
+    }
+
+    private List<MarkerPlacement> GatherMarkers(ulong guildId, Guid serverId, MapDimensions dims, MapLayerSet layers)
+    {
+        var markers = new List<MarkerPlacement>();
+        if (layers.Markers)
+        {
+            foreach (var kind in LiveMarkerKinds)
+            {
+                foreach (var m in events.GetActiveMarkers(guildId, serverId, kind))
+                {
+                    var (px, py) = WorldToPixel.ToPixel(m.X, m.Y, dims, MapRenderer.OutputSize);
+                    markers.Add(new MarkerPlacement(kind, px, py));
+                }
+            }
+        }
+
+        if (layers.Vendor)
+        {
+            foreach (var m in events.GetActiveMarkers(guildId, serverId, MarkerKind.TravellingVendor))
             {
                 var (px, py) = WorldToPixel.ToPixel(m.X, m.Y, dims, MapRenderer.OutputSize);
-                return new MarkerPlacement(m.Kind, px, py);
-            })
-            .ToList();
+                markers.Add(new MarkerPlacement(MarkerKind.TravellingVendor, px, py));
+            }
+        }
 
-        return renderer.Render(baseImage, dims, placements, MapLayerSet.Default2b);
+        return markers;
+    }
+
+    private static List<MonumentPlacement> GatherMonuments(
+        IReadOnlyList<MonumentSnapshot> serverMonuments,
+        MapDimensions dims,
+        MapLayerSet layers)
+    {
+        var monuments = new List<MonumentPlacement>();
+        if (layers.Monuments)
+        {
+            foreach (var mon in serverMonuments)
+            {
+                var (px, py) = WorldToPixel.ToPixel(mon.X, mon.Y, dims, MapRenderer.OutputSize);
+                monuments.Add(new MonumentPlacement(mon.Token, px, py));
+            }
+        }
+
+        return monuments;
+    }
+
+    private async Task<List<PlayerPlacement>> GatherPlayersAsync(
+        ulong guildId,
+        Guid serverId,
+        MapDimensions dims,
+        MapLayerSet layers,
+        CancellationToken cancellationToken)
+    {
+        var players = new List<PlayerPlacement>();
+        if (layers.Players)
+        {
+            var team = await query.GetTeamInfoAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+            foreach (var member in team?.Members ?? [])
+            {
+                var (px, py) = WorldToPixel.ToPixel(member.X, member.Y, dims, MapRenderer.OutputSize);
+                players.Add(new PlayerPlacement(member.Name, px, py, member.IsAlive, member.IsOnline));
+            }
+        }
+
+        return players;
+    }
+
+    private List<RigPlacement> GatherRigs(
+        ulong guildId,
+        Guid serverId,
+        IReadOnlyList<MonumentSnapshot> serverMonuments,
+        MapDimensions dims,
+        MapLayerSet layers)
+    {
+        var rigPlacements = new List<RigPlacement>();
+        if (layers.Rigs)
+        {
+            // Reuse the monument positions for the two rig tokens; query rig state for activation styling.
+            foreach (var mon in serverMonuments)
+            {
+                RigKind? kind = mon.Token switch
+                {
+                    "oilrig_1" => RigKind.Small,
+                    "large_oil_rig" => RigKind.Large,
+                    _ => null,
+                };
+                if (kind is { } k)
+                {
+                    var state = rigs.Get(guildId, serverId, k);
+                    var (px, py) = WorldToPixel.ToPixel(mon.X, mon.Y, dims, MapRenderer.OutputSize);
+                    rigPlacements.Add(new RigPlacement(k, px, py, state.Status == RigStatus.Active));
+                }
+            }
+        }
+
+        return rigPlacements;
     }
 }

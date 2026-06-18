@@ -6,6 +6,7 @@ using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Entities;
 using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
+using RustPlusBot.Domain.Map;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Persistence.Configurations;
@@ -33,6 +34,9 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
 
     /// <summary>Per-server command settings (trigger prefix and mute state).</summary>
     public DbSet<ServerCommandSettings> ServerCommandSettings => Set<ServerCommandSettings>();
+
+    /// <summary>Per-(guild, server) rendered-map layer settings.</summary>
+    public DbSet<ServerMapSettings> ServerMapSettings => Set<ServerMapSettings>();
 
     /// <summary>Per-guild settings.</summary>
     public DbSet<GuildSettings> GuildSettings => Set<GuildSettings>();
@@ -64,6 +68,7 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new FcmRegistrationConfiguration())
             .ApplyConfiguration(new ConnectionStateConfiguration())
             .ApplyConfiguration(new ServerCommandSettingsConfiguration())
+            .ApplyConfiguration(new ServerMapSettingsConfiguration())
             .ApplyConfiguration(new GuildSettingsConfiguration())
             .ApplyConfiguration(new PairedEntityConfiguration())
             .ApplyConfiguration(new EventSubscriptionConfiguration())

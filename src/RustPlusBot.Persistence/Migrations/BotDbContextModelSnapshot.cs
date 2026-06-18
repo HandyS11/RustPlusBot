@@ -302,6 +302,37 @@ namespace RustPlusBot.Persistence.Migrations
                     b.ToTable("GuildSettings");
                 });
 
+            modelBuilder.Entity("RustPlusBot.Domain.Map.ServerMapSettings", b =>
+                {
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ShowGrid")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ShowMarkers")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ShowMonuments")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ShowPlayers")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ShowRigs")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ShowVendor")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("ServerId");
+
+                    b.ToTable("ServerMapSettings");
+                });
+
             modelBuilder.Entity("RustPlusBot.Domain.Servers.RustServer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -468,6 +499,15 @@ namespace RustPlusBot.Persistence.Migrations
                     b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
                         .WithMany()
                         .HasForeignKey("RustServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Map.ServerMapSettings", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithOne()
+                        .HasForeignKey("RustPlusBot.Domain.Map.ServerMapSettings", "ServerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

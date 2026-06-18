@@ -244,6 +244,18 @@ public sealed class ServerQueryTests
         Assert.False(promoted);
     }
 
+    [Fact]
+    public async Task GetMonumentsAsync_returns_empty_when_no_live_socket()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+
+        var result = await supervisor.GetMonumentsAsync(10UL, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Empty(result);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
     {
         while (!condition())

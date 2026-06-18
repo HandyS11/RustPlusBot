@@ -17,4 +17,7 @@ public enum MarkerKind
 
     /// <summary>A locked crate.</summary>
     Crate = 4,
+
+    /// <summary>The travelling vendor.</summary>
+    TravellingVendor = 5,
 }

@@ -17,4 +17,7 @@ public static class WorkspaceComponentIds
 
     /// <summary>Prefix for the #info "remove server" button; the server id is appended. Handled by Connections.</summary>
     public const string ServerInfoRemovePrefix = "workspace:info:remove:";
+
+    /// <summary>Prefix for a #map layer toggle button; "{layer}:{serverId}" is appended. Handled by Workspace.</summary>
+    public const string MapTogglePrefix = "workspace:map:toggle:";
 }

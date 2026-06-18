@@ -324,9 +324,10 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
             // CONFIRMED (2.0.0-beta.1): GetMapMarkersAsync returns Task<Response<RustPlusApi.Data.MapMarkers>>.
-            // MapMarkers has typed dictionaries CargoShipMarkers/PatrolHelicopterMarkers/Ch47Markers
+            // MapMarkers has typed dictionaries CargoShipMarkers/PatrolHelicopterMarkers/Ch47Markers/TravellingVendorMarkers
             // (Dictionary<ulong, XMarker>); each marker exposes Nullable<ulong> Id, Nullable<float> X/Y.
             // No flat list, no Type field, NO crate bucket (the game stopped sending crate markers) → core-3.
+            // Surfaced buckets: CargoShip, PatrolHelicopter, Chinook, TravellingVendor.
             var response = await _rustPlus.GetMapMarkersAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
                 .ConfigureAwait(false);
             if (!response.IsSuccess || response.Data is null)
@@ -339,6 +340,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             AddMarkers(markers, data.CargoShipMarkers, MarkerKind.CargoShip);
             AddMarkers(markers, data.PatrolHelicopterMarkers, MarkerKind.PatrolHelicopter);
             AddMarkers(markers, data.Ch47Markers, MarkerKind.Chinook);
+            AddMarkers(markers, data.TravellingVendorMarkers, MarkerKind.TravellingVendor);
             return markers;
         }
 
