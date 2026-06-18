@@ -15,15 +15,12 @@ Liberation Sans (Regular)
            The OFL permits embedding and redistribution in software products.
 
 -------------------------------------------------------------------------------
-MAP MARKER / MONUMENT ICONS (future 2b-ii slice)
+MAP MARKER / MONUMENT ICONS
 -------------------------------------------------------------------------------
 
-The current 2b slice draws all map markers programmatically as glyphs; NO
-third-party image assets are bundled.
-
-When marker and monument icons are added in the 2b-ii slice, they will
-originate as Facepunch / Rust game art. They are used under the same
-companion-app norms that govern the official Rust+ app and established
-reference bots — NOT under the GPL of the third-party repositories that
-merely redistribute them. Attribution for those assets will be added to this
-file at that time.
+Map marker and monument icons under src/RustPlusBot.Features.Map/Assets/icons/
+originate from Rust (© Facepunch Studios) and are reused here under the same
+companion-app fair-use basis as the official Rust+ application. They were
+sourced via the rustplus-desktop project, which redistributes the game art;
+the icons are Facepunch's game assets, not original GPL-licensed work, and are
+not treated as GPL-licensed nor as encumbering this MIT-licensed project.

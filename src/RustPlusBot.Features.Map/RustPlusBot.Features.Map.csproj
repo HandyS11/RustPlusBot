@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Assets/LiberationSans-Regular.ttf" />
+    <EmbeddedResource Include="Assets/icons/*.png" />
   </ItemGroup>
 
   <ItemGroup>
