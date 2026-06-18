@@ -264,7 +264,10 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                         new DateTimeOffset(DateTime.SpecifyKind(m.LastSpawnTime, DateTimeKind.Utc)),
                         new DateTimeOffset(DateTime.SpecifyKind(m.LastDeathTime, DateTimeKind.Utc))))
                     .ToList();
-                return new TeamInfoSnapshot(response.Data.LeaderSteamId, members);
+                var deathNote = response.Data.DeathNote is { } dn
+                    ? ((float X, float Y)?)(dn.X, dn.Y)
+                    : null;
+                return new TeamInfoSnapshot(response.Data.LeaderSteamId, members, deathNote);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
