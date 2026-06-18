@@ -3,9 +3,9 @@ using RustPlusBot.Abstractions.Events;
 namespace RustPlusBot.Features.Connections.Listening;
 
 /// <summary>Diffs successive team snapshots into presence transitions. One instance per connected window.</summary>
-/// <remarks>Not thread-safe: the supervisor calls <see cref="Diff"/> from a single poll loop.</remarks>
 internal sealed class TeamStateTracker
 {
+    private readonly object _gate = new();
     private Dictionary<ulong, TeamMemberSnapshot>? _baseline;
     private readonly Dictionary<ulong, DateTimeOffset> _stillSince = new();
     private readonly HashSet<ulong> _afk = new();
@@ -26,32 +26,35 @@ internal sealed class TeamStateTracker
 
         var current = snapshot.Members.ToDictionary(m => m.SteamId);
 
-        if (_baseline is null)
+        lock (_gate)
         {
+            if (_baseline is null)
+            {
+                _baseline = current;
+                foreach (var m in current.Values)
+                {
+                    _stillSince[m.SteamId] = now;
+                }
+
+                return [];
+            }
+
+            var transitions = new List<PlayerTransition>();
+            foreach (var (id, nowMember) in current)
+            {
+                if (!_baseline.TryGetValue(id, out var was))
+                {
+                    _stillSince[id] = now; // prime new member's stillness clock
+                    continue;
+                }
+
+                AddPresenceTransitions(transitions, id, was, nowMember, snapshot);
+                UpdateAfk(transitions, id, was, nowMember, now, afkThreshold, afkEpsilon);
+            }
+
             _baseline = current;
-            foreach (var m in current.Values)
-            {
-                _stillSince[m.SteamId] = now;
-            }
-
-            return [];
+            return transitions;
         }
-
-        var transitions = new List<PlayerTransition>();
-        foreach (var (id, nowMember) in current)
-        {
-            if (!_baseline.TryGetValue(id, out var was))
-            {
-                _stillSince[id] = now; // prime new member's stillness clock
-                continue;
-            }
-
-            AddPresenceTransitions(transitions, id, was, nowMember, snapshot);
-            UpdateAfk(transitions, id, was, nowMember, now, afkThreshold, afkEpsilon);
-        }
-
-        _baseline = current;
-        return transitions;
     }
 
     private static void AddPresenceTransitions(
@@ -119,17 +122,20 @@ internal sealed class TeamStateTracker
     /// <param name="now">The current wall-clock time used to compute each member's still duration.</param>
     public IReadOnlyList<AfkMember> CurrentAfk(DateTimeOffset now)
     {
-        var result = new List<AfkMember>();
-        foreach (var id in _afk)
+        lock (_gate)
         {
-            if (_baseline is not null && _baseline.TryGetValue(id, out var m))
+            var result = new List<AfkMember>();
+            foreach (var id in _afk)
             {
-                var since = _stillSince.TryGetValue(id, out var s) ? s : now;
-                result.Add(new AfkMember(id, m.Name, now - since));
+                if (_baseline is not null && _baseline.TryGetValue(id, out var m))
+                {
+                    var since = _stillSince.TryGetValue(id, out var s) ? s : now;
+                    result.Add(new AfkMember(id, m.Name, now - since));
+                }
             }
-        }
 
-        return result;
+            return result;
+        }
     }
 
     private static (float X, float Y)? ResolveDeathLocation(
