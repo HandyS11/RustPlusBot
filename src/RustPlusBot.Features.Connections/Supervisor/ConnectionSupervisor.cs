@@ -449,6 +449,7 @@ internal sealed partial class ConnectionSupervisor(
     {
         IReadOnlyList<MapMarkerSnapshot>? previous = null;
         var rigsInRadius = new HashSet<RigKind>();
+        var tracker = new TeamStateTracker();
         while (!ct.IsCancellationRequested)
         {
             var anyCh47 = false;
@@ -475,6 +476,15 @@ internal sealed partial class ConnectionSupervisor(
                 }
 
                 await DetectRigActivationsAsync(key, current, rigs, dims, rigsInRadius, ct).ConfigureAwait(false);
+
+                var team = await connection.GetTeamInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+                var transitions = tracker.Diff(team);
+                if (transitions.Count > 0)
+                {
+                    await eventBus.PublishAsync(
+                            new PlayerStateChangedEvent(key.Guild, key.Server, dims, transitions), ct)
+                        .ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
