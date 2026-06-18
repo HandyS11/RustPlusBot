@@ -81,10 +81,7 @@ public sealed class MapRenderer
 
         if (layers.Markers)
         {
-            foreach (var marker in markers)
-            {
-                DrawMarker(image, marker);
-            }
+            DrawMarkers(image, markers);
         }
 
         if (layers.Rigs)
@@ -125,43 +122,52 @@ public sealed class MapRenderer
         });
     }
 
-    private static void DrawMarker(Image<Rgba32> image, MarkerPlacement m)
+    private static void DrawMarkers(Image<Rgba32> image, IReadOnlyList<MarkerPlacement> markers)
     {
-        var icon = MapIcons.Marker(m.Kind);
-        if (icon is null)
+        // One Mutate for the whole layer: each Mutate builds and runs a fresh processing pipeline,
+        // so batching all the layer's DrawImage calls into a single Mutate avoids per-item overhead.
+        image.Mutate(ctx =>
         {
-            return;
-        }
-
-        image.Mutate(ctx => ctx.DrawImage(icon, CenterAt(m.PixelX, m.PixelY, icon), 1f));
+            foreach (var marker in markers)
+            {
+                var icon = MapIcons.Marker(marker.Kind);
+                if (icon is not null)
+                {
+                    ctx.DrawImage(icon, CenterAt(marker.PixelX, marker.PixelY, icon), 1f);
+                }
+            }
+        });
     }
 
     private static void DrawMonuments(Image<Rgba32> image, IReadOnlyList<MonumentPlacement> monuments)
     {
-        foreach (var monument in monuments)
+        // One Mutate for the whole layer (see DrawMarkers): monuments can be numerous, so a single
+        // pipeline beats one Mutate per monument.
+        image.Mutate(ctx =>
         {
-            var icon = MapIcons.Monument(monument.Token);
-            if (icon is null)
+            foreach (var monument in monuments)
             {
-                continue;
+                var icon = MapIcons.Monument(monument.Token);
+                if (icon is not null)
+                {
+                    ctx.DrawImage(icon, CenterAt(monument.PixelX, monument.PixelY, icon), 1f);
+                }
             }
-
-            image.Mutate(ctx => ctx.DrawImage(icon, CenterAt(monument.PixelX, monument.PixelY, icon), 1f));
-        }
+        });
     }
 
     private static void DrawRigs(Image<Rgba32> image, IReadOnlyList<RigPlacement> rigs)
     {
-        foreach (var rig in rigs)
+        image.Mutate(ctx =>
         {
-            var icon = MapIcons.Rig(rig.Kind, rig.Active);
-            if (icon is null)
+            foreach (var rig in rigs)
             {
-                continue;
-            }
+                var icon = MapIcons.Rig(rig.Kind, rig.Active);
+                if (icon is null)
+                {
+                    continue;
+                }
 
-            image.Mutate(ctx =>
-            {
                 ctx.DrawImage(icon, CenterAt(rig.PixelX, rig.PixelY, icon), 1f);
 
                 if (rig.Active)
@@ -171,20 +177,20 @@ public sealed class MapRenderer
                     var ring = new EllipsePolygon(rig.PixelX, rig.PixelY, radius);
                     ctx.Draw(Color.Red, ActiveRingWidth, ring);
                 }
-            });
-        }
+            }
+        });
     }
 
     private static void DrawPlayers(Image<Rgba32> image, IReadOnlyList<PlayerPlacement> players)
     {
         var icon = MapIcons.Player();
 
-        foreach (var player in players)
+        image.Mutate(ctx =>
         {
-            var isActive = player is { IsAlive: true, IsOnline: true };
-
-            image.Mutate(ctx =>
+            foreach (var player in players)
             {
+                var isActive = player is { IsAlive: true, IsOnline: true };
+
                 if (icon is not null)
                 {
                     ctx.DrawImage(icon, CenterAt(player.PixelX, player.PixelY, icon), 1f);
@@ -207,8 +213,8 @@ public sealed class MapRenderer
                     VerticalAlignment = VerticalAlignment.Top,
                 };
                 ctx.DrawText(textOptions, label, labelColor);
-            });
-        }
+            }
+        });
     }
 
     private static Point CenterAt(float x, float y, Image<Rgba32> icon) =>
