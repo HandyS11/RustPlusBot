@@ -52,10 +52,22 @@ public sealed class MapRendererTests
     public void Render_with_all_layers_produces_valid_png()
     {
         var renderer = new MapRenderer();
-        var markers = new[] { new MarkerPlacement(MarkerKind.CargoShip, 100, 100) };
-        var monuments = new[] { new MonumentPlacement("launchsite", 200, 200) };
-        var players = new[] { new PlayerPlacement("Alice", 300, 300, IsAlive: true, IsOnline: true) };
-        var rigs = new[] { new RigPlacement(RigKind.Large, 400, 400, Active: true) };
+        var markers = new[]
+        {
+            new MarkerPlacement(MarkerKind.CargoShip, 100, 100)
+        };
+        var monuments = new[]
+        {
+            new MonumentPlacement("launchsite", 200, 200)
+        };
+        var players = new[]
+        {
+            new PlayerPlacement("Alice", 300, 300, IsAlive: true, IsOnline: true)
+        };
+        var rigs = new[]
+        {
+            new RigPlacement(RigKind.Large, 400, 400, Active: true)
+        };
 
         var png = renderer.Render(BaseJpeg(), Dims, markers, monuments, players, rigs, MapLayerSet.AllOn);
 

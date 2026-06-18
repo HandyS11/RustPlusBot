@@ -32,7 +32,10 @@ public sealed class MapSettingsStore(BotDbContext context) : IMapSettingsStore
             .SingleOrDefaultAsync(s => s.GuildId == guildId && s.ServerId == serverId, cancellationToken)
             .ConfigureAwait(false);
 
-        var row = existing ?? new ServerMapSettings { GuildId = guildId, ServerId = serverId };
+        var row = existing ?? new ServerMapSettings
+        {
+            GuildId = guildId, ServerId = serverId
+        };
         switch (layer)
         {
             case MapLayer.Grid: row.ShowGrid = enabled; break;

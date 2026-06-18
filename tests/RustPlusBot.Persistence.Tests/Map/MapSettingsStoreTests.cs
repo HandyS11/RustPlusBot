@@ -7,7 +7,10 @@ public sealed class MapSettingsStoreTests
 {
     private static RustServer SeedServer(BotDbContext context)
     {
-        var server = new RustServer { GuildId = 1UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 1UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         context.SaveChanges();
         return server;

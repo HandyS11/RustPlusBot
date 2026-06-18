@@ -13,11 +13,17 @@ public sealed class ServerMapSettingsSchemaTests
         await using var _ = context;
         await using var __ = connection;
 
-        var server = new RustServer { GuildId = 1UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 1UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
 
-        context.ServerMapSettings.Add(new ServerMapSettings { ServerId = server.Id, GuildId = 1UL });
+        context.ServerMapSettings.Add(new ServerMapSettings
+        {
+            ServerId = server.Id, GuildId = 1UL
+        });
         await context.SaveChangesAsync();
 
         var read = await context.ServerMapSettings.SingleAsync(s => s.ServerId == server.Id);
@@ -36,9 +42,15 @@ public sealed class ServerMapSettingsSchemaTests
         await using var _ = context;
         await using var __ = connection;
 
-        var server = new RustServer { GuildId = 1UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 1UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
-        context.ServerMapSettings.Add(new ServerMapSettings { ServerId = server.Id, GuildId = 1UL });
+        context.ServerMapSettings.Add(new ServerMapSettings
+        {
+            ServerId = server.Id, GuildId = 1UL
+        });
         await context.SaveChangesAsync();
 
         context.RustServers.Remove(server);

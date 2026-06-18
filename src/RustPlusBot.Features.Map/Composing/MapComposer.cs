@@ -73,7 +73,8 @@ public sealed class MapComposer(
         }
 
         var monuments = GatherMonuments(serverMonuments, dims, layers);
-        var players = await GatherPlayersAsync(guildId, serverId, dims, layers, cancellationToken).ConfigureAwait(false);
+        var players = await GatherPlayersAsync(guildId, serverId, dims, layers, cancellationToken)
+            .ConfigureAwait(false);
         var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, dims, layers);
 
         return renderer.Render(baseImage, dims, markers, monuments, players, rigPlacements, layers);
