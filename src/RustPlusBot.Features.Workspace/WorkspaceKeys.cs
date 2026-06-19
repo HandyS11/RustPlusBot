@@ -23,6 +23,9 @@ internal static class WorkspaceChannelKeys
 
     /// <summary>The per-server rendered-map channel.</summary>
     public const string ServerMap = "map";
+
+    /// <summary>Key for the per-server #switches channel.</summary>
+    public const string ServerSwitches = "switches";
 }
 
 /// <summary>Stable message keys persisted as <c>ProvisionedMessage.MessageKey</c>.</summary>
