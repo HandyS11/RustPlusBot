@@ -11,6 +11,9 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <!-- Direct reference forces the patched SQLitePCLRaw 3.0.x graph over the transitive 2.1.11
+         from EF Core Sqlite (CVE-2025-6965). Flows to all DB-touching projects via this one. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <PackageReference Include="Persistord.Core" />
   </ItemGroup>
 
