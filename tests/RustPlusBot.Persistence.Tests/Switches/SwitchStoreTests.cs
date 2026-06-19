@@ -18,7 +18,10 @@ public sealed class SwitchStoreTests
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context, string ip = "1.1.1.1", string name = "S")
     {
-        var server = new RustServer { GuildId = 10UL, Name = name, Ip = ip, Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = name, Ip = ip, Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
         return server.Id;

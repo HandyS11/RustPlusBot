@@ -51,7 +51,10 @@ internal sealed class SwitchEmbedRenderer(ISwitchLocalizer localizer)
     /// <param name="culture">The guild culture.</param>
     /// <returns>The prompt embed and Accept/Dismiss row.</returns>
     public (Embed Embed, MessageComponent Components) RenderPrompt(
-        Guid serverId, ulong entityId, string defaultName, string culture)
+        Guid serverId,
+        ulong entityId,
+        string defaultName,
+        string culture)
     {
         var embed = new EmbedBuilder()
             .WithTitle(localizer.Get("switch.prompt.title", culture))

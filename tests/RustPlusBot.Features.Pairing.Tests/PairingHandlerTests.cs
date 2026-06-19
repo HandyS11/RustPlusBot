@@ -13,6 +13,8 @@ namespace RustPlusBot.Features.Pairing.Tests;
 
 public sealed class PairingHandlerTests
 {
+    private static readonly Guid FpServer = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     private static ICredentialProtector PassThrough()
     {
         var p = Substitute.For<ICredentialProtector>();
@@ -24,13 +26,12 @@ public sealed class PairingHandlerTests
         new(new ServerService(context), new CredentialStore(context, PassThrough()), bus,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<PairingHandler>.Instance);
 
-    private static readonly Guid FpServer = Guid.Parse("11111111-1111-1111-1111-111111111111");
-
     private static PairingNotification ServerPairing(string ip = "1.2.3.4", int port = 28015, ulong steam = 7UL) =>
         new(PairingKind.Server, "Rustopia", ip, port, steam, "ptoken", FacepunchServerId: FpServer, EntityId: 0UL);
 
     private static PairingNotification EntityPairing(Guid fpServer, ulong entityId = 42UL) =>
-        new(PairingKind.Entity, string.Empty, string.Empty, 0, 1UL, "t", FacepunchServerId: fpServer, EntityId: entityId);
+        new(PairingKind.Entity, string.Empty, string.Empty, 0, 1UL, "t", FacepunchServerId: fpServer,
+            EntityId: entityId);
 
     [Fact]
     public async Task ServerPairing_CreatesServerCredentialAndFiresEventOnce()

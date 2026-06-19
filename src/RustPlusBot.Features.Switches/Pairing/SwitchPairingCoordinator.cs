@@ -65,7 +65,11 @@ internal sealed class SwitchPairingCoordinator(
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>True when the switch was persisted; false when it was already managed (race).</returns>
     public async Task<bool> TryAcceptAsync(
-        ulong guildId, Guid serverId, ulong entityId, ulong acceptingUserId, CancellationToken cancellationToken)
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        ulong acceptingUserId,
+        CancellationToken cancellationToken)
     {
         if (await ExistsAsync(guildId, serverId, entityId, cancellationToken).ConfigureAwait(false))
         {

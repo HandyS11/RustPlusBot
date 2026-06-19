@@ -21,7 +21,10 @@ internal sealed partial class DiscordSwitchChannelPoster(
     {
         try
         {
-            var options = new global::Discord.RequestOptions { CancelToken = cancellationToken };
+            var options = new global::Discord.RequestOptions
+            {
+                CancelToken = cancellationToken
+            };
             if (await client.GetChannelAsync(channelId, options).ConfigureAwait(false)
                 is not global::Discord.ITextChannel channel)
             {
@@ -78,5 +81,6 @@ internal sealed partial class DiscordSwitchChannelPoster(
 
     [LoggerMessage(Level = LogLevel.Debug,
         Message = "Switch embed {MessageId} in channel {ChannelId} was deleted; reposting.")]
-    private static partial void LogMessageMissing(ILogger logger, Exception exception, ulong channelId, ulong messageId);
+    private static partial void
+        LogMessageMissing(ILogger logger, Exception exception, ulong channelId, ulong messageId);
 }

@@ -46,20 +46,27 @@ public sealed class ServerService(BotDbContext context) : IServerService
 
     /// <inheritdoc />
     public Task<RustServer?> GetByEndpointAsync(
-        ulong guildId, string ip, int port, CancellationToken cancellationToken = default) =>
+        ulong guildId,
+        string ip,
+        int port,
+        CancellationToken cancellationToken = default) =>
         context.RustServers
             .SingleOrDefaultAsync(s => s.GuildId == guildId && s.Ip == ip && s.Port == port, cancellationToken);
 
     /// <inheritdoc />
     public Task<RustServer?> GetByFacepunchServerIdAsync(
-        ulong guildId, Guid facepunchServerId, CancellationToken cancellationToken = default) =>
+        ulong guildId,
+        Guid facepunchServerId,
+        CancellationToken cancellationToken = default) =>
         context.RustServers
             .SingleOrDefaultAsync(
                 s => s.GuildId == guildId && s.FacepunchServerId == facepunchServerId, cancellationToken);
 
     /// <inheritdoc />
     public async Task SetFacepunchServerIdAsync(
-        Guid serverId, Guid facepunchServerId, CancellationToken cancellationToken = default)
+        Guid serverId,
+        Guid facepunchServerId,
+        CancellationToken cancellationToken = default)
     {
         var server = await context.RustServers
             .SingleOrDefaultAsync(s => s.Id == serverId, cancellationToken)

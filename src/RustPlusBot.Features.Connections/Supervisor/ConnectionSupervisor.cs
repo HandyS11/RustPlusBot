@@ -247,7 +247,10 @@ internal sealed partial class ConnectionSupervisor(
 
     /// <inheritdoc />
     public async Task<bool?> GetSmartSwitchStateAsync(
-        ulong guildId, Guid serverId, ulong entityId, CancellationToken cancellationToken)
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        CancellationToken cancellationToken)
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
@@ -260,7 +263,11 @@ internal sealed partial class ConnectionSupervisor(
 
     /// <inheritdoc />
     public async Task<bool> SetSmartSwitchAsync(
-        ulong guildId, Guid serverId, ulong entityId, bool value, CancellationToken cancellationToken)
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        bool value,
+        CancellationToken cancellationToken)
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
@@ -274,7 +281,12 @@ internal sealed partial class ConnectionSupervisor(
 
     /// <inheritdoc />
     public async Task<bool> StrobeSmartSwitchAsync(
-        ulong guildId, Guid serverId, ulong entityId, int timeoutMs, bool value, CancellationToken cancellationToken)
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        int timeoutMs,
+        bool value,
+        CancellationToken cancellationToken)
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
@@ -889,11 +901,15 @@ internal sealed partial class ConnectionSupervisor(
     private static partial void LogSwitchListFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Priming smart switch {EntityId} on server {ServerId} failed.")]
-    private static partial void LogSwitchPrimeFailed(ILogger logger, Exception exception, ulong entityId, Guid serverId);
+    private static partial void
+        LogSwitchPrimeFailed(ILogger logger, Exception exception, ulong entityId, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Publishing a smart-switch state for entity {EntityId} on server {ServerId} failed.")]
-    private static partial void LogSwitchPublishFailed(ILogger logger, Exception exception, ulong entityId, Guid serverId);
+    private static partial void LogSwitchPublishFailed(ILogger logger,
+        Exception exception,
+        ulong entityId,
+        Guid serverId);
 
     private TimeSpan NextDelay(TimeSpan delay) =>
         delay < _options.MaxRetryDelay

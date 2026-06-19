@@ -13,7 +13,10 @@ public sealed class SmartSwitchSchemaTests
         await using var _ = connection;
         await using var __ = context;
 
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
 
@@ -44,12 +47,19 @@ public sealed class SmartSwitchSchemaTests
         await using var _ = connection;
         await using var __ = context;
 
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
         context.Set<SmartSwitch>().Add(new SmartSwitch
         {
-            GuildId = 10UL, ServerId = server.Id, EntityId = 42UL, Name = "Switch 42", CreatedUtc = DateTimeOffset.UnixEpoch,
+            GuildId = 10UL,
+            ServerId = server.Id,
+            EntityId = 42UL,
+            Name = "Switch 42",
+            CreatedUtc = DateTimeOffset.UnixEpoch,
         });
         await context.SaveChangesAsync();
 
@@ -66,16 +76,27 @@ public sealed class SmartSwitchSchemaTests
         await using var _ = connection;
         await using var __ = context;
 
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
         context.Set<SmartSwitch>().Add(new SmartSwitch
         {
-            GuildId = 10UL, ServerId = server.Id, EntityId = 42UL, Name = "A", CreatedUtc = DateTimeOffset.UnixEpoch,
+            GuildId = 10UL,
+            ServerId = server.Id,
+            EntityId = 42UL,
+            Name = "A",
+            CreatedUtc = DateTimeOffset.UnixEpoch,
         });
         context.Set<SmartSwitch>().Add(new SmartSwitch
         {
-            GuildId = 10UL, ServerId = server.Id, EntityId = 42UL, Name = "B", CreatedUtc = DateTimeOffset.UnixEpoch,
+            GuildId = 10UL,
+            ServerId = server.Id,
+            EntityId = 42UL,
+            Name = "B",
+            CreatedUtc = DateTimeOffset.UnixEpoch,
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());

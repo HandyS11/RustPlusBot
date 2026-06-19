@@ -52,7 +52,9 @@ internal sealed partial class PairingHandler(
     }
 
     private async Task HandleEntityAsync(
-        ulong guildId, PairingNotification notification, CancellationToken cancellationToken)
+        ulong guildId,
+        PairingNotification notification,
+        CancellationToken cancellationToken)
     {
         var server = await servers
             .GetByFacepunchServerIdAsync(guildId, notification.FacepunchServerId, cancellationToken)

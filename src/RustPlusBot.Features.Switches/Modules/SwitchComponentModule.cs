@@ -135,7 +135,8 @@ public sealed class SwitchComponentModule(
             return;
         }
 
-        var name = string.IsNullOrWhiteSpace(modal.Name) ? "Switch " + entityId.ToString(CultureInfo.InvariantCulture)
+        var name = string.IsNullOrWhiteSpace(modal.Name)
+            ? "Switch " + entityId.ToString(CultureInfo.InvariantCulture)
             : modal.Name.Trim();
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
 

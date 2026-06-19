@@ -1,0 +1,133 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Features.Switches.Pairing;
+using RustPlusBot.Features.Switches.Relaying;
+
+namespace RustPlusBot.Features.Switches.Hosting;
+
+/// <summary>Runs the switch-pairing loop and the switch-state/connection-status relay loop.</summary>
+/// <param name="eventBus">The in-process event bus.</param>
+/// <param name="coordinator">Handles paired switches.</param>
+/// <param name="relay">Re-renders switches on state/connection changes.</param>
+/// <param name="logger">The logger.</param>
+internal sealed partial class SwitchesHostedService(
+    IEventBus eventBus,
+    SwitchPairingCoordinator coordinator,
+    SwitchStateRelay relay,
+    ILogger<SwitchesHostedService> logger) : IHostedService, IDisposable
+{
+    private readonly CancellationTokenSource _cts = new();
+    private Task? _pairedLoop;
+    private Task? _stateLoop;
+    private Task? _statusLoop;
+
+    /// <inheritdoc />
+    public void Dispose() => _cts.Dispose();
+
+    /// <inheritdoc />
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        _pairedLoop = Task.Run(() => ConsumePairedAsync(_cts.Token), CancellationToken.None);
+        _stateLoop = Task.Run(() => ConsumeStateAsync(_cts.Token), CancellationToken.None);
+        _statusLoop = Task.Run(() => ConsumeStatusAsync(_cts.Token), CancellationToken.None);
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await _cts.CancelAsync().ConfigureAwait(false);
+        foreach (var loop in new[]
+                 {
+                     _pairedLoop, _stateLoop, _statusLoop
+                 }.Where(t => t is not null))
+        {
+            try
+            {
+#pragma warning disable VSTHRD003 // Our own loop tasks, joined on stop.
+                await loop!.ConfigureAwait(false);
+#pragma warning restore VSTHRD003
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on shutdown.
+            }
+        }
+    }
+
+    private async Task ConsumePairedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<SwitchPairedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await coordinator.HandlePairedAsync(evt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogPairedLoopFaulted(logger, ex);
+        }
+    }
+
+    private async Task ConsumeStateAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<SwitchStateChangedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await relay.HandleStateChangedAsync(evt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogStateLoopFaulted(logger, ex);
+        }
+    }
+
+    private async Task ConsumeStatusAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await relay.HandleConnectionStatusAsync(evt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogStatusLoopFaulted(logger, ex);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Switch pairing loop faulted.")]
+    private static partial void LogPairedLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Switch state relay loop faulted.")]
+    private static partial void LogStateLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Switch connection-status relay loop faulted.")]
+    private static partial void LogStatusLoopFaulted(ILogger logger, Exception exception);
+}

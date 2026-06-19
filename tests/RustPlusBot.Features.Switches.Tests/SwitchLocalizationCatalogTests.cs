@@ -12,11 +12,10 @@ public sealed class SwitchLocalizationCatalogTests
         var map = SwitchLocalizationCatalog.Default.Strings[culture];
         foreach (var key in new[]
                  {
-                     "switch.status.on", "switch.status.off", "switch.status.unreachable",
-                     "switch.button.on", "switch.button.off", "switch.button.strobe", "switch.button.rename",
-                     "switch.prompt.title", "switch.prompt.body", "switch.prompt.accept", "switch.prompt.dismiss",
-                     "switch.rename.modal.title", "switch.rename.input.label",
-                     "switch.unreachable.ephemeral",
+                     "switch.status.on", "switch.status.off", "switch.status.unreachable", "switch.button.on",
+                     "switch.button.off", "switch.button.strobe", "switch.button.rename", "switch.prompt.title",
+                     "switch.prompt.body", "switch.prompt.accept", "switch.prompt.dismiss", "switch.rename.modal.title",
+                     "switch.rename.input.label", "switch.unreachable.ephemeral",
                  })
         {
             Assert.True(map.ContainsKey(key), $"Missing key '{key}' for culture '{culture}'.");

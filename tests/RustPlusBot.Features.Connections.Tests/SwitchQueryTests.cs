@@ -70,12 +70,19 @@ public sealed class SwitchQueryTests
     {
         using var scope = provider.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<BotDbContext>();
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         ctx.RustServers.Add(server);
         ctx.PlayerCredentials.Add(new PlayerCredential
         {
-            GuildId = 10UL, RustServerId = server.Id, OwnerUserId = 1UL, SteamId = 555UL,
-            ProtectedPlayerToken = "123", Status = CredentialStatus.Active,
+            GuildId = 10UL,
+            RustServerId = server.Id,
+            OwnerUserId = 1UL,
+            SteamId = 555UL,
+            ProtectedPlayerToken = "123",
+            Status = CredentialStatus.Active,
         });
         await ctx.SaveChangesAsync();
         var store = scope.ServiceProvider.GetRequiredService<ISwitchStore>();

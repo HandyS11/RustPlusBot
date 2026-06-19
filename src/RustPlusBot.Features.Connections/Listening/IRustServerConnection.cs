@@ -60,7 +60,10 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>True on success; false on failure/timeout.</returns>
-    Task<bool> SetSmartSwitchValueAsync(ulong entityId, bool value, TimeSpan timeout, CancellationToken cancellationToken);
+    Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+        bool value,
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
 
     /// <summary>Strobes a smart switch; returns true on success, false on failure/timeout.</summary>
     /// <param name="entityId">The in-game smart-switch entity id.</param>
@@ -69,7 +72,11 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>True on success; false on failure/timeout.</returns>
-    Task<bool> StrobeSmartSwitchAsync(ulong entityId, int timeoutMs, bool value, TimeSpan timeout, CancellationToken cancellationToken);
+    Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+        int timeoutMs,
+        bool value,
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
 
     /// <summary>Polls the current map markers the bot tracks (cargo ship, patrol helicopter, chinook), for diffing by id. Throws on failure.</summary>
     /// <param name="timeout">How long to wait for the response.</param>

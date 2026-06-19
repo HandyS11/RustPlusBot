@@ -12,12 +12,6 @@ namespace RustPlusBot.Features.Switches.Tests;
 
 public sealed class SwitchPairingCoordinatorTests
 {
-    private sealed record Harness(
-        SwitchPairingCoordinator Coordinator,
-        ISwitchStore Store,
-        ISwitchChannelPoster Poster,
-        ISwitchChannelLocator Locator);
-
     private static Harness Create()
     {
         var store = Substitute.For<ISwitchStore>();
@@ -67,7 +61,8 @@ public sealed class SwitchPairingCoordinatorTests
 
         await h.Coordinator.HandlePairedAsync(new SwitchPairedEvent(10UL, serverId, 42UL), CancellationToken.None);
 
-        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
+        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
         Assert.Null(h.Coordinator.PendingName(10UL, serverId, 42UL));
     }
@@ -105,4 +100,10 @@ public sealed class SwitchPairingCoordinatorTests
         await h.Store.DidNotReceive().AddAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
             Arg.Any<string>(), Arg.Any<ulong>(), Arg.Any<CancellationToken>());
     }
+
+    private sealed record Harness(
+        SwitchPairingCoordinator Coordinator,
+        ISwitchStore Store,
+        ISwitchChannelPoster Poster,
+        ISwitchChannelLocator Locator);
 }

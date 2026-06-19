@@ -11,7 +11,11 @@ public sealed class SwitchEmbedRendererTests
 
     private static SmartSwitch Sample(string name = "Front gate", bool lastActive = false) => new()
     {
-        GuildId = 10UL, ServerId = Guid.NewGuid(), EntityId = 42UL, Name = name, LastIsActive = lastActive,
+        GuildId = 10UL,
+        ServerId = Guid.NewGuid(),
+        EntityId = 42UL,
+        Name = name,
+        LastIsActive = lastActive,
     };
 
     [Fact]
@@ -21,10 +25,12 @@ public sealed class SwitchEmbedRendererTests
 
         Assert.Contains("ON", embed.Description ?? embed.Title ?? string.Empty, StringComparison.Ordinal);
         // Find the on/off buttons by custom id and assert disabled-state reflects current value.
-        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components).OfType<ButtonComponent>().ToList();
+        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components)
+            .OfType<ButtonComponent>().ToList();
         var onBtn = buttons.Single(b => b.CustomId!.StartsWith(SwitchComponentIds.OnPrefix, StringComparison.Ordinal));
-        var offBtn = buttons.Single(b => b.CustomId!.StartsWith(SwitchComponentIds.OffPrefix, StringComparison.Ordinal));
-        Assert.True(onBtn.IsDisabled);   // already on
+        var offBtn =
+            buttons.Single(b => b.CustomId!.StartsWith(SwitchComponentIds.OffPrefix, StringComparison.Ordinal));
+        Assert.True(onBtn.IsDisabled); // already on
         Assert.False(offBtn.IsDisabled);
     }
 
@@ -34,11 +40,13 @@ public sealed class SwitchEmbedRendererTests
         var (embed, components) = Create().RenderSwitch(Sample(), isActive: false, "en");
 
         Assert.Contains("OFF", embed.Description ?? embed.Title ?? string.Empty, StringComparison.Ordinal);
-        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components).OfType<ButtonComponent>().ToList();
+        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components)
+            .OfType<ButtonComponent>().ToList();
         var onBtn = buttons.Single(b => b.CustomId!.StartsWith(SwitchComponentIds.OnPrefix, StringComparison.Ordinal));
-        var offBtn = buttons.Single(b => b.CustomId!.StartsWith(SwitchComponentIds.OffPrefix, StringComparison.Ordinal));
+        var offBtn =
+            buttons.Single(b => b.CustomId!.StartsWith(SwitchComponentIds.OffPrefix, StringComparison.Ordinal));
         Assert.False(onBtn.IsDisabled);
-        Assert.True(offBtn.IsDisabled);  // already off
+        Assert.True(offBtn.IsDisabled); // already off
     }
 
     [Fact]
@@ -47,7 +55,8 @@ public sealed class SwitchEmbedRendererTests
         var (embed, components) = Create().RenderSwitch(Sample(), isActive: null, "en");
 
         Assert.Contains("Unreachable", embed.Description ?? string.Empty, StringComparison.Ordinal);
-        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components).OfType<ButtonComponent>().ToList();
+        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components)
+            .OfType<ButtonComponent>().ToList();
         Assert.All(buttons, b => Assert.True(b.IsDisabled));
     }
 
@@ -64,7 +73,8 @@ public sealed class SwitchEmbedRendererTests
         var serverId = Guid.NewGuid();
         var (_, components) = Create().RenderPrompt(serverId, 42UL, "Switch 42", "en");
 
-        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components).OfType<ButtonComponent>().ToList();
+        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components)
+            .OfType<ButtonComponent>().ToList();
         Assert.Contains(buttons, b =>
             b.CustomId == $"{SwitchComponentIds.AcceptPrefix}{serverId}:42");
         Assert.Contains(buttons, b =>

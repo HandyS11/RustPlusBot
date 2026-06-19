@@ -105,7 +105,10 @@ public sealed class ServerServiceTests
         await using var _ = context;
         await using var __ = connection;
         var service = new ServerService(context);
-        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();
 
@@ -136,7 +139,11 @@ public sealed class ServerServiceTests
         var fp = Guid.NewGuid();
         var server = new RustServer
         {
-            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015, FacepunchServerId = fp,
+            GuildId = 10UL,
+            Name = "S",
+            Ip = "1.1.1.1",
+            Port = 28015,
+            FacepunchServerId = fp,
         };
         context.RustServers.Add(server);
         await context.SaveChangesAsync();

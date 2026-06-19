@@ -62,7 +62,10 @@ public interface IRustServerQuery
     /// <param name="entityId">The in-game smart-switch entity id.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>True/false for on/off, or null when unavailable.</returns>
-    Task<bool?> GetSmartSwitchStateAsync(ulong guildId, Guid serverId, ulong entityId, CancellationToken cancellationToken);
+    Task<bool?> GetSmartSwitchStateAsync(ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        CancellationToken cancellationToken);
 
     /// <summary>Sets a smart switch on/off; returns false when there is no live socket or the call fails.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
@@ -71,7 +74,11 @@ public interface IRustServerQuery
     /// <param name="value">True to turn on, false to turn off.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>True on success; false when unavailable or the call fails.</returns>
-    Task<bool> SetSmartSwitchAsync(ulong guildId, Guid serverId, ulong entityId, bool value, CancellationToken cancellationToken);
+    Task<bool> SetSmartSwitchAsync(ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        bool value,
+        CancellationToken cancellationToken);
 
     /// <summary>Strobes a smart switch; returns false when there is no live socket or the call fails.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
@@ -81,5 +88,10 @@ public interface IRustServerQuery
     /// <param name="value">The terminal value after strobing.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>True on success; false when unavailable or the call fails.</returns>
-    Task<bool> StrobeSmartSwitchAsync(ulong guildId, Guid serverId, ulong entityId, int timeoutMs, bool value, CancellationToken cancellationToken);
+    Task<bool> StrobeSmartSwitchAsync(ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        int timeoutMs,
+        bool value,
+        CancellationToken cancellationToken);
 }

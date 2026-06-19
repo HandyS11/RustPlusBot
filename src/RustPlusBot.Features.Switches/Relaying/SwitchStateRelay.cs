@@ -54,7 +54,8 @@ internal sealed class SwitchStateRelay(
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when every affected embed has been re-rendered.</returns>
     public async Task HandleConnectionStatusAsync(
-        ConnectionStatusChangedEvent evt, CancellationToken cancellationToken)
+        ConnectionStatusChangedEvent evt,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(evt);
         var scope = scopeFactory.CreateAsyncScope();
@@ -88,7 +89,12 @@ internal sealed class SwitchStateRelay(
     }
 
     private async Task RenderAsync(
-        ISwitchStore store, SmartSwitch sw, bool? isActive, ulong guildId, Guid serverId, string culture,
+        ISwitchStore store,
+        SmartSwitch sw,
+        bool? isActive,
+        ulong guildId,
+        Guid serverId,
+        string culture,
         CancellationToken cancellationToken)
     {
         var channelId = await locator.GetChannelIdAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
@@ -108,7 +114,9 @@ internal sealed class SwitchStateRelay(
     }
 
     private static async Task<string> GetCultureAsync(
-        IServiceProvider provider, ulong guildId, CancellationToken cancellationToken)
+        IServiceProvider provider,
+        ulong guildId,
+        CancellationToken cancellationToken)
     {
         var store = provider.GetRequiredService<IWorkspaceStore>();
         return await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);

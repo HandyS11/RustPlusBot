@@ -184,12 +184,17 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         }
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
-        public Task<bool?> GetSmartSwitchInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken) =>
+        public Task<bool?> GetSmartSwitchInfoAsync(ulong entityId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
             Task.FromResult(SwitchStates.TryGetValue(entityId, out var s) ? s : null);
 #pragma warning restore RCS1163
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
-        public Task<bool> SetSmartSwitchValueAsync(ulong entityId, bool value, TimeSpan timeout, CancellationToken cancellationToken)
+        public Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
 #pragma warning restore RCS1163
         {
             SetSwitchCalls.Add((entityId, value));
@@ -197,7 +202,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         }
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
-        public Task<bool> StrobeSmartSwitchAsync(ulong entityId, int timeoutMs, bool value, TimeSpan timeout, CancellationToken cancellationToken) =>
+        public Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+            int timeoutMs,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
             Task.FromResult(StrobeSwitchResult);
 #pragma warning restore RCS1163
 

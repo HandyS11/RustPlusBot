@@ -48,13 +48,22 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<bool?> GetSmartSwitchInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken) =>
+        public Task<bool?> GetSmartSwitchInfoAsync(ulong entityId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
             Task.FromResult<bool?>(null);
 
-        public Task<bool> SetSmartSwitchValueAsync(ulong entityId, bool value, TimeSpan timeout, CancellationToken cancellationToken) =>
+        public Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<bool> StrobeSmartSwitchAsync(ulong entityId, int timeoutMs, bool value, TimeSpan timeout, CancellationToken cancellationToken) =>
+        public Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+            int timeoutMs,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
         public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
@@ -338,10 +347,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
         public event EventHandler<ulong>? SmartSwitchTriggered;
 
-        private void OnSmartSwitchTriggered(object? sender, RustPlusApi.Data.Events.SmartSwitchEventArg e) =>
-            SmartSwitchTriggered?.Invoke(this, e.Id);
-
-        public async Task<bool?> GetSmartSwitchInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<bool?> GetSmartSwitchInfoAsync(ulong entityId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
@@ -368,7 +376,10 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             }
         }
 
-        public async Task<bool> SetSmartSwitchValueAsync(ulong entityId, bool value, TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
@@ -393,7 +404,11 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             }
         }
 
-        public async Task<bool> StrobeSmartSwitchAsync(ulong entityId, int timeoutMs, bool value, TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+            int timeoutMs,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
@@ -555,6 +570,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 LogDisposeFailed(_logger, ex);
             }
         }
+
+        private void OnSmartSwitchTriggered(object? sender, RustPlusApi.Data.Events.SmartSwitchEventArg e) =>
+            SmartSwitchTriggered?.Invoke(this, e.Id);
 
         private static void AddMarkers<TMarker>(
             List<MapMarkerSnapshot> into,

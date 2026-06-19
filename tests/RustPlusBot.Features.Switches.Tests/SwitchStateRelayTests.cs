@@ -15,9 +15,6 @@ namespace RustPlusBot.Features.Switches.Tests;
 
 public sealed class SwitchStateRelayTests
 {
-    private sealed record Harness(SwitchStateRelay Relay, ISwitchStore Store, ISwitchChannelPoster Poster,
-        IConnectionStore Connections);
-
     private static Harness Create()
     {
         var store = Substitute.For<ISwitchStore>();
@@ -38,7 +35,8 @@ public sealed class SwitchStateRelayTests
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>()).Returns((ulong?)900UL);
         var renderer = new SwitchEmbedRenderer(new SwitchLocalizer(SwitchLocalizationCatalog.Default));
 
-        var relay = new SwitchStateRelay(provider.GetRequiredService<IServiceScopeFactory>(), locator, poster, renderer);
+        var relay = new SwitchStateRelay(provider.GetRequiredService<IServiceScopeFactory>(), locator, poster,
+            renderer);
         return new Harness(relay, store, poster, connections);
     }
 
@@ -48,7 +46,14 @@ public sealed class SwitchStateRelayTests
         var h = Create();
         var serverId = Guid.NewGuid();
         h.Store.GetAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>())
-            .Returns(new SmartSwitch { GuildId = 10UL, ServerId = serverId, EntityId = 42UL, Name = "G", MessageId = 900UL });
+            .Returns(new SmartSwitch
+            {
+                GuildId = 10UL,
+                ServerId = serverId,
+                EntityId = 42UL,
+                Name = "G",
+                MessageId = 900UL
+            });
 
         await h.Relay.HandleStateChangedAsync(
             new SwitchStateChangedEvent(10UL, serverId, 42UL, IsActive: true), CancellationToken.None);
@@ -64,9 +69,22 @@ public sealed class SwitchStateRelayTests
         var h = Create();
         var serverId = Guid.NewGuid();
         h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState { GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Unreachable });
+            .Returns(new ConnectionState
+            {
+                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Unreachable
+            });
         h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new[] { new SmartSwitch { GuildId = 10UL, ServerId = serverId, EntityId = 42UL, Name = "G", MessageId = 900UL } });
+            .Returns(new[]
+            {
+                new SmartSwitch
+                {
+                    GuildId = 10UL,
+                    ServerId = serverId,
+                    EntityId = 42UL,
+                    Name = "G",
+                    MessageId = 900UL
+                }
+            });
 
         await h.Relay.HandleConnectionStatusAsync(
             new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
@@ -81,12 +99,22 @@ public sealed class SwitchStateRelayTests
         var h = Create();
         var serverId = Guid.NewGuid();
         h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState { GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Connected });
+            .Returns(new ConnectionState
+            {
+                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Connected
+            });
 
         await h.Relay.HandleConnectionStatusAsync(
             new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
 
-        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
+        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
     }
+
+    private sealed record Harness(
+        SwitchStateRelay Relay,
+        ISwitchStore Store,
+        ISwitchChannelPoster Poster,
+        IConnectionStore Connections);
 }
