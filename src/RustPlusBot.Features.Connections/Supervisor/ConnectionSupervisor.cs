@@ -12,6 +12,7 @@ using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Supervisor;
 
@@ -245,6 +246,47 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<bool?> GetSmartSwitchStateAsync(
+        ulong guildId, Guid serverId, ulong entityId, CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection.GetSmartSwitchInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> SetSmartSwitchAsync(
+        ulong guildId, Guid serverId, ulong entityId, bool value, CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return false;
+        }
+
+        return await live.Connection
+            .SetSmartSwitchValueAsync(entityId, value, _options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> StrobeSmartSwitchAsync(
+        ulong guildId, Guid serverId, ulong entityId, int timeoutMs, bool value, CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return false;
+        }
+
+        return await live.Connection
+            .StrobeSmartSwitchAsync(entityId, timeoutMs, value, _options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<TeamChatSendResult> SendAsync(
         ulong guildId,
         Guid serverId,
@@ -413,9 +455,20 @@ internal sealed partial class ConnectionSupervisor(
         var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
         var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
 
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<ulong> delegate shape.
+        void OnSmartSwitch(object? sender, ulong entityId)
+        {
+            // Fire-and-forget: PublishSwitchStateAsync catches everything internally, so the discarded task never
+            // surfaces an unobserved exception. Switch triggers are low-volume, so unbounded concurrency is fine.
+            _ = PublishSwitchStateAsync(key, connection, entityId);
+        }
+#pragma warning restore RCS1163
+
         var tracker = new TeamStateTracker();
         connection.TeamMessageReceived += OnTeamMessage;
+        connection.SmartSwitchTriggered += OnSmartSwitch;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
+        await PrimeSwitchesAsync(key, connection, ct).ConfigureAwait(false);
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
             CancellationToken.None);
@@ -456,6 +509,7 @@ internal sealed partial class ConnectionSupervisor(
 
             _liveSockets.TryRemove(key, out _);
             connection.TeamMessageReceived -= OnTeamMessage;
+            connection.SmartSwitchTriggered -= OnSmartSwitch;
         }
     }
 
@@ -733,6 +787,88 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
+    private async Task PrimeSwitchesAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        CancellationToken ct)
+    {
+        IReadOnlyList<Domain.Switches.SmartSwitch> switches;
+        try
+        {
+            var scope = scopeFactory.CreateAsyncScope();
+            await using (scope.ConfigureAwait(false))
+            {
+                var store = scope.ServiceProvider.GetRequiredService<ISwitchStore>();
+                switches = await store.ListByServerAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a failed switch-list read just skips priming for this connection.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // Best-effort: a store/DB failure must not crash the connected loop or block the heartbeat.
+            LogSwitchListFailed(logger, ex, key.Server);
+            return;
+        }
+
+#pragma warning disable S3267 // Not a projection: each iteration awaits with per-switch best-effort error handling.
+        foreach (var sw in switches)
+#pragma warning restore S3267
+        {
+            // Best-effort per switch: one failure must not crash the connected loop or block the heartbeat.
+            try
+            {
+                await PublishSwitchStateAsync(key, connection, sw.EntityId).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+#pragma warning disable CA1031 // Broad catch: a single switch's prime failure is logged and skipped.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogSwitchPrimeFailed(logger, ex, sw.EntityId, key.Server);
+            }
+        }
+    }
+
+    private async Task PublishSwitchStateAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        ulong entityId)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            var isActive = await connection
+                .GetSmartSwitchInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
+                .ConfigureAwait(false);
+            await eventBus.PublishAsync(
+                    new SwitchStateChangedEvent(key.Guild, key.Server, entityId, isActive ?? false),
+                    _shutdown.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a switch publish failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogSwitchPublishFailed(logger, ex, entityId, key.Server);
+        }
+    }
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Marker poll for server {ServerId} failed.")]
     private static partial void LogMarkerPollFailed(ILogger logger, Exception exception, Guid serverId);
 
@@ -747,6 +883,17 @@ internal sealed partial class ConnectionSupervisor(
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Publishing a received team message for server {ServerId} failed.")]
     private static partial void LogPublishTeamMessageFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Listing smart switches to prime on server {ServerId} failed; priming skipped for this connection.")]
+    private static partial void LogSwitchListFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Priming smart switch {EntityId} on server {ServerId} failed.")]
+    private static partial void LogSwitchPrimeFailed(ILogger logger, Exception exception, ulong entityId, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Publishing a smart-switch state for entity {EntityId} on server {ServerId} failed.")]
+    private static partial void LogSwitchPublishFailed(ILogger logger, Exception exception, ulong entityId, Guid serverId);
 
     private TimeSpan NextDelay(TimeSpan delay) =>
         delay < _options.MaxRetryDelay
