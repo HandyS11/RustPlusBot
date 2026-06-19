@@ -1,3 +1,4 @@
+using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Persistence.Tests.Servers;
@@ -95,5 +96,33 @@ public sealed class ServerServiceTests
         await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "B", "1.2.3.4", 28016);
 
         Assert.Equal(2, (await service.ListAsync(10UL)).Count);
+    }
+
+    [Fact]
+    public async Task GetByEndpoint_returns_existing_server()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+        var server = new RustServer { GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015 };
+        context.RustServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var found = await service.GetByEndpointAsync(10UL, "1.1.1.1", 28015);
+
+        Assert.NotNull(found);
+        Assert.Equal(server.Id, found.Id);
+    }
+
+    [Fact]
+    public async Task GetByEndpoint_returns_null_for_unknown_endpoint()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+
+        Assert.Null(await service.GetByEndpointAsync(10UL, "9.9.9.9", 28015));
     }
 }
