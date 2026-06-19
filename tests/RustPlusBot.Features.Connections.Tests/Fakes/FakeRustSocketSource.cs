@@ -117,6 +117,18 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The Steam ID passed to the most recent <see cref="PromoteToLeaderAsync"/> call.</summary>
         public ulong LastPromotedSteamId { get; private set; }
 
+        /// <summary>The state returned by <see cref="GetSmartSwitchInfoAsync"/> per entity id; absent → null.</summary>
+        public Dictionary<ulong, bool?> SwitchStates { get; } = new();
+
+        /// <summary>The result returned by <see cref="SetSmartSwitchValueAsync"/>. Defaults to true.</summary>
+        public bool SetSwitchResult { get; set; } = true;
+
+        /// <summary>The result returned by <see cref="StrobeSmartSwitchAsync"/>. Defaults to true.</summary>
+        public bool StrobeSwitchResult { get; set; } = true;
+
+        /// <summary>Records (entityId, value) passed to <see cref="SetSmartSwitchValueAsync"/>.</summary>
+        public List<(ulong EntityId, bool Value)> SetSwitchCalls { get; } = [];
+
         /// <summary>
         /// The fallback markers returned by <see cref="GetMapMarkersAsync"/> when no scripted results remain.
         /// Defaults to empty (nothing on the map). Callers that do not use <see cref="EnqueueMarkers"/> see
@@ -138,6 +150,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
+
+        /// <summary>Raised by <see cref="RaiseSmartSwitchTriggered"/>.</summary>
+        public event EventHandler<ulong>? SmartSwitchTriggered;
 
         public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(outcome);
@@ -167,6 +182,24 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             LastPromotedSteamId = steamId;
             return Task.FromResult(PromoteResult);
         }
+
+#pragma warning disable RCS1163 // Unused parameters for fake implementation
+        public Task<bool?> GetSmartSwitchInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(SwitchStates.TryGetValue(entityId, out var s) ? s : null);
+#pragma warning restore RCS1163
+
+#pragma warning disable RCS1163 // Unused parameters for fake implementation
+        public Task<bool> SetSmartSwitchValueAsync(ulong entityId, bool value, TimeSpan timeout, CancellationToken cancellationToken)
+#pragma warning restore RCS1163
+        {
+            SetSwitchCalls.Add((entityId, value));
+            return Task.FromResult(SetSwitchResult);
+        }
+
+#pragma warning disable RCS1163 // Unused parameters for fake implementation
+        public Task<bool> StrobeSmartSwitchAsync(ulong entityId, int timeoutMs, bool value, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(StrobeSwitchResult);
+#pragma warning restore RCS1163
 
         public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -214,5 +247,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>Raises <see cref="TeamMessageReceived"/> to simulate an inbound team chat line.</summary>
         /// <param name="line">The team chat line to raise.</param>
         public void RaiseTeamMessage(TeamChatLine line) => TeamMessageReceived?.Invoke(this, line);
+
+        /// <summary>Simulates an in-game smart-switch state change.</summary>
+        /// <param name="entityId">The smart-switch entity id to raise the event for.</param>
+        public void RaiseSmartSwitchTriggered(ulong entityId) => SmartSwitchTriggered?.Invoke(this, entityId);
     }
 }
