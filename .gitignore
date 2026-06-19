@@ -418,6 +418,8 @@ docs/obj/
 docs/superpowers/
 docs/product/
 
+.superpowers/
+
 # Stryker mutation testing output
 StrykerOutput/
 

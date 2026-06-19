@@ -45,6 +45,52 @@ public sealed class ServerService(BotDbContext context) : IServerService
         context.RustServers.SingleOrDefaultAsync(s => s.GuildId == guildId && s.Id == serverId, cancellationToken);
 
     /// <inheritdoc />
+    public Task<RustServer?> GetByEndpointAsync(
+        ulong guildId,
+        string ip,
+        int port,
+        CancellationToken cancellationToken = default) =>
+        context.RustServers
+            .SingleOrDefaultAsync(s => s.GuildId == guildId && s.Ip == ip && s.Port == port, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<RustServer?> GetByFacepunchServerIdAsync(
+        ulong guildId,
+        Guid facepunchServerId,
+        CancellationToken cancellationToken = default)
+    {
+        // An empty GUID is "unknown" — never resolve to a server. Use FirstOrDefault (not Single) so the
+        // lookup can never throw if legacy rows ever share a Facepunch id (the column is not uniquely indexed).
+        if (facepunchServerId == Guid.Empty)
+        {
+            return Task.FromResult<RustServer?>(null);
+        }
+
+        return context.RustServers
+            .FirstOrDefaultAsync(
+                s => s.GuildId == guildId && s.FacepunchServerId == facepunchServerId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task SetFacepunchServerIdAsync(
+        Guid serverId,
+        Guid facepunchServerId,
+        CancellationToken cancellationToken = default)
+    {
+        var server = await context.RustServers
+            .SingleOrDefaultAsync(s => s.Id == serverId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (server is null || server.FacepunchServerId == facepunchServerId)
+        {
+            return;
+        }
+
+        server.FacepunchServerId = facepunchServerId;
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> RemoveAsync(
         ulong guildId,
         Guid serverId,

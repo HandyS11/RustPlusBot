@@ -68,6 +68,7 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
             _logger = logger;
             _fcm = new RustPlusFcm(credentials, persistentIds: null, options: null, loggerFactory: null);
             _fcm.OnServerPairing += OnServerPairing;
+            _fcm.OnSmartSwitchPairing += OnSmartSwitchPairing;
         }
 
         /// <inheritdoc />
@@ -99,6 +100,7 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
         public async ValueTask DisposeAsync()
         {
             _fcm.OnServerPairing -= OnServerPairing;
+            _fcm.OnSmartSwitchPairing -= OnSmartSwitchPairing;
             await _fcm.DisposeAsync().ConfigureAwait(false);
         }
 
@@ -122,8 +124,34 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
                 Ip: e.Data.Ip ?? string.Empty,
                 Port: e.Data.Port,
                 PlayerId: e.PlayerId,
-                PlayerToken: e.PlayerToken.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                PlayerToken: e.PlayerToken.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                FacepunchServerId: e.ServerId);
 
+            Dispatch(notification);
+        }
+
+        private void OnSmartSwitchPairing(object? sender, Notification<ulong?> e)
+        {
+            if (e?.Data is not { } entityId)
+            {
+                return; // null entity id → drop
+            }
+
+            var notification = new PairingNotification(
+                Kind: PairingKind.Entity,
+                ServerName: string.Empty,
+                Ip: string.Empty,
+                Port: 0,
+                PlayerId: e.PlayerId,
+                PlayerToken: e.PlayerToken.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                FacepunchServerId: e.ServerId,
+                EntityId: entityId);
+
+            Dispatch(notification);
+        }
+
+        private void Dispatch(PairingNotification notification)
+        {
             // Fire-and-forget bridge from synchronous event to async callback.
             // Exception must never propagate back into the package's event dispatcher.
 #pragma warning disable CA2008 // Task.Run without TaskScheduler: acceptable here; default is ThreadPool.

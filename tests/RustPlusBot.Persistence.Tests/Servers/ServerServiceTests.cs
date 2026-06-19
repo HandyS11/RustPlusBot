@@ -1,3 +1,4 @@
+using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Persistence.Tests.Servers;
@@ -95,5 +96,92 @@ public sealed class ServerServiceTests
         await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "B", "1.2.3.4", 28016);
 
         Assert.Equal(2, (await service.ListAsync(10UL)).Count);
+    }
+
+    [Fact]
+    public async Task GetByEndpoint_returns_existing_server()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015
+        };
+        context.RustServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var found = await service.GetByEndpointAsync(10UL, "1.1.1.1", 28015);
+
+        Assert.NotNull(found);
+        Assert.Equal(server.Id, found.Id);
+    }
+
+    [Fact]
+    public async Task GetByEndpoint_returns_null_for_unknown_endpoint()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+
+        Assert.Null(await service.GetByEndpointAsync(10UL, "9.9.9.9", 28015));
+    }
+
+    [Fact]
+    public async Task GetByFacepunchServerId_returns_matching_server()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+        var fp = Guid.NewGuid();
+        var server = new RustServer
+        {
+            GuildId = 10UL,
+            Name = "S",
+            Ip = "1.1.1.1",
+            Port = 28015,
+            FacepunchServerId = fp,
+        };
+        context.RustServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var found = await service.GetByFacepunchServerIdAsync(10UL, fp);
+
+        Assert.NotNull(found);
+        Assert.Equal(server.Id, found.Id);
+        Assert.Null(await service.GetByFacepunchServerIdAsync(10UL, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task SetFacepunchServerId_backfills_then_is_idempotent()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var service = new ServerService(context);
+        var server = new RustServer
+        {
+            GuildId = 10UL, Name = "S", Ip = "1.1.1.1", Port = 28015,
+        };
+        context.RustServers.Add(server);
+        await context.SaveChangesAsync();
+        var g = Guid.NewGuid();
+
+        await service.SetFacepunchServerIdAsync(server.Id, g);
+        var reloaded = await service.GetAsync(10UL, server.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal(g, reloaded.FacepunchServerId);
+
+        // Calling again with the same GUID is a no-op (no throw, value unchanged).
+        await service.SetFacepunchServerIdAsync(server.Id, g);
+        reloaded = await service.GetAsync(10UL, server.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal(g, reloaded.FacepunchServerId);
+
+        // An absent server id is a silent no-op (no throw).
+        await service.SetFacepunchServerIdAsync(Guid.NewGuid(), g);
     }
 }

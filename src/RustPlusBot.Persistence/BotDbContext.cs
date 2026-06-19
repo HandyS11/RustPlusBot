@@ -8,6 +8,7 @@ using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Map;
 using RustPlusBot.Domain.Servers;
+using RustPlusBot.Domain.Switches;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Persistence.Configurations;
 
@@ -44,6 +45,9 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Paired smart devices.</summary>
     public DbSet<PairedEntity> PairedEntities => Set<PairedEntity>();
 
+    /// <summary>Paired and managed Smart Switches.</summary>
+    public DbSet<SmartSwitch> SmartSwitches => Set<SmartSwitch>();
+
     /// <summary>Per-guild event subscriptions.</summary>
     public DbSet<EventSubscription> EventSubscriptions => Set<EventSubscription>();
 
@@ -71,6 +75,7 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new ServerMapSettingsConfiguration())
             .ApplyConfiguration(new GuildSettingsConfiguration())
             .ApplyConfiguration(new PairedEntityConfiguration())
+            .ApplyConfiguration(new SmartSwitchConfiguration())
             .ApplyConfiguration(new EventSubscriptionConfiguration())
             .ApplyConfiguration(new ProvisionedCategoryConfiguration())
             .ApplyConfiguration(new ProvisionedChannelConfiguration())

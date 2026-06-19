@@ -5,6 +5,7 @@ using RustPlusBot.Persistence;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Credentials;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Persistence.Tests;
 
@@ -33,5 +34,6 @@ public sealed class PersistenceRegistrationTests
         Assert.Contains(services, d => d.ServiceType == typeof(ICredentialStore));
         Assert.Contains(services, d => d.ServiceType == typeof(IFcmRegistrationStore));
         Assert.Contains(services, d => d.ServiceType == typeof(IConnectionStore));
+        Assert.Contains(services, d => d.ServiceType == typeof(ISwitchStore));
     }
 }

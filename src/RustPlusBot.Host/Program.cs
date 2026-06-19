@@ -11,6 +11,7 @@ using RustPlusBot.Features.Commands;
 using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Events;
 using RustPlusBot.Features.Map;
+using RustPlusBot.Features.Switches;
 using RustPlusBot.Features.Players;
 using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Workspace;
@@ -75,6 +76,7 @@ builder.Services.AddOptions<MapOptions>()
     .Validate(static o => o.MapRefreshInterval > TimeSpan.Zero, "Map:MapRefreshInterval must be positive.")
     .ValidateOnStart();
 builder.Services.AddMap();
+builder.Services.AddSwitches();
 
 var host = builder.Build();
 

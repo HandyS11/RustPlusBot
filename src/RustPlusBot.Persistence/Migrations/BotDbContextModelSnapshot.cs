@@ -342,6 +342,9 @@ namespace RustPlusBot.Persistence.Migrations
                     b.Property<long>("AddedByUserId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("FacepunchServerId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("GuildId")
                         .HasColumnType("INTEGER");
 
@@ -360,12 +363,56 @@ namespace RustPlusBot.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FacepunchServerId");
+
                     b.HasIndex("GuildId");
 
                     b.HasIndex("GuildId", "Ip", "Port")
                         .IsUnique();
 
                     b.ToTable("RustServers");
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Switches.SmartSwitch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("EntityId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("LastIsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("MessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PairedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("GuildId", "ServerId", "EntityId")
+                        .IsUnique();
+
+                    b.ToTable("SmartSwitches");
                 });
 
             modelBuilder.Entity("RustPlusBot.Domain.Workspace.ProvisionedCategory", b =>
@@ -508,6 +555,15 @@ namespace RustPlusBot.Persistence.Migrations
                     b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
                         .WithOne()
                         .HasForeignKey("RustPlusBot.Domain.Map.ServerMapSettings", "ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Switches.SmartSwitch", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

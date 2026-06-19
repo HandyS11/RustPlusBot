@@ -48,6 +48,24 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
+        public Task<bool?> GetSmartSwitchInfoAsync(ulong entityId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<bool?>(null);
+
+        public Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+            int timeoutMs,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
         public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<MapMarkerSnapshot>>([]);
@@ -64,6 +82,12 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             Task.FromResult<byte[]?>(null);
 
         public event EventHandler<TeamChatLine>? TeamMessageReceived
+        {
+            add { _ = value; }
+            remove { _ = value; }
+        }
+
+        public event EventHandler<ulong>? SmartSwitchTriggered
         {
             add { _ = value; }
             remove { _ = value; }
@@ -92,6 +116,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             var connection = new RustPlusConnection(ip, port, steamId, playerToken, UseFacepunchProxy: false);
             _rustPlus = new RustPlus(connection);
             _rustPlus.OnTeamChatReceived += OnTeamChatReceived;
+            _rustPlus.OnSmartSwitchTriggered += OnSmartSwitchTriggered;
         }
 
         public async Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
@@ -320,6 +345,94 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             }
         }
 
+        public event EventHandler<ulong>? SmartSwitchTriggered;
+
+        public async Task<bool?> GetSmartSwitchInfoAsync(ulong entityId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.2): GetSmartSwitchInfoAsync(ulong, CancellationToken) returns
+                // Task of Response of SmartSwitchInfo; Response.IsSuccess and Response.Data are the accessors and
+                // SmartSwitchInfo.IsActive is a bool. The call also primes the socket's interest in this
+                // entity, so OnSmartSwitchTriggered fires for it thereafter.
+                var response = await _rustPlus.GetSmartSwitchInfoAsync(entityId, timeoutCts.Token)
+                    .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+                return response.IsSuccess && response.Data is { } info ? info.IsActive : null;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: any switch-info failure maps to null; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return null;
+            }
+        }
+
+        public async Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.2): SetSmartSwitchValueAsync(ulong, bool, CancellationToken) returns
+                // Task of Response of SmartSwitchInfo; Response.IsSuccess indicates the outcome.
+                var response = await _rustPlus.SetSmartSwitchValueAsync(entityId, value, timeoutCts.Token)
+                    .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+                return response.IsSuccess;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+#pragma warning disable CA1031 // Broad catch: any set failure maps to false; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return false;
+            }
+        }
+
+        public async Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+            int timeoutMs,
+            bool value,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.2): StrobeSmartSwitchAsync(ulong, int timeoutMs, bool value, CancellationToken)
+                // returns Task of Response of SmartSwitchInfo; Response.IsSuccess indicates the outcome.
+                var response = await _rustPlus.StrobeSmartSwitchAsync(entityId, timeoutMs, value, timeoutCts.Token)
+                    .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+                return response.IsSuccess;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+#pragma warning disable CA1031 // Broad catch: any strobe failure maps to false; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return false;
+            }
+        }
+
         public async Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -443,6 +556,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public async ValueTask DisposeAsync()
         {
             _rustPlus.OnTeamChatReceived -= OnTeamChatReceived;
+            _rustPlus.OnSmartSwitchTriggered -= OnSmartSwitchTriggered;
             try
             {
                 // CONFIRMED: RustPlusSocket implements IAsyncDisposable in 2.0.0-beta.1.
@@ -456,6 +570,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 LogDisposeFailed(_logger, ex);
             }
         }
+
+        private void OnSmartSwitchTriggered(object? sender, RustPlusApi.Data.Events.SmartSwitchEventArg e) =>
+            SmartSwitchTriggered?.Invoke(this, e.Id);
 
         private static void AddMarkers<TMarker>(
             List<MapMarkerSnapshot> into,

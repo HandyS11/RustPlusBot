@@ -62,6 +62,7 @@ public static class WorkspaceServiceCollectionExtensions
         services.AddSingleton<ITeamChatChannelLocator, TeamChatChannelLocator>();
         services.AddSingleton<IEventChannelLocator, EventChannelLocator>();
         services.AddSingleton<IMapChannelLocator, MapChannelLocator>();
+        services.AddSingleton<ISwitchChannelLocator, SwitchChannelLocator>();
 
         services.AddHostedService<Hosting.WorkspaceHostedService>();
 
