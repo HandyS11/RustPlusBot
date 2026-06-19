@@ -20,4 +20,7 @@ public sealed class RustServer
 
     /// <summary>The Discord user who added this server.</summary>
     public ulong AddedByUserId { get; set; }
+
+    /// <summary>The Facepunch server GUID from FCM pairings, backfilled on server pairing; null until first seen. Used to attribute entity pairings.</summary>
+    public Guid? FacepunchServerId { get; set; }
 }

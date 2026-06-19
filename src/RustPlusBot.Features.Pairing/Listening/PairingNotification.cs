@@ -30,10 +30,14 @@ internal enum PairingConnectOutcome
 /// <param name="Port">The Rust+ app port.</param>
 /// <param name="PlayerId">The paired player's Steam64 id.</param>
 /// <param name="PlayerToken">The Rust+ player token for this (server, player).</param>
+/// <param name="FacepunchServerId">The Facepunch server GUID this pairing is associated with.</param>
+/// <param name="EntityId">The in-game entity id for entity pairings; 0 for server pairings.</param>
 internal sealed record PairingNotification(
     PairingKind Kind,
     string ServerName,
     string Ip,
     int Port,
     ulong PlayerId,
-    string PlayerToken);
+    string PlayerToken,
+    Guid FacepunchServerId = default,
+    ulong EntityId = 0UL);

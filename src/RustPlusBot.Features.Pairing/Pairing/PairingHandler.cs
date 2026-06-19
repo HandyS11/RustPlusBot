@@ -25,14 +25,17 @@ internal sealed partial class PairingHandler(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(notification);
-        if (notification.Kind != PairingKind.Server)
+        if (notification.Kind == PairingKind.Entity)
         {
-            LogIgnoringKind(logger, notification.Kind);
+            await HandleEntityAsync(guildId, notification, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         var (server, created) = await servers.ResolveOrCreateByEndpointAsync(
                 guildId, ownerUserId, notification.ServerName, notification.Ip, notification.Port, cancellationToken)
+            .ConfigureAwait(false);
+
+        await servers.SetFacepunchServerIdAsync(server.Id, notification.FacepunchServerId, cancellationToken)
             .ConfigureAwait(false);
 
         await credentials.UpsertFromPairingAsync(
@@ -48,7 +51,25 @@ internal sealed partial class PairingHandler(
         }
     }
 
+    private async Task HandleEntityAsync(
+        ulong guildId, PairingNotification notification, CancellationToken cancellationToken)
+    {
+        var server = await servers
+            .GetByFacepunchServerIdAsync(guildId, notification.FacepunchServerId, cancellationToken)
+            .ConfigureAwait(false);
+        if (server is null)
+        {
+            // Never create a server from an entity pairing; an unknown Facepunch server is logged and dropped.
+            LogUnknownEntityServer(logger, notification.FacepunchServerId);
+            return;
+        }
+
+        await eventBus.PublishAsync(
+                new SwitchPairedEvent(guildId, server.Id, notification.EntityId), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     [LoggerMessage(Level = LogLevel.Debug,
-        Message = "Ignoring {Kind} pairing notification (deferred to a later subsystem).")]
-    private static partial void LogIgnoringKind(ILogger logger, PairingKind kind);
+        Message = "Dropping entity pairing for unknown Facepunch server {FacepunchServerId} (no matching server).")]
+    private static partial void LogUnknownEntityServer(ILogger logger, Guid facepunchServerId);
 }

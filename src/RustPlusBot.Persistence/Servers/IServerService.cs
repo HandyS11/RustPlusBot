@@ -48,6 +48,20 @@ public interface IServerService
     /// <returns>The matching server, or null.</returns>
     Task<RustServer?> GetByEndpointAsync(ulong guildId, string ip, int port, CancellationToken cancellationToken = default);
 
+    /// <summary>Looks up a server by its Facepunch server GUID within a guild without creating one; returns null if absent.</summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="facepunchServerId">The Facepunch server GUID delivered by FCM pairings.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The matching server, or null.</returns>
+    Task<RustServer?> GetByFacepunchServerIdAsync(ulong guildId, Guid facepunchServerId, CancellationToken cancellationToken = default);
+
+    /// <summary>Backfills a server's Facepunch server GUID by id; idempotent no-op when the server is absent or already equal.</summary>
+    /// <param name="serverId">The local server id to update.</param>
+    /// <param name="facepunchServerId">The Facepunch server GUID to store.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the backfill is persisted or skipped.</returns>
+    Task SetFacepunchServerIdAsync(Guid serverId, Guid facepunchServerId, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Returns the server matching (guild, ip, port), creating it if none exists. Handles the
     /// concurrent-create race (two pairings for the same new server) by re-reading the winner.
