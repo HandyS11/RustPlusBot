@@ -47,6 +47,25 @@ public sealed class SwitchStoreTests
     }
 
     [Fact]
+    public async Task Add_is_idempotent_when_switch_already_exists()
+    {
+        var (store, context, conn) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+        var serverId = await SeedServerAsync(context);
+
+        var first = await store.AddAsync(10UL, serverId, 42UL, "Switch 42", pairedByUserId: 7UL);
+        // Simulates the concurrent double-accept race: a second AddAsync for the same identity must not throw,
+        // and must return the row the first accept persisted (the unique index rejects the duplicate insert).
+        var second = await store.AddAsync(10UL, serverId, 42UL, "Switch 42 (dup)", pairedByUserId: 9UL);
+
+        Assert.Equal(first.Id, second.Id);
+        Assert.Equal("Switch 42", second.Name);
+        Assert.Equal(7UL, second.PairedByUserId);
+        Assert.Single(await store.ListByServerAsync(10UL, serverId));
+    }
+
+    [Fact]
     public async Task Exists_reflects_presence()
     {
         var (store, context, conn) = Create();

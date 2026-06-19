@@ -57,10 +57,19 @@ public sealed class ServerService(BotDbContext context) : IServerService
     public Task<RustServer?> GetByFacepunchServerIdAsync(
         ulong guildId,
         Guid facepunchServerId,
-        CancellationToken cancellationToken = default) =>
-        context.RustServers
-            .SingleOrDefaultAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // An empty GUID is "unknown" — never resolve to a server. Use FirstOrDefault (not Single) so the
+        // lookup can never throw if legacy rows ever share a Facepunch id (the column is not uniquely indexed).
+        if (facepunchServerId == Guid.Empty)
+        {
+            return Task.FromResult<RustServer?>(null);
+        }
+
+        return context.RustServers
+            .FirstOrDefaultAsync(
                 s => s.GuildId == guildId && s.FacepunchServerId == facepunchServerId, cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task SetFacepunchServerIdAsync(

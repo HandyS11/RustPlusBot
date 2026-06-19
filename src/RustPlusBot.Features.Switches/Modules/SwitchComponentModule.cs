@@ -61,9 +61,10 @@ public sealed class SwitchComponentModule(
             coordinator.TryDismiss(Context.Guild.Id, serverId, entityId);
         }
 
-        // Best-effort: remove the transient prompt message.
-        await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        await DeleteOriginalResponseSafeAsync().ConfigureAwait(false);
+        // Delete the actual prompt message that hosts this button (the component interaction's source
+        // message) — not the ephemeral interaction response. Best-effort: a delete failure is non-fatal.
+        await DeletePromptMessageSafeAsync().ConfigureAwait(false);
+        await RespondAsync("Dismissed.", ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>Turns the switch on.</summary>
@@ -195,11 +196,15 @@ public sealed class SwitchComponentModule(
                && ulong.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out entityId);
     }
 
-    private async Task DeleteOriginalResponseSafeAsync()
+    private async Task DeletePromptMessageSafeAsync()
     {
         try
         {
-            await DeleteOriginalResponseAsync().ConfigureAwait(false);
+            // The source message of a component interaction is the prompt that carries the button.
+            if (Context.Interaction is IComponentInteraction component)
+            {
+                await component.Message.DeleteAsync().ConfigureAwait(false);
+            }
         }
 #pragma warning disable CA1031 // Best-effort prompt cleanup; a delete failure is non-fatal.
         catch (Exception ex)

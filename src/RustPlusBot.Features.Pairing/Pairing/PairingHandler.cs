@@ -35,8 +35,13 @@ internal sealed partial class PairingHandler(
                 guildId, ownerUserId, notification.ServerName, notification.Ip, notification.Port, cancellationToken)
             .ConfigureAwait(false);
 
-        await servers.SetFacepunchServerIdAsync(server.Id, notification.FacepunchServerId, cancellationToken)
-            .ConfigureAwait(false);
+        // Only backfill a real Facepunch GUID. Persisting Guid.Empty would make every server that paired
+        // without one share the same id, breaking GUID-based entity-pairing attribution.
+        if (notification.FacepunchServerId != Guid.Empty)
+        {
+            await servers.SetFacepunchServerIdAsync(server.Id, notification.FacepunchServerId, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         await credentials.UpsertFromPairingAsync(
             new StoreCredentialRequest(guildId, server.Id, ownerUserId, notification.PlayerId,
