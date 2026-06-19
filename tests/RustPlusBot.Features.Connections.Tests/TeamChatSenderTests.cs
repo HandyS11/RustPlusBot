@@ -98,9 +98,15 @@ public sealed class TeamChatSenderTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var received =
             new TaskCompletionSource<TeamMessageReceivedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Subscribe on the calling thread so the bus eagerly registers the channel BEFORE the message
+        // is raised. Doing this inside Task.Run would race the single RaiseTeamMessage below: if the
+        // publish wins, the one event is dropped and received.Task never completes (a 30s timeout that
+        // surfaces only under CI scheduling pressure). Only the iteration runs in the background.
+        var stream = bus.SubscribeAsync<TeamMessageReceivedEvent>(cts.Token);
         var subscription = Task.Run(async () =>
         {
-            await foreach (var e in bus.SubscribeAsync<TeamMessageReceivedEvent>(cts.Token))
+            await foreach (var e in stream)
             {
                 if (received.TrySetResult(e))
                 {
