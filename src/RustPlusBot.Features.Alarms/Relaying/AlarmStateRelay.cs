@@ -121,8 +121,8 @@ internal sealed partial class AlarmStateRelay(
             var alarms = await store.ListByServerAsync(evt.GuildId, evt.ServerId, ct).ConfigureAwait(false);
             foreach (var alarm in alarms)
             {
-                await refresher.RefreshAsync(evt.GuildId, evt.ServerId, alarm.EntityId, unreachable: true, ct)
-                    .ConfigureAwait(false);
+                // Reuse the already-loaded alarm rather than re-fetching each by id.
+                await refresher.RefreshAsync(alarm, unreachable: true, ct).ConfigureAwait(false);
             }
         }
     }

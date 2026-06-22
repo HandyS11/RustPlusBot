@@ -125,6 +125,29 @@ public sealed class AlarmRefresherTests
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task RefreshAsync_loaded_alarm_posts_without_refetching()
+    {
+        var serverId = Guid.NewGuid();
+        var alarm = new SmartAlarm
+        {
+            GuildId = 10UL,
+            ServerId = serverId,
+            EntityId = 42UL,
+            Name = "Fire Alarm",
+            MessageId = 800UL,
+        };
+        // Note: store.GetAsync is intentionally NOT configured — the overload must not call it.
+        var h = Create(alarm: null, channelId: 777UL);
+
+        await h.Refresher.RefreshAsync(alarm, unreachable: true, CancellationToken.None);
+
+        await h.Store.DidNotReceive().GetAsync(
+            Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(), Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(777UL, 800UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
     private sealed record Harness(
         AlarmRefresher Refresher,
         IAlarmStore Store,

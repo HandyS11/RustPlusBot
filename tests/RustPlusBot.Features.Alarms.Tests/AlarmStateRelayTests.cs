@@ -309,10 +309,10 @@ public sealed class AlarmStateRelayTests
         await h.Relay.HandleConnectionStatusAsync(
             new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
 
-        await h.Refresher.Received(1)
-            .RefreshAsync(10UL, serverId, 42UL, unreachable: true, Arg.Any<CancellationToken>());
-        await h.Refresher.Received(1)
-            .RefreshAsync(10UL, serverId, 43UL, unreachable: true, Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1).RefreshAsync(
+            Arg.Is<SmartAlarm>(a => a.EntityId == 42UL), unreachable: true, Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1).RefreshAsync(
+            Arg.Is<SmartAlarm>(a => a.EntityId == 43UL), unreachable: true, Arg.Any<CancellationToken>());
     }
 
     /// <summary>Connected server → no-op (supervisor's prime path handles it).</summary>
@@ -333,6 +333,8 @@ public sealed class AlarmStateRelayTests
 
         await h.Refresher.DidNotReceive().RefreshAsync(
             Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await h.Refresher.DidNotReceive()
+            .RefreshAsync(Arg.Any<SmartAlarm>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
     private sealed record Harness(

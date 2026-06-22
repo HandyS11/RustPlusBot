@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
@@ -31,21 +32,44 @@ internal sealed class AlarmRefresher(
                 return;
             }
 
-            var channelId = await locator.GetChannelIdAsync(guildId, serverId, ct).ConfigureAwait(false);
-            if (channelId is not { } channel)
-            {
-                return;
-            }
+            await RenderAndPostAsync(scope.ServiceProvider, alarm, unreachable, ct).ConfigureAwait(false);
+        }
+    }
 
-            var culture = await GetCultureAsync(scope.ServiceProvider, guildId, ct).ConfigureAwait(false);
-            var (embed, components) = renderer.RenderAlarm(alarm, unreachable, culture);
-            var newMessageId = await poster
-                .EnsureAsync(channel, alarm.MessageId, embed, components, ct)
+    /// <inheritdoc />
+    public async Task RefreshAsync(SmartAlarm alarm, bool unreachable, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(alarm);
+
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            await RenderAndPostAsync(scope.ServiceProvider, alarm, unreachable, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RenderAndPostAsync(
+        IServiceProvider provider,
+        SmartAlarm alarm,
+        bool unreachable,
+        CancellationToken ct)
+    {
+        var channelId = await locator.GetChannelIdAsync(alarm.GuildId, alarm.ServerId, ct).ConfigureAwait(false);
+        if (channelId is not { } channel)
+        {
+            return;
+        }
+
+        var culture = await GetCultureAsync(provider, alarm.GuildId, ct).ConfigureAwait(false);
+        var (embed, components) = renderer.RenderAlarm(alarm, unreachable, culture);
+        var newMessageId = await poster
+            .EnsureAsync(channel, alarm.MessageId, embed, components, ct)
+            .ConfigureAwait(false);
+        if (newMessageId is { } mid && mid != alarm.MessageId)
+        {
+            var store = provider.GetRequiredService<IAlarmStore>();
+            await store.SetMessageIdAsync(alarm.GuildId, alarm.ServerId, alarm.EntityId, mid, ct)
                 .ConfigureAwait(false);
-            if (newMessageId is { } mid && mid != alarm.MessageId)
-            {
-                await store.SetMessageIdAsync(guildId, serverId, entityId, mid, ct).ConfigureAwait(false);
-            }
         }
     }
 
