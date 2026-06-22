@@ -32,6 +32,7 @@ internal enum PairingConnectOutcome
 /// <param name="PlayerToken">The Rust+ player token for this (server, player).</param>
 /// <param name="FacepunchServerId">The Facepunch server GUID this pairing is associated with.</param>
 /// <param name="EntityId">The in-game entity id for entity pairings; 0 for server pairings.</param>
+/// <param name="EntityKind">The kind of entity being paired (SmartSwitch or SmartAlarm); defaults to SmartSwitch.</param>
 internal sealed record PairingNotification(
     PairingKind Kind,
     string ServerName,
@@ -40,4 +41,5 @@ internal sealed record PairingNotification(
     ulong PlayerId,
     string PlayerToken,
     Guid FacepunchServerId = default,
-    ulong EntityId = 0UL);
+    ulong EntityId = 0UL,
+    RustPlusBot.Domain.Entities.PairedEntityKind EntityKind = RustPlusBot.Domain.Entities.PairedEntityKind.SmartSwitch);

@@ -71,12 +71,24 @@ internal sealed partial class PairingHandler(
             return;
         }
 
-        await eventBus.PublishAsync(
-                new SwitchPairedEvent(guildId, server.Id, notification.EntityId), cancellationToken)
-            .ConfigureAwait(false);
+        switch (notification.EntityKind)
+        {
+            case RustPlusBot.Domain.Entities.PairedEntityKind.SmartSwitch:
+                await eventBus.PublishAsync(new SwitchPairedEvent(guildId, server.Id, notification.EntityId), cancellationToken).ConfigureAwait(false);
+                break;
+            case RustPlusBot.Domain.Entities.PairedEntityKind.SmartAlarm:
+                await eventBus.PublishAsync(new AlarmPairedEvent(guildId, server.Id, notification.EntityId), cancellationToken).ConfigureAwait(false);
+                break;
+            default:
+                LogUnroutedEntityKind(logger, notification.EntityKind);
+                break;
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Debug,
         Message = "Dropping entity pairing for unknown Facepunch server {FacepunchServerId} (no matching server).")]
     private static partial void LogUnknownEntityServer(ILogger logger, Guid facepunchServerId);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Dropping entity pairing of unrouted kind {Kind}.")]
+    private static partial void LogUnroutedEntityKind(ILogger logger, RustPlusBot.Domain.Entities.PairedEntityKind kind);
 }

@@ -12,6 +12,7 @@ using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Supervisor;
@@ -827,24 +828,57 @@ internal sealed partial class ConnectionSupervisor(
             return;
         }
 
-#pragma warning disable S3267 // Not a projection: each iteration awaits with per-switch best-effort error handling.
-        foreach (var sw in switches)
+        await PrimeEntityIdsAsync(key, connection,
+            (IReadOnlyList<ulong>)switches.Select(sw => sw.EntityId).ToList()).ConfigureAwait(false);
+
+        IReadOnlyList<Domain.Alarms.SmartAlarm> alarms;
+        try
+        {
+            var scope = scopeFactory.CreateAsyncScope();
+            await using (scope.ConfigureAwait(false))
+            {
+                var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
+                alarms = await store.ListByServerAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a failed alarm-list read just skips alarm priming for this connection.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogDeviceListFailed(logger, ex, key.Server);
+            return;
+        }
+
+        await PrimeEntityIdsAsync(key, connection,
+            (IReadOnlyList<ulong>)alarms.Select(a => a.EntityId).ToList()).ConfigureAwait(false);
+    }
+
+    private async Task PrimeEntityIdsAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        IReadOnlyList<ulong> entityIds)
+    {
+#pragma warning disable S3267 // Not a projection: each iteration awaits with per-entity best-effort error handling.
+        foreach (var entityId in entityIds)
 #pragma warning restore S3267
         {
-            // Best-effort per switch: one failure must not crash the connected loop or block the heartbeat.
             try
             {
-                await PublishDevicePrimeAsync(key, connection, sw.EntityId).ConfigureAwait(false);
+                await PublishDevicePrimeAsync(key, connection, entityId).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
                 throw;
             }
-#pragma warning disable CA1031 // Broad catch: a single switch's prime failure is logged and skipped.
+#pragma warning disable CA1031 // Broad catch: a single entity's prime failure is logged and skipped.
             catch (Exception ex)
 #pragma warning restore CA1031
             {
-                LogDevicePrimeFailed(logger, ex, sw.EntityId, key.Server);
+                LogDevicePrimeFailed(logger, ex, entityId, key.Server);
             }
         }
     }
