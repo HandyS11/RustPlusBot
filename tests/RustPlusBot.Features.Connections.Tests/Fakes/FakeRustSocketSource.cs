@@ -117,7 +117,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The Steam ID passed to the most recent <see cref="PromoteToLeaderAsync"/> call.</summary>
         public ulong LastPromotedSteamId { get; private set; }
 
-        /// <summary>The state returned by <see cref="GetSmartSwitchInfoAsync"/> per entity id; absent → null.</summary>
+        /// <summary>The state returned by <see cref="GetSmartDeviceInfoAsync"/> per entity id; absent → null.</summary>
         public Dictionary<ulong, bool?> SwitchStates { get; } = new();
 
         /// <summary>The result returned by <see cref="SetSmartSwitchValueAsync"/>. Defaults to true.</summary>
@@ -151,8 +151,8 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
-        /// <summary>Raised by <see cref="RaiseSmartSwitchTriggered"/>.</summary>
-        public event EventHandler<ulong>? SmartSwitchTriggered;
+        /// <summary>Raised by <see cref="RaiseSmartDeviceTriggered"/>.</summary>
+        public event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
 
         public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(outcome);
@@ -184,7 +184,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         }
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
-        public Task<bool?> GetSmartSwitchInfoAsync(ulong entityId,
+        public Task<bool?> GetSmartDeviceInfoAsync(ulong entityId,
             TimeSpan timeout,
             CancellationToken cancellationToken) =>
             Task.FromResult(SwitchStates.TryGetValue(entityId, out var s) ? s : null);
@@ -257,8 +257,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <param name="line">The team chat line to raise.</param>
         public void RaiseTeamMessage(TeamChatLine line) => TeamMessageReceived?.Invoke(this, line);
 
-        /// <summary>Simulates an in-game smart-switch state change.</summary>
-        /// <param name="entityId">The smart-switch entity id to raise the event for.</param>
-        public void RaiseSmartSwitchTriggered(ulong entityId) => SmartSwitchTriggered?.Invoke(this, entityId);
+        /// <summary>Simulates an in-game smart-device state change.</summary>
+        /// <param name="entityId">The smart-device entity id to raise the event for.</param>
+        /// <param name="isActive">The current active state carried on the trigger arg.</param>
+        public void RaiseSmartDeviceTriggered(ulong entityId, bool isActive) =>
+            SmartDeviceTriggered?.Invoke(this, new SmartDeviceTrigger(entityId, isActive));
     }
 }

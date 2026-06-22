@@ -49,6 +49,39 @@ internal sealed class SwitchStateRelay(
         }
     }
 
+    /// <summary>Handles an in-game device trigger: ignore ids this relay doesn't manage, else persist + re-render.</summary>
+    /// <param name="evt">The device-triggered event.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the embed has been re-rendered (or the id was ignored).</returns>
+    public async Task HandleDeviceTriggeredAsync(SmartDeviceTriggeredEvent evt, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evt);
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<ISwitchStore>();
+            if (!await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return; // not a switch this relay manages (e.g. an alarm) — ignore.
+            }
+
+            await store.UpdateStateAsync(evt.GuildId, evt.ServerId, evt.EntityId, evt.IsActive, cancellationToken)
+                .ConfigureAwait(false);
+            var sw = await store.GetAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                .ConfigureAwait(false);
+            if (sw is null)
+            {
+                return;
+            }
+
+            var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken)
+                .ConfigureAwait(false);
+            await RenderAsync(store, sw, evt.IsActive, evt.GuildId, evt.ServerId, culture, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
     /// <summary>Handles a connection-status change: a non-Connected server marks its switch embeds unreachable.</summary>
     /// <param name="evt">The connection-status change.</param>
     /// <param name="cancellationToken">A cancellation token.</param>

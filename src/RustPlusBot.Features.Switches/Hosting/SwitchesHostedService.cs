@@ -18,6 +18,7 @@ internal sealed partial class SwitchesHostedService(
     ILogger<SwitchesHostedService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
+    private Task? _deviceLoop;
     private Task? _pairedLoop;
     private Task? _stateLoop;
     private Task? _statusLoop;
@@ -31,6 +32,7 @@ internal sealed partial class SwitchesHostedService(
         _pairedLoop = Task.Run(() => ConsumePairedAsync(_cts.Token), CancellationToken.None);
         _stateLoop = Task.Run(() => ConsumeStateAsync(_cts.Token), CancellationToken.None);
         _statusLoop = Task.Run(() => ConsumeStatusAsync(_cts.Token), CancellationToken.None);
+        _deviceLoop = Task.Run(() => ConsumeDeviceTriggeredAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
 
@@ -40,7 +42,7 @@ internal sealed partial class SwitchesHostedService(
         await _cts.CancelAsync().ConfigureAwait(false);
         foreach (var loop in new[]
                  {
-                     _pairedLoop, _stateLoop, _statusLoop
+                     _pairedLoop, _stateLoop, _statusLoop, _deviceLoop
                  }.Where(t => t is not null))
         {
             try
@@ -121,6 +123,31 @@ internal sealed partial class SwitchesHostedService(
             LogStatusLoopFaulted(logger, ex);
         }
     }
+
+    private async Task ConsumeDeviceTriggeredAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<SmartDeviceTriggeredEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await relay.HandleDeviceTriggeredAsync(evt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogDeviceLoopFaulted(logger, ex);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Switch device-triggered relay loop faulted.")]
+    private static partial void LogDeviceLoopFaulted(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Switch pairing loop faulted.")]
     private static partial void LogPairedLoopFaulted(ILogger logger, Exception exception);
