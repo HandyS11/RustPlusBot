@@ -47,12 +47,12 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <returns>True if the promotion succeeded; false on failure/timeout.</returns>
     Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken);
 
-    /// <summary>Reads a smart switch's on/off state, or null on failure/timeout. Also primes the socket's interest in the entity.</summary>
-    /// <param name="entityId">The in-game smart-switch entity id.</param>
+    /// <summary>Reads a smart device's on/off state, or null on failure/timeout. Also primes the socket's interest in the entity (so triggers fire for it thereafter).</summary>
+    /// <param name="entityId">The in-game entity id (switch or alarm).</param>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>True/false for on/off, or null on failure/timeout.</returns>
-    Task<bool?> GetSmartSwitchInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken);
+    Task<bool?> GetSmartDeviceInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken);
 
     /// <summary>Sets a smart switch on/off; returns true on success, false on failure/timeout.</summary>
     /// <param name="entityId">The in-game smart-switch entity id.</param>
@@ -107,6 +107,6 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <summary>Raised for every in-game team chat line received on this socket.</summary>
     event EventHandler<TeamChatLine>? TeamMessageReceived;
 
-    /// <summary>Raised when a smart switch's state changes in-game; carries the entity id.</summary>
-    event EventHandler<ulong>? SmartSwitchTriggered;
+    /// <summary>Raised when a managed smart device's state changes in-game; carries the entity id and new state.</summary>
+    event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
 }
