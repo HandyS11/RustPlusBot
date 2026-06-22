@@ -60,7 +60,7 @@ jobs:
 
       - name: Build and analyze
         run: |
-          ./.sonar/scanner/dotnet-sonarscanner begin /k:"${{ secrets.SONAR_PROJECT_KEY }}" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" /d:sonar.coverage.exclusions="**/tests/**" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
+          ./.sonar/scanner/dotnet-sonarscanner begin /k:"${{ secrets.SONAR_PROJECT_KEY }}" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" /d:sonar.coverage.exclusions="**/tests/**" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.cpd.exclusions="**/Migrations/*.cs" /d:sonar.exclusions="**/Migrations/*.cs,**/obj/**,**/bin/**"
           dotnet build --no-restore --configuration Release
           dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage;Format=opencover" --blame-hang-timeout 60s
           ./.sonar/scanner/dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
