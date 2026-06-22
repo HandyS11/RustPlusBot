@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Credentials;
+using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Credentials;
@@ -37,6 +38,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IWorkspaceStore, WorkspaceStore>();
         services.AddScoped<IConnectionStore, ConnectionStore>();
         services.AddScoped<ISwitchStore, SwitchStore>();
+        services.AddScoped<IAlarmStore, AlarmStore>();
         services.AddScoped<IMuteStore, MuteStore>();
         services.AddScoped<IMapSettingsStore, MapSettingsStore>();
 

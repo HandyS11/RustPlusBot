@@ -26,6 +26,9 @@ internal static class WorkspaceChannelKeys
 
     /// <summary>Key for the per-server #switches channel.</summary>
     public const string ServerSwitches = "switches";
+
+    /// <summary>Key for the per-server #alarms channel.</summary>
+    public const string ServerAlarms = "alarms";
 }
 
 /// <summary>Stable message keys persisted as <c>ProvisionedMessage.MessageKey</c>.</summary>

@@ -11,6 +11,7 @@ using RustPlusBot.Features.Commands;
 using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Events;
 using RustPlusBot.Features.Map;
+using RustPlusBot.Features.Alarms;
 using RustPlusBot.Features.Switches;
 using RustPlusBot.Features.Players;
 using RustPlusBot.Features.Pairing;
@@ -77,6 +78,7 @@ builder.Services.AddOptions<MapOptions>()
     .ValidateOnStart();
 builder.Services.AddMap();
 builder.Services.AddSwitches();
+builder.Services.AddAlarms();
 
 var host = builder.Build();
 

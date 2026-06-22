@@ -3,6 +3,7 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Domain.Credentials;
+using RustPlusBot.Domain.Entities;
 using RustPlusBot.Features.Pairing.Listening;
 using RustPlusBot.Features.Pairing.Pairing;
 using RustPlusBot.Persistence;
@@ -32,6 +33,10 @@ public sealed class PairingHandlerTests
     private static PairingNotification EntityPairing(Guid fpServer, ulong entityId = 42UL) =>
         new(PairingKind.Entity, string.Empty, string.Empty, 0, 1UL, "t", FacepunchServerId: fpServer,
             EntityId: entityId);
+
+    private static PairingNotification AlarmPairing(Guid fpServer, ulong entityId = 55UL) =>
+        new(PairingKind.Entity, string.Empty, string.Empty, 0, 1UL, "t",
+            FacepunchServerId: fpServer, EntityId: entityId, EntityKind: PairedEntityKind.SmartAlarm);
 
     [Fact]
     public async Task ServerPairing_CreatesServerCredentialAndFiresEventOnce()
@@ -121,6 +126,25 @@ public sealed class PairingHandlerTests
         await handler.HandleAsync(10UL, 1UL, EntityPairing(Guid.NewGuid(), 42UL), CancellationToken.None);
 
         Assert.Empty(await context.RustServers.ToListAsync());
+        await bus.DidNotReceive().PublishAsync(Arg.Any<SwitchPairedEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task EntityPairing_Alarm_PublishesAlarmPairedEvent_NotSwitch()
+    {
+        var (context, connection) = TestDb.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var bus = Substitute.For<IEventBus>();
+        var handler = CreateHandler(context, bus);
+        await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
+        var server = await context.RustServers.SingleAsync();
+        bus.ClearReceivedCalls();
+
+        await handler.HandleAsync(10UL, 1UL, AlarmPairing(FpServer, 55UL), CancellationToken.None);
+
+        await bus.Received(1).PublishAsync(
+            Arg.Is<AlarmPairedEvent>(e => e.ServerId == server.Id && e.EntityId == 55UL), Arg.Any<CancellationToken>());
         await bus.DidNotReceive().PublishAsync(Arg.Any<SwitchPairedEvent>(), Arg.Any<CancellationToken>());
     }
 }

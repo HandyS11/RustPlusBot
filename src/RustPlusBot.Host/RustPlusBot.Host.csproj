@@ -25,6 +25,7 @@
     <ProjectReference Include="..\RustPlusBot.Features.Commands\RustPlusBot.Features.Commands.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Events\RustPlusBot.Features.Events.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Switches\RustPlusBot.Features.Switches.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.Alarms\RustPlusBot.Features.Alarms.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Map\RustPlusBot.Features.Map.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Players\RustPlusBot.Features.Players.csproj" />
   </ItemGroup>

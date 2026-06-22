@@ -18,6 +18,8 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
             ChannelPermissionProfile.ReadOnly, 3),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerSwitches, "channel.switches.name",
             ChannelPermissionProfile.Interactive, 4),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerAlarms, "channel.alarms.name",
+            ChannelPermissionProfile.Interactive, 5),
     ];
 
     /// <inheritdoc />
