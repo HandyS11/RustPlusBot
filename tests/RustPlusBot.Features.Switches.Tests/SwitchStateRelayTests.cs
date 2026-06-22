@@ -112,6 +112,47 @@ public sealed class SwitchStateRelayTests
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task DeviceTriggered_managed_switch_updates_store_and_rerenders()
+    {
+        var h = Create();
+        var serverId = Guid.NewGuid();
+        h.Store.ExistsAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>()).Returns(true);
+        h.Store.GetAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>())
+            .Returns(new SmartSwitch
+            {
+                GuildId = 10UL,
+                ServerId = serverId,
+                EntityId = 42UL,
+                Name = "G",
+                MessageId = 900UL
+            });
+
+        await h.Relay.HandleDeviceTriggeredAsync(
+            new SmartDeviceTriggeredEvent(10UL, serverId, 42UL, IsActive: true), CancellationToken.None);
+
+        await h.Store.Received(1).UpdateStateAsync(10UL, serverId, 42UL, true, Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(777UL, 900UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeviceTriggered_non_switch_id_is_ignored()
+    {
+        var h = Create();
+        var serverId = Guid.NewGuid();
+        h.Store.ExistsAsync(10UL, serverId, 99UL, Arg.Any<CancellationToken>()).Returns(false);
+
+        await h.Relay.HandleDeviceTriggeredAsync(
+            new SmartDeviceTriggeredEvent(10UL, serverId, 99UL, IsActive: true), CancellationToken.None);
+
+        await h.Store.DidNotReceive().UpdateStateAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
     private sealed record Harness(
         SwitchStateRelay Relay,
         ISwitchStore Store,
