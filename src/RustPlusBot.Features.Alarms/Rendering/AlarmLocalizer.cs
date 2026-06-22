@@ -5,7 +5,8 @@ namespace RustPlusBot.Features.Alarms.Rendering;
 /// <summary>Dictionary-backed localizer for Smart Alarms with English fallback and region normalization.</summary>
 /// <remarks>Mirrors the SwitchLocalizer pattern; a future refactor may hoist a shared implementation.</remarks>
 /// <param name="catalog">The culture → (key → value) catalog.</param>
-internal sealed class AlarmLocalizer(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog) : IAlarmLocalizer
+internal sealed class AlarmLocalizer(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+    : IAlarmLocalizer
 {
     private const string FallbackCulture = "en";
 

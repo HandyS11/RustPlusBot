@@ -81,10 +81,7 @@ public sealed class AlarmStateRelayTests
         var serverId = Guid.NewGuid();
         var alarm = new SmartAlarm
         {
-            GuildId = 10UL,
-            ServerId = serverId,
-            EntityId = 42UL,
-            Name = "Perimeter",
+            GuildId = 10UL, ServerId = serverId, EntityId = 42UL, Name = "Perimeter",
         };
         var h = Create(alarm: alarm);
 
@@ -93,7 +90,8 @@ public sealed class AlarmStateRelayTests
 
         await h.Store.Received(1).UpdateStateAsync(
             10UL, serverId, 42UL, true, _fixedNow, Arg.Any<CancellationToken>());
-        await h.Refresher.Received(1).RefreshAsync(10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1)
+            .RefreshAsync(10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
     }
 
     /// <summary>Active trigger with PingEveryone sends the @everyone message.</summary>
@@ -209,7 +207,8 @@ public sealed class AlarmStateRelayTests
 
         await h.Store.Received(1).UpdateStateAsync(
             10UL, serverId, 42UL, false, null, Arg.Any<CancellationToken>());
-        await h.Refresher.Received(1).RefreshAsync(10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1)
+            .RefreshAsync(10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
         await h.Poster.DidNotReceive()
             .SendEveryonePingAsync(Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await h.TeamChatSender.DidNotReceive()
@@ -272,7 +271,8 @@ public sealed class AlarmStateRelayTests
 
         await h.Store.Received(1).UpdateStateAsync(
             10UL, serverId, 42UL, true, _fixedNow, Arg.Any<CancellationToken>());
-        await h.Refresher.Received(1).RefreshAsync(10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1)
+            .RefreshAsync(10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
         await h.Poster.Received(1).SendEveryonePingAsync(777UL, "@everyone Fire", Arg.Any<CancellationToken>());
     }
 
@@ -290,23 +290,29 @@ public sealed class AlarmStateRelayTests
         h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
             .Returns(new ConnectionState
             {
-                GuildId = 10UL,
-                RustServerId = serverId,
-                Status = ConnectionStatus.Unreachable,
+                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Unreachable,
             });
 
         h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
             .Returns(new[]
             {
-                new SmartAlarm { GuildId = 10UL, ServerId = serverId, EntityId = 42UL, Name = "A" },
-                new SmartAlarm { GuildId = 10UL, ServerId = serverId, EntityId = 43UL, Name = "B" },
+                new SmartAlarm
+                {
+                    GuildId = 10UL, ServerId = serverId, EntityId = 42UL, Name = "A"
+                },
+                new SmartAlarm
+                {
+                    GuildId = 10UL, ServerId = serverId, EntityId = 43UL, Name = "B"
+                },
             });
 
         await h.Relay.HandleConnectionStatusAsync(
             new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
 
-        await h.Refresher.Received(1).RefreshAsync(10UL, serverId, 42UL, unreachable: true, Arg.Any<CancellationToken>());
-        await h.Refresher.Received(1).RefreshAsync(10UL, serverId, 43UL, unreachable: true, Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1)
+            .RefreshAsync(10UL, serverId, 42UL, unreachable: true, Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1)
+            .RefreshAsync(10UL, serverId, 43UL, unreachable: true, Arg.Any<CancellationToken>());
     }
 
     /// <summary>Connected server → no-op (supervisor's prime path handles it).</summary>
@@ -319,9 +325,7 @@ public sealed class AlarmStateRelayTests
         h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
             .Returns(new ConnectionState
             {
-                GuildId = 10UL,
-                RustServerId = serverId,
-                Status = ConnectionStatus.Connected,
+                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Connected,
             });
 
         await h.Relay.HandleConnectionStatusAsync(

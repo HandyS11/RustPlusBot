@@ -21,14 +21,14 @@ internal sealed class AlarmChannelLocator(IServiceScopeFactory scopeFactory, ICl
     private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer = new();
 
     /// <inheritdoc />
-    public void Dispose() => _refreshGate.Dispose();
-
-    /// <inheritdoc />
     public async Task<ulong?> GetChannelIdAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
     {
         await EnsureFreshAsync(cancellationToken).ConfigureAwait(false);
         return _byServer.TryGetValue((guildId, serverId), out var id) ? id : null;
     }
+
+    /// <inheritdoc />
+    public void Dispose() => _refreshGate.Dispose();
 
     private async Task EnsureFreshAsync(CancellationToken cancellationToken)
     {

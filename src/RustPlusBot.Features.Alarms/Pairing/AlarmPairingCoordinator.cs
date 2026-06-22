@@ -42,7 +42,8 @@ internal sealed class AlarmPairingCoordinator(
         await using (scope.ConfigureAwait(false))
         {
             var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
-            if (await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken).ConfigureAwait(false))
+            if (await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                    .ConfigureAwait(false))
             {
                 return;
             }
@@ -54,7 +55,8 @@ internal sealed class AlarmPairingCoordinator(
                 return;
             }
 
-            var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken).ConfigureAwait(false);
+            var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken)
+                .ConfigureAwait(false);
             var defaultName = $"Alarm {evt.EntityId}";
             var (embed, components) = renderer.RenderPrompt(evt.ServerId, evt.EntityId, defaultName, culture);
             var messageId = await poster.EnsureAsync(channel, null, embed, components, cancellationToken)
@@ -96,7 +98,8 @@ internal sealed class AlarmPairingCoordinator(
             var channelId = await locator.GetChannelIdAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
             if (channelId is { } channel)
             {
-                var culture = await GetCultureAsync(scope.ServiceProvider, guildId, cancellationToken).ConfigureAwait(false);
+                var culture = await GetCultureAsync(scope.ServiceProvider, guildId, cancellationToken)
+                    .ConfigureAwait(false);
 
                 // The alarm is freshly accepted; unreachable is false (it just paired).
                 // The supervisor's prime path will re-render real state shortly.

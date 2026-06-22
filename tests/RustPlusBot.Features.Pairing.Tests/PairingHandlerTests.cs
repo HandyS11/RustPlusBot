@@ -133,7 +133,8 @@ public sealed class PairingHandlerTests
     public async Task EntityPairing_Alarm_PublishesAlarmPairedEvent_NotSwitch()
     {
         var (context, connection) = TestDb.Create();
-        await using var _ = context; await using var __ = connection;
+        await using var _ = context;
+        await using var __ = connection;
         var bus = Substitute.For<IEventBus>();
         var handler = CreateHandler(context, bus);
         await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);

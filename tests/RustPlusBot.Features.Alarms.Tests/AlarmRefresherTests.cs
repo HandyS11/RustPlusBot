@@ -114,10 +114,7 @@ public sealed class AlarmRefresherTests
         var serverId = Guid.NewGuid();
         var alarm = new SmartAlarm
         {
-            GuildId = 10UL,
-            ServerId = serverId,
-            EntityId = 42UL,
-            Name = "Fire Alarm",
+            GuildId = 10UL, ServerId = serverId, EntityId = 42UL, Name = "Fire Alarm",
         };
         var h = Create(alarm: alarm, channelId: null);
 

@@ -89,7 +89,8 @@ public sealed class AlarmComponentModule(
             }
 
             await store
-                .SetPingEveryoneAsync(Context.Guild.Id, serverId, entityId, !current.PingEveryone, CancellationToken.None)
+                .SetPingEveryoneAsync(Context.Guild.Id, serverId, entityId, !current.PingEveryone,
+                    CancellationToken.None)
                 .ConfigureAwait(false);
         }
 

@@ -113,7 +113,8 @@ public sealed class AlarmEmbedRendererTests
     public void RenderAlarm_ping_off_button_is_secondary_style()
     {
         var (_, components) = Create().RenderAlarm(Sample(pingEveryone: false), unreachable: false, "en");
-        var btn = Buttons(components).Single(b => b.CustomId!.StartsWith(AlarmComponentIds.PingTogglePrefix, StringComparison.Ordinal));
+        var btn = Buttons(components).Single(b =>
+            b.CustomId!.StartsWith(AlarmComponentIds.PingTogglePrefix, StringComparison.Ordinal));
 
         Assert.Equal(ButtonStyle.Secondary, btn.Style);
         Assert.False(btn.IsDisabled);
@@ -123,7 +124,8 @@ public sealed class AlarmEmbedRendererTests
     public void RenderAlarm_ping_on_button_is_success_style()
     {
         var (_, components) = Create().RenderAlarm(Sample(pingEveryone: true), unreachable: false, "en");
-        var btn = Buttons(components).Single(b => b.CustomId!.StartsWith(AlarmComponentIds.PingTogglePrefix, StringComparison.Ordinal));
+        var btn = Buttons(components).Single(b =>
+            b.CustomId!.StartsWith(AlarmComponentIds.PingTogglePrefix, StringComparison.Ordinal));
 
         Assert.Equal(ButtonStyle.Success, btn.Style);
         Assert.False(btn.IsDisabled);
@@ -135,7 +137,8 @@ public sealed class AlarmEmbedRendererTests
     public void RenderAlarm_relay_off_button_is_secondary_style()
     {
         var (_, components) = Create().RenderAlarm(Sample(relayToTeamChat: false), unreachable: false, "en");
-        var btn = Buttons(components).Single(b => b.CustomId!.StartsWith(AlarmComponentIds.RelayTogglePrefix, StringComparison.Ordinal));
+        var btn = Buttons(components).Single(b =>
+            b.CustomId!.StartsWith(AlarmComponentIds.RelayTogglePrefix, StringComparison.Ordinal));
 
         Assert.Equal(ButtonStyle.Secondary, btn.Style);
         Assert.False(btn.IsDisabled);
@@ -145,7 +148,8 @@ public sealed class AlarmEmbedRendererTests
     public void RenderAlarm_relay_on_button_is_success_style()
     {
         var (_, components) = Create().RenderAlarm(Sample(relayToTeamChat: true), unreachable: false, "en");
-        var btn = Buttons(components).Single(b => b.CustomId!.StartsWith(AlarmComponentIds.RelayTogglePrefix, StringComparison.Ordinal));
+        var btn = Buttons(components).Single(b =>
+            b.CustomId!.StartsWith(AlarmComponentIds.RelayTogglePrefix, StringComparison.Ordinal));
 
         Assert.Equal(ButtonStyle.Success, btn.Style);
         Assert.False(btn.IsDisabled);
@@ -169,7 +173,8 @@ public sealed class AlarmEmbedRendererTests
     public void RenderAlarm_ping_on_label_contains_on()
     {
         var (_, components) = Create().RenderAlarm(Sample(pingEveryone: true), unreachable: false, "en");
-        var btn = Buttons(components).Single(b => b.CustomId!.StartsWith(AlarmComponentIds.PingTogglePrefix, StringComparison.Ordinal));
+        var btn = Buttons(components).Single(b =>
+            b.CustomId!.StartsWith(AlarmComponentIds.PingTogglePrefix, StringComparison.Ordinal));
 
         Assert.Contains("on", btn.Label, StringComparison.OrdinalIgnoreCase);
     }
@@ -178,7 +183,8 @@ public sealed class AlarmEmbedRendererTests
     public void RenderAlarm_ping_off_label_contains_off()
     {
         var (_, components) = Create().RenderAlarm(Sample(pingEveryone: false), unreachable: false, "en");
-        var btn = Buttons(components).Single(b => b.CustomId!.StartsWith(AlarmComponentIds.PingTogglePrefix, StringComparison.Ordinal));
+        var btn = Buttons(components).Single(b =>
+            b.CustomId!.StartsWith(AlarmComponentIds.PingTogglePrefix, StringComparison.Ordinal));
 
         Assert.Contains("off", btn.Label, StringComparison.OrdinalIgnoreCase);
     }
