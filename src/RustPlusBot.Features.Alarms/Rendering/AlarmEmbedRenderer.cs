@@ -8,7 +8,7 @@ namespace RustPlusBot.Features.Alarms.Rendering;
 /// <summary>Renders a Smart Alarm as a Discord embed + control row, and the pairing-prompt embed + row. Pure.</summary>
 /// <param name="localizer">The alarm localizer.</param>
 /// <param name="clock">The clock used to compute relative trigger times.</param>
-internal sealed class AlarmEmbedRenderer(AlarmLocalizer localizer, IClock clock)
+internal sealed class AlarmEmbedRenderer(IAlarmLocalizer localizer, IClock clock)
 {
     /// <summary>Renders the alarm embed and its control buttons.</summary>
     /// <param name="alarm">The alarm to render.</param>

@@ -5,13 +5,11 @@ namespace RustPlusBot.Features.Alarms.Rendering;
 /// <summary>Dictionary-backed localizer for Smart Alarms with English fallback and region normalization.</summary>
 /// <remarks>Mirrors the SwitchLocalizer pattern; a future refactor may hoist a shared implementation.</remarks>
 /// <param name="catalog">The culture → (key → value) catalog.</param>
-internal sealed class AlarmLocalizer(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog)
+internal sealed class AlarmLocalizer(IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> catalog) : IAlarmLocalizer
 {
     private const string FallbackCulture = "en";
 
-    /// <summary>Gets the localized string for a key, or the key itself if not found.</summary>
-    /// <param name="key">The string key to resolve.</param>
-    /// <param name="culture">The BCP-47 culture tag (e.g. "en", "fr").</param>
+    /// <inheritdoc />
     public string Get(string key, string culture)
     {
         var normalized = Normalize(culture);
@@ -29,10 +27,7 @@ internal sealed class AlarmLocalizer(IReadOnlyDictionary<string, IReadOnlyDictio
         return key;
     }
 
-    /// <summary>Gets the localized, <see cref="string.Format(IFormatProvider, string, object?[])"/>-applied string.</summary>
-    /// <param name="key">The string key to resolve.</param>
-    /// <param name="culture">The BCP-47 culture tag (e.g. "en", "fr").</param>
-    /// <param name="args">Format arguments.</param>
+    /// <inheritdoc />
     public string Get(string key, string culture, params object[] args)
     {
         var format = Get(key, culture);

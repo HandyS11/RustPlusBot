@@ -2,8 +2,8 @@ namespace RustPlusBot.Features.Alarms.Rendering;
 
 /// <summary>
 /// The in-memory string catalog for Smart Alarms: culture → (key → value).
-/// English is the fallback. Intended to be passed directly to the shared
-/// <c>RustPlusBot.Discord.Localization.ILocalizer</c> constructor.
+/// English is the fallback. Intended to be passed to the per-slice
+/// <see cref="AlarmLocalizer"/> constructor.
 /// </summary>
 internal static class AlarmLocalizationCatalog
 {
