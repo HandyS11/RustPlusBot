@@ -47,9 +47,8 @@ public sealed class AlarmStoreTests
         Assert.Equal(DateTimeOffset.UnixEpoch, loaded.CreatedUtc);
         Assert.False(loaded.PingEveryone);
         Assert.False(loaded.RelayToTeamChat);
-        Assert.Null(loaded.LastTitle);
-        Assert.Null(loaded.LastMessage);
-        Assert.Null(loaded.LastFiredUtc);
+        Assert.False(loaded.LastIsActive);
+        Assert.Null(loaded.LastTriggeredUtc);
     }
 
     [Fact]
@@ -207,7 +206,7 @@ public sealed class AlarmStoreTests
     }
 
     [Fact]
-    public async Task RecordFiredAsync_StoresTitleMessageAndTimestamp()
+    public async Task UpdateStateAsync_active_sets_state_and_triggered_time()
     {
         var (store, context, conn) = Create();
         await using var _ = conn;
@@ -215,13 +214,30 @@ public sealed class AlarmStoreTests
         var serverId = await SeedServerAsync(context);
         await store.AddAsync(10UL, serverId, 42UL, "Alarm 42", 1UL);
 
-        var fired = DateTimeOffset.Parse("2026-06-22T12:00:00Z", CultureInfo.InvariantCulture);
-        await store.RecordFiredAsync(10UL, serverId, 42UL, "Raid!", "Base under attack", fired);
+        var t = DateTimeOffset.Parse("2026-06-22T12:00:00Z", CultureInfo.InvariantCulture);
+        await store.UpdateStateAsync(10UL, serverId, 42UL, isActive: true, triggeredUtc: t);
 
         var a = await store.GetAsync(10UL, serverId, 42UL);
-        Assert.Equal("Raid!", a!.LastTitle);
-        Assert.Equal("Base under attack", a.LastMessage);
-        Assert.Equal(fired, a.LastFiredUtc);
+        Assert.True(a!.LastIsActive);
+        Assert.Equal(t, a.LastTriggeredUtc);
+    }
+
+    [Fact]
+    public async Task UpdateStateAsync_inactive_keeps_triggered_time()
+    {
+        var (store, context, conn) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+        var serverId = await SeedServerAsync(context);
+        await store.AddAsync(10UL, serverId, 42UL, "Alarm 42", 1UL);
+        var t = DateTimeOffset.Parse("2026-06-22T12:00:00Z", CultureInfo.InvariantCulture);
+        await store.UpdateStateAsync(10UL, serverId, 42UL, isActive: true, triggeredUtc: t);
+
+        await store.UpdateStateAsync(10UL, serverId, 42UL, isActive: false, triggeredUtc: null);
+
+        var a = await store.GetAsync(10UL, serverId, 42UL);
+        Assert.False(a!.LastIsActive);
+        Assert.Equal(t, a.LastTriggeredUtc); // unchanged — only the active edge stamps it
     }
 
     [Fact]
@@ -251,7 +267,7 @@ public sealed class AlarmStoreTests
         await store.SetMessageIdAsync(10UL, serverId, 42UL, 1UL);
         await store.SetPingEveryoneAsync(10UL, serverId, 42UL, true);
         await store.SetRelayToTeamChatAsync(10UL, serverId, 42UL, true);
-        await store.RecordFiredAsync(10UL, serverId, 42UL, "t", "m", DateTimeOffset.UnixEpoch);
+        await store.UpdateStateAsync(10UL, serverId, 42UL, isActive: true, triggeredUtc: DateTimeOffset.UnixEpoch);
         await store.RemoveAsync(10UL, serverId, 42UL);
 
         Assert.Null(await store.GetAsync(10UL, serverId, 42UL));

@@ -83,7 +83,7 @@ public interface IAlarmStore
         ulong messageId,
         CancellationToken ct = default);
 
-    /// <summary>Sets whether a fire pings @everyone in the #alarms channel (no-op if absent).</summary>
+    /// <summary>Sets whether a trigger going active pings @everyone in the #alarms channel (no-op if absent).</summary>
     /// <param name="guildId">Owning Discord guild snowflake.</param>
     /// <param name="serverId">The Rust server id.</param>
     /// <param name="entityId">The in-game smart-alarm entity id.</param>
@@ -97,7 +97,7 @@ public interface IAlarmStore
         bool value,
         CancellationToken ct = default);
 
-    /// <summary>Sets whether a fire relays the message into in-game team chat (no-op if absent).</summary>
+    /// <summary>Sets whether a trigger going active relays the message into in-game team chat (no-op if absent).</summary>
     /// <param name="guildId">Owning Discord guild snowflake.</param>
     /// <param name="serverId">The Rust server id.</param>
     /// <param name="entityId">The in-game smart-alarm entity id.</param>
@@ -111,22 +111,20 @@ public interface IAlarmStore
         bool value,
         CancellationToken ct = default);
 
-    /// <summary>Records that the alarm fired, storing its title, message, and timestamp (no-op if absent).</summary>
+    /// <summary>Updates the alarm's on/off state; stamps the last-triggered time only when going active (no-op if absent).</summary>
     /// <param name="guildId">Owning Discord guild snowflake.</param>
     /// <param name="serverId">The Rust server id.</param>
     /// <param name="entityId">The in-game smart-alarm entity id.</param>
-    /// <param name="title">The FCM notification title, or null.</param>
-    /// <param name="message">The FCM notification message body, or null.</param>
-    /// <param name="firedUtc">When the alarm fired (UTC).</param>
+    /// <param name="isActive">The new on/off state.</param>
+    /// <param name="triggeredUtc">When it went active (UTC); pass non-null only on the active edge — when null, the existing last-triggered time is kept.</param>
     /// <param name="ct">A cancellation token.</param>
-    /// <returns>A task that completes when the fire record has been persisted.</returns>
-    Task RecordFiredAsync(
+    /// <returns>A task that completes when the state has been persisted.</returns>
+    Task UpdateStateAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
-        string? title,
-        string? message,
-        DateTimeOffset firedUtc,
+        bool isActive,
+        DateTimeOffset? triggeredUtc,
         CancellationToken ct = default);
 
     /// <summary>Removes an alarm (no-op if absent).</summary>

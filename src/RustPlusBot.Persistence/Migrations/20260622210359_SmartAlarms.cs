@@ -25,9 +25,8 @@ namespace RustPlusBot.Persistence.Migrations
                     CreatedUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
                     PingEveryone = table.Column<bool>(type: "INTEGER", nullable: false),
                     RelayToTeamChat = table.Column<bool>(type: "INTEGER", nullable: false),
-                    LastTitle = table.Column<string>(type: "TEXT", nullable: true),
-                    LastMessage = table.Column<string>(type: "TEXT", nullable: true),
-                    LastFiredUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
+                    LastIsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    LastTriggeredUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {

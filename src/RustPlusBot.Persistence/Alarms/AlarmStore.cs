@@ -120,19 +120,20 @@ public sealed class AlarmStore(BotDbContext context, IClock clock) : IAlarmStore
         MutateAsync(guildId, serverId, entityId, a => a.RelayToTeamChat = value, ct);
 
     /// <inheritdoc />
-    public Task RecordFiredAsync(
+    public Task UpdateStateAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
-        string? title,
-        string? message,
-        DateTimeOffset firedUtc,
+        bool isActive,
+        DateTimeOffset? triggeredUtc,
         CancellationToken ct = default) =>
         MutateAsync(guildId, serverId, entityId, a =>
         {
-            a.LastTitle = title;
-            a.LastMessage = message;
-            a.LastFiredUtc = firedUtc;
+            a.LastIsActive = isActive;
+            if (triggeredUtc is { } t)
+            {
+                a.LastTriggeredUtc = t;
+            }
         }, ct);
 
     /// <inheritdoc />

@@ -1,6 +1,6 @@
 namespace RustPlusBot.Domain.Alarms;
 
-/// <summary>A paired Smart Alarm the bot manages, surviving restarts. Guild- and server-scoped. Notify-only (FCM push).</summary>
+/// <summary>A paired Smart Alarm the bot manages, surviving restarts. Guild- and server-scoped. Driven by the live socket (primed on connect, reacts to SmartDeviceTriggered) — the entity id is the switch-vs-alarm discriminant.</summary>
 public sealed class SmartAlarm
 {
     /// <summary>Surrogate primary key.</summary>
@@ -15,7 +15,7 @@ public sealed class SmartAlarm
     /// <summary>The in-game smart-alarm entity id.</summary>
     public ulong EntityId { get; set; }
 
-    /// <summary>User-facing label; defaults to a generated "Alarm &lt;EntityId&gt;" (the FCM event carries no name).</summary>
+    /// <summary>User-facing label; defaults to a generated "Alarm &lt;EntityId&gt;".</summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>The Discord message id of this alarm's embed, or null until first posted.</summary>
@@ -27,18 +27,15 @@ public sealed class SmartAlarm
     /// <summary>When the alarm was accepted (UTC).</summary>
     public DateTimeOffset CreatedUtc { get; set; }
 
-    /// <summary>When true, a fire pings @everyone in #alarms.</summary>
+    /// <summary>When true, a trigger going active pings @everyone in #alarms.</summary>
     public bool PingEveryone { get; set; }
 
-    /// <summary>When true, a fire relays the message into in-game team chat.</summary>
+    /// <summary>When true, a trigger going active relays the message into in-game team chat.</summary>
     public bool RelayToTeamChat { get; set; }
 
-    /// <summary>The title from the most recent fire, or null if never fired.</summary>
-    public string? LastTitle { get; set; }
+    /// <summary>The last observed on/off state from the in-game socket broadcast.</summary>
+    public bool LastIsActive { get; set; }
 
-    /// <summary>The message from the most recent fire, or null if never fired.</summary>
-    public string? LastMessage { get; set; }
-
-    /// <summary>When the alarm most recently fired (UTC), or null if never.</summary>
-    public DateTimeOffset? LastFiredUtc { get; set; }
+    /// <summary>When the alarm most recently went active (UTC), or null if never triggered.</summary>
+    public DateTimeOffset? LastTriggeredUtc { get; set; }
 }

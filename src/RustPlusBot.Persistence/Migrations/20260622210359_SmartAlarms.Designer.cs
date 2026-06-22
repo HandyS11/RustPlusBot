@@ -11,7 +11,7 @@ using RustPlusBot.Persistence;
 namespace RustPlusBot.Persistence.Migrations
 {
     [DbContext(typeof(BotDbContext))]
-    [Migration("20260622154342_SmartAlarms")]
+    [Migration("20260622210359_SmartAlarms")]
     partial class SmartAlarms
     {
         /// <inheritdoc />
@@ -140,13 +140,10 @@ namespace RustPlusBot.Persistence.Migrations
                     b.Property<long>("GuildId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("LastFiredUtc")
-                        .HasColumnType("TEXT");
+                    b.Property<bool>("LastIsActive")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<string>("LastMessage")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("LastTitle")
+                    b.Property<DateTimeOffset?>("LastTriggeredUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<long?>("MessageId")
