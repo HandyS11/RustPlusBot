@@ -140,9 +140,9 @@ public sealed class SwitchQueryTests
 
         // Subscribe BEFORE connecting: SubscribeAsync registers the channel eagerly on THIS thread, so the primed
         // publish (which fires during EnsureConnectionAsync) is observed. Only the enumeration runs in Task.Run.
-        var stream = bus.SubscribeAsync<SwitchStateChangedEvent>(cts.Token);
+        var stream = bus.SubscribeAsync<SmartDeviceTriggeredEvent>(cts.Token);
         var received =
-            new TaskCompletionSource<SwitchStateChangedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+            new TaskCompletionSource<SmartDeviceTriggeredEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
         _ = Task.Run(
             async () =>
             {
@@ -157,7 +157,7 @@ public sealed class SwitchQueryTests
             },
             cts.Token);
 
-        // The fake defaults entity 42 absent → GetSmartSwitchInfoAsync returns null → priming publishes off.
+        // The fake defaults entity 42 absent → GetSmartDeviceInfoAsync returns null → priming publishes off.
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
 
         var evt = await received.Task.WaitAsync(cts.Token);
@@ -177,9 +177,9 @@ public sealed class SwitchQueryTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Subscribe BEFORE raising the trigger so the channel is registered when the publish fires.
-        var stream = bus.SubscribeAsync<SwitchStateChangedEvent>(cts.Token);
+        var stream = bus.SubscribeAsync<SmartDeviceTriggeredEvent>(cts.Token);
         var received =
-            new TaskCompletionSource<SwitchStateChangedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+            new TaskCompletionSource<SmartDeviceTriggeredEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
         _ = Task.Run(
             async () =>
             {
@@ -198,8 +198,7 @@ public sealed class SwitchQueryTests
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
         await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
 
-        source.LastConnection!.SwitchStates[42UL] = true; // re-read on trigger returns on
-        source.LastConnection.RaiseSmartSwitchTriggered(42UL);
+        source.LastConnection!.RaiseSmartDeviceTriggered(42UL, isActive: true);
 
         var evt = await received.Task.WaitAsync(cts.Token);
         Assert.True(evt.IsActive);

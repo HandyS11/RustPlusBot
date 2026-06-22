@@ -257,7 +257,7 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        return await live.Connection.GetSmartSwitchInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
+        return await live.Connection.GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -467,20 +467,20 @@ internal sealed partial class ConnectionSupervisor(
         var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
         var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
 
-#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<ulong> delegate shape.
-        void OnSmartSwitch(object? sender, ulong entityId)
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<SmartDeviceTrigger> delegate shape.
+        void OnSmartDevice(object? sender, SmartDeviceTrigger trigger)
         {
-            // Fire-and-forget: PublishSwitchStateAsync catches everything internally, so the discarded task never
-            // surfaces an unobserved exception. Switch triggers are low-volume, so unbounded concurrency is fine.
-            _ = PublishSwitchStateAsync(key, connection, entityId);
+            // Fire-and-forget: PublishDeviceTriggerAsync catches everything internally, so the discarded task never
+            // surfaces an unobserved exception. Device triggers are low-volume, so unbounded concurrency is fine.
+            _ = PublishDeviceTriggerAsync(key, trigger);
         }
 #pragma warning restore RCS1163
 
         var tracker = new TeamStateTracker();
         connection.TeamMessageReceived += OnTeamMessage;
-        connection.SmartSwitchTriggered += OnSmartSwitch;
+        connection.SmartDeviceTriggered += OnSmartDevice;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
-        await PrimeSwitchesAsync(key, connection, ct).ConfigureAwait(false);
+        await PrimeDevicesAsync(key, connection, ct).ConfigureAwait(false);
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
             CancellationToken.None);
@@ -521,7 +521,7 @@ internal sealed partial class ConnectionSupervisor(
 
             _liveSockets.TryRemove(key, out _);
             connection.TeamMessageReceived -= OnTeamMessage;
-            connection.SmartSwitchTriggered -= OnSmartSwitch;
+            connection.SmartDeviceTriggered -= OnSmartDevice;
         }
     }
 
@@ -799,7 +799,7 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
-    private async Task PrimeSwitchesAsync(
+    private async Task PrimeDevicesAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
         CancellationToken ct)
@@ -823,7 +823,7 @@ internal sealed partial class ConnectionSupervisor(
 #pragma warning restore CA1031
         {
             // Best-effort: a store/DB failure must not crash the connected loop or block the heartbeat.
-            LogSwitchListFailed(logger, ex, key.Server);
+            LogDeviceListFailed(logger, ex, key.Server);
             return;
         }
 
@@ -834,7 +834,7 @@ internal sealed partial class ConnectionSupervisor(
             // Best-effort per switch: one failure must not crash the connected loop or block the heartbeat.
             try
             {
-                await PublishSwitchStateAsync(key, connection, sw.EntityId).ConfigureAwait(false);
+                await PublishDevicePrimeAsync(key, connection, sw.EntityId).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -844,12 +844,47 @@ internal sealed partial class ConnectionSupervisor(
             catch (Exception ex)
 #pragma warning restore CA1031
             {
-                LogSwitchPrimeFailed(logger, ex, sw.EntityId, key.Server);
+                LogDevicePrimeFailed(logger, ex, sw.EntityId, key.Server);
             }
         }
     }
 
-    private async Task PublishSwitchStateAsync(
+    /// <summary>Trigger path: IsActive is carried on the broadcast arg — no re-read.</summary>
+    /// <param name="key">The (guild, server) routing key.</param>
+    /// <param name="trigger">The device trigger carrying the entity id and active state.</param>
+    private async Task PublishDeviceTriggerAsync(
+        (ulong Guild, Guid Server) key,
+        SmartDeviceTrigger trigger)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await eventBus.PublishAsync(
+                    new SmartDeviceTriggeredEvent(key.Guild, key.Server, trigger.EntityId, trigger.IsActive),
+                    _shutdown.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a device publish failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogDevicePublishFailed(logger, ex, trigger.EntityId, key.Server);
+        }
+    }
+
+    /// <summary>Prime path: read state on connect (also primes the socket's interest), then publish.</summary>
+    /// <param name="key">The (guild, server) routing key.</param>
+    /// <param name="connection">The live connection used to read device state.</param>
+    /// <param name="entityId">The entity id of the device to prime.</param>
+    private async Task PublishDevicePrimeAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
         ulong entityId)
@@ -862,10 +897,10 @@ internal sealed partial class ConnectionSupervisor(
         try
         {
             var isActive = await connection
-                .GetSmartSwitchInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
+                .GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
                 .ConfigureAwait(false);
             await eventBus.PublishAsync(
-                    new SwitchStateChangedEvent(key.Guild, key.Server, entityId, isActive ?? false),
+                    new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId, isActive ?? false),
                     _shutdown.Token)
                 .ConfigureAwait(false);
         }
@@ -873,11 +908,11 @@ internal sealed partial class ConnectionSupervisor(
         {
             // Shutting down.
         }
-#pragma warning disable CA1031 // Broad catch: a switch publish failure must not crash the socket callback.
+#pragma warning disable CA1031 // Broad catch: a device prime failure must not crash the socket callback.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            LogSwitchPublishFailed(logger, ex, entityId, key.Server);
+            LogDevicePublishFailed(logger, ex, entityId, key.Server);
         }
     }
 
@@ -897,16 +932,16 @@ internal sealed partial class ConnectionSupervisor(
     private static partial void LogPublishTeamMessageFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning,
-        Message = "Listing smart switches to prime on server {ServerId} failed; priming skipped for this connection.")]
-    private static partial void LogSwitchListFailed(ILogger logger, Exception exception, Guid serverId);
+        Message = "Listing smart devices to prime on server {ServerId} failed; priming skipped for this connection.")]
+    private static partial void LogDeviceListFailed(ILogger logger, Exception exception, Guid serverId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Priming smart switch {EntityId} on server {ServerId} failed.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Priming smart device {EntityId} on server {ServerId} failed.")]
     private static partial void
-        LogSwitchPrimeFailed(ILogger logger, Exception exception, ulong entityId, Guid serverId);
+        LogDevicePrimeFailed(ILogger logger, Exception exception, ulong entityId, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning,
-        Message = "Publishing a smart-switch state for entity {EntityId} on server {ServerId} failed.")]
-    private static partial void LogSwitchPublishFailed(ILogger logger,
+        Message = "Publishing a smart-device state for entity {EntityId} on server {ServerId} failed.")]
+    private static partial void LogDevicePublishFailed(ILogger logger,
         Exception exception,
         ulong entityId,
         Guid serverId);
