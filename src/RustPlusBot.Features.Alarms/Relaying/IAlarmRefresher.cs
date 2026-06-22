@@ -1,7 +1,7 @@
 namespace RustPlusBot.Features.Alarms.Relaying;
 
 /// <summary>Re-renders a single alarm's embed on demand (prime, reconnect, or trigger).</summary>
-internal interface IAlarmRefresher
+public interface IAlarmRefresher
 {
     /// <summary>Loads the alarm, renders it, and posts or edits its embed.</summary>
     /// <param name="guildId">The owning Discord guild snowflake.</param>
