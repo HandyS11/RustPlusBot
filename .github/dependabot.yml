@@ -9,3 +9,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # SixLabors moved ImageSharp v4 / ImageSharp.Drawing v3 to the commercial
+      # "Six Labors Split License", which hard-fails the build without a paid
+      # license key. Stay on the Apache-2.0 3.1.x / 2.1.x line. See PR #21.
+      - dependency-name: "SixLabors.ImageSharp"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "SixLabors.ImageSharp.Drawing"
+        update-types: ["version-update:semver-major"]
