@@ -1,5 +1,7 @@
 # RustPlusBot
 
+[![codecov](https://codecov.io/gh/HandyS11/RustPlusBot/graph/badge.svg?token=jH6L7dDRrq)](https://codecov.io/gh/HandyS11/RustPlusBot)
+
 A self-hosted Discord bot for the Rust+ companion app.
 
 ## Status
