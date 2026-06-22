@@ -18,10 +18,10 @@ internal sealed partial class SwitchesHostedService(
     ILogger<SwitchesHostedService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
+    private Task? _deviceLoop;
     private Task? _pairedLoop;
     private Task? _stateLoop;
     private Task? _statusLoop;
-    private Task? _deviceLoop;
 
     /// <inheritdoc />
     public void Dispose() => _cts.Dispose();

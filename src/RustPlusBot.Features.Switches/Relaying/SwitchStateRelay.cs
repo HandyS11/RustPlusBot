@@ -60,7 +60,8 @@ internal sealed class SwitchStateRelay(
         await using (scope.ConfigureAwait(false))
         {
             var store = scope.ServiceProvider.GetRequiredService<ISwitchStore>();
-            if (!await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken).ConfigureAwait(false))
+            if (!await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                    .ConfigureAwait(false))
             {
                 return; // not a switch this relay manages (e.g. an alarm) — ignore.
             }
@@ -74,7 +75,8 @@ internal sealed class SwitchStateRelay(
                 return;
             }
 
-            var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken).ConfigureAwait(false);
+            var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken)
+                .ConfigureAwait(false);
             await RenderAsync(store, sw, evt.IsActive, evt.GuildId, evt.ServerId, culture, cancellationToken)
                 .ConfigureAwait(false);
         }
