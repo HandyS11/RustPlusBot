@@ -37,24 +37,30 @@ internal sealed class AlarmPairingCoordinator(
     public async Task HandlePairedAsync(AlarmPairedEvent evt, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(evt);
-        if (await ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken).ConfigureAwait(false))
-        {
-            return;
-        }
 
-        var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
-            .ConfigureAwait(false);
-        if (channelId is not { } channel)
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
         {
-            return;
-        }
+            var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
+            if (await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken).ConfigureAwait(false))
+            {
+                return;
+            }
 
-        var culture = await GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
-        var defaultName = $"Alarm {evt.EntityId}";
-        var (embed, components) = renderer.RenderPrompt(evt.ServerId, evt.EntityId, defaultName, culture);
-        var messageId = await poster.EnsureAsync(channel, null, embed, components, cancellationToken)
-            .ConfigureAwait(false);
-        _pending[(evt.GuildId, evt.ServerId, evt.EntityId)] = new Pending(defaultName, messageId);
+            var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
+                .ConfigureAwait(false);
+            if (channelId is not { } channel)
+            {
+                return;
+            }
+
+            var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken).ConfigureAwait(false);
+            var defaultName = $"Alarm {evt.EntityId}";
+            var (embed, components) = renderer.RenderPrompt(evt.ServerId, evt.EntityId, defaultName, culture);
+            var messageId = await poster.EnsureAsync(channel, null, embed, components, cancellationToken)
+                .ConfigureAwait(false);
+            _pending[(evt.GuildId, evt.ServerId, evt.EntityId)] = new Pending(defaultName, messageId);
+        }
     }
 
     /// <summary>Accepts a pending pairing: persist + replace prompt with the alarm embed. Race-guarded.</summary>
@@ -71,12 +77,6 @@ internal sealed class AlarmPairingCoordinator(
         ulong acceptingUserId,
         CancellationToken cancellationToken)
     {
-        if (await ExistsAsync(guildId, serverId, entityId, cancellationToken).ConfigureAwait(false))
-        {
-            _pending.TryRemove((guildId, serverId, entityId), out _);
-            return false;
-        }
-
         _pending.TryGetValue((guildId, serverId, entityId), out var pending);
         var name = pending?.DefaultName ?? $"Alarm {entityId}";
 
@@ -84,13 +84,19 @@ internal sealed class AlarmPairingCoordinator(
         await using (scope.ConfigureAwait(false))
         {
             var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
+            if (await store.ExistsAsync(guildId, serverId, entityId, cancellationToken).ConfigureAwait(false))
+            {
+                _pending.TryRemove((guildId, serverId, entityId), out _);
+                return false;
+            }
+
             var added = await store.AddAsync(guildId, serverId, entityId, name, acceptingUserId, cancellationToken)
                 .ConfigureAwait(false);
 
             var channelId = await locator.GetChannelIdAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
             if (channelId is { } channel)
             {
-                var culture = await GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
+                var culture = await GetCultureAsync(scope.ServiceProvider, guildId, cancellationToken).ConfigureAwait(false);
 
                 // The alarm is freshly accepted; unreachable is false (it just paired).
                 // The supervisor's prime path will re-render real state shortly.
@@ -118,24 +124,10 @@ internal sealed class AlarmPairingCoordinator(
     public bool TryDismiss(ulong guildId, Guid serverId, ulong entityId) =>
         _pending.TryRemove((guildId, serverId, entityId), out _);
 
-    private async Task<bool> ExistsAsync(ulong guildId, Guid serverId, ulong entityId, CancellationToken ct)
+    private static async Task<string> GetCultureAsync(IServiceProvider provider, ulong guildId, CancellationToken ct)
     {
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
-            return await store.ExistsAsync(guildId, serverId, entityId, ct).ConfigureAwait(false);
-        }
-    }
-
-    private async Task<string> GetCultureAsync(ulong guildId, CancellationToken ct)
-    {
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            return await store.GetCultureAsync(guildId, ct).ConfigureAwait(false);
-        }
+        var store = provider.GetRequiredService<IWorkspaceStore>();
+        return await store.GetCultureAsync(guildId, ct).ConfigureAwait(false);
     }
 
     private sealed record Pending(string DefaultName, ulong? MessageId);

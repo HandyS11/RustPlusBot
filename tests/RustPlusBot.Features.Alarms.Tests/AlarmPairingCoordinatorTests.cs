@@ -91,6 +91,12 @@ public sealed class AlarmPairingCoordinatorTests
         Assert.True(ok);
         await h.Store.Received(1).AddAsync(10UL, serverId, 42UL, "Alarm 42", 5UL, Arg.Any<CancellationToken>());
         Assert.Null(h.Coordinator.PendingName(10UL, serverId, 42UL)); // pending cleared
+        // The prompt (posted by HandlePairedAsync) must be replaced by the alarm embed (posted by TryAcceptAsync).
+        // EnsureAsync is called twice: once for the prompt (messageId=null), once for the embed (messageId=900 from prompt).
+        await h.Poster.Received(2).EnsureAsync(777UL, Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(777UL, 900UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
