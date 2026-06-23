@@ -18,7 +18,7 @@ internal sealed class AlarmChannelLocator(IServiceScopeFactory scopeFactory, ICl
 
     private DateTimeOffset _builtAt = DateTimeOffset.MinValue;
 
-    private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer = new();
+    private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer = [];
 
     /// <inheritdoc />
     public async Task<ulong?> GetChannelIdAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)

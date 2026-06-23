@@ -98,10 +98,10 @@ public sealed class MapImageQueryTests
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
         await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
 
-        source.LastConnection!.MapImageResult = new byte[]
-        {
+        source.LastConnection!.MapImageResult =
+        [
             1, 2, 3
-        };
+        ];
         var image = await supervisor.GetMapImageAsync(10UL, serverId, cts.Token);
 
         Assert.Equal(new byte[]

@@ -5,9 +5,9 @@ namespace RustPlusBot.Features.Connections.Listening;
 /// <summary>Diffs successive team snapshots into presence transitions. One instance per connected window.</summary>
 internal sealed class TeamStateTracker
 {
-    private readonly HashSet<ulong> _afk = new();
+    private readonly HashSet<ulong> _afk = [];
     private readonly object _gate = new();
-    private readonly Dictionary<ulong, DateTimeOffset> _stillSince = new();
+    private readonly Dictionary<ulong, DateTimeOffset> _stillSince = [];
     private Dictionary<ulong, TeamMemberSnapshot>? _baseline;
 
     /// <summary>Diffs <paramref name="snapshot"/> against the previous one. First non-null call primes silently.</summary>

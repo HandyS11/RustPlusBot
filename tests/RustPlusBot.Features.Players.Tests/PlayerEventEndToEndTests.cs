@@ -11,7 +11,7 @@ public sealed class PlayerEventEndToEndTests
     {
         var renderer = new PlayerEventRenderer(new PlayerLocalizer(PlayerLocalizationCatalog.Default));
         var dims = new MapDimensions(3000, 3000, 0);
-        foreach (PlayerTransitionKind kind in Enum.GetValues<PlayerTransitionKind>())
+        foreach (var kind in Enum.GetValues<PlayerTransitionKind>())
         {
             var loc = kind is PlayerTransitionKind.Death or PlayerTransitionKind.Respawn
                 or PlayerTransitionKind.BecameAfk

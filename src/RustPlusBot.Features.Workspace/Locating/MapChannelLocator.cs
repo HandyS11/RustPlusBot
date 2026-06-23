@@ -18,7 +18,7 @@ internal sealed class MapChannelLocator(IServiceScopeFactory scopeFactory, ICloc
 
     private DateTimeOffset _builtAt = DateTimeOffset.MinValue;
 
-    private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer = new();
+    private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer = [];
 
     /// <inheritdoc />
     public void Dispose() => _refreshGate.Dispose();

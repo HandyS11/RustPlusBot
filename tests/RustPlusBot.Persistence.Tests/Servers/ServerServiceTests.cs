@@ -75,12 +75,12 @@ public sealed class ServerServiceTests
         await using var __ = connection;
         var service = new ServerService(context);
 
-        var first = await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "Main", "1.2.3.4", 28015);
+        var (Server, Created) = await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "Main", "1.2.3.4", 28015);
         var second = await service.ResolveOrCreateByEndpointAsync(10UL, 2UL, "Main again", "1.2.3.4", 28015);
 
-        Assert.True(first.Created);
+        Assert.True(Created);
         Assert.False(second.Created);
-        Assert.Equal(first.Server.Id, second.Server.Id);
+        Assert.Equal(Server.Id, second.Server.Id);
         Assert.Single(await service.ListAsync(10UL));
     }
 

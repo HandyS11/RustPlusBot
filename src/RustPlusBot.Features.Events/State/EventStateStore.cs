@@ -23,10 +23,12 @@ internal sealed class EventStateStore(IClock clock) : IEventState
 
         lock (state.Gate)
         {
-            return state.Active.Values
-                .Where(m => m.Kind == kind)
-                .OrderByDescending(m => m.SeenAtUtc)
-                .ToList();
+            return
+            [
+                .. state.Active.Values
+                    .Where(m => m.Kind == kind)
+                    .OrderByDescending(m => m.SeenAtUtc)
+            ];
         }
     }
 
@@ -40,7 +42,7 @@ internal sealed class EventStateStore(IClock clock) : IEventState
 
         lock (state.Gate)
         {
-            return state.Recent.ToList(); // already newest-first
+            return [.. state.Recent]; // already newest-first
         }
     }
 

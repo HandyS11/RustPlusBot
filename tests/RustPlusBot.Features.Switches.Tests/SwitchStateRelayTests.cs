@@ -74,8 +74,8 @@ public sealed class SwitchStateRelayTests
                 GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Unreachable
             });
         h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new[]
-            {
+            .Returns(
+            [
                 new SmartSwitch
                 {
                     GuildId = 10UL,
@@ -84,7 +84,7 @@ public sealed class SwitchStateRelayTests
                     Name = "G",
                     MessageId = 900UL
                 }
-            });
+            ]);
 
         await h.Relay.HandleConnectionStatusAsync(
             new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);

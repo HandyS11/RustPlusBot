@@ -52,7 +52,7 @@ public sealed class MapComposerTests
     {
         var events = Substitute.For<IEventState>();
         events.GetActiveMarkers(Guild, Server, Arg.Any<MarkerKind>())
-            .Returns(ci => markers.Where(m => m.Kind == (MarkerKind)ci[2]!).ToList());
+            .Returns(ci => [.. markers.Where(m => m.Kind == (MarkerKind)ci[2]!)]);
         return events;
     }
 

@@ -38,10 +38,10 @@ public sealed class AccountDisconnectServiceTests
                 Id = regId, GuildId = 10UL, OwnerUserId = 99UL
             });
         creds.RemoveForOwnerAsync(10UL, 99UL, Arg.Any<CancellationToken>())
-            .Returns(new List<Guid>
-            {
+            .Returns(
+            [
                 s1, s2
-            });
+            ]);
 
         var count = await sut.DisconnectAsync(10UL, 99UL);
 
@@ -60,7 +60,7 @@ public sealed class AccountDisconnectServiceTests
     {
         var (sut, sup, regs, creds, _, bus) = Create();
         regs.GetAsync(10UL, 99UL, Arg.Any<CancellationToken>()).Returns((FcmRegistration?)null);
-        creds.RemoveForOwnerAsync(10UL, 99UL, Arg.Any<CancellationToken>()).Returns(new List<Guid>());
+        creds.RemoveForOwnerAsync(10UL, 99UL, Arg.Any<CancellationToken>()).Returns([]);
 
         var count = await sut.DisconnectAsync(10UL, 99UL);
 
@@ -82,10 +82,10 @@ public sealed class AccountDisconnectServiceTests
                 Id = Guid.NewGuid(), GuildId = 10UL, OwnerUserId = 99UL
             });
         creds.ListServerIdsForOwnerAsync(10UL, 99UL, Arg.Any<CancellationToken>())
-            .Returns(new List<Guid>
-            {
+            .Returns(
+            [
                 s1
-            });
+            ]);
         servers.GetAsync(10UL, s1, Arg.Any<CancellationToken>())
             .Returns(new RustServer
             {
@@ -107,7 +107,7 @@ public sealed class AccountDisconnectServiceTests
     {
         var (sut, _, regs, creds, _, _) = Create();
         regs.GetAsync(10UL, 99UL, Arg.Any<CancellationToken>()).Returns((FcmRegistration?)null);
-        creds.ListServerIdsForOwnerAsync(10UL, 99UL, Arg.Any<CancellationToken>()).Returns(new List<Guid>());
+        creds.ListServerIdsForOwnerAsync(10UL, 99UL, Arg.Any<CancellationToken>()).Returns([]);
 
         var preview = await sut.PreviewAsync(10UL, 99UL);
 

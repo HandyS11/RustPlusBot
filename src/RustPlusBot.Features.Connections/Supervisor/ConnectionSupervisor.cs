@@ -10,9 +10,9 @@ using RustPlusBot.Discord.Notifications;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
-using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Supervisor;
@@ -829,7 +829,7 @@ internal sealed partial class ConnectionSupervisor(
         }
 
         await PrimeEntityIdsAsync(key, connection,
-            (IReadOnlyList<ulong>)switches.Select(sw => sw.EntityId).ToList()).ConfigureAwait(false);
+            (IReadOnlyList<ulong>)[.. switches.Select(sw => sw.EntityId)]).ConfigureAwait(false);
 
         IReadOnlyList<Domain.Alarms.SmartAlarm> alarms;
         try
@@ -854,7 +854,7 @@ internal sealed partial class ConnectionSupervisor(
         }
 
         await PrimeEntityIdsAsync(key, connection,
-            (IReadOnlyList<ulong>)alarms.Select(a => a.EntityId).ToList()).ConfigureAwait(false);
+            (IReadOnlyList<ulong>)[.. alarms.Select(a => a.EntityId)]).ConfigureAwait(false);
     }
 
     private async Task PrimeEntityIdsAsync(

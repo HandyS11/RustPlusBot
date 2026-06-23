@@ -33,9 +33,12 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
         CancellationToken cancellationToken = default)
     {
         var prefix = Scope(guildId, serverId) + "|";
-        IReadOnlyList<ProvisionedChannel> list = _channels
-            .Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal))
-            .Select(kv => kv.Value).ToList();
+        IReadOnlyList<ProvisionedChannel> list =
+        [
+            .. _channels
+                .Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal))
+                .Select(kv => kv.Value)
+        ];
         return Task.FromResult(list);
     }
 
@@ -44,7 +47,7 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ProvisionedChannel> result =
-            _channels.Values.Where(c => c.ChannelKey == channelKey).ToList();
+            [.. _channels.Values.Where(c => c.ChannelKey == channelKey)];
         return Task.FromResult(result);
     }
 
@@ -95,13 +98,13 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
     public Task<IReadOnlyList<ProvisionedCategory>> GetAllCategoriesAsync(ulong guildId,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<ProvisionedCategory> list = _categories.Values.Where(c => c.GuildId == guildId).ToList();
+        IReadOnlyList<ProvisionedCategory> list = [.. _categories.Values.Where(c => c.GuildId == guildId)];
         return Task.FromResult(list);
     }
 
     public Task<IReadOnlyList<ulong>> GetProvisionedGuildIdsAsync(CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<ulong> list = _categories.Values.Select(c => c.GuildId).Distinct().ToList();
+        IReadOnlyList<ulong> list = [.. _categories.Values.Select(c => c.GuildId).Distinct()];
         return Task.FromResult(list);
     }
 

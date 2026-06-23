@@ -7,15 +7,14 @@ internal sealed class WorkspaceRegistry(
     IEnumerable<IChannelSpecProvider> channelProviders,
     IEnumerable<IMessageSpecProvider> messageProviders) : IWorkspaceRegistry
 {
-    private readonly List<ChannelSpec> _channels = channelProviders.SelectMany(p => p.GetChannelSpecs()).ToList();
-    private readonly List<MessageSpec> _messages = messageProviders.SelectMany(p => p.GetMessageSpecs()).ToList();
+    private readonly List<ChannelSpec> _channels = [.. channelProviders.SelectMany(p => p.GetChannelSpecs())];
+    private readonly List<MessageSpec> _messages = [.. messageProviders.SelectMany(p => p.GetMessageSpecs())];
 
     /// <inheritdoc />
     public IReadOnlyList<ChannelSpec> GetChannelSpecs(WorkspaceScope scope) =>
-        _channels.Where(s => s.Scope == scope).OrderBy(s => s.Order).ThenBy(s => s.Key, StringComparer.Ordinal)
-            .ToList();
+        [.. _channels.Where(s => s.Scope == scope).OrderBy(s => s.Order).ThenBy(s => s.Key, StringComparer.Ordinal)];
 
     /// <inheritdoc />
     public IReadOnlyList<MessageSpec> GetMessageSpecs(WorkspaceScope scope) =>
-        _messages.Where(s => s.Scope == scope).ToList();
+        [.. _messages.Where(s => s.Scope == scope)];
 }

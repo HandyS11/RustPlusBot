@@ -35,25 +35,18 @@ internal sealed class PlayerEventRenderer(IPlayerLocalizer localizer)
 
     private string Describe(PlayerTransition t, MapDimensions? dims, string culture, string suffix)
     {
-        switch (t.Kind)
+        return t.Kind switch
         {
-            case PlayerTransitionKind.Connect:
-                return localizer.Get("player.connect" + suffix, culture, t.Name);
-            case PlayerTransitionKind.Disconnect:
-                return localizer.Get("player.disconnect" + suffix, culture, t.Name);
-            case PlayerTransitionKind.Respawn:
-                return localizer.Get("player.respawn" + suffix, culture, t.Name, Grid(t, dims));
-            case PlayerTransitionKind.ReturnedFromAfk:
-                return localizer.Get("player.afk.back" + suffix, culture, t.Name);
-            case PlayerTransitionKind.BecameAfk:
-                return localizer.Get("player.afk" + suffix, culture, t.Name, Grid(t, dims));
-            case PlayerTransitionKind.Death:
-                return t.Location is null
-                    ? localizer.Get("player.death.unknown" + suffix, culture, t.Name)
-                    : localizer.Get("player.death" + suffix, culture, t.Name, Grid(t, dims));
-            default:
-                throw new ArgumentOutOfRangeException(nameof(t), t.Kind, "Unsupported transition kind.");
-        }
+            PlayerTransitionKind.Connect => localizer.Get("player.connect" + suffix, culture, t.Name),
+            PlayerTransitionKind.Disconnect => localizer.Get("player.disconnect" + suffix, culture, t.Name),
+            PlayerTransitionKind.Respawn => localizer.Get("player.respawn" + suffix, culture, t.Name, Grid(t, dims)),
+            PlayerTransitionKind.ReturnedFromAfk => localizer.Get("player.afk.back" + suffix, culture, t.Name),
+            PlayerTransitionKind.BecameAfk => localizer.Get("player.afk" + suffix, culture, t.Name, Grid(t, dims)),
+            PlayerTransitionKind.Death => t.Location is null
+                ? localizer.Get("player.death.unknown" + suffix, culture, t.Name)
+                : localizer.Get("player.death" + suffix, culture, t.Name, Grid(t, dims)),
+            _ => throw new ArgumentOutOfRangeException(nameof(t), t.Kind, "Unsupported transition kind."),
+        };
     }
 
     private static string Grid(PlayerTransition t, MapDimensions? dims)

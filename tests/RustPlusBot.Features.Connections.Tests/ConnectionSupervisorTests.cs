@@ -299,7 +299,10 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; }
+        try
+        {
+            await subTask;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
@@ -354,7 +357,10 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; }
+        try
+        {
+            await subTask;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
@@ -412,7 +418,10 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; }
+        try
+        {
+            await subTask;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
@@ -465,7 +474,10 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; }
+        try
+        {
+            await subTask;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
@@ -519,13 +531,19 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await markerSub; }
+        try
+        {
+            await markerSub;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
         }
 
-        try { await rigSub; }
+        try
+        {
+            await rigSub;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
