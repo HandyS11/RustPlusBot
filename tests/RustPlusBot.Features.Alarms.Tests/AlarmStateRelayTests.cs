@@ -60,9 +60,7 @@ public sealed class AlarmStateRelayTests
         var relay = new AlarmStateRelay(
             scopeFactory,
             refresher,
-            locator,
-            poster,
-            teamChatSender,
+            new AlarmRelayChannels(locator, poster, teamChatSender),
             alarmLocalizer,
             clock,
             NullLogger<AlarmStateRelay>.Instance);

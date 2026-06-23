@@ -19,6 +19,7 @@ public static class ConnectionServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRustSocketSource, RustPlusSocketSource>();
+        services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
         services.AddSingleton<IConnectionSupervisor>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddSingleton<ITeamChatSender>(sp => sp.GetRequiredService<ConnectionSupervisor>());

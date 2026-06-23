@@ -39,7 +39,7 @@ internal sealed class ReconcilerHarness
     {
         var registry = new WorkspaceRegistry(_channelProviders, _messageProviders);
         return new WorkspaceReconciler(
-            registry, Gateway, Store, _renderers, Servers,
+            new WorkspaceBackends(registry, Gateway, Store), _renderers, Servers,
             new Localizer(LocalizationCatalog.Default), new ProvisioningLock(),
             NullLogger<WorkspaceReconciler>.Instance);
     }
@@ -79,8 +79,9 @@ internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
     }
 
     public WorkspaceReconciler Build() => new(
-        new WorkspaceRegistry(_channelProviders, _messageProviders),
-        source.Gateway, source.Store, _renderers, source.Servers,
+        new WorkspaceBackends(new WorkspaceRegistry(_channelProviders, _messageProviders), source.Gateway,
+            source.Store),
+        _renderers, source.Servers,
         new Localizer(LocalizationCatalog.Default), new ProvisioningLock(),
         NullLogger<WorkspaceReconciler>.Instance);
 

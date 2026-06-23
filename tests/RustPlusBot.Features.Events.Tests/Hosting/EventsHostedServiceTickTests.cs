@@ -61,8 +61,7 @@ internal static class EventsHostedServiceTestAccess
         return new EventsHostedService(
             eventBus,
             relay: null!,
-            eventStateStore,
-            rigStore,
+            new EventStores(eventStateStore, rigStore),
             clock,
             options,
             scopeFactory,

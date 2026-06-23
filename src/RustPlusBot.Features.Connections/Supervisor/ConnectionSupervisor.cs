@@ -18,11 +18,15 @@ using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Supervisor;
 
+/// <summary>Bundles the security/notification collaborators injected into <see cref="ConnectionSupervisor"/>.</summary>
+/// <param name="DmSender">DMs an owner when their credential is rejected.</param>
+/// <param name="Protector">Unprotects stored tokens before connecting.</param>
+internal sealed record ConnectionSecurity(IUserDmSender DmSender, ICredentialProtector Protector);
+
 /// <summary>Default <see cref="IConnectionSupervisor"/>: one connect->heartbeat->failover loop per (guild, server).</summary>
 /// <param name="source">Creates sockets (RustPlusApi in production, a fake in tests).</param>
 /// <param name="scopeFactory">Opens scopes for the scoped stores.</param>
-/// <param name="dmSender">DMs an owner when their credential is rejected.</param>
-/// <param name="protector">Unprotects stored tokens before connecting.</param>
+/// <param name="security">Bundles the security/notification collaborators.</param>
 /// <param name="eventBus">Publishes ConnectionStatusChangedEvent on state changes.</param>
 /// <param name="clock">Wall-clock source used for AFK hysteresis timestamps.</param>
 /// <param name="options">Timeouts/backoff/heartbeat settings.</param>
@@ -30,8 +34,7 @@ namespace RustPlusBot.Features.Connections.Supervisor;
 internal sealed partial class ConnectionSupervisor(
     IRustSocketSource source,
     IServiceScopeFactory scopeFactory,
-    IUserDmSender dmSender,
-    ICredentialProtector protector,
+    ConnectionSecurity security,
     IEventBus eventBus,
     IClock clock,
     IOptions<ConnectionOptions> options,
@@ -706,13 +709,13 @@ internal sealed partial class ConnectionSupervisor(
                 string token;
                 try
                 {
-                    token = protector.Unprotect(active.ProtectedPlayerToken);
+                    token = security.Protector.Unprotect(active.ProtectedPlayerToken);
                 }
                 catch (CryptographicException ex)
                 {
                     LogUnreadableToken(logger, ex, active.Id);
                     await store.MarkInvalidAsync(active.Id, ct).ConfigureAwait(false);
-                    await dmSender.SendAsync(
+                    await security.DmSender.SendAsync(
                             active.OwnerUserId,
                             $"Your Rust+ credential for **{server.Name}** could not be read — reconnect in #setup.",
                             ct)
@@ -737,7 +740,7 @@ internal sealed partial class ConnectionSupervisor(
             await store.MarkInvalidAsync(credentialId, ct).ConfigureAwait(false);
         }
 
-        await dmSender.SendAsync(
+        await security.DmSender.SendAsync(
                 ownerUserId,
                 $"Your Rust+ credential for **{serverName}** was rejected — reconnect in #setup to keep it in the pool.",
                 ct)

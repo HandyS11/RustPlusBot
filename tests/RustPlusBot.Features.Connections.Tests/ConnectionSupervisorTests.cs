@@ -68,6 +68,7 @@ public sealed class ConnectionSupervisorTests
             MarkerPollInterval = TimeSpan.FromMilliseconds(20),
             MarkerPollFastInterval = TimeSpan.FromMilliseconds(20),
         }));
+        services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
 
         var provider = services.BuildServiceProvider();

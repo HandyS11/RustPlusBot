@@ -50,9 +50,7 @@ public sealed class EventRelayTests
             new MarkerEventClassifier(clock),
             store,
             renderer,
-            locator,
-            poster,
-            sender,
+            new EventRelayChannels(locator, poster, sender),
             rigStore,
             provider.GetRequiredService<IServiceScopeFactory>());
 

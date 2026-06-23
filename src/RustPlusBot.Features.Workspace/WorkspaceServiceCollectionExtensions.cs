@@ -47,6 +47,7 @@ public static class WorkspaceServiceCollectionExtensions
 
         // Reconciler + teardown (scoped). Register the teardown service once and expose both interfaces
         // off the same scoped instance, so resolving either does not create a second instance.
+        services.AddScoped<WorkspaceBackends>();
         services.AddScoped<IWorkspaceReconciler, WorkspaceReconciler>();
         services.AddScoped<WorkspaceTeardownService>();
         services.AddScoped<IWorkspaceTeardownService>(sp => sp.GetRequiredService<WorkspaceTeardownService>());

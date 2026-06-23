@@ -23,6 +23,7 @@ public static class AlarmServiceCollectionExtensions
         services.AddSingleton<IAlarmChannelPoster, DiscordAlarmChannelPoster>();
         services.AddSingleton<IAlarmRefresher, AlarmRefresher>();
         services.AddSingleton<AlarmPairingCoordinator>();
+        services.AddSingleton<AlarmRelayChannels>();
         services.AddSingleton<AlarmStateRelay>();
         services.AddHostedService<AlarmsHostedService>();
 

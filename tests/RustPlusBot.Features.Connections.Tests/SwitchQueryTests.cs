@@ -60,6 +60,7 @@ public sealed class SwitchQueryTests
             HeartbeatInterval = TimeSpan.FromMilliseconds(20),
             HeartbeatTimeout = TimeSpan.FromMilliseconds(200),
         }));
+        services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
 
         var provider = services.BuildServiceProvider();
