@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RustPlusBot.Abstractions\RustPlusBot.Abstractions.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Localization\RustPlusBot.Localization.csproj" />
     <ProjectReference Include="..\RustPlusBot.Persistence\RustPlusBot.Persistence.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Connections\RustPlusBot.Features.Connections.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Events\RustPlusBot.Features.Events.csproj" />
