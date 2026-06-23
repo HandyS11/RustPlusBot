@@ -491,24 +491,7 @@ internal sealed partial class ConnectionSupervisor(
             CancellationToken.None);
         try
         {
-            while (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(_options.HeartbeatInterval, ct).ConfigureAwait(false);
-                var beat = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-                switch (beat.Kind)
-                {
-                    case HeartbeatKind.Ok:
-                        await PublishStatusAsync(key, ConnectionStatus.Connected, beat.PlayerCount, credentialId, ct)
-                            .ConfigureAwait(false);
-                        break;
-                    case HeartbeatKind.AuthRejected:
-                        return ReconnectReason.AuthRejected;
-                    default:
-                        return ReconnectReason.Unreachable;
-                }
-            }
-
-            return ReconnectReason.Stopped;
+            return await RunHeartbeatLoopAsync(key, connection, credentialId, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -528,6 +511,32 @@ internal sealed partial class ConnectionSupervisor(
             connection.TeamMessageReceived -= OnTeamMessage;
             connection.SmartDeviceTriggered -= OnSmartDevice;
         }
+    }
+
+    private async Task<ReconnectReason> RunHeartbeatLoopAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        Guid credentialId,
+        CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            await Task.Delay(_options.HeartbeatInterval, ct).ConfigureAwait(false);
+            var beat = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+            switch (beat.Kind)
+            {
+                case HeartbeatKind.Ok:
+                    await PublishStatusAsync(key, ConnectionStatus.Connected, beat.PlayerCount, credentialId, ct)
+                        .ConfigureAwait(false);
+                    break;
+                case HeartbeatKind.AuthRejected:
+                    return ReconnectReason.AuthRejected;
+                default:
+                    return ReconnectReason.Unreachable;
+            }
+        }
+
+        return ReconnectReason.Stopped;
     }
 
     private async Task PollMarkersAsync(
