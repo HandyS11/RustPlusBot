@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Connections.Listening;
+namespace RustPlusBot.Abstractions.Connections;
 
 /// <summary>A point-in-time view of a team, decoupled from RustPlusApi types.</summary>
 /// <param name="LeaderSteamId">Steam64 id of the current team leader.</param>

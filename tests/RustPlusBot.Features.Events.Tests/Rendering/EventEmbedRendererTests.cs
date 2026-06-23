@@ -1,4 +1,4 @@
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.Rendering;
 

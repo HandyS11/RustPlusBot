@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Connections.Listening;
 
 namespace RustPlusBot.Features.Connections.Tests.Fakes;

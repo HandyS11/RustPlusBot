@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Connections.Hosting;
 using RustPlusBot.Features.Connections.Listening;

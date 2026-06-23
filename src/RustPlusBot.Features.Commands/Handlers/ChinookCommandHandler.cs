@@ -1,8 +1,8 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Formatting;
 using RustPlusBot.Features.Commands.Localization;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Formatting;
 using RustPlusBot.Features.Events.State;
 

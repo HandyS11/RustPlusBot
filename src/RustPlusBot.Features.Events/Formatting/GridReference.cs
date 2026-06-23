@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text;
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Features.Events.Formatting;
 

@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Connections.Listening;
+namespace RustPlusBot.Abstractions.Connections;
 
 /// <summary>The static-per-wipe map size needed to convert world coordinates to a grid reference.</summary>
 /// <param name="Width">Map image width.</param>

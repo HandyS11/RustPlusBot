@@ -1,7 +1,7 @@
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Commands.Leader;
 using RustPlusBot.Features.Commands.Localization;
-using RustPlusBot.Features.Connections.Listening;
 
 namespace RustPlusBot.Features.Commands.Tests.Leader;
 

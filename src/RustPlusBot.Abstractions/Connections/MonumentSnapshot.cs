@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Connections.Listening;
+namespace RustPlusBot.Abstractions.Connections;
 
 /// <summary>One named monument observed in a <c>GetMap</c> response.</summary>
 /// <param name="Token">The monument token (e.g. <c>oilrig_1</c>, <c>large_oil_rig</c>).</param>

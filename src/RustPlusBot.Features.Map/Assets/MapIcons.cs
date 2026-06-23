@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Features.Connections.Listening;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 

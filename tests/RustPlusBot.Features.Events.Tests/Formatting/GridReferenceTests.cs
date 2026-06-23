@@ -1,4 +1,4 @@
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Events.Formatting;
 
 namespace RustPlusBot.Features.Events.Tests.Formatting;

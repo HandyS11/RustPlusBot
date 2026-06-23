@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Connections.Listening;
+namespace RustPlusBot.Abstractions.Connections;
 
 /// <summary>Reads live data from a connected server's socket (implemented by the connection supervisor).</summary>
 public interface IRustServerQuery

@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Classifying;
 
 namespace RustPlusBot.Features.Events.State;

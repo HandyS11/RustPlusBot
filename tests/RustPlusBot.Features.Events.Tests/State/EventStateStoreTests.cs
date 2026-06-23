@@ -1,7 +1,7 @@
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.State;
 

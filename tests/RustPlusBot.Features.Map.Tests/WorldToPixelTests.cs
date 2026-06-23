@@ -1,4 +1,4 @@
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Rendering;
 using Xunit;
 

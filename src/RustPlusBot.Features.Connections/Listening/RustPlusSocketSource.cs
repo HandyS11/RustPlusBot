@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using RustPlusApi;
+using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Features.Connections.Listening;
 

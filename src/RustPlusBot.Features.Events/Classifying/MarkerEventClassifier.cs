@@ -1,6 +1,6 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
-using RustPlusBot.Features.Connections.Listening;
 
 namespace RustPlusBot.Features.Events.Classifying;
 

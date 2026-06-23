@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Connections.Listening;
+namespace RustPlusBot.Abstractions.Connections;
 
 /// <summary>The subset of Rust map-marker types this bot reasons about; everything else is <see cref="Other"/>.</summary>
 public enum MarkerKind

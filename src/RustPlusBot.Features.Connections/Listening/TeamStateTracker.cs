@@ -1,3 +1,4 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 
 namespace RustPlusBot.Features.Connections.Listening;

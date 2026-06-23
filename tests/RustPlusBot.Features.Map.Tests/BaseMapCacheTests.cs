@@ -1,5 +1,5 @@
 using NSubstitute;
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Composing;
 using Xunit;
 

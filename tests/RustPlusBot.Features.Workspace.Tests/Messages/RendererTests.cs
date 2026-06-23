@@ -1,9 +1,9 @@
 using Discord;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Servers;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Messages;
 using RustPlusBot.Features.Workspace.Registry;

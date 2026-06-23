@@ -1,6 +1,6 @@
 using Discord;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Formatting;
 
 namespace RustPlusBot.Features.Players.Rendering;

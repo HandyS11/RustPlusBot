@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Connections.Listening;
+namespace RustPlusBot.Abstractions.Connections;
 
 /// <summary>A point-in-time view of in-game time, decoupled from RustPlusApi types.</summary>
 /// <param name="TimeOfDay">Current in-game time of day (RustPlusApi <c>TimeInfo.Time</c>).</param>

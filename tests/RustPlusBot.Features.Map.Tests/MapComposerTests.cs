@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Map.Composing;
 using RustPlusBot.Features.Map.Rendering;

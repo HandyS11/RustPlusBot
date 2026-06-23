@@ -1,5 +1,5 @@
 using System.Globalization;
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Assets;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
