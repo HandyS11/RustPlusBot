@@ -3,6 +3,8 @@ namespace RustPlusBot.Features.Workspace.Localization;
 /// <summary>The in-memory string catalog: culture -> (key -> value). English is the fallback.</summary>
 internal sealed class LocalizationCatalog
 {
+    private const string ProductName = "RustPlusBot";
+
     /// <summary>culture -> key -> value.</summary>
     public required IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Strings { get; init; }
 
@@ -13,7 +15,7 @@ internal sealed class LocalizationCatalog
         {
             ["en"] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["category.global.name"] = "RustPlusBot",
+                ["category.global.name"] = ProductName,
                 ["channel.information.name"] = "information",
                 ["channel.setup.name"] = "setup",
                 ["channel.settings.name"] = "settings",
@@ -23,7 +25,7 @@ internal sealed class LocalizationCatalog
                 ["channel.map.name"] = "map",
                 ["channel.switches.name"] = "switches",
                 ["channel.alarms.name"] = "alarms",
-                ["information.title"] = "RustPlusBot",
+                ["information.title"] = ProductName,
                 ["information.body"] = "Connect your Rust+ account in #setup, then pair a server in-game to begin.",
                 ["information.servers"] = "Servers registered: {0}",
                 ["setup.title"] = "Connect your Rust+ account",
@@ -57,7 +59,7 @@ internal sealed class LocalizationCatalog
             },
             ["fr"] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["category.global.name"] = "RustPlusBot",
+                ["category.global.name"] = ProductName,
                 ["channel.information.name"] = "informations",
                 ["channel.setup.name"] = "configuration",
                 ["channel.settings.name"] = "parametres",
@@ -67,7 +69,7 @@ internal sealed class LocalizationCatalog
                 ["channel.map.name"] = "carte",
                 ["channel.switches.name"] = "interrupteurs",
                 ["channel.alarms.name"] = "alarmes",
-                ["information.title"] = "RustPlusBot",
+                ["information.title"] = ProductName,
                 ["information.body"] =
                     "Connectez votre compte Rust+ dans #configuration, puis appairez un serveur en jeu.",
                 ["information.servers"] = "Serveurs enregistres : {0}",

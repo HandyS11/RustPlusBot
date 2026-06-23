@@ -16,6 +16,8 @@ public sealed class AlarmComponentModule(
     IServiceScopeFactory scopeFactory,
     IAlarmRefresher refresher) : InteractionModuleBase<SocketInteractionContext>
 {
+    private const string InvalidControlMessage = "That control wasn't valid.";
+
     /// <summary>Accepts a pending pairing prompt and starts managing the alarm.</summary>
     /// <param name="tail">The "{serverId}:{entityId}" custom-id tail.</param>
     [ComponentInteraction(AlarmComponentIds.AcceptPrefix + "*")]
@@ -23,7 +25,7 @@ public sealed class AlarmComponentModule(
     {
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -47,7 +49,7 @@ public sealed class AlarmComponentModule(
     {
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -71,7 +73,7 @@ public sealed class AlarmComponentModule(
     {
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -106,7 +108,7 @@ public sealed class AlarmComponentModule(
     {
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -141,7 +143,7 @@ public sealed class AlarmComponentModule(
     {
         if (!TryParse(tail, out _, out _) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -159,7 +161,7 @@ public sealed class AlarmComponentModule(
         ArgumentNullException.ThrowIfNull(modal);
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
