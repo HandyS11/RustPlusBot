@@ -1,6 +1,7 @@
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Events.Tests.Rendering;
 
@@ -9,7 +10,7 @@ public sealed class EventEmbedRendererTests
     private static readonly DateTimeOffset Now = new(2026, 6, 17, 12, 0, 0, TimeSpan.Zero);
 
     private static EventEmbedRenderer Build() =>
-        new(new EventLocalizer(EventLocalizationCatalog.Default));
+        new(new ResxLocalizer());
 
     [Fact]
     public void Cargo_entered_renders_english_with_grid()

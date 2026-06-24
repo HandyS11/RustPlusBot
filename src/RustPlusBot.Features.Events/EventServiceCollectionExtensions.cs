@@ -5,6 +5,7 @@ using RustPlusBot.Features.Events.Posting;
 using RustPlusBot.Features.Events.Relaying;
 using RustPlusBot.Features.Events.Rendering;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Events;
 
@@ -22,8 +23,7 @@ public static class EventServiceCollectionExtensions
         services.AddSingleton<IEventState>(sp => sp.GetRequiredService<EventStateStore>());
         services.AddSingleton<RigStateStore>();
         services.AddSingleton<IRigState>(sp => sp.GetRequiredService<RigStateStore>());
-        services.AddSingleton(EventLocalizationCatalog.Default);
-        services.AddSingleton<IEventLocalizer, EventLocalizer>();
+        services.AddRustPlusBotLocalization();
         services.AddSingleton<MarkerEventClassifier>();
         services.AddSingleton<EventEmbedRenderer>();
         services.AddSingleton<IEventChannelPoster, DiscordEventChannelPoster>();

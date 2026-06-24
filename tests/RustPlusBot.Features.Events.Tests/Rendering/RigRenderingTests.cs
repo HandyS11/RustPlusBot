@@ -1,13 +1,14 @@
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Events.Tests.Rendering;
 
 public sealed class RigRenderingTests
 {
     private static EventEmbedRenderer Renderer() =>
-        new(new EventLocalizer(EventLocalizationCatalog.Default));
+        new(new ResxLocalizer());
 
     [Theory]
     [InlineData(RigKind.Small, RigEventKind.Activated, "en")]
