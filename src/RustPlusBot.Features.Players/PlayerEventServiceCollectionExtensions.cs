@@ -3,6 +3,7 @@ using RustPlusBot.Features.Players.Hosting;
 using RustPlusBot.Features.Players.Posting;
 using RustPlusBot.Features.Players.Relaying;
 using RustPlusBot.Features.Players.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Players;
 
@@ -16,8 +17,7 @@ public static class PlayerEventServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(PlayerLocalizationCatalog.Default);
-        services.AddSingleton<IPlayerLocalizer, PlayerLocalizer>();
+        services.AddRustPlusBotLocalization();
         services.AddSingleton<PlayerEventRenderer>();
         services.AddSingleton<IPlayerChannelPoster, DiscordPlayerChannelPoster>();
         services.AddSingleton<PlayerEventRelay>();

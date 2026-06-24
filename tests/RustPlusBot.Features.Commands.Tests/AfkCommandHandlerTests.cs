@@ -1,15 +1,15 @@
 using NSubstitute;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Handlers;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Tests;
 
 public sealed class AfkCommandHandlerTests
 {
     private readonly IAfkState _afk = Substitute.For<IAfkState>();
-    private readonly ICommandLocalizer _localizer = new CommandLocalizer(CommandLocalizationCatalog.Default);
+    private readonly ILocalizer _localizer = new ResxLocalizer();
 
     private static CommandContext Ctx() => new(1, Guid.NewGuid(), "en", 99, "Caller", []);
 

@@ -7,6 +7,7 @@ using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Workspace;
@@ -36,7 +37,7 @@ internal sealed partial class AlarmStateRelay(
     IServiceScopeFactory scopeFactory,
     IAlarmRefresher refresher,
     AlarmRelayChannels channels,
-    IAlarmLocalizer localizer,
+    ILocalizer localizer,
     IClock clock,
     ILogger<AlarmStateRelay> logger)
 {

@@ -1,15 +1,15 @@
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.Formatting;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
 /// <summary>!events — lists the most recent live events.</summary>
 /// <param name="state">The live event state.</param>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class EventsCommandHandler(IEventState state, ICommandLocalizer localizer) : ICommandHandler
+internal sealed class EventsCommandHandler(IEventState state, ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "events";

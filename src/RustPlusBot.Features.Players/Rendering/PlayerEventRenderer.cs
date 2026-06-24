@@ -2,12 +2,13 @@ using Discord;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Events.Formatting;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Players.Rendering;
 
 /// <summary>Renders one <see cref="PlayerTransition"/> as a Discord embed or an in-game line.</summary>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class PlayerEventRenderer(IPlayerLocalizer localizer)
+internal sealed class PlayerEventRenderer(ILocalizer localizer)
 {
     /// <summary>Renders the transition for a guild culture as a Discord embed.</summary>
     /// <param name="transition">The player transition to render.</param>

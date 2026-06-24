@@ -1,14 +1,14 @@
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Formatting;
 using RustPlusBot.Features.Commands.Hosting;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
 /// <summary>!uptime — reports how long the bot process has been running.</summary>
 /// <param name="uptime">The process-uptime baseline.</param>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class UptimeCommandHandler(BotUptime uptime, ICommandLocalizer localizer) : ICommandHandler
+internal sealed class UptimeCommandHandler(BotUptime uptime, ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "uptime";

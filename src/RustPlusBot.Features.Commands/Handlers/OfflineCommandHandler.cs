@@ -1,13 +1,13 @@
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
 /// <summary>!offline — lists teammates not currently connected.</summary>
 /// <param name="query">The live server query.</param>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class OfflineCommandHandler(IRustServerQuery query, ICommandLocalizer localizer) : ICommandHandler
+internal sealed class OfflineCommandHandler(IRustServerQuery query, ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "offline";

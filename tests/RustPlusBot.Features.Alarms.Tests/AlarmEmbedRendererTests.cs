@@ -3,6 +3,7 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Features.Alarms.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Alarms.Tests;
 
@@ -14,7 +15,7 @@ public sealed class AlarmEmbedRendererTests
     {
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(now ?? _fixedNow);
-        var localizer = new AlarmLocalizer(AlarmLocalizationCatalog.Default);
+        var localizer = new ResxLocalizer();
         return new AlarmEmbedRenderer(localizer, clock);
     }
 

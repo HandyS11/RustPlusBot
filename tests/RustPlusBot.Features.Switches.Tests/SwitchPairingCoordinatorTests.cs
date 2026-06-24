@@ -5,6 +5,7 @@ using RustPlusBot.Features.Switches.Pairing;
 using RustPlusBot.Features.Switches.Posting;
 using RustPlusBot.Features.Switches.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Switches;
 using RustPlusBot.Persistence.Workspace;
 
@@ -33,7 +34,7 @@ public sealed class SwitchPairingCoordinatorTests
                 Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
             .Returns(900UL);
 
-        var renderer = new SwitchEmbedRenderer(new SwitchLocalizer(SwitchLocalizationCatalog.Default));
+        var renderer = new SwitchEmbedRenderer(new ResxLocalizer());
         var coordinator = new SwitchPairingCoordinator(scopeFactory, locator, poster, renderer);
         return new Harness(coordinator, store, poster, locator);
     }

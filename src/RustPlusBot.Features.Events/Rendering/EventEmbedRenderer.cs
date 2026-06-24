@@ -2,12 +2,13 @@ using Discord;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.Formatting;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Events.Rendering;
 
 /// <summary>Renders one <see cref="RustMapEvent"/> as a Discord embed.</summary>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class EventEmbedRenderer(IEventLocalizer localizer)
+internal sealed class EventEmbedRenderer(ILocalizer localizer)
 {
     /// <summary>Renders the event for a guild culture.</summary>
     /// <param name="evt">The event to render.</param>

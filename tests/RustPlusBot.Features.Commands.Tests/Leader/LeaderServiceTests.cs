@@ -1,13 +1,13 @@
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Commands.Leader;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Tests.Leader;
 
 public sealed class LeaderServiceTests
 {
-    private static readonly CommandLocalizer Loc = new(CommandLocalizationCatalog.Default);
+    private static readonly ResxLocalizer Loc = new();
     private static readonly Guid Server = Guid.NewGuid();
 
     [Fact]

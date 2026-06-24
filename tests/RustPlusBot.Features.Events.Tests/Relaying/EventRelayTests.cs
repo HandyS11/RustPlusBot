@@ -13,6 +13,7 @@ using RustPlusBot.Features.Events.Relaying;
 using RustPlusBot.Features.Events.Rendering;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Events.Tests.Relaying;
@@ -44,7 +45,7 @@ public sealed class EventRelayTests
 
         var sender = Substitute.For<ITeamChatSender>();
         var rigStore = new RigStateStore(clock, Options.Create(new ConnectionOptions()));
-        var renderer = new EventEmbedRenderer(new EventLocalizer(EventLocalizationCatalog.Default));
+        var renderer = new EventEmbedRenderer(new ResxLocalizer());
 
         var relay = new EventRelay(
             new MarkerEventClassifier(clock),

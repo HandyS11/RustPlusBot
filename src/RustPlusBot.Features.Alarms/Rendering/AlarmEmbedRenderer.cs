@@ -2,13 +2,14 @@ using System.Globalization;
 using Discord;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Alarms.Rendering;
 
 /// <summary>Renders a Smart Alarm as a Discord embed + control row, and the pairing-prompt embed + row. Pure.</summary>
 /// <param name="localizer">The alarm localizer.</param>
 /// <param name="clock">The clock used to compute relative trigger times.</param>
-internal sealed class AlarmEmbedRenderer(IAlarmLocalizer localizer, IClock clock)
+internal sealed class AlarmEmbedRenderer(ILocalizer localizer, IClock clock)
 {
     /// <summary>Renders the alarm embed and its control buttons.</summary>
     /// <param name="alarm">The alarm to render.</param>
@@ -20,6 +21,7 @@ internal sealed class AlarmEmbedRenderer(IAlarmLocalizer localizer, IClock clock
         ArgumentNullException.ThrowIfNull(alarm);
 
         string statusKey;
+#pragma warning disable IDE0045 // Collapsing to a nested ternary trips RCS1238/S3358 (nested conditional); the if/else chain is intentional.
         if (unreachable)
         {
             statusKey = "alarm.status.unreachable";
@@ -32,6 +34,7 @@ internal sealed class AlarmEmbedRenderer(IAlarmLocalizer localizer, IClock clock
         {
             statusKey = "alarm.status.armed";
         }
+#pragma warning restore IDE0045
 
         var triggered = alarm.LastTriggeredUtc is { } t
             ? localizer.Get("alarm.embed.lasttriggered", culture, CompactDuration(clock.UtcNow - t))

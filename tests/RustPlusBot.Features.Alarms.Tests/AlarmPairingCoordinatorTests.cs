@@ -7,6 +7,7 @@ using RustPlusBot.Features.Alarms.Pairing;
 using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Workspace;
 
@@ -37,7 +38,7 @@ public sealed class AlarmPairingCoordinatorTests
 
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(new DateTimeOffset(2025, 6, 1, 12, 0, 0, TimeSpan.Zero));
-        var localizer = new AlarmLocalizer(AlarmLocalizationCatalog.Default);
+        var localizer = new ResxLocalizer();
         var renderer = new AlarmEmbedRenderer(localizer, clock);
 
         var coordinator = new AlarmPairingCoordinator(scopeFactory, locator, poster, renderer);

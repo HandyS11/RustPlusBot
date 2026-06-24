@@ -4,8 +4,8 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Features.Workspace.Gateway;
-using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Registry;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
 

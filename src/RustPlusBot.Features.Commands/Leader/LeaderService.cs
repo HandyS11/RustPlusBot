@@ -1,5 +1,5 @@
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Leader;
 
@@ -17,7 +17,7 @@ internal sealed record LeaderTeamResult(IReadOnlyList<LeaderMemberOption> Member
 /// <summary>The testable logic behind <c>/leader</c>: fetch live members, then promote one.</summary>
 /// <param name="query">The live-server query seam.</param>
 /// <param name="localizer">Resolves the result/error messages.</param>
-internal sealed class LeaderService(IRustServerQuery query, ICommandLocalizer localizer)
+internal sealed class LeaderService(IRustServerQuery query, ILocalizer localizer)
 {
     /// <summary>Fetches the current team for the promote select, or an error message.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>

@@ -1,7 +1,7 @@
 using Discord;
 using RustPlusBot.Features.Workspace.Gateway;
-using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Registry;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Workspace.Messages;

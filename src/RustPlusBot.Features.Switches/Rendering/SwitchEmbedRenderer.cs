@@ -1,11 +1,12 @@
 using Discord;
 using RustPlusBot.Domain.Switches;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Switches.Rendering;
 
 /// <summary>Renders a Smart Switch as a Discord embed + control row, and the pairing-prompt embed + row. Pure.</summary>
 /// <param name="localizer">The switch localizer.</param>
-internal sealed class SwitchEmbedRenderer(ISwitchLocalizer localizer)
+internal sealed class SwitchEmbedRenderer(ILocalizer localizer)
 {
     /// <summary>Renders the switch embed and its control buttons. <paramref name="isActive"/> null ⇒ unreachable.</summary>
     /// <param name="sw">The switch.</param>

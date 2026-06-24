@@ -5,6 +5,7 @@ using RustPlusBot.Features.Alarms.Pairing;
 using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Alarms;
 
@@ -18,7 +19,7 @@ public static class AlarmServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IAlarmLocalizer>(new AlarmLocalizer(AlarmLocalizationCatalog.Default));
+        services.AddRustPlusBotLocalization();
         services.AddSingleton<AlarmEmbedRenderer>();
         services.AddSingleton<IAlarmChannelPoster, DiscordAlarmChannelPoster>();
         services.AddSingleton<IAlarmRefresher, AlarmRefresher>();

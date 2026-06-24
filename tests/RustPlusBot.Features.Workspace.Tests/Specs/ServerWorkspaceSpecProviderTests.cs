@@ -2,7 +2,7 @@ using RustPlusBot.Features.Workspace;
 using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Features.Workspace.Specs;
 
-namespace RustPlusBot.Features.Workspace.Tests;
+namespace RustPlusBot.Features.Workspace.Tests.Specs;
 
 public sealed class ServerWorkspaceSpecProviderTests
 {

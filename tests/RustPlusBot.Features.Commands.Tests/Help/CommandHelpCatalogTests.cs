@@ -1,5 +1,5 @@
 using RustPlusBot.Features.Commands.Help;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Tests.Help;
 
@@ -35,7 +35,7 @@ public sealed class CommandHelpCatalogTests
     [Fact]
     public void EveryDescriptionKeyResolvesInEnglishAndFrench()
     {
-        var loc = new CommandLocalizer(CommandLocalizationCatalog.Default);
+        var loc = new ResxLocalizer();
         foreach (var entry in CommandHelpCatalog.InGame.Concat(CommandHelpCatalog.Slash))
         {
             Assert.NotEqual(entry.DescriptionKey, loc.Get(entry.DescriptionKey, "en"));

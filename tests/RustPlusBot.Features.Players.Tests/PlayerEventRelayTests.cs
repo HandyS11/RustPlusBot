@@ -7,6 +7,7 @@ using RustPlusBot.Features.Players.Posting;
 using RustPlusBot.Features.Players.Relaying;
 using RustPlusBot.Features.Players.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Players.Tests;
@@ -23,7 +24,7 @@ public sealed class PlayerEventRelayTests
         var scopeFactory = BuildScopeFactory(_workspace);
         _workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
         return new PlayerEventRelay(
-            new PlayerEventRenderer(new PlayerLocalizer(PlayerLocalizationCatalog.Default)),
+            new PlayerEventRenderer(new ResxLocalizer()),
             _locator, _poster, _sender, scopeFactory);
     }
 

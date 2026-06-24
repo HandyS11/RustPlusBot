@@ -3,6 +3,7 @@ using RustPlusBot.Features.Switches;
 using RustPlusBot.Features.Switches.Pairing;
 using RustPlusBot.Features.Switches.Relaying;
 using RustPlusBot.Features.Switches.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Switches.Tests;
 
@@ -17,6 +18,6 @@ public sealed class SwitchRegistrationTests
         Assert.Contains(services, d => d.ServiceType == typeof(SwitchPairingCoordinator));
         Assert.Contains(services, d => d.ServiceType == typeof(SwitchStateRelay));
         Assert.Contains(services, d => d.ServiceType == typeof(SwitchEmbedRenderer));
-        Assert.Contains(services, d => d.ServiceType == typeof(ISwitchLocalizer));
+        Assert.Contains(services, d => d.ServiceType == typeof(ILocalizer));
     }
 }

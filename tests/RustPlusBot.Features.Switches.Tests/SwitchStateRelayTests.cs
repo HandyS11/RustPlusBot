@@ -7,6 +7,7 @@ using RustPlusBot.Features.Switches.Posting;
 using RustPlusBot.Features.Switches.Relaying;
 using RustPlusBot.Features.Switches.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Switches;
 using RustPlusBot.Persistence.Workspace;
@@ -33,7 +34,7 @@ public sealed class SwitchStateRelayTests
         var poster = Substitute.For<ISwitchChannelPoster>();
         poster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>()).Returns((ulong?)900UL);
-        var renderer = new SwitchEmbedRenderer(new SwitchLocalizer(SwitchLocalizationCatalog.Default));
+        var renderer = new SwitchEmbedRenderer(new ResxLocalizer());
 
         var relay = new SwitchStateRelay(provider.GetRequiredService<IServiceScopeFactory>(), locator, poster,
             renderer);

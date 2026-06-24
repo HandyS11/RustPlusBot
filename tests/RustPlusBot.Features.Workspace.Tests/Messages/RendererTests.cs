@@ -4,9 +4,9 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Servers;
-using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Messages;
 using RustPlusBot.Features.Workspace.Registry;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
 using DomainConnectionState = RustPlusBot.Domain.Connections.ConnectionState;
@@ -15,7 +15,7 @@ namespace RustPlusBot.Features.Workspace.Tests.Messages;
 
 public sealed class RendererTests
 {
-    private static readonly Localizer Loc = new(LocalizationCatalog.Default);
+    private static readonly ResxLocalizer Loc = new();
     private static readonly MessageRenderContext Global = new(1, null, "en");
 
     [Fact]

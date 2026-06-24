@@ -1,13 +1,14 @@
 using Discord;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Features.Switches.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Switches.Tests;
 
 public sealed class SwitchEmbedRendererTests
 {
     private static SwitchEmbedRenderer Create() =>
-        new(new SwitchLocalizer(SwitchLocalizationCatalog.Default));
+        new(new ResxLocalizer());
 
     private static SmartSwitch Sample(string name = "Front gate", bool lastActive = false) => new()
     {
