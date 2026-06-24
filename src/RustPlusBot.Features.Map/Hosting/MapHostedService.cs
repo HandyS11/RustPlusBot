@@ -13,35 +13,45 @@ using RustPlusBot.Persistence.Connections;
 
 namespace RustPlusBot.Features.Map.Hosting;
 
+/// <summary>Bundles the rendering-pipeline collaborators injected into <see cref="MapHostedService"/>.</summary>
+/// <param name="Composer">Renders the map PNG from the cached base + live markers.</param>
+/// <param name="Cache">The base-map cache, cleared on disconnect.</param>
+/// <param name="Locator">Resolves the #map Discord channel for a server.</param>
+/// <param name="Poster">Posts the rendered PNG to Discord.</param>
+internal sealed record MapPipeline(
+    MapComposer Composer,
+    BaseMapCache Cache,
+    IMapChannelLocator Locator,
+    IMapChannelPoster Poster);
+
 /// <summary>
 /// Keeps the #map image current: re-renders on marker changes, on a steady interval (so moving
 /// markers track even though their ids are stable), and on connect; clears the base-map cache on
 /// disconnect. All refreshes pass through a per-server throttle so the surfaces never double-post.
 /// </summary>
 /// <param name="eventBus">The in-process event bus.</param>
-/// <param name="composer">Renders the map PNG from the cached base + live markers.</param>
-/// <param name="cache">The base-map cache, cleared on disconnect.</param>
-/// <param name="locator">Resolves the #map Discord channel for a server.</param>
-/// <param name="poster">Posts the rendered PNG to Discord.</param>
+/// <param name="pipeline">Bundles the rendering-pipeline collaborators.</param>
 /// <param name="clock">Supplies the current time for the throttle.</param>
 /// <param name="options">Supplies the refresh interval.</param>
 /// <param name="scopeFactory">Opens scopes to read connection state.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class MapHostedService(
     IEventBus eventBus,
-    MapComposer composer,
-    BaseMapCache cache,
-    IMapChannelLocator locator,
-    IMapChannelPoster poster,
+    MapPipeline pipeline,
     IClock clock,
     IOptions<MapOptions> options,
     IServiceScopeFactory scopeFactory,
     ILogger<MapHostedService> logger) : IHostedService, IDisposable
 {
+    private readonly BaseMapCache _cache = pipeline.Cache;
+    private readonly MapComposer _composer = pipeline.Composer;
+
     /// <summary>A value-less concurrent set of currently-connected servers the periodic loop repaints.</summary>
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), byte> _connected = new();
 
     private readonly CancellationTokenSource _cts = new();
+    private readonly IMapChannelLocator _locator = pipeline.Locator;
+    private readonly IMapChannelPoster _poster = pipeline.Poster;
     private readonly MapRefreshThrottle _throttle = new(clock);
     private Task? _markerLoop;
     private Task? _settingsLoop;
@@ -174,19 +184,19 @@ internal sealed partial class MapHostedService(
             return;
         }
 
-        var channelId = await locator.GetChannelIdAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        var channelId = await _locator.GetChannelIdAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (channelId is not { } id)
         {
             return;
         }
 
-        var png = await composer.ComposeAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        var png = await _composer.ComposeAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (png is null)
         {
             return;
         }
 
-        await poster.PostAsync(id, png, cancellationToken).ConfigureAwait(false);
+        await _poster.PostAsync(id, png, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ConsumeConnectionStatusEventsAsync(CancellationToken cancellationToken)
@@ -223,7 +233,7 @@ internal sealed partial class MapHostedService(
             if (state is null || state.Status != ConnectionStatus.Connected)
             {
                 _connected.TryRemove(key, out _);
-                cache.Clear(evt.GuildId, evt.ServerId);
+                _cache.Clear(evt.GuildId, evt.ServerId);
                 return;
             }
 

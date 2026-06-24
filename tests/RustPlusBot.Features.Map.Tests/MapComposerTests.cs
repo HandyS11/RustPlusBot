@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Map.Composing;
 using RustPlusBot.Features.Map.Rendering;
@@ -52,7 +52,7 @@ public sealed class MapComposerTests
     {
         var events = Substitute.For<IEventState>();
         events.GetActiveMarkers(Guild, Server, Arg.Any<MarkerKind>())
-            .Returns(ci => markers.Where(m => m.Kind == (MarkerKind)ci[2]!).ToList());
+            .Returns(ci => [.. markers.Where(m => m.Kind == (MarkerKind)ci[2]!)]);
         return events;
     }
 

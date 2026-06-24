@@ -1,4 +1,4 @@
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Abstractions.Tests.Connections;
 

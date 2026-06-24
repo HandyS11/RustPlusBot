@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Persistord.Core;
+using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Domain.Commands;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
@@ -7,7 +8,6 @@ using RustPlusBot.Domain.Entities;
 using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Map;
-using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Domain.Workspace;

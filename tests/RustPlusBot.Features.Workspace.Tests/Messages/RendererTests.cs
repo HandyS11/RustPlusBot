@@ -1,9 +1,9 @@
 using Discord;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Servers;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Messages;
 using RustPlusBot.Features.Workspace.Registry;
@@ -23,8 +23,8 @@ public sealed class RendererTests
     {
         var servers = Substitute.For<IServerService>();
         servers.ListAsync(1, Arg.Any<CancellationToken>())
-            .Returns(new List<RustServer>
-            {
+            .Returns(
+            [
                 new()
                 {
                     Name = "A"
@@ -37,7 +37,7 @@ public sealed class RendererTests
                 {
                     Name = "C"
                 }
-            });
+            ]);
         var renderer = new InformationMessageRenderer(servers, Loc);
 
         var payload = await renderer.RenderAsync(Global, default);
@@ -86,8 +86,8 @@ public sealed class RendererTests
                 PlayerCount = 12,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new List<PlayerCredential>
-            {
+            .Returns(
+            [
                 new()
                 {
                     Id = credId,
@@ -97,7 +97,7 @@ public sealed class RendererTests
                     SteamId = 76561198000000000UL,
                     Status = CredentialStatus.Active
                 },
-            });
+            ]);
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
@@ -136,7 +136,7 @@ public sealed class RendererTests
                 RustServerId = serverId, GuildId = 1, Status = ConnectionStatus.NoCredentials
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new List<PlayerCredential>());
+            .Returns([]);
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
@@ -167,7 +167,7 @@ public sealed class RendererTests
         connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns((DomainConnectionState?)null);
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new List<PlayerCredential>());
+            .Returns([]);
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
@@ -226,7 +226,7 @@ public sealed class RendererTests
                 RustServerId = serverId, GuildId = 1, Status = ConnectionStatus.NoCredentials
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new List<PlayerCredential>());
+            .Returns([]);
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
@@ -265,8 +265,8 @@ public sealed class RendererTests
                 PlayerCount = 1,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new List<PlayerCredential>
-            {
+            .Returns(
+            [
                 new()
                 {
                     Id = credId,
@@ -276,7 +276,7 @@ public sealed class RendererTests
                     SteamId = 5UL,
                     Status = CredentialStatus.Active
                 },
-            });
+            ]);
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
@@ -318,8 +318,8 @@ public sealed class RendererTests
                 PlayerCount = 5,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new List<PlayerCredential>
-            {
+            .Returns(
+            [
                 new()
                 {
                     Id = credId,
@@ -329,7 +329,7 @@ public sealed class RendererTests
                     SteamId = 5UL,
                     Status = CredentialStatus.Active
                 },
-            });
+            ]);
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new TeamInfoSnapshot(
@@ -375,8 +375,8 @@ public sealed class RendererTests
                 PlayerCount = 1,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new List<PlayerCredential>
-            {
+            .Returns(
+            [
                 new()
                 {
                     Id = credId,
@@ -386,7 +386,7 @@ public sealed class RendererTests
                     SteamId = 5UL,
                     Status = CredentialStatus.Active
                 },
-            });
+            ]);
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new TeamInfoSnapshot(
@@ -430,8 +430,8 @@ public sealed class RendererTests
                 PlayerCount = 5,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new List<PlayerCredential>
-            {
+            .Returns(
+            [
                 new()
                 {
                     Id = credId,
@@ -441,7 +441,7 @@ public sealed class RendererTests
                     SteamId = 5UL,
                     Status = CredentialStatus.Active
                 },
-            });
+            ]);
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);

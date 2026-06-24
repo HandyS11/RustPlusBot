@@ -2,8 +2,8 @@ using System.Globalization;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Switches.Pairing;
 using RustPlusBot.Features.Switches.Rendering;
 using RustPlusBot.Persistence.Switches;
@@ -19,6 +19,8 @@ public sealed class SwitchComponentModule(
     IRustServerQuery query,
     IEventBus eventBus) : InteractionModuleBase<SocketInteractionContext>
 {
+    private const string InvalidControlMessage = "That control wasn't valid.";
+
     /// <summary>Accepts a pending pairing prompt and starts managing the switch.</summary>
     /// <param name="tail">The "{serverId}:{entityId}" custom-id tail.</param>
     [ComponentInteraction(SwitchComponentIds.AcceptPrefix + "*")]
@@ -26,7 +28,7 @@ public sealed class SwitchComponentModule(
     {
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -50,7 +52,7 @@ public sealed class SwitchComponentModule(
     {
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -84,7 +86,7 @@ public sealed class SwitchComponentModule(
     {
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -114,7 +116,7 @@ public sealed class SwitchComponentModule(
     {
         if (!TryParse(tail, out _, out _) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -132,7 +134,7 @@ public sealed class SwitchComponentModule(
         ArgumentNullException.ThrowIfNull(modal);
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -163,7 +165,7 @@ public sealed class SwitchComponentModule(
     {
         if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
         {
-            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 

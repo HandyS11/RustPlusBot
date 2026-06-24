@@ -14,6 +14,7 @@
     <Project Path="src/RustPlusBot.Features.Players/RustPlusBot.Features.Players.csproj" />
     <Project Path="src/RustPlusBot.Features.Switches/RustPlusBot.Features.Switches.csproj" />
     <Project Path="src/RustPlusBot.Features.Workspace/RustPlusBot.Features.Workspace.csproj" />
+    <Project Path="src/RustPlusBot.Localization/RustPlusBot.Localization.csproj" />
     <Project Path="src/RustPlusBot.Persistence/RustPlusBot.Persistence.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -28,6 +29,7 @@
     <Project Path="tests/RustPlusBot.Features.Alarms.Tests/RustPlusBot.Features.Alarms.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Chat.Tests/RustPlusBot.Features.Chat.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Events.Tests/RustPlusBot.Features.Events.Tests.csproj" />
+    <Project Path="tests/RustPlusBot.Localization.Tests/RustPlusBot.Localization.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Persistence.Tests/RustPlusBot.Persistence.Tests.csproj" />
   </Folder>
 </Solution>

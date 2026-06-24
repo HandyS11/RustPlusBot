@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Connections.Listening;
+namespace RustPlusBot.Abstractions.Connections;
 
 /// <summary>One map marker observed in a <c>GetMapMarkers</c> poll.</summary>
 /// <param name="Id">The stable marker id (used to diff polls).</param>

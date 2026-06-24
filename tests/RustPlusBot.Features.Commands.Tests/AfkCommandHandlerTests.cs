@@ -38,10 +38,10 @@ public sealed class AfkCommandHandlerTests
     public async Task Lists_afk_members_with_durations()
     {
         _afk.GetAfkMembersAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(new List<AfkMember>
-            {
+            .Returns(
+            [
                 new(1, "Bob", TimeSpan.FromMinutes(6))
-            });
+            ]);
         var reply = await new AfkCommandHandler(_afk, _localizer).ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.Contains("Bob", reply, StringComparison.Ordinal);
     }

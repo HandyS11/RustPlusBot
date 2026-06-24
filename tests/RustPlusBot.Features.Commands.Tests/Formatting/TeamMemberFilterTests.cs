@@ -1,5 +1,5 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Commands.Formatting;
-using RustPlusBot.Features.Connections.Listening;
 
 namespace RustPlusBot.Features.Commands.Tests.Formatting;
 

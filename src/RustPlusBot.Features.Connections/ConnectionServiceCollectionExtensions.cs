@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Connections.Hosting;
 using RustPlusBot.Features.Connections.Listening;
@@ -18,6 +19,7 @@ public static class ConnectionServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRustSocketSource, RustPlusSocketSource>();
+        services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
         services.AddSingleton<IConnectionSupervisor>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddSingleton<ITeamChatSender>(sp => sp.GetRequiredService<ConnectionSupervisor>());

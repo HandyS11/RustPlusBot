@@ -60,9 +60,7 @@ public sealed class AlarmStateRelayTests
         var relay = new AlarmStateRelay(
             scopeFactory,
             refresher,
-            locator,
-            poster,
-            teamChatSender,
+            new AlarmRelayChannels(locator, poster, teamChatSender),
             alarmLocalizer,
             clock,
             NullLogger<AlarmStateRelay>.Instance);
@@ -294,8 +292,8 @@ public sealed class AlarmStateRelayTests
             });
 
         h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new[]
-            {
+            .Returns(
+            [
                 new SmartAlarm
                 {
                     GuildId = 10UL, ServerId = serverId, EntityId = 42UL, Name = "A"
@@ -304,7 +302,7 @@ public sealed class AlarmStateRelayTests
                 {
                     GuildId = 10UL, ServerId = serverId, EntityId = 43UL, Name = "B"
                 },
-            });
+            ]);
 
         await h.Relay.HandleConnectionStatusAsync(
             new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);

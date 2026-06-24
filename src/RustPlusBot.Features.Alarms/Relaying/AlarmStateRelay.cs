@@ -13,24 +13,29 @@ using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Alarms.Relaying;
 
+/// <summary>Bundles the channel/chat collaborators injected into <see cref="AlarmStateRelay"/>.</summary>
+/// <param name="Locator">Resolves the #alarms channel id.</param>
+/// <param name="Poster">Posts/edits alarm embeds and sends @everyone pings.</param>
+/// <param name="TeamChatSender">Relays messages into in-game team chat.</param>
+internal sealed record AlarmRelayChannels(
+    IAlarmChannelLocator Locator,
+    IAlarmChannelPoster Poster,
+    ITeamChatSender TeamChatSender);
+
 /// <summary>
 /// Keeps alarm embeds in sync with live socket events: updates state and re-renders on trigger; marks
 /// alarms unreachable when the server goes non-Connected.
 /// </summary>
 /// <param name="scopeFactory">Opens scopes for the scoped stores.</param>
 /// <param name="refresher">Re-renders a single alarm embed on demand.</param>
-/// <param name="locator">Resolves the #alarms channel id.</param>
-/// <param name="poster">Posts/edits alarm embeds and sends @everyone pings.</param>
-/// <param name="teamChatSender">Relays messages into in-game team chat.</param>
+/// <param name="channels">Bundles the channel/chat collaborators.</param>
 /// <param name="localizer">Resolves localized alarm strings.</param>
 /// <param name="clock">Provides the current UTC time.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class AlarmStateRelay(
     IServiceScopeFactory scopeFactory,
     IAlarmRefresher refresher,
-    IAlarmChannelLocator locator,
-    IAlarmChannelPoster poster,
-    ITeamChatSender teamChatSender,
+    AlarmRelayChannels channels,
     IAlarmLocalizer localizer,
     IClock clock,
     ILogger<AlarmStateRelay> logger)
@@ -83,10 +88,11 @@ internal sealed partial class AlarmStateRelay(
 
         if (ping)
         {
-            var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, ct).ConfigureAwait(false);
+            var channelId = await channels.Locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, ct)
+                .ConfigureAwait(false);
             if (channelId is { } channel)
             {
-                await poster.SendEveryonePingAsync(channel, $"@everyone {name}", ct).ConfigureAwait(false);
+                await channels.Poster.SendEveryonePingAsync(channel, $"@everyone {name}", ct).ConfigureAwait(false);
             }
         }
 
@@ -140,7 +146,7 @@ internal sealed partial class AlarmStateRelay(
             }
 
             var line = localizer.Get("alarm.triggered.teamchat", culture, name);
-            _ = await teamChatSender.SendAsync(evt.GuildId, evt.ServerId, line, ct).ConfigureAwait(false);
+            _ = await channels.TeamChatSender.SendAsync(evt.GuildId, evt.ServerId, line, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

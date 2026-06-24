@@ -1,5 +1,5 @@
 using System.Globalization;
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Assets;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
@@ -189,32 +189,40 @@ public sealed class MapRenderer
         {
             foreach (var player in players)
             {
-                var isActive = player is { IsAlive: true, IsOnline: true };
-
-                if (icon is not null)
-                {
-                    ctx.DrawImage(icon, CenterAt(player.PixelX, player.PixelY, icon), 1f);
-                }
-                else
-                {
-                    var dotColor = isActive ? Color.LimeGreen : Color.Gray;
-                    var dot = new EllipsePolygon(player.PixelX, player.PixelY, PlayerRadius);
-                    ctx.Fill(dotColor, dot);
-                    ctx.Draw(Color.Black, OutlinePenWidth, dot);
-                }
-
-                var suffix = player.IsAlive ? " (offline)" : " (dead)";
-                var label = isActive ? player.Name : player.Name + suffix;
-                var labelColor = isActive ? Color.White : Color.Gray;
-                var textOptions = new RichTextOptions(Font)
-                {
-                    Origin = new PointF(player.PixelX, player.PixelY + PlayerLabelOffset),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Top,
-                };
-                ctx.DrawText(textOptions, label, labelColor);
+                DrawPlayerIcon(ctx, player, icon);
+                DrawPlayerLabel(ctx, player);
             }
         });
+    }
+
+    private static void DrawPlayerIcon(IImageProcessingContext ctx, PlayerPlacement player, Image<Rgba32>? icon)
+    {
+        if (icon is not null)
+        {
+            ctx.DrawImage(icon, CenterAt(player.PixelX, player.PixelY, icon), 1f);
+            return;
+        }
+
+        var isActive = player is { IsAlive: true, IsOnline: true };
+        var dotColor = isActive ? Color.LimeGreen : Color.Gray;
+        var dot = new EllipsePolygon(player.PixelX, player.PixelY, PlayerRadius);
+        ctx.Fill(dotColor, dot);
+        ctx.Draw(Color.Black, OutlinePenWidth, dot);
+    }
+
+    private static void DrawPlayerLabel(IImageProcessingContext ctx, PlayerPlacement player)
+    {
+        var isActive = player is { IsAlive: true, IsOnline: true };
+        var suffix = player.IsAlive ? " (offline)" : " (dead)";
+        var label = isActive ? player.Name : player.Name + suffix;
+        var labelColor = isActive ? Color.White : Color.Gray;
+        var textOptions = new RichTextOptions(Font)
+        {
+            Origin = new PointF(player.PixelX, player.PixelY + PlayerLabelOffset),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        ctx.DrawText(textOptions, label, labelColor);
     }
 
     private static Point CenterAt(float x, float y, Image<Rgba32> icon) =>

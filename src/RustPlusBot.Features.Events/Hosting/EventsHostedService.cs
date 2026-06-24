@@ -12,11 +12,15 @@ using RustPlusBot.Persistence.Connections;
 
 namespace RustPlusBot.Features.Events.Hosting;
 
+/// <summary>Bundles the state-store collaborators injected into <see cref="EventsHostedService"/>.</summary>
+/// <param name="Store">The marker state store, cleared on disconnect.</param>
+/// <param name="RigStore">The rig state store, advanced by the tick and cleared on disconnect.</param>
+internal sealed record EventStores(EventStateStore Store, RigStateStore RigStore);
+
 /// <summary>Runs the marker relay loop, the rig-event relay loop, the rig-timer tick, and the disconnect-clear loop.</summary>
 /// <param name="eventBus">The in-process event bus.</param>
 /// <param name="relay">Relays marker + rig events into Discord #events and in-game chat.</param>
-/// <param name="store">The marker state store, cleared on disconnect.</param>
-/// <param name="rigStore">The rig state store, advanced by the tick and cleared on disconnect.</param>
+/// <param name="stores">Bundles the marker and rig state stores.</param>
 /// <param name="clock">Supplies the current time for the tick.</param>
 /// <param name="options">Supplies the rig-tick interval.</param>
 /// <param name="scopeFactory">Opens scopes to read connection state.</param>
@@ -24,8 +28,7 @@ namespace RustPlusBot.Features.Events.Hosting;
 internal sealed partial class EventsHostedService(
     IEventBus eventBus,
     EventRelay relay,
-    EventStateStore store,
-    RigStateStore rigStore,
+    EventStores stores,
     IClock clock,
     IOptions<ConnectionOptions> options,
     IServiceScopeFactory scopeFactory,
@@ -77,7 +80,7 @@ internal sealed partial class EventsHostedService(
     /// <returns>A task that completes when the tick has published all crossings.</returns>
     internal async Task TickOnceAsync(CancellationToken cancellationToken)
     {
-        foreach (var c in rigStore.Advance(clock.UtcNow))
+        foreach (var c in stores.RigStore.Advance(clock.UtcNow))
         {
             await eventBus.PublishAsync(
                     new RigStateChangedEvent(c.GuildId, c.ServerId, c.Rig, c.Kind, c.X, c.Y, c.Dimensions),
@@ -184,8 +187,8 @@ internal sealed partial class EventsHostedService(
                 .ConfigureAwait(false);
             if (state is null || state.Status != ConnectionStatus.Connected)
             {
-                store.Clear(evt.GuildId, evt.ServerId);
-                rigStore.Clear(evt.GuildId, evt.ServerId);
+                stores.Store.Clear(evt.GuildId, evt.ServerId);
+                stores.RigStore.Clear(evt.GuildId, evt.ServerId);
             }
         }
     }

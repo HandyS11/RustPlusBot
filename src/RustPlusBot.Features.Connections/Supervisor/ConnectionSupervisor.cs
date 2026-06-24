@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
@@ -10,18 +11,22 @@ using RustPlusBot.Discord.Notifications;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
-using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Supervisor;
 
+/// <summary>Bundles the security/notification collaborators injected into <see cref="ConnectionSupervisor"/>.</summary>
+/// <param name="DmSender">DMs an owner when their credential is rejected.</param>
+/// <param name="Protector">Unprotects stored tokens before connecting.</param>
+internal sealed record ConnectionSecurity(IUserDmSender DmSender, ICredentialProtector Protector);
+
 /// <summary>Default <see cref="IConnectionSupervisor"/>: one connect->heartbeat->failover loop per (guild, server).</summary>
 /// <param name="source">Creates sockets (RustPlusApi in production, a fake in tests).</param>
 /// <param name="scopeFactory">Opens scopes for the scoped stores.</param>
-/// <param name="dmSender">DMs an owner when their credential is rejected.</param>
-/// <param name="protector">Unprotects stored tokens before connecting.</param>
+/// <param name="security">Bundles the security/notification collaborators.</param>
 /// <param name="eventBus">Publishes ConnectionStatusChangedEvent on state changes.</param>
 /// <param name="clock">Wall-clock source used for AFK hysteresis timestamps.</param>
 /// <param name="options">Timeouts/backoff/heartbeat settings.</param>
@@ -29,8 +34,7 @@ namespace RustPlusBot.Features.Connections.Supervisor;
 internal sealed partial class ConnectionSupervisor(
     IRustSocketSource source,
     IServiceScopeFactory scopeFactory,
-    IUserDmSender dmSender,
-    ICredentialProtector protector,
+    ConnectionSecurity security,
     IEventBus eventBus,
     IClock clock,
     IOptions<ConnectionOptions> options,
@@ -487,24 +491,7 @@ internal sealed partial class ConnectionSupervisor(
             CancellationToken.None);
         try
         {
-            while (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(_options.HeartbeatInterval, ct).ConfigureAwait(false);
-                var beat = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-                switch (beat.Kind)
-                {
-                    case HeartbeatKind.Ok:
-                        await PublishStatusAsync(key, ConnectionStatus.Connected, beat.PlayerCount, credentialId, ct)
-                            .ConfigureAwait(false);
-                        break;
-                    case HeartbeatKind.AuthRejected:
-                        return ReconnectReason.AuthRejected;
-                    default:
-                        return ReconnectReason.Unreachable;
-                }
-            }
-
-            return ReconnectReason.Stopped;
+            return await RunHeartbeatLoopAsync(key, connection, credentialId, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -524,6 +511,32 @@ internal sealed partial class ConnectionSupervisor(
             connection.TeamMessageReceived -= OnTeamMessage;
             connection.SmartDeviceTriggered -= OnSmartDevice;
         }
+    }
+
+    private async Task<ReconnectReason> RunHeartbeatLoopAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        Guid credentialId,
+        CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            await Task.Delay(_options.HeartbeatInterval, ct).ConfigureAwait(false);
+            var beat = await connection.GetInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+            switch (beat.Kind)
+            {
+                case HeartbeatKind.Ok:
+                    await PublishStatusAsync(key, ConnectionStatus.Connected, beat.PlayerCount, credentialId, ct)
+                        .ConfigureAwait(false);
+                    break;
+                case HeartbeatKind.AuthRejected:
+                    return ReconnectReason.AuthRejected;
+                default:
+                    return ReconnectReason.Unreachable;
+            }
+        }
+
+        return ReconnectReason.Stopped;
     }
 
     private async Task PollMarkersAsync(
@@ -705,13 +718,13 @@ internal sealed partial class ConnectionSupervisor(
                 string token;
                 try
                 {
-                    token = protector.Unprotect(active.ProtectedPlayerToken);
+                    token = security.Protector.Unprotect(active.ProtectedPlayerToken);
                 }
                 catch (CryptographicException ex)
                 {
                     LogUnreadableToken(logger, ex, active.Id);
                     await store.MarkInvalidAsync(active.Id, ct).ConfigureAwait(false);
-                    await dmSender.SendAsync(
+                    await security.DmSender.SendAsync(
                             active.OwnerUserId,
                             $"Your Rust+ credential for **{server.Name}** could not be read — reconnect in #setup.",
                             ct)
@@ -736,7 +749,7 @@ internal sealed partial class ConnectionSupervisor(
             await store.MarkInvalidAsync(credentialId, ct).ConfigureAwait(false);
         }
 
-        await dmSender.SendAsync(
+        await security.DmSender.SendAsync(
                 ownerUserId,
                 $"Your Rust+ credential for **{serverName}** was rejected — reconnect in #setup to keep it in the pool.",
                 ct)
@@ -829,7 +842,7 @@ internal sealed partial class ConnectionSupervisor(
         }
 
         await PrimeEntityIdsAsync(key, connection,
-            (IReadOnlyList<ulong>)switches.Select(sw => sw.EntityId).ToList()).ConfigureAwait(false);
+            (IReadOnlyList<ulong>)[.. switches.Select(sw => sw.EntityId)]).ConfigureAwait(false);
 
         IReadOnlyList<Domain.Alarms.SmartAlarm> alarms;
         try
@@ -854,7 +867,7 @@ internal sealed partial class ConnectionSupervisor(
         }
 
         await PrimeEntityIdsAsync(key, connection,
-            (IReadOnlyList<ulong>)alarms.Select(a => a.EntityId).ToList()).ConfigureAwait(false);
+            (IReadOnlyList<ulong>)[.. alarms.Select(a => a.EntityId)]).ConfigureAwait(false);
     }
 
     private async Task PrimeEntityIdsAsync(

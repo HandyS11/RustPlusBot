@@ -1,13 +1,21 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 
 namespace RustPlusBot.Features.Connections.Listening;
 
+/// <summary>Bundles the polling parameters passed to the <c>UpdateAfk</c> private method in <see cref="TeamStateTracker"/>.</summary>
+/// <param name="Clock">The current wall-clock time.</param>
+/// <param name="Threshold">How long a member must be still before being flagged AFK.</param>
+/// <param name="Epsilon">Movement tolerance (world units) below which a member is considered still.</param>
+/// <param name="DiedThisPoll">Whether the member died during this poll.</param>
+internal sealed record AfkPollContext(DateTimeOffset Clock, TimeSpan Threshold, float Epsilon, bool DiedThisPoll);
+
 /// <summary>Diffs successive team snapshots into presence transitions. One instance per connected window.</summary>
 internal sealed class TeamStateTracker
 {
-    private readonly HashSet<ulong> _afk = new();
+    private readonly HashSet<ulong> _afk = [];
     private readonly object _gate = new();
-    private readonly Dictionary<ulong, DateTimeOffset> _stillSince = new();
+    private readonly Dictionary<ulong, DateTimeOffset> _stillSince = [];
     private Dictionary<ulong, TeamMemberSnapshot>? _baseline;
 
     /// <summary>Diffs <paramref name="snapshot"/> against the previous one. First non-null call primes silently.</summary>
@@ -53,7 +61,8 @@ internal sealed class TeamStateTracker
 
                 AddPresenceTransitions(transitions, id, was, nowMember, snapshot);
                 var diedThisPoll = nowMember.LastDeathTimeUtc > was.LastDeathTimeUtc;
-                UpdateAfk(transitions, id, was, nowMember, now, afkThreshold, afkEpsilon, diedThisPoll);
+                UpdateAfk(transitions, id, was, nowMember,
+                    new AfkPollContext(now, afkThreshold, afkEpsilon, diedThisPoll));
             }
 
             PruneDepartedMembers(current);
@@ -95,19 +104,16 @@ internal sealed class TeamStateTracker
         ulong id,
         TeamMemberSnapshot was,
         TeamMemberSnapshot now,
-        DateTimeOffset clock,
-        TimeSpan threshold,
-        float epsilon,
-        bool diedThisPoll)
+        AfkPollContext context)
     {
         // A member who goes offline, is dead, or died this poll (even if a slow poll already shows them
         // respawned) can no longer be AFK. Clear the AFK latch SILENTLY — the disconnect/death transition
         // already speaks for them, and a "back" line alongside "disconnected"/"died" would contradict it —
         // and reset the stillness clock so AFK must be re-earned after the state change.
-        if (!now.IsOnline || !now.IsAlive || diedThisPoll)
+        if (!now.IsOnline || !now.IsAlive || context.DiedThisPoll)
         {
             _afk.Remove(id);
-            _stillSince[id] = clock;
+            _stillSince[id] = context.Clock;
             return;
         }
 
@@ -115,10 +121,10 @@ internal sealed class TeamStateTracker
         // movement of dx=dy=0.8, epsilon=1 — distance ≈ 1.13 — as still).
         var dx = now.X - was.X;
         var dy = now.Y - was.Y;
-        var moved = (dx * dx) + (dy * dy) > epsilon * epsilon;
+        var moved = (dx * dx) + (dy * dy) > context.Epsilon * context.Epsilon;
         if (moved)
         {
-            _stillSince[id] = clock;
+            _stillSince[id] = context.Clock;
             if (_afk.Remove(id))
             {
                 transitions.Add(new PlayerTransition(PlayerTransitionKind.ReturnedFromAfk, id, now.Name, null));
@@ -127,9 +133,9 @@ internal sealed class TeamStateTracker
             return;
         }
 
-        var since = _stillSince.TryGetValue(id, out var s) ? s : clock;
+        var since = _stillSince.TryGetValue(id, out var s) ? s : context.Clock;
         _stillSince.TryAdd(id, since);
-        if (clock - since >= threshold && _afk.Add(id))
+        if (context.Clock - since >= context.Threshold && _afk.Add(id))
         {
             transitions.Add(new PlayerTransition(PlayerTransitionKind.BecameAfk, id, now.Name, (now.X, now.Y)));
         }

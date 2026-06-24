@@ -71,7 +71,7 @@ public sealed class AlarmStore(BotDbContext context, IClock clock) : IAlarmStore
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        return alarms.OrderBy(a => a.CreatedUtc).ToList();
+        return [.. alarms.OrderBy(a => a.CreatedUtc)];
     }
 
     /// <inheritdoc />

@@ -15,6 +15,7 @@ namespace RustPlusBot.Features.Pairing.Modules;
 public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
     : InteractionModuleBase<SocketInteractionContext>
 {
+    private const string ServerOnlyMessage = "This control must be used in a server.";
     private const string DisconnectConfirmId = "pairing:account:disconnect:confirm";
     private const string DisconnectCancelId = "pairing:account:disconnect:cancel";
 
@@ -24,7 +25,7 @@ public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
     {
         if (Context.Guild is null)
         {
-            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(ServerOnlyMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -39,7 +40,7 @@ public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
         ArgumentNullException.ThrowIfNull(modal);
         if (Context.Guild is null)
         {
-            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(ServerOnlyMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -80,7 +81,7 @@ public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
     {
         if (Context.Guild is null)
         {
-            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(ServerOnlyMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
@@ -117,7 +118,7 @@ public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
     {
         if (Context.Guild is null)
         {
-            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(ServerOnlyMessage, ephemeral: true).ConfigureAwait(false);
             return;
         }
 

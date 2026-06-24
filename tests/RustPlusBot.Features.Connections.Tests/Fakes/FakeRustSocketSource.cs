@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Connections.Listening;
 
 namespace RustPlusBot.Features.Connections.Tests.Fakes;
@@ -118,7 +119,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public ulong LastPromotedSteamId { get; private set; }
 
         /// <summary>The state returned by <see cref="GetSmartDeviceInfoAsync"/> per entity id; absent → null.</summary>
-        public Dictionary<ulong, bool?> SwitchStates { get; } = new();
+        public Dictionary<ulong, bool?> SwitchStates { get; } = [];
 
         /// <summary>The result returned by <see cref="SetSmartSwitchValueAsync"/>. Defaults to true.</summary>
         public bool SetSwitchResult { get; set; } = true;

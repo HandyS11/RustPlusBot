@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Connections.Listening;
+namespace RustPlusBot.Abstractions.Connections;
 
 /// <summary>A point-in-time view of a server's population and wipe, decoupled from RustPlusApi types.</summary>
 /// <param name="Players">Current player count.</param>

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
@@ -67,6 +68,7 @@ public sealed class ConnectionSupervisorTests
             MarkerPollInterval = TimeSpan.FromMilliseconds(20),
             MarkerPollFastInterval = TimeSpan.FromMilliseconds(20),
         }));
+        services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
 
         var provider = services.BuildServiceProvider();
@@ -299,7 +301,10 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; }
+        try
+        {
+            await subTask;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
@@ -354,7 +359,10 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; }
+        try
+        {
+            await subTask;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
@@ -412,7 +420,10 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; }
+        try
+        {
+            await subTask;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
@@ -465,7 +476,10 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; }
+        try
+        {
+            await subTask;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
@@ -519,13 +533,19 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await markerSub; }
+        try
+        {
+            await markerSub;
+        }
         catch (OperationCanceledException)
         {
             /* expected */
         }
 
-        try { await rigSub; }
+        try
+        {
+            await rigSub;
+        }
         catch (OperationCanceledException)
         {
             /* expected */

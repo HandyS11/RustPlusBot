@@ -17,8 +17,8 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     public int CreatedChannels { get; private set; }
     public int PostedMessages { get; private set; }
     public int EditedMessages { get; private set; }
-    public IReadOnlyCollection<ulong> ChannelIds => _channels.Keys.ToList();
-    public IReadOnlyCollection<ulong> CategoryIds => _categories.Keys.ToList();
+    public IReadOnlyCollection<ulong> ChannelIds => [.. _channels.Keys];
+    public IReadOnlyCollection<ulong> CategoryIds => [.. _categories.Keys];
 
     public bool CategoryExists(ulong guildId, ulong categoryId) => _categories.ContainsKey(categoryId);
 

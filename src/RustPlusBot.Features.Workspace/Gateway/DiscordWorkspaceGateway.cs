@@ -169,17 +169,35 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
 
         var permissions = guild.CurrentUser.GuildPermissions;
         var missing = new List<string>();
-        if (!permissions.ManageChannels) { missing.Add("Manage Channels"); }
+        if (!permissions.ManageChannels)
+        {
+            missing.Add("Manage Channels");
+        }
 
-        if (!permissions.ManageRoles) { missing.Add("Manage Roles"); }
+        if (!permissions.ManageRoles)
+        {
+            missing.Add("Manage Roles");
+        }
 
-        if (!permissions.SendMessages) { missing.Add("Send Messages"); }
+        if (!permissions.SendMessages)
+        {
+            missing.Add("Send Messages");
+        }
 
-        if (!permissions.EmbedLinks) { missing.Add("Embed Links"); }
+        if (!permissions.EmbedLinks)
+        {
+            missing.Add("Embed Links");
+        }
 
-        if (!permissions.ManageMessages) { missing.Add("Manage Messages"); }
+        if (!permissions.ManageMessages)
+        {
+            missing.Add("Manage Messages");
+        }
 
-        if (!permissions.ViewChannel) { missing.Add("View Channels"); }
+        if (!permissions.ViewChannel)
+        {
+            missing.Add("View Channels");
+        }
 
         return missing;
     }

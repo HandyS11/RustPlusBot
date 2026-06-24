@@ -1,3 +1,5 @@
+using RustPlusBot.Abstractions.Connections;
+
 namespace RustPlusBot.Features.Connections.Listening;
 
 /// <summary>One live Rust+ socket to a single server, driven by one player credential.</summary>

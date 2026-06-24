@@ -27,7 +27,9 @@ public static class EventServiceCollectionExtensions
         services.AddSingleton<MarkerEventClassifier>();
         services.AddSingleton<EventEmbedRenderer>();
         services.AddSingleton<IEventChannelPoster, DiscordEventChannelPoster>();
+        services.AddSingleton<EventRelayChannels>();
         services.AddSingleton<EventRelay>();
+        services.AddSingleton<EventStores>();
         services.AddHostedService<EventsHostedService>();
 
         return services;

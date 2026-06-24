@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Features.Map.Composing;
 

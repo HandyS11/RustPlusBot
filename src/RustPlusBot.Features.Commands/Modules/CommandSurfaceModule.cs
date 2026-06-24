@@ -46,7 +46,7 @@ public sealed class CommandSurfaceModule(IServiceScopeFactory scopeFactory)
             var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
             var known = await servers.ListAsync(Context.Guild.Id).ConfigureAwait(false);
 
-            string prefix = "!";
+            var prefix = "!";
             var showNote = false;
             if (known.Count == 1)
             {

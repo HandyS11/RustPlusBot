@@ -38,13 +38,26 @@ public sealed class MapSettingsStore(BotDbContext context) : IMapSettingsStore
         };
         switch (layer)
         {
-            case MapLayer.Grid: row.ShowGrid = enabled; break;
-            case MapLayer.Markers: row.ShowMarkers = enabled; break;
-            case MapLayer.Monuments: row.ShowMonuments = enabled; break;
-            case MapLayer.Vendor: row.ShowVendor = enabled; break;
-            case MapLayer.Players: row.ShowPlayers = enabled; break;
-            case MapLayer.Rigs: row.ShowRigs = enabled; break;
-            default: throw new ArgumentOutOfRangeException(nameof(layer), layer, "Unknown map layer.");
+            case MapLayer.Grid:
+                row.ShowGrid = enabled;
+                break;
+            case MapLayer.Markers:
+                row.ShowMarkers = enabled;
+                break;
+            case MapLayer.Monuments:
+                row.ShowMonuments = enabled;
+                break;
+            case MapLayer.Vendor:
+                row.ShowVendor = enabled;
+                break;
+            case MapLayer.Players:
+                row.ShowPlayers = enabled;
+                break;
+            case MapLayer.Rigs:
+                row.ShowRigs = enabled;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(layer), layer, "Unknown map layer.");
         }
 
         if (existing is null)

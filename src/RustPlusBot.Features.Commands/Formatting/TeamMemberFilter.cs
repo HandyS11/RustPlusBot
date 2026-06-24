@@ -1,4 +1,4 @@
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Features.Commands.Formatting;
 
@@ -20,8 +20,6 @@ internal static class TeamMemberFilter
             return members;
         }
 
-        return members
-            .Where(m => m.Name.Contains(nameArg, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        return [.. members.Where(m => m.Name.Contains(nameArg, StringComparison.OrdinalIgnoreCase))];
     }
 }

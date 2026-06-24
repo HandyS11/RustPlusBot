@@ -10,22 +10,27 @@ using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Events.Relaying;
 
+/// <summary>Bundles the channel/chat collaborators injected into <see cref="EventRelay"/>.</summary>
+/// <param name="Locator">Resolves the #events Discord channel id.</param>
+/// <param name="Poster">Posts embeds to the Discord channel.</param>
+/// <param name="TeamChatSender">Broadcasts the in-game team-chat line.</param>
+internal sealed record EventRelayChannels(
+    IEventChannelLocator Locator,
+    IEventChannelPoster Poster,
+    ITeamChatSender TeamChatSender);
+
 /// <summary>Posts every live event to #events AND in-game team chat; tracks rig state.</summary>
 /// <param name="classifier">Classifies raw marker deltas into domain events.</param>
 /// <param name="state">Tracks active markers and recent events per server.</param>
 /// <param name="renderer">Renders events as embeds and in-game lines.</param>
-/// <param name="locator">Resolves the #events Discord channel id.</param>
-/// <param name="poster">Posts embeds to the Discord channel.</param>
-/// <param name="teamChatSender">Broadcasts the in-game team-chat line.</param>
+/// <param name="channels">Bundles the channel/chat collaborators.</param>
 /// <param name="rigStore">Tracks oil-rig state (Apply on Activated).</param>
 /// <param name="scopeFactory">Opens scopes to read guild culture.</param>
 internal sealed class EventRelay(
     MarkerEventClassifier classifier,
     EventStateStore state,
     EventEmbedRenderer renderer,
-    IEventChannelLocator locator,
-    IEventChannelPoster poster,
-    ITeamChatSender teamChatSender,
+    EventRelayChannels channels,
     RigStateStore rigStore,
     IServiceScopeFactory scopeFactory)
 {
@@ -44,17 +49,18 @@ internal sealed class EventRelay(
         }
 
         var culture = await GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
-        var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
+        var channelId = await channels.Locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
             .ConfigureAwait(false);
 
         foreach (var e in events)
         {
-            await teamChatSender
+            await channels.TeamChatSender
                 .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderLine(e, culture), cancellationToken)
                 .ConfigureAwait(false);
             if (channelId is { } id)
             {
-                await poster.PostAsync(id, renderer.Render(e, culture), cancellationToken).ConfigureAwait(false);
+                await channels.Poster.PostAsync(id, renderer.Render(e, culture), cancellationToken)
+                    .ConfigureAwait(false);
             }
         }
     }
@@ -72,15 +78,16 @@ internal sealed class EventRelay(
         }
 
         var culture = await GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
-        await teamChatSender
+        await channels.TeamChatSender
             .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderRigLine(evt, culture), cancellationToken)
             .ConfigureAwait(false);
 
-        var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
+        var channelId = await channels.Locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
             .ConfigureAwait(false);
         if (channelId is { } id)
         {
-            await poster.PostAsync(id, renderer.RenderRig(evt, culture), cancellationToken).ConfigureAwait(false);
+            await channels.Poster.PostAsync(id, renderer.RenderRig(evt, culture), cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 

@@ -1,8 +1,8 @@
 using System.Globalization;
 using Discord;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
-using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Registry;
@@ -66,22 +66,7 @@ internal sealed class ServerInfoMessageRenderer(
 
         if (status == ConnectionStatus.Connected)
         {
-            var team = await query.GetTeamInfoAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
-            if (team is not null)
-            {
-                var online = team.Members.Count(m => m.IsOnline);
-                var leaderEntry = team.Members.FirstOrDefault(m => m.SteamId == team.LeaderSteamId);
-                // The API can report a member with no display name, so treat an empty name as missing.
-                var leaderName = string.IsNullOrWhiteSpace(leaderEntry?.Name)
-                    ? team.LeaderSteamId.ToString(CultureInfo.InvariantCulture)
-                    : leaderEntry.Name;
-                embed.AddField(
-                    localizer.Get("server.info.team.label", context.Culture),
-                    localizer.Get("server.info.team.value", context.Culture,
-                        online.ToString(CultureInfo.InvariantCulture),
-                        team.Members.Count.ToString(CultureInfo.InvariantCulture),
-                        leaderName));
-            }
+            await AddTeamFieldAsync(embed, context, serverId, cancellationToken).ConfigureAwait(false);
         }
 
         var eligible = pool
@@ -111,6 +96,32 @@ internal sealed class ServerInfoMessageRenderer(
             row: eligible.Count > 0 ? 1 : 0);
 
         return new MessagePayload(null, embed.Build(), builder.Build());
+    }
+
+    private async ValueTask AddTeamFieldAsync(
+        EmbedBuilder embed,
+        MessageRenderContext context,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        var team = await query.GetTeamInfoAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
+        if (team is null)
+        {
+            return;
+        }
+
+        var online = team.Members.Count(m => m.IsOnline);
+        var leaderEntry = team.Members.FirstOrDefault(m => m.SteamId == team.LeaderSteamId);
+        // The API can report a member with no display name, so treat an empty name as missing.
+        var leaderName = string.IsNullOrWhiteSpace(leaderEntry?.Name)
+            ? team.LeaderSteamId.ToString(CultureInfo.InvariantCulture)
+            : leaderEntry.Name;
+        embed.AddField(
+            localizer.Get("server.info.team.label", context.Culture),
+            localizer.Get("server.info.team.value", context.Culture,
+                online.ToString(CultureInfo.InvariantCulture),
+                team.Members.Count.ToString(CultureInfo.InvariantCulture),
+                leaderName));
     }
 
     private static string Glyph(ConnectionStatus status) => status switch

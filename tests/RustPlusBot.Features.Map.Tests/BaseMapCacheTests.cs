@@ -1,5 +1,5 @@
 using NSubstitute;
-using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Composing;
 using Xunit;
 
@@ -15,23 +15,17 @@ public sealed class BaseMapCacheTests
     {
         var query = Substitute.For<IRustServerQuery>();
         query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns(new byte[]
-            {
+            .Returns(
+            [
                 9
-            });
+            ]);
         var cache = new BaseMapCache(query);
 
         var first = await cache.GetAsync(Guild, Server, CancellationToken.None);
         var second = await cache.GetAsync(Guild, Server, CancellationToken.None);
 
-        Assert.Equal(new byte[]
-        {
-            9
-        }, first);
-        Assert.Equal(new byte[]
-        {
-            9
-        }, second);
+        Assert.Equal("\t"u8.ToArray(), first);
+        Assert.Equal("\t"u8.ToArray(), second);
         await query.Received(1).GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>());
     }
 
@@ -40,10 +34,10 @@ public sealed class BaseMapCacheTests
     {
         var query = Substitute.For<IRustServerQuery>();
         query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns((byte[]?)null, new byte[]
-            {
+            .Returns((byte[]?)null,
+            [
                 7
-            });
+            ]);
         var cache = new BaseMapCache(query);
 
         var first = await cache.GetAsync(Guild, Server, CancellationToken.None);
@@ -61,10 +55,10 @@ public sealed class BaseMapCacheTests
     public async Task Clear_evicts_so_next_get_refetches()
     {
         var query = Substitute.For<IRustServerQuery>();
-        query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(new byte[]
-        {
+        query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(
+        [
             1
-        });
+        ]);
         var cache = new BaseMapCache(query);
 
         await cache.GetAsync(Guild, Server, CancellationToken.None);

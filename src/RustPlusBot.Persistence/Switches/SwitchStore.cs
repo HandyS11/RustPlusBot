@@ -72,7 +72,7 @@ public sealed class SwitchStore(BotDbContext context, IClock clock) : ISwitchSto
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        return switches.OrderBy(s => s.CreatedUtc).ToList();
+        return [.. switches.OrderBy(s => s.CreatedUtc)];
     }
 
     /// <inheritdoc />

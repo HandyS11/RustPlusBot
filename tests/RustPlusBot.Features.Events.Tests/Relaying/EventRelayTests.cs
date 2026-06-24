@@ -2,6 +2,7 @@ using Discord;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Connections;
@@ -49,9 +50,7 @@ public sealed class EventRelayTests
             new MarkerEventClassifier(clock),
             store,
             renderer,
-            locator,
-            poster,
-            sender,
+            new EventRelayChannels(locator, poster, sender),
             rigStore,
             provider.GetRequiredService<IServiceScopeFactory>());
 

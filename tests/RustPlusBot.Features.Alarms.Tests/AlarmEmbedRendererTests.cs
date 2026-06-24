@@ -36,10 +36,11 @@ public sealed class AlarmEmbedRendererTests
     };
 
     private static List<ButtonComponent> Buttons(MessageComponent components) =>
-        components.Components.OfType<ActionRowComponent>()
+    [
+        .. components.Components.OfType<ActionRowComponent>()
             .SelectMany(r => r.Components)
             .OfType<ButtonComponent>()
-            .ToList();
+    ];
 
     // ── Status ────────────────────────────────────────────────────────────────
 
