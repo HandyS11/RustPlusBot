@@ -1,6 +1,7 @@
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Players.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Players.Tests;
 
@@ -9,7 +10,7 @@ public sealed class PlayerEventEndToEndTests
     [Fact]
     public void All_transition_kinds_render_without_throwing()
     {
-        var renderer = new PlayerEventRenderer(new PlayerLocalizer(PlayerLocalizationCatalog.Default));
+        var renderer = new PlayerEventRenderer(new ResxLocalizer());
         var dims = new MapDimensions(3000, 3000, 0);
         foreach (var kind in Enum.GetValues<PlayerTransitionKind>())
         {

@@ -1,12 +1,13 @@
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Players.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Players.Tests;
 
 public sealed class PlayerEventRendererTests
 {
-    private static readonly PlayerEventRenderer Renderer = new(new PlayerLocalizer(PlayerLocalizationCatalog.Default));
+    private static readonly PlayerEventRenderer Renderer = new(new ResxLocalizer());
     private static readonly MapDimensions Dims = new(3000, 3000, 0);
 
     [Fact]
