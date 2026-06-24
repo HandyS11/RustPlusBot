@@ -1,8 +1,6 @@
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Formatting;
-using RustPlusBot.Features.Events.Formatting;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Localization;
 
@@ -22,15 +20,7 @@ internal sealed class ChinookCommandHandler(IEventState state, ILocalizer locali
     public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var markers = state.GetActiveMarkers(context.GuildId, context.ServerId, MarkerKind.Chinook);
-        if (markers.Count == 0)
-        {
-            return Task.FromResult<string?>(localizer.Get("command.chinook.none", context.Culture));
-        }
-
-        var m = markers[0];
-        var grid = GridReference.From(m.X, m.Y, m.Dimensions);
-        var ago = DurationFormat.Compact(clock.UtcNow - m.SeenAtUtc);
-        return Task.FromResult<string?>(localizer.Get("command.chinook.ok", context.Culture, grid, ago));
+        return Task.FromResult<string?>(
+            MarkerReply.For(state, context, MarkerKind.Chinook, "command.chinook", localizer, clock));
     }
 }
