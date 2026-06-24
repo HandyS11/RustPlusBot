@@ -5,6 +5,7 @@ using RustPlusBot.Features.Switches.Pairing;
 using RustPlusBot.Features.Switches.Posting;
 using RustPlusBot.Features.Switches.Relaying;
 using RustPlusBot.Features.Switches.Rendering;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Switches;
 
@@ -18,8 +19,7 @@ public static class SwitchServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton(SwitchLocalizationCatalog.Default);
-        services.AddSingleton<ISwitchLocalizer, SwitchLocalizer>();
+        services.AddRustPlusBotLocalization();
         services.AddSingleton<SwitchEmbedRenderer>();
         services.AddSingleton<ISwitchChannelPoster, DiscordSwitchChannelPoster>();
         services.AddSingleton<SwitchPairingCoordinator>();
