@@ -11,6 +11,7 @@ using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Workspace;
@@ -47,7 +48,7 @@ public sealed class AlarmStateRelayTests
             .SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(TeamChatSendResult.Sent);
 
-        var alarmLocalizer = new AlarmLocalizer(AlarmLocalizationCatalog.Default);
+        var alarmLocalizer = new ResxLocalizer();
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(_fixedNow);
 

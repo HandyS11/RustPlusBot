@@ -11,6 +11,7 @@ using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Workspace;
@@ -27,7 +28,7 @@ public sealed class AlarmRegistrationTests
         var services = new ServiceCollection();
         services.AddAlarms();
 
-        Assert.Contains(services, d => d.ServiceType == typeof(IAlarmLocalizer));
+        Assert.Contains(services, d => d.ServiceType == typeof(ILocalizer));
         Assert.Contains(services, d => d.ServiceType == typeof(AlarmEmbedRenderer));
         Assert.Contains(services, d => d.ServiceType == typeof(IAlarmChannelPoster));
         Assert.Contains(services, d => d.ServiceType == typeof(IAlarmRefresher));
@@ -64,7 +65,7 @@ public sealed class AlarmRegistrationTests
 
         using var provider = services.BuildServiceProvider(validateScopes: true);
 
-        var localizer = provider.GetRequiredService<IAlarmLocalizer>();
+        var localizer = provider.GetRequiredService<ILocalizer>();
         var renderer = provider.GetRequiredService<AlarmEmbedRenderer>();
         var poster = provider.GetRequiredService<IAlarmChannelPoster>();
         var refresher = provider.GetRequiredService<IAlarmRefresher>();

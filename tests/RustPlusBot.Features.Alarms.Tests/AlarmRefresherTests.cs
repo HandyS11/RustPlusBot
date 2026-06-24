@@ -6,6 +6,7 @@ using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Workspace;
 
@@ -38,7 +39,7 @@ public sealed class AlarmRefresherTests
 
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(_fixedNow);
-        var localizer = new AlarmLocalizer(AlarmLocalizationCatalog.Default);
+        var localizer = new ResxLocalizer();
         var renderer = new AlarmEmbedRenderer(localizer, clock);
 
         if (alarm is not null)
