@@ -1,14 +1,14 @@
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Formatting;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Connections.Listening;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
 /// <summary>!afk — lists team members who have been still (online + alive) past the AFK threshold.</summary>
 /// <param name="afk">The live AFK state.</param>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class AfkCommandHandler(IAfkState afk, ICommandLocalizer localizer) : ICommandHandler
+internal sealed class AfkCommandHandler(IAfkState afk, ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "afk";

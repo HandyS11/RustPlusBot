@@ -5,8 +5,8 @@ using RustPlusBot.Features.Commands.Handlers;
 using RustPlusBot.Features.Commands.Help;
 using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Leader;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Commands.Servers;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands;
 
@@ -22,9 +22,7 @@ public static class CommandServiceCollectionExtensions
 
         services.AddSingleton<CommandCooldown>();
         services.AddSingleton<BotUptime>();
-        // CommandLocalizationCatalog has a required member, so register the prebuilt Default instance.
-        services.AddSingleton(CommandLocalizationCatalog.Default);
-        services.AddSingleton<ICommandLocalizer, CommandLocalizer>();
+        services.AddRustPlusBotLocalization();
 
         services.AddScoped<ICommandHandler, MuteCommandHandler>();
         services.AddScoped<ICommandHandler, UnmuteCommandHandler>();

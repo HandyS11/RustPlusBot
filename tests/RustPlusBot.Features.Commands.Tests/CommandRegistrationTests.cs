@@ -7,10 +7,10 @@ using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Hosting;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Commands.Servers;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.Workspace;
@@ -44,7 +44,7 @@ public sealed class CommandRegistrationTests
         // The singletons AddCommands wires must each resolve (guards against an accidentally dropped registration).
         Assert.NotNull(provider.GetRequiredService<CommandCooldown>());
         Assert.NotNull(provider.GetRequiredService<BotUptime>());
-        Assert.NotNull(provider.GetRequiredService<ICommandLocalizer>());
+        Assert.NotNull(provider.GetRequiredService<ILocalizer>());
 
         using var scope = provider.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CommandDispatcher>());

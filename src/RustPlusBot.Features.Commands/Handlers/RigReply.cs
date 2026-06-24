@@ -1,8 +1,8 @@
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Formatting;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
@@ -21,7 +21,7 @@ internal static class RigReply
         CommandContext context,
         RigKind rig,
         string prefix,
-        ICommandLocalizer localizer)
+        ILocalizer localizer)
     {
         var state = rigState.Get(context.GuildId, context.ServerId, rig);
         return state.Status switch

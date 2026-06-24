@@ -1,14 +1,14 @@
 using System.Globalization;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
 /// <summary>!time — reports the in-game clock and whether it is day or night.</summary>
 /// <param name="query">The live server query.</param>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class TimeCommandHandler(IRustServerQuery query, ICommandLocalizer localizer) : ICommandHandler
+internal sealed class TimeCommandHandler(IRustServerQuery query, ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "time";

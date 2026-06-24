@@ -1,12 +1,12 @@
 using System.Globalization;
 using Discord;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Help;
 
 /// <summary>Builds the <c>/help</c> embed from the catalog, the server prefix, and the guild culture.</summary>
 /// <param name="localizer">Resolves the title, group headings, and per-command descriptions.</param>
-internal sealed class HelpEmbedRenderer(ICommandLocalizer localizer)
+internal sealed class HelpEmbedRenderer(ILocalizer localizer)
 {
     private static readonly (CommandGroup Group, string HeadingKey)[] GroupOrder =
     [

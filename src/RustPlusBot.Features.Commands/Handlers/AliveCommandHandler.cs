@@ -2,7 +2,7 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Formatting;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
@@ -10,7 +10,7 @@ namespace RustPlusBot.Features.Commands.Handlers;
 /// <param name="query">The live server query.</param>
 /// <param name="localizer">The reply localizer.</param>
 /// <param name="clock">The clock used to compute survival durations.</param>
-internal sealed class AliveCommandHandler(IRustServerQuery query, ICommandLocalizer localizer, IClock clock)
+internal sealed class AliveCommandHandler(IRustServerQuery query, ILocalizer localizer, IClock clock)
     : ICommandHandler
 {
     /// <inheritdoc />

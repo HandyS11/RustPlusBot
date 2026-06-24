@@ -1,12 +1,11 @@
 using RustPlusBot.Features.Commands.Help;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Tests.Help;
 
 public sealed class HelpEmbedRendererTests
 {
-    private static readonly HelpEmbedRenderer Renderer =
-        new(new CommandLocalizer(CommandLocalizationCatalog.Default));
+    private static readonly HelpEmbedRenderer Renderer = new(new ResxLocalizer());
 
     [Fact]
     public void Render_PrefixesInGameCommands()

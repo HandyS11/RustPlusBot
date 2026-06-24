@@ -3,13 +3,13 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Handlers;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Tests.Handlers;
 
 public sealed class TeamIntelHandlersTests
 {
-    private static readonly ICommandLocalizer Loc = new CommandLocalizer(CommandLocalizationCatalog.Default);
+    private static readonly ILocalizer Loc = new ResxLocalizer();
     private static readonly Guid ServerId = Guid.NewGuid();
 
     private static CommandContext Ctx(params string[] args) =>

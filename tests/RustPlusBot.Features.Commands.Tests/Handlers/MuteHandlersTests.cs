@@ -1,14 +1,14 @@
 using NSubstitute;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Handlers;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Commands;
 
 namespace RustPlusBot.Features.Commands.Tests.Handlers;
 
 public sealed class MuteHandlersTests
 {
-    private static readonly ICommandLocalizer Loc = new CommandLocalizer(CommandLocalizationCatalog.Default);
+    private static readonly ILocalizer Loc = new ResxLocalizer();
 
     private static CommandContext Ctx(string culture = "en") =>
         new(1, Guid.NewGuid(), culture, 7, "alice", []);

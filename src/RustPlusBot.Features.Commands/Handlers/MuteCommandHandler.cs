@@ -1,5 +1,5 @@
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Commands;
 
 namespace RustPlusBot.Features.Commands.Handlers;
@@ -7,7 +7,7 @@ namespace RustPlusBot.Features.Commands.Handlers;
 /// <summary>!mute — silence all bot-to-game output.</summary>
 /// <param name="store">The mute store.</param>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class MuteCommandHandler(IMuteStore store, ICommandLocalizer localizer) : ICommandHandler
+internal sealed class MuteCommandHandler(IMuteStore store, ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "mute";

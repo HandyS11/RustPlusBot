@@ -1,13 +1,13 @@
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
 /// <summary>!pop — reports current population, slot cap and queue.</summary>
 /// <param name="query">The live server query.</param>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class PopCommandHandler(IRustServerQuery query, ICommandLocalizer localizer) : ICommandHandler
+internal sealed class PopCommandHandler(IRustServerQuery query, ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "pop";

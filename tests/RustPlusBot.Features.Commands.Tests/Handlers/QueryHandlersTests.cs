@@ -4,13 +4,13 @@ using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Handlers;
 using RustPlusBot.Features.Commands.Hosting;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Tests.Handlers;
 
 public sealed class QueryHandlersTests
 {
-    private static readonly ICommandLocalizer Loc = new CommandLocalizer(CommandLocalizationCatalog.Default);
+    private static readonly ILocalizer Loc = new ResxLocalizer();
     private static CommandContext Ctx() => new(1, Guid.NewGuid(), "en", 7, "alice", []);
 
     [Fact]

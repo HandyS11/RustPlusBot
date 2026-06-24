@@ -6,7 +6,7 @@ using RustPlusBot.Features.Commands.Formatting;
 using RustPlusBot.Features.Commands.Help;
 using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Leader;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.Workspace;
@@ -76,7 +76,7 @@ public sealed class CommandSurfaceModule(IServiceScopeFactory scopeFactory)
         await using (scope.ConfigureAwait(false))
         {
             var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            var localizer = scope.ServiceProvider.GetRequiredService<ICommandLocalizer>();
+            var localizer = scope.ServiceProvider.GetRequiredService<ILocalizer>();
             var uptime = scope.ServiceProvider.GetRequiredService<BotUptime>();
 
             var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
@@ -103,7 +103,7 @@ public sealed class CommandSurfaceModule(IServiceScopeFactory scopeFactory)
             var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
             var servers = scope.ServiceProvider.GetRequiredService<IServerService>();
             var leader = scope.ServiceProvider.GetRequiredService<LeaderService>();
-            var localizer = scope.ServiceProvider.GetRequiredService<ICommandLocalizer>();
+            var localizer = scope.ServiceProvider.GetRequiredService<ILocalizer>();
 
             var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
             var known = await servers.ListAsync(Context.Guild.Id).ConfigureAwait(false);
@@ -137,7 +137,7 @@ public sealed class CommandSurfaceModule(IServiceScopeFactory scopeFactory)
     private async Task ShowMemberSelectAsync(
         IServiceProvider provider,
         LeaderService leader,
-        ICommandLocalizer localizer,
+        ILocalizer localizer,
         ulong guildId,
         Guid serverId,
         string culture)

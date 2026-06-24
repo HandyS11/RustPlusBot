@@ -4,7 +4,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Features.Commands.Leader;
-using RustPlusBot.Features.Commands.Localization;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.Workspace;
 
@@ -39,7 +39,7 @@ public sealed class LeaderComponentModule(IServiceScopeFactory scopeFactory)
         {
             var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
             var leader = scope.ServiceProvider.GetRequiredService<LeaderService>();
-            var localizer = scope.ServiceProvider.GetRequiredService<ICommandLocalizer>();
+            var localizer = scope.ServiceProvider.GetRequiredService<ILocalizer>();
 
             var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
             var result = await leader.GetMembersAsync(Context.Guild.Id, serverId, culture, CancellationToken.None)

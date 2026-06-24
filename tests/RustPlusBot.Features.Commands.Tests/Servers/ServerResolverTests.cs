@@ -1,14 +1,14 @@
 using NSubstitute;
 using RustPlusBot.Domain.Servers;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Commands.Servers;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Commands.Tests.Servers;
 
 public sealed class ServerResolverTests
 {
-    private static readonly CommandLocalizer Loc = new(CommandLocalizationCatalog.Default);
+    private static readonly ResxLocalizer Loc = new();
 
     private static RustServer Server(Guid id, string name) => new()
     {

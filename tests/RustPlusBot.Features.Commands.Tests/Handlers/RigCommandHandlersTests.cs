@@ -2,8 +2,8 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Handlers;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Tests.Handlers;
 
@@ -14,8 +14,7 @@ public sealed class RigCommandHandlersTests
 
     private static CommandContext Ctx() => new(Guild, Server, "en", 0UL, string.Empty, []);
 
-    private static ICommandLocalizer RealLocalizer() =>
-        new CommandLocalizer(CommandLocalizationCatalog.Default);
+    private static ILocalizer RealLocalizer() => new ResxLocalizer();
 
     [Fact]
     public async Task Small_reports_online_when_untracked()

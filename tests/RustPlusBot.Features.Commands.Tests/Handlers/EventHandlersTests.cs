@@ -3,9 +3,9 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Handlers;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Tests.Handlers;
 
@@ -15,11 +15,11 @@ public sealed class EventHandlersTests
     private static readonly Guid Server = Guid.NewGuid();
     private static readonly DateTimeOffset Now = new(2026, 6, 17, 12, 5, 0, TimeSpan.Zero);
 
-    private static (IClock Clock, ICommandLocalizer Loc) Deps()
+    private static (IClock Clock, ILocalizer Loc) Deps()
     {
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(Now);
-        return (clock, new CommandLocalizer(CommandLocalizationCatalog.Default));
+        return (clock, new ResxLocalizer());
     }
 
     private static CommandContext Ctx() => new(Guild, Server, "en", 0UL, string.Empty, []);

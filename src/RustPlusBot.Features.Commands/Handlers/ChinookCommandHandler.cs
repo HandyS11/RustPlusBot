@@ -2,9 +2,9 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Formatting;
-using RustPlusBot.Features.Commands.Localization;
 using RustPlusBot.Features.Events.Formatting;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
@@ -12,7 +12,7 @@ namespace RustPlusBot.Features.Commands.Handlers;
 /// <param name="state">The live event state.</param>
 /// <param name="localizer">The reply localizer.</param>
 /// <param name="clock">For "how long ago".</param>
-internal sealed class ChinookCommandHandler(IEventState state, ICommandLocalizer localizer, IClock clock)
+internal sealed class ChinookCommandHandler(IEventState state, ILocalizer localizer, IClock clock)
     : ICommandHandler
 {
     /// <inheritdoc />
