@@ -14,7 +14,7 @@ internal abstract class CachingChannelLocator(IServiceScopeFactory scopeFactory,
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private DateTimeOffset _builtAt = DateTimeOffset.MinValue;
-    private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer = new();
+    private Dictionary<(ulong GuildId, Guid ServerId), ulong> _byServer = [];
 
     /// <summary>A read-only view of the cached (guild, server) → channel-id map, available after ensure-fresh.</summary>
     protected IReadOnlyDictionary<(ulong GuildId, Guid ServerId), ulong> Entries => _byServer;
@@ -73,7 +73,7 @@ internal abstract class CachingChannelLocator(IServiceScopeFactory scopeFactory,
                 var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
                 var rows = await store.GetChannelsByKeyAsync(channelKey, cancellationToken).ConfigureAwait(false);
 
-                var byServer = new Dictionary<(ulong GuildId, Guid ServerId), ulong>();
+                Dictionary<(ulong GuildId, Guid ServerId), ulong> byServer = [];
                 foreach (var row in rows)
                 {
                     if (row.RustServerId is not { } serverId)

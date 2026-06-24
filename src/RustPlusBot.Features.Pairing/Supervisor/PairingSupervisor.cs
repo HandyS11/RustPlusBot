@@ -260,11 +260,13 @@ internal sealed partial class PairingSupervisor(
         private readonly CancellationTokenSource _cts;
         private readonly Task _runTask;
 
+#pragma warning disable IDE0290 // A primary constructor trips CA2000 on the CancellationTokenSource field; the explicit ctor is intentional.
         public Handle(CancellationTokenSource cts, Task runTask)
         {
             _cts = cts;
             _runTask = runTask;
         }
+#pragma warning restore IDE0290
 
         public ValueTask DisposeAsync()
         {

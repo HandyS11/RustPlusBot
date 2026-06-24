@@ -20,6 +20,7 @@ internal sealed class AlarmEmbedRenderer(IAlarmLocalizer localizer, IClock clock
         ArgumentNullException.ThrowIfNull(alarm);
 
         string statusKey;
+#pragma warning disable IDE0045 // Collapsing to a nested ternary trips RCS1238/S3358 (nested conditional); the if/else chain is intentional.
         if (unreachable)
         {
             statusKey = "alarm.status.unreachable";
@@ -32,6 +33,7 @@ internal sealed class AlarmEmbedRenderer(IAlarmLocalizer localizer, IClock clock
         {
             statusKey = "alarm.status.armed";
         }
+#pragma warning restore IDE0045
 
         var triggered = alarm.LastTriggeredUtc is { } t
             ? localizer.Get("alarm.embed.lasttriggered", culture, CompactDuration(clock.UtcNow - t))
