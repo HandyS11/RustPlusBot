@@ -1,15 +1,15 @@
 using Discord;
 using NSubstitute;
-using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Messages;
 using RustPlusBot.Features.Workspace.Registry;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Workspace.Tests.Messages;
 
 public sealed class MapControlMessageRendererTests
 {
-    private static readonly Localizer Loc = new(LocalizationCatalog.Default);
+    private static readonly ResxLocalizer Loc = new();
 
     [Fact]
     public async Task Renders_six_toggle_buttons_reflecting_settings()

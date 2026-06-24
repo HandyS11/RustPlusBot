@@ -2,10 +2,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Features.Workspace.Gateway;
-using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Features.Workspace.Tests.Fakes;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Workspace.Tests.Reconciler;
@@ -40,7 +40,7 @@ internal sealed class ReconcilerHarness
         var registry = new WorkspaceRegistry(_channelProviders, _messageProviders);
         return new WorkspaceReconciler(
             new WorkspaceBackends(registry, Gateway, Store), _renderers, Servers,
-            new Localizer(LocalizationCatalog.Default), new ProvisioningLock(),
+            new ResxLocalizer(), new ProvisioningLock(),
             NullLogger<WorkspaceReconciler>.Instance);
     }
 
@@ -82,7 +82,7 @@ internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
         new WorkspaceBackends(new WorkspaceRegistry(_channelProviders, _messageProviders), source.Gateway,
             source.Store),
         _renderers, source.Servers,
-        new Localizer(LocalizationCatalog.Default), new ProvisioningLock(),
+        new ResxLocalizer(), new ProvisioningLock(),
         NullLogger<WorkspaceReconciler>.Instance);
 
     private sealed class ListChannelProvider(IEnumerable<ChannelSpec> specs) : IChannelSpecProvider

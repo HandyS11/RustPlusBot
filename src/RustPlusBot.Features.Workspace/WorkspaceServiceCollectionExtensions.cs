@@ -1,13 +1,13 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Workspace.Gateway;
-using RustPlusBot.Features.Workspace.Localization;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Features.Workspace.Messages;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Features.Workspace.Specs;
 using RustPlusBot.Features.Workspace.Teardown;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Workspace;
 
@@ -29,8 +29,7 @@ public static class WorkspaceServiceCollectionExtensions
         services.AddSingleton<IWorkspaceRegistry, WorkspaceRegistry>();
 
         // Localization.
-        services.AddSingleton(LocalizationCatalog.Default);
-        services.AddSingleton<ILocalizer, Localizer>();
+        services.AddRustPlusBotLocalization();
 
         // Gateway + per-guild lock.
         services.AddSingleton<IWorkspaceGateway, DiscordWorkspaceGateway>();
