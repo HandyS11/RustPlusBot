@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="alarm.button.ping.off" xml:space="preserve">
+    <value>Ping @everyone : désactivé</value>
+  </data>
+  <data name="alarm.button.ping.on" xml:space="preserve">
+    <value>Ping @everyone : activé</value>
+  </data>
+  <data name="alarm.button.relay.off" xml:space="preserve">
+    <value>Relais tchat équipe : désactivé</value>
+  </data>
+  <data name="alarm.button.relay.on" xml:space="preserve">
+    <value>Relais tchat équipe : activé</value>
+  </data>
+  <data name="alarm.button.rename" xml:space="preserve">
+    <value>Renommer</value>
+  </data>
+  <data name="alarm.embed.footer" xml:space="preserve">
+    <value>Entité {0}</value>
+  </data>
+  <data name="alarm.embed.lasttriggered" xml:space="preserve">
+    <value>Déclenchée il y a {0}</value>
+  </data>
+  <data name="alarm.embed.nevertriggered" xml:space="preserve">
+    <value>Jamais déclenchée</value>
+  </data>
+  <data name="alarm.prompt.accept" xml:space="preserve">
+    <value>Accepter</value>
+  </data>
+  <data name="alarm.prompt.body" xml:space="preserve">
+    <value>Nouvelle alarme connectée détectée ({0}). L'ajouter ?</value>
+  </data>
+  <data name="alarm.prompt.dismiss" xml:space="preserve">
+    <value>Ignorer</value>
+  </data>
+  <data name="alarm.prompt.title" xml:space="preserve">
+    <value>Nouvelle alarme détectée</value>
+  </data>
+  <data name="alarm.rename.input.label" xml:space="preserve">
+    <value>Nom de l'alarme</value>
+  </data>
+  <data name="alarm.rename.modal.title" xml:space="preserve">
+    <value>Renommer l'alarme</value>
+  </data>
+  <data name="alarm.status.active" xml:space="preserve">
+    <value>🚨 Active</value>
+  </data>
+  <data name="alarm.status.armed" xml:space="preserve">
+    <value>🔔 Armée</value>
+  </data>
+  <data name="alarm.status.unreachable" xml:space="preserve">
+    <value>⚠️ Injoignable</value>
+  </data>
+  <data name="alarm.triggered.teamchat" xml:space="preserve">
+    <value>🚨 {0} déclenchée</value>
+  </data>
+  <data name="category.global.name" xml:space="preserve">
+    <value>RustPlusBot</value>
+  </data>
+  <data name="channel.alarms.name" xml:space="preserve">
+    <value>alarmes</value>
+  </data>
+  <data name="channel.events.name" xml:space="preserve">
+    <value>evenements</value>
+  </data>
+  <data name="channel.info.name" xml:space="preserve">
+    <value>info</value>
+  </data>
+  <data name="channel.information.name" xml:space="preserve">
+    <value>informations</value>
+  </data>
+  <data name="channel.map.name" xml:space="preserve">
+    <value>carte</value>
+  </data>
+  <data name="channel.settings.name" xml:space="preserve">
+    <value>parametres</value>
+  </data>
+  <data name="channel.setup.name" xml:space="preserve">
+    <value>configuration</value>
+  </data>
+  <data name="channel.switches.name" xml:space="preserve">
+    <value>interrupteurs</value>
+  </data>
+  <data name="channel.teamchat.name" xml:space="preserve">
+    <value>tchat-equipe</value>
+  </data>
+  <data name="command.afk.member" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="command.afk.none" xml:space="preserve">
+    <value>Personne n'est AFK.</value>
+  </data>
+  <data name="command.afk.ok" xml:space="preserve">
+    <value>AFK : {0}</value>
+  </data>
+  <data name="command.alive.dead" xml:space="preserve">
+    <value>{0} mort</value>
+  </data>
+  <data name="command.alive.member" xml:space="preserve">
+    <value>{0} {1}</value>
+  </data>
+  <data name="command.alive.ok" xml:space="preserve">
+    <value>En vie : {0}</value>
+  </data>
+  <data name="command.cargo.none" xml:space="preserve">
+    <value>Aucun cargo sur la carte.</value>
+  </data>
+  <data name="command.cargo.ok" xml:space="preserve">
+    <value>Cargo en {0} (il y a {1})</value>
+  </data>
+  <data name="command.chinook.none" xml:space="preserve">
+    <value>Aucun chinook sur la carte.</value>
+  </data>
+  <data name="command.chinook.ok" xml:space="preserve">
+    <value>Chinook en {0} (il y a {1})</value>
+  </data>
+  <data name="command.event.cargoentered" xml:space="preserve">
+    <value>cargo en {0}</value>
+  </data>
+  <data name="command.event.cargoleft" xml:space="preserve">
+    <value>cargo parti de {0}</value>
+  </data>
+  <data name="command.event.chinookspawned" xml:space="preserve">
+    <value>chinook en {0}</value>
+  </data>
+  <data name="command.event.helientered" xml:space="preserve">
+    <value>heli en {0}</value>
+  </data>
+  <data name="command.event.helileft" xml:space="preserve">
+    <value>heli parti de {0}</value>
+  </data>
+  <data name="command.events.none" xml:space="preserve">
+    <value>Aucun événement récent.</value>
+  </data>
+  <data name="command.events.ok" xml:space="preserve">
+    <value>Récent : {0}</value>
+  </data>
+  <data name="command.heli.none" xml:space="preserve">
+    <value>Aucun hélicoptère sur la carte.</value>
+  </data>
+  <data name="command.heli.ok" xml:space="preserve">
+    <value>Hélicoptère en {0} (il y a {1})</value>
+  </data>
+  <data name="command.large.active" xml:space="preserve">
+    <value>Grande plateforme : phase de combat — caisse lootable dans {0}.</value>
+  </data>
+  <data name="command.large.offline" xml:space="preserve">
+    <value>Grande plateforme : pillée / dormante — réapparaît dans {0}.</value>
+  </data>
+  <data name="command.large.online" xml:space="preserve">
+    <value>Grande plateforme : caisse prête, en attente d'activation.</value>
+  </data>
+  <data name="command.mute.done" xml:space="preserve">
+    <value>Bot mis en sourdine.</value>
+  </data>
+  <data name="command.notconnected" xml:space="preserve">
+    <value>Non connecté au serveur.</value>
+  </data>
+  <data name="command.offline.none" xml:space="preserve">
+    <value>Tout le monde est en ligne.</value>
+  </data>
+  <data name="command.offline.ok" xml:space="preserve">
+    <value>Hors ligne ({0}) : {1}</value>
+  </data>
+  <data name="command.online.none" xml:space="preserve">
+    <value>Personne n'est en ligne.</value>
+  </data>
+  <data name="command.online.ok" xml:space="preserve">
+    <value>En ligne ({0}) : {1}</value>
+  </data>
+  <data name="command.pop.ok" xml:space="preserve">
+    <value>Population : {0}/{1} ({2} en file)</value>
+  </data>
+  <data name="command.prox.alone" xml:space="preserve">
+    <value>Aucun coéquipier à proximité.</value>
+  </data>
+  <data name="command.prox.member" xml:space="preserve">
+    <value>{0} {1}m</value>
+  </data>
+  <data name="command.prox.ok" xml:space="preserve">
+    <value>Prox : {0}</value>
+  </data>
+  <data name="command.prox.selfunknown" xml:space="preserve">
+    <value>Impossible de vous localiser.</value>
+  </data>
+  <data name="command.server.none" xml:space="preserve">
+    <value>Aucun serveur n'est encore configuré.</value>
+  </data>
+  <data name="command.server.specify" xml:space="preserve">
+    <value>Plusieurs serveurs sont configurés — choisissez-en un avec l'option serveur.</value>
+  </data>
+  <data name="command.server.unknown" xml:space="preserve">
+    <value>Ce serveur n'est pas configuré.</value>
+  </data>
+  <data name="command.small.active" xml:space="preserve">
+    <value>Petite plateforme : phase de combat — caisse lootable dans {0}.</value>
+  </data>
+  <data name="command.small.offline" xml:space="preserve">
+    <value>Petite plateforme : pillée / dormante — réapparaît dans {0}.</value>
+  </data>
+  <data name="command.small.online" xml:space="preserve">
+    <value>Petite plateforme : caisse prête, en attente d'activation.</value>
+  </data>
+  <data name="command.steamid.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.team.nomatch" xml:space="preserve">
+    <value>Aucun coéquipier ne correspond à « {0} ».</value>
+  </data>
+  <data name="command.team.none" xml:space="preserve">
+    <value>Aucun membre d'équipe.</value>
+  </data>
+  <data name="command.team.ok" xml:space="preserve">
+    <value>Équipe ({0}) : {1}</value>
+  </data>
+  <data name="command.time.day" xml:space="preserve">
+    <value>jour</value>
+  </data>
+  <data name="command.time.night" xml:space="preserve">
+    <value>nuit</value>
+  </data>
+  <data name="command.time.ok" xml:space="preserve">
+    <value>Heure : {0} — {1}</value>
+  </data>
+  <data name="command.unmute.done" xml:space="preserve">
+    <value>Bot réactivé.</value>
+  </data>
+  <data name="command.uptime.ok" xml:space="preserve">
+    <value>Disponibilité : {0}</value>
+  </data>
+  <data name="command.wipe.ok" xml:space="preserve">
+    <value>Wipe il y a {0}</value>
+  </data>
+  <data name="command.wipe.unknown" xml:space="preserve">
+    <value>Heure de wipe inconnue.</value>
+  </data>
+  <data name="event.cargo.entered" xml:space="preserve">
+    <value>🚢 Cargo Ship arrivé en {0}</value>
+  </data>
+  <data name="event.cargo.entered.line" xml:space="preserve">
+    <value>Cargo Ship arrivé en {0}</value>
+  </data>
+  <data name="event.cargo.left" xml:space="preserve">
+    <value>🚢 Cargo Ship parti ({0})</value>
+  </data>
+  <data name="event.cargo.left.line" xml:space="preserve">
+    <value>Cargo Ship parti ({0})</value>
+  </data>
+  <data name="event.chinook.spawned" xml:space="preserve">
+    <value>🚁 Chinook apparu en {0}</value>
+  </data>
+  <data name="event.chinook.spawned.line" xml:space="preserve">
+    <value>Chinook apparu en {0}</value>
+  </data>
+  <data name="event.heli.entered" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille arrivé en {0}</value>
+  </data>
+  <data name="event.heli.entered.line" xml:space="preserve">
+    <value>Hélicoptère de patrouille arrivé en {0}</value>
+  </data>
+  <data name="event.heli.left" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille parti ({0})</value>
+  </data>
+  <data name="event.heli.left.line" xml:space="preserve">
+    <value>Hélicoptère de patrouille parti ({0})</value>
+  </data>
+  <data name="event.rig.large.activated" xml:space="preserve">
+    <value>🛢️ Grande plateforme pétrolière activée — phase de combat, caisse bientôt lootable ({0})</value>
+  </data>
+  <data name="event.rig.large.activated.line" xml:space="preserve">
+    <value>Grande plateforme activée — phase de combat ({0})</value>
+  </data>
+  <data name="event.rig.large.lootable" xml:space="preserve">
+    <value>🛢️ Grande plateforme pétrolière — caisse LOOTABLE ({0})</value>
+  </data>
+  <data name="event.rig.large.lootable.line" xml:space="preserve">
+    <value>Grande plateforme — caisse lootable ({0})</value>
+  </data>
+  <data name="event.rig.large.respawned" xml:space="preserve">
+    <value>🛢️ Grande plateforme pétrolière — caisse réapparue, réarmée ({0})</value>
+  </data>
+  <data name="event.rig.large.respawned.line" xml:space="preserve">
+    <value>Grande plateforme — caisse réapparue ({0})</value>
+  </data>
+  <data name="event.rig.small.activated" xml:space="preserve">
+    <value>🛢️ Petite plateforme pétrolière activée — phase de combat, caisse bientôt lootable ({0})</value>
+  </data>
+  <data name="event.rig.small.activated.line" xml:space="preserve">
+    <value>Petite plateforme activée — phase de combat ({0})</value>
+  </data>
+  <data name="event.rig.small.lootable" xml:space="preserve">
+    <value>🛢️ Petite plateforme pétrolière — caisse LOOTABLE ({0})</value>
+  </data>
+  <data name="event.rig.small.lootable.line" xml:space="preserve">
+    <value>Petite plateforme — caisse lootable ({0})</value>
+  </data>
+  <data name="event.rig.small.respawned" xml:space="preserve">
+    <value>🛢️ Petite plateforme pétrolière — caisse réapparue, réarmée ({0})</value>
+  </data>
+  <data name="event.rig.small.respawned.line" xml:space="preserve">
+    <value>Petite plateforme — caisse réapparue ({0})</value>
+  </data>
+  <data name="event.title" xml:space="preserve">
+    <value>Événement</value>
+  </data>
+  <data name="help.afk" xml:space="preserve">
+    <value>Lister les coéquipiers qui sont AFK.</value>
+  </data>
+  <data name="help.alive" xml:space="preserve">
+    <value>Afficher depuis combien de temps chaque coéquipier survit.</value>
+  </data>
+  <data name="help.group.bot" xml:space="preserve">
+    <value>Bot</value>
+  </data>
+  <data name="help.group.control" xml:space="preserve">
+    <value>Contrôle</value>
+  </data>
+  <data name="help.group.server" xml:space="preserve">
+    <value>Serveur</value>
+  </data>
+  <data name="help.group.slash" xml:space="preserve">
+    <value>Commandes slash</value>
+  </data>
+  <data name="help.group.teamintel" xml:space="preserve">
+    <value>Équipe</value>
+  </data>
+  <data name="help.mute" xml:space="preserve">
+    <value>Couper toute sortie du bot vers le jeu.</value>
+  </data>
+  <data name="help.offline" xml:space="preserve">
+    <value>Lister les coéquipiers hors ligne.</value>
+  </data>
+  <data name="help.online" xml:space="preserve">
+    <value>Lister les coéquipiers en ligne.</value>
+  </data>
+  <data name="help.pop" xml:space="preserve">
+    <value>Afficher la population du serveur.</value>
+  </data>
+  <data name="help.prefixnote" xml:space="preserve">
+    <value>Les préfixes sont configurés par serveur ; affichage du préfixe par défaut.</value>
+  </data>
+  <data name="help.prox" xml:space="preserve">
+    <value>Afficher la distance à chaque coéquipier.</value>
+  </data>
+  <data name="help.slash.help" xml:space="preserve">
+    <value>Afficher ce message d'aide.</value>
+  </data>
+  <data name="help.slash.leader" xml:space="preserve">
+    <value>Transférer le rôle de chef d'équipe en jeu.</value>
+  </data>
+  <data name="help.slash.uptime" xml:space="preserve">
+    <value>Afficher la disponibilité du bot.</value>
+  </data>
+  <data name="help.steamid" xml:space="preserve">
+    <value>Afficher les identifiants Steam des coéquipiers.</value>
+  </data>
+  <data name="help.team" xml:space="preserve">
+    <value>Lister tous les membres de l'équipe.</value>
+  </data>
+  <data name="help.time" xml:space="preserve">
+    <value>Afficher l'heure en jeu.</value>
+  </data>
+  <data name="help.title" xml:space="preserve">
+    <value>Commandes</value>
+  </data>
+  <data name="help.unmute" xml:space="preserve">
+    <value>Réactiver la sortie du bot vers le jeu.</value>
+  </data>
+  <data name="help.uptime" xml:space="preserve">
+    <value>Afficher depuis combien de temps le bot fonctionne.</value>
+  </data>
+  <data name="help.wipe" xml:space="preserve">
+    <value>Afficher depuis combien de temps le serveur a été wipe.</value>
+  </data>
+  <data name="information.body" xml:space="preserve">
+    <value>Connectez votre compte Rust+ dans #configuration, puis appairez un serveur en jeu.</value>
+  </data>
+  <data name="information.servers" xml:space="preserve">
+    <value>Serveurs enregistres : {0}</value>
+  </data>
+  <data name="information.title" xml:space="preserve">
+    <value>RustPlusBot</value>
+  </data>
+  <data name="leader.failure" xml:space="preserve">
+    <value>Impossible de promouvoir — le serveur est peut-être injoignable.</value>
+  </data>
+  <data name="leader.noserver" xml:space="preserve">
+    <value>Aucun serveur n'est encore configuré.</value>
+  </data>
+  <data name="leader.notconnected" xml:space="preserve">
+    <value>Non connecté à ce serveur.</value>
+  </data>
+  <data name="leader.noteam" xml:space="preserve">
+    <value>Aucun membre d'équipe à promouvoir.</value>
+  </data>
+  <data name="leader.pickmember" xml:space="preserve">
+    <value>Choisissez qui promouvoir chef d'équipe :</value>
+  </data>
+  <data name="leader.pickserver" xml:space="preserve">
+    <value>Choisissez un serveur :</value>
+  </data>
+  <data name="leader.success" xml:space="preserve">
+    <value>{0} promu chef d'équipe.</value>
+  </data>
+  <data name="map.control.header" xml:space="preserve">
+    <value>Calques de la carte — activer/désactiver :</value>
+  </data>
+  <data name="map.layer.grid" xml:space="preserve">
+    <value>Grille</value>
+  </data>
+  <data name="map.layer.markers" xml:space="preserve">
+    <value>Marqueurs</value>
+  </data>
+  <data name="map.layer.monuments" xml:space="preserve">
+    <value>Monuments</value>
+  </data>
+  <data name="map.layer.players" xml:space="preserve">
+    <value>Joueurs</value>
+  </data>
+  <data name="map.layer.rigs" xml:space="preserve">
+    <value>Plateformes</value>
+  </data>
+  <data name="map.layer.vendor" xml:space="preserve">
+    <value>Marchand</value>
+  </data>
+  <data name="player.afk" xml:space="preserve">
+    <value>💤 {0} est AFK ({1})</value>
+  </data>
+  <data name="player.afk.back" xml:space="preserve">
+    <value>👋 {0} est de retour</value>
+  </data>
+  <data name="player.afk.back.line" xml:space="preserve">
+    <value>{0} est de retour</value>
+  </data>
+  <data name="player.afk.line" xml:space="preserve">
+    <value>{0} est AFK ({1})</value>
+  </data>
+  <data name="player.connect" xml:space="preserve">
+    <value>🟢 {0} s'est connecté</value>
+  </data>
+  <data name="player.connect.line" xml:space="preserve">
+    <value>{0} s'est connecté</value>
+  </data>
+  <data name="player.death" xml:space="preserve">
+    <value>💀 {0} est mort en {1}</value>
+  </data>
+  <data name="player.death.line" xml:space="preserve">
+    <value>{0} est mort en {1}</value>
+  </data>
+  <data name="player.death.unknown" xml:space="preserve">
+    <value>💀 {0} est mort</value>
+  </data>
+  <data name="player.death.unknown.line" xml:space="preserve">
+    <value>{0} est mort</value>
+  </data>
+  <data name="player.disconnect" xml:space="preserve">
+    <value>🔴 {0} s'est déconnecté</value>
+  </data>
+  <data name="player.disconnect.line" xml:space="preserve">
+    <value>{0} s'est déconnecté</value>
+  </data>
+  <data name="player.respawn" xml:space="preserve">
+    <value>✨ {0} a réapparu en {1}</value>
+  </data>
+  <data name="player.respawn.line" xml:space="preserve">
+    <value>{0} a réapparu en {1}</value>
+  </data>
+  <data name="player.title" xml:space="preserve">
+    <value>Événement d'équipe</value>
+  </data>
+  <data name="server.info.endpoint" xml:space="preserve">
+    <value>Adresse : {0}:{1}</value>
+  </data>
+  <data name="server.info.none" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="server.info.player.label" xml:space="preserve">
+    <value>Joueur actif</value>
+  </data>
+  <data name="server.info.players.label" xml:space="preserve">
+    <value>Joueurs en ligne</value>
+  </data>
+  <data name="server.info.remove.button" xml:space="preserve">
+    <value>Supprimer le serveur</value>
+  </data>
+  <data name="server.info.status.connected" xml:space="preserve">
+    <value>Connecté</value>
+  </data>
+  <data name="server.info.status.connecting" xml:space="preserve">
+    <value>Connexion…</value>
+  </data>
+  <data name="server.info.status.label" xml:space="preserve">
+    <value>État</value>
+  </data>
+  <data name="server.info.status.nocredentials" xml:space="preserve">
+    <value>Aucun identifiant valide</value>
+  </data>
+  <data name="server.info.status.unreachable" xml:space="preserve">
+    <value>Serveur injoignable</value>
+  </data>
+  <data name="server.info.swap.placeholder" xml:space="preserve">
+    <value>Changer le joueur actif</value>
+  </data>
+  <data name="server.info.team.label" xml:space="preserve">
+    <value>Équipe</value>
+  </data>
+  <data name="server.info.team.value" xml:space="preserve">
+    <value>{0}/{1} en ligne · chef {2}</value>
+  </data>
+  <data name="settings.body" xml:space="preserve">
+    <value>Configurez le bot pour ce serveur.</value>
+  </data>
+  <data name="settings.language.label" xml:space="preserve">
+    <value>Langue</value>
+  </data>
+  <data name="settings.title" xml:space="preserve">
+    <value>Parametres</value>
+  </data>
+  <data name="setup.body" xml:space="preserve">
+    <value>Cliquez sur **Connecter le compte** ci-dessous et collez vos identifiants FCM Rust+. Appairez ensuite un serveur en jeu et ses salons apparaitront automatiquement.</value>
+  </data>
+  <data name="setup.connect.button" xml:space="preserve">
+    <value>Connecter le compte</value>
+  </data>
+  <data name="setup.disconnect.button" xml:space="preserve">
+    <value>Déconnecter le compte</value>
+  </data>
+  <data name="setup.title" xml:space="preserve">
+    <value>Connectez votre compte Rust+</value>
+  </data>
+  <data name="switch.button.off" xml:space="preserve">
+    <value>Éteindre</value>
+  </data>
+  <data name="switch.button.on" xml:space="preserve">
+    <value>Allumer</value>
+  </data>
+  <data name="switch.button.rename" xml:space="preserve">
+    <value>Renommer</value>
+  </data>
+  <data name="switch.button.strobe" xml:space="preserve">
+    <value>Stroboscope</value>
+  </data>
+  <data name="switch.embed.footer" xml:space="preserve">
+    <value>Entité {0}</value>
+  </data>
+  <data name="switch.prompt.accept" xml:space="preserve">
+    <value>Accepter</value>
+  </data>
+  <data name="switch.prompt.body" xml:space="preserve">
+    <value>Nouvel interrupteur connecté détecté ({0}). L'ajouter ?</value>
+  </data>
+  <data name="switch.prompt.dismiss" xml:space="preserve">
+    <value>Ignorer</value>
+  </data>
+  <data name="switch.prompt.dismissed" xml:space="preserve">
+    <value>Ignoré.</value>
+  </data>
+  <data name="switch.prompt.title" xml:space="preserve">
+    <value>Nouvel interrupteur détecté</value>
+  </data>
+  <data name="switch.rename.input.label" xml:space="preserve">
+    <value>Nom de l'interrupteur</value>
+  </data>
+  <data name="switch.rename.modal.title" xml:space="preserve">
+    <value>Renommer l'interrupteur</value>
+  </data>
+  <data name="switch.status.off" xml:space="preserve">
+    <value>⭘ ÉTEINT</value>
+  </data>
+  <data name="switch.status.on" xml:space="preserve">
+    <value>⚡ ALLUMÉ</value>
+  </data>
+  <data name="switch.status.unreachable" xml:space="preserve">
+    <value>⚠️ Injoignable</value>
+  </data>
+  <data name="switch.unreachable.ephemeral" xml:space="preserve">
+    <value>L'interrupteur est injoignable pour le moment.</value>
+  </data>
+  <data name="uptime.ok" xml:space="preserve">
+    <value>Disponibilité du bot : {0}</value>
+  </data>
+</root>
