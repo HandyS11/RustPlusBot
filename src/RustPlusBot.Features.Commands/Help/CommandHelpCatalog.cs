@@ -37,5 +37,9 @@ internal static class CommandHelpCatalog
         new("help", CommandGroup.Bot, "help.slash.help"),
         new("uptime", CommandGroup.Bot, "help.slash.uptime"),
         new("leader", CommandGroup.Bot, "help.slash.leader"),
+        new("item", CommandGroup.ItemDb, "help.slash.item"),
+        new("recycle", CommandGroup.ItemDb, "help.slash.recycle"),
+        new("craft", CommandGroup.ItemDb, "help.slash.craft"),
+        new("research", CommandGroup.ItemDb, "help.slash.research"),
     ];
 }
