@@ -14,6 +14,7 @@ using RustPlusBot.Features.Events;
 using RustPlusBot.Features.Map;
 using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Players;
+using RustPlusBot.Features.StorageMonitors;
 using RustPlusBot.Features.Switches;
 using RustPlusBot.Features.Workspace;
 using RustPlusBot.Host.Credentials;
@@ -79,6 +80,7 @@ builder.Services.AddOptions<MapOptions>()
 builder.Services.AddMap();
 builder.Services.AddSwitches();
 builder.Services.AddAlarms();
+builder.Services.AddStorageMonitors();
 
 var host = builder.Build();
 

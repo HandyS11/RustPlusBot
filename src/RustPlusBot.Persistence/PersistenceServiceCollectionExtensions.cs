@@ -7,6 +7,7 @@ using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Credentials;
 using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.StorageMonitors;
 using RustPlusBot.Persistence.Switches;
 using RustPlusBot.Persistence.Workspace;
 
@@ -39,6 +40,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IConnectionStore, ConnectionStore>();
         services.AddScoped<ISwitchStore, SwitchStore>();
         services.AddScoped<IAlarmStore, AlarmStore>();
+        services.AddScoped<IStorageMonitorStore, StorageMonitorStore>();
         services.AddScoped<IMuteStore, MuteStore>();
         services.AddScoped<IMapSettingsStore, MapSettingsStore>();
 
