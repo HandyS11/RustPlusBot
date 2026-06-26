@@ -29,7 +29,7 @@ public sealed class ItemFormatterTests
     }
 
     [Fact]
-    public void CraftLine_ListsIngredientsAndTime()
+    public void CraftLine_ListsIngredients()
     {
         var item = new ItemRecord(1, "AK-47", 1, null, null,
             new CraftRecipe([new Ingredient(-1059362949, 200)], 30.0, 3), null);

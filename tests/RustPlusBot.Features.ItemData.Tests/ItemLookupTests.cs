@@ -61,6 +61,43 @@ public sealed class ItemLookupTests
     }
 
     [Fact]
+    public void ExactNameCollision_ReturnsAmbiguousOrderedById()
+    {
+        // Two items share the same case-insensitive name; the one with the lower id should be first.
+        var recyclable = new ItemRecord(10, "Sunglasses", 1, null, new RecycleYield([]), null, null);
+        var notRecyclable = new ItemRecord(5, "Sunglasses", 1, null, null, null, null);
+        IReadOnlyList<ItemRecord> items = [recyclable, notRecyclable];
+        var match = ItemLookup.Resolve("sunglasses", id => items.FirstOrDefault(i => i.Id == id), items);
+        var amb = Assert.IsType<ItemMatch.Ambiguous>(match);
+        Assert.Equal(2, amb.Candidates.Count);
+        // Deterministic order: ascending by Id.
+        Assert.Equal(5, amb.Candidates[0].Id);
+        Assert.Equal(10, amb.Candidates[1].Id);
+    }
+
+    [Fact]
+    public void ExactNameCollision_DoesNotFallThroughToSubstring()
+    {
+        // Even though there are 2 exact matches, the result must be Ambiguous (not a substring-ranked list).
+        var a = new ItemRecord(1, "Sunglasses", 1, null, null, null, null);
+        var b = new ItemRecord(2, "Sunglasses", 1, null, null, null, null);
+        var extra = new ItemRecord(3, "Cool Sunglasses", 1, null, null, null, null);
+        IReadOnlyList<ItemRecord> items = [a, b, extra];
+        var match = ItemLookup.Resolve("Sunglasses", id => items.FirstOrDefault(i => i.Id == id), items);
+        var amb = Assert.IsType<ItemMatch.Ambiguous>(match);
+        // Must contain only the 2 exact matches, not the substring hit.
+        Assert.Equal(2, amb.Candidates.Count);
+    }
+
+    [Fact]
+    public void SingleExactMatch_StillReturnsFound()
+    {
+        var match = Resolve("AK-47");
+        var found = Assert.IsType<ItemMatch.Found>(match);
+        Assert.Equal("AK-47", found.Item.Name);
+    }
+
+    [Fact]
     public void NoMatch_NotFound()
     {
         Assert.IsType<ItemMatch.NotFound>(Resolve("zzzzz"));

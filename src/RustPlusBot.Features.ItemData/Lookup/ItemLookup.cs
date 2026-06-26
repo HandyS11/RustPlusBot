@@ -32,10 +32,18 @@ public static class ItemLookup
             return new ItemMatch.Found(byIdHit);
         }
 
-        var exact = all.FirstOrDefault(i => string.Equals(i.Name, trimmed, StringComparison.OrdinalIgnoreCase));
-        if (exact is not null)
+        var exactMatches = all
+            .Where(i => string.Equals(i.Name, trimmed, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(i => i.Id)
+            .ToList();
+        if (exactMatches.Count == 1)
         {
-            return new ItemMatch.Found(exact);
+            return new ItemMatch.Found(exactMatches[0]);
+        }
+
+        if (exactMatches.Count > 1)
+        {
+            return new ItemMatch.Ambiguous([.. exactMatches.Take(cap)]);
         }
 
         var matches = all

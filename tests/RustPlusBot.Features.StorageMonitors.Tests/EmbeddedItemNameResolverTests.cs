@@ -8,7 +8,7 @@ public sealed class EmbeddedItemNameResolverTests
     [Fact]
     public void Resolve_KnownId_ReturnsDisplayName()
     {
-        // -151838493 is "Wood" — present in the 4-item seed bundle.
+        // -151838493 is "Wood" — present in the bundled item data.
         var resolver = new ItemDatabaseNameResolver(new EmbeddedItemDatabase());
         Assert.Equal("Wood", resolver.Resolve(-151838493));
     }
