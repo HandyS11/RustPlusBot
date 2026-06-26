@@ -24,10 +24,14 @@ public sealed class EmbeddedItemNameResolver : IItemNameResolver
                            ?? throw new InvalidOperationException("Embedded items.json not found.");
         var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(stream)
                   ?? throw new InvalidOperationException("items.json deserialized to null.");
+        // Group by the parsed id (last wins) before freezing: two distinct string keys can parse to the
+        // same int (NumberStyles.Integer allows leading sign/whitespace), and ToFrozenDictionary throws on a
+        // duplicate key — which, in a static initializer, would hard-fault the feature. Degrade, never crash.
         return raw
-            .Where(kvp => int.TryParse(kvp.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
-            .ToFrozenDictionary(
-                kvp => int.Parse(kvp.Key, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                kvp => kvp.Value);
+            .Select(kvp => (Parsed: int.TryParse(kvp.Key, NumberStyles.Integer, CultureInfo.InvariantCulture,
+                out var id), Id: id, kvp.Value))
+            .Where(x => x.Parsed)
+            .GroupBy(x => x.Id, x => x.Value)
+            .ToFrozenDictionary(g => g.Key, g => g.Last());
     }
 }
