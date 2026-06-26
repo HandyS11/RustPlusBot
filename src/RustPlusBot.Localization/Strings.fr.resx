@@ -249,6 +249,33 @@
   <data name="command.wipe.unknown" xml:space="preserve">
     <value>Heure de wipe inconnue.</value>
   </data>
+  <data name="command.craft.none" xml:space="preserve">
+    <value>{0} n'est pas fabricable.</value>
+  </data>
+  <data name="command.craft.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.item.ambiguous" xml:space="preserve">
+    <value>Vouliez-vous dire : {0} ?</value>
+  </data>
+  <data name="command.item.notfound" xml:space="preserve">
+    <value>Aucun objet correspondant à « {0} ».</value>
+  </data>
+  <data name="command.item.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.recycle.none" xml:space="preserve">
+    <value>{0} n'est pas recyclable.</value>
+  </data>
+  <data name="command.recycle.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.research.none" xml:space="preserve">
+    <value>{0} ne peut pas être recherché.</value>
+  </data>
+  <data name="command.research.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="event.cargo.entered" xml:space="preserve">
     <value>🚢 Cargo Ship arrivé en {0}</value>
   </data>
@@ -324,6 +351,9 @@
   <data name="help.alive" xml:space="preserve">
     <value>Afficher depuis combien de temps chaque coéquipier survit.</value>
   </data>
+  <data name="help.craft" xml:space="preserve">
+    <value>Afficher la recette de fabrication d'un objet</value>
+  </data>
   <data name="help.group.bot" xml:space="preserve">
     <value>Bot</value>
   </data>
@@ -338,6 +368,9 @@
   </data>
   <data name="help.group.teamintel" xml:space="preserve">
     <value>Équipe</value>
+  </data>
+  <data name="help.item" xml:space="preserve">
+    <value>Afficher le nom, l'id, la pile et la disparition d'un objet</value>
   </data>
   <data name="help.mute" xml:space="preserve">
     <value>Couper toute sortie du bot vers le jeu.</value>
@@ -356,6 +389,12 @@
   </data>
   <data name="help.prox" xml:space="preserve">
     <value>Afficher la distance à chaque coéquipier.</value>
+  </data>
+  <data name="help.recycle" xml:space="preserve">
+    <value>Afficher le recyclage d'un objet</value>
+  </data>
+  <data name="help.research" xml:space="preserve">
+    <value>Afficher le coût de recherche (ferraille) d'un objet</value>
   </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Afficher ce message d'aide.</value>

@@ -43,6 +43,10 @@ public static class CommandServiceCollectionExtensions
         services.AddScoped<ICommandHandler, EventsCommandHandler>();
         services.AddScoped<ICommandHandler, SmallCommandHandler>();
         services.AddScoped<ICommandHandler, LargeCommandHandler>();
+        services.AddScoped<ICommandHandler, ItemCommandHandler>();
+        services.AddScoped<ICommandHandler, RecycleCommandHandler>();
+        services.AddScoped<ICommandHandler, CraftCommandHandler>();
+        services.AddScoped<ICommandHandler, ResearchCommandHandler>();
 
         services.AddScoped<CommandDispatcher>();
         services.AddHostedService<CommandsHostedService>();
