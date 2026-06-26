@@ -10,7 +10,7 @@ public sealed class ItemDatabaseNameResolverTests
     [Fact]
     public void Resolve_ReturnsName_ForKnownId()
     {
-        Assert.Equal("AK-47", _resolver.Resolve(1545779598));
+        Assert.Equal("Assault Rifle", _resolver.Resolve(1545779598));
     }
 
     [Fact]

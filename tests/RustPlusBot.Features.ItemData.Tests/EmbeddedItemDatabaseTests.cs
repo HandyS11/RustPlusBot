@@ -11,7 +11,7 @@ public sealed class EmbeddedItemDatabaseTests
     {
         var ak = _db.GetById(1545779598);
         Assert.NotNull(ak);
-        Assert.Equal("AK-47", ak!.Name);
+        Assert.Equal("Assault Rifle", ak!.Name);
     }
 
     [Fact]

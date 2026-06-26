@@ -26,8 +26,8 @@ public sealed class ItemCommandHandlersTests
     [Fact]
     public async Task Item_Found_returnsCard()
     {
-        var reply = await new ItemCommandHandler(_db, _loc).ExecuteAsync(Ctx("AK-47"), CancellationToken.None);
-        Assert.Contains("AK-47", reply, StringComparison.Ordinal);
+        var reply = await new ItemCommandHandler(_db, _loc).ExecuteAsync(Ctx("Assault Rifle"), CancellationToken.None);
+        Assert.Contains("Assault Rifle", reply, StringComparison.Ordinal);
     }
 
     [Fact]
