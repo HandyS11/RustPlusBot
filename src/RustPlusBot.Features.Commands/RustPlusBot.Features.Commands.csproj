@@ -11,6 +11,7 @@
     <ProjectReference Include="..\RustPlusBot.Persistence\RustPlusBot.Persistence.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Connections\RustPlusBot.Features.Connections.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Events\RustPlusBot.Features.Events.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.ItemData\RustPlusBot.Features.ItemData.csproj" />
     <ProjectReference Include="..\RustPlusBot.Discord\RustPlusBot.Discord.csproj" />
   </ItemGroup>
 

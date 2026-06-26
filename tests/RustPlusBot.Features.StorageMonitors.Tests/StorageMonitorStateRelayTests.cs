@@ -4,7 +4,7 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.StorageMonitors;
-using RustPlusBot.Features.StorageMonitors.Naming;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Features.StorageMonitors.Posting;
 using RustPlusBot.Features.StorageMonitors.Relaying;
 using RustPlusBot.Features.StorageMonitors.Rendering;

@@ -6,6 +6,7 @@ using RustPlusBot.Features.Commands.Help;
 using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Leader;
 using RustPlusBot.Features.Commands.Servers;
+using RustPlusBot.Features.ItemData;
 using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands;
@@ -23,6 +24,7 @@ public static class CommandServiceCollectionExtensions
         services.AddSingleton<CommandCooldown>();
         services.AddSingleton<BotUptime>();
         services.AddRustPlusBotLocalization();
+        services.AddItemData();
 
         services.AddScoped<ICommandHandler, MuteCommandHandler>();
         services.AddScoped<ICommandHandler, UnmuteCommandHandler>();
@@ -43,6 +45,10 @@ public static class CommandServiceCollectionExtensions
         services.AddScoped<ICommandHandler, EventsCommandHandler>();
         services.AddScoped<ICommandHandler, SmallCommandHandler>();
         services.AddScoped<ICommandHandler, LargeCommandHandler>();
+        services.AddScoped<ICommandHandler, ItemCommandHandler>();
+        services.AddScoped<ICommandHandler, RecycleCommandHandler>();
+        services.AddScoped<ICommandHandler, CraftCommandHandler>();
+        services.AddScoped<ICommandHandler, ResearchCommandHandler>();
 
         services.AddScoped<CommandDispatcher>();
         services.AddHostedService<CommandsHostedService>();

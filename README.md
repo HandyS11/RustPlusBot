@@ -8,8 +8,9 @@ A self-hosted Discord bot for the Rust+ companion app.
 
 The bot is live: it pairs with Rust+ over FCM, holds a socket per server, and
 auto-provisions its own Discord channels. Pairing/connection, the chat bridge,
-in-game `!commands` and slash surfaces, live map events, and map rendering are all
-shipped. Smart devices and cameras are next.
+in-game `!commands` and slash surfaces, live map events, map rendering, smart
+devices (switches, alarms, storage monitors), and an offline item database with
+recycle/craft/research calculators are all shipped. Cameras are next.
 
 ## Features
 
@@ -47,12 +48,14 @@ configurable per-server prefix (default `!`) and per-command cooldowns:
 - **Server** — `!pop`, `!time`, `!wipe`
 - **Team** — `!online`, `!offline`, `!team`, `!alive`, `!steamid [name]`, `!prox [name]`
 - **Live events** — `!cargo`, `!heli`, `!chinook`, `!small`, `!large`, `!events`
+- **Items** — `!item`, `!recycle`, `!craft`, `!research` (name or id)
 - **Control** — `!mute` / `!unmute` (gate all bot→game output)
 
 ### Slash commands
 
 - **Server data** (ephemeral, with a `server` selector when several are paired) —
   `/pop`, `/time`, `/wipe`, `/online`, `/offline`, `/team`, `/alive`, `/small`, `/large`
+- **Items** (ephemeral) — `/item`, `/recycle`, `/craft`, `/research` (name or id)
 - **Utility** — `/help`, `/uptime`, `/leader` (Manage Server — transfer in-game team leadership)
 - **Admin** — `/setup`, `/workspace reset`, `/workspace simulate-server`
 
@@ -68,6 +71,17 @@ configurable per-server prefix (default `!`) and per-command cooldowns:
 - Per-server `#map` channel renders the live game map as an image with toggleable
   layers — **Grid**, **Markers**, **Monuments**, **Vendor**, **Players**, **Rigs** —
   controlled from a Manage-Server-gated control message.
+
+### Item database & calculators
+
+- An **offline, versioned item dataset** (bundled, ~1200 items) behind one
+  lookup seam, exposing four calculators both in-game and as ephemeral slash
+  commands: item info, recycler yields, craft recipes, and research scrap cost.
+- **Name-or-id lookup** — type a name (case-insensitive, partial), an exact name,
+  or a numeric id; multiple matches return a short "did you mean" list.
+- **Provenance-aware** — each result footers the date its data was sourced, and a
+  maintainer [generator tool](tools/RustPlusBot.ItemData.Generator) regenerates the
+  bundle from upstream (with strict validation) so it never silently rots.
 
 ### Foundation
 
@@ -113,7 +127,13 @@ See [docs/development/running-locally.md](docs/development/running-locally.md).
 | `RustPlusBot.Features.Commands` | In-game `!commands`, slash surfaces, `/help`/`/leader` |
 | `RustPlusBot.Features.Events` | Live map-event classification + `#events` feed |
 | `RustPlusBot.Features.Map` | Map image rendering with toggleable layers |
+| `RustPlusBot.Features.ItemData` | Bundled item dataset, lookup seam, recycle/craft/research data |
 | `RustPlusBot.Host` | Generic Host entry point, DI wiring, startup validation |
+
+The `tools/` folder holds maintainer utilities that are not part of the running
+bot — currently
+[`RustPlusBot.ItemData.Generator`](tools/RustPlusBot.ItemData.Generator), which
+regenerates the embedded item dataset.
 
 ## Roadmap
 
@@ -125,8 +145,9 @@ Subsystems are built in order; each has its own spec → plan → build cycle.
 | 1 | Pairing & connection (FCM, credential pool, hot-swap, auto-failover) | Done |
 | 2 | Map + live events (events feed, oil-rig detection, map render + layers) | Done |
 | 3 | Chat bridge + `!commands` + slash surfaces | Done |
-| 4 | Smart devices | Planned |
+| 4 | Smart devices (switches, alarms, storage monitors) | Done |
 | 5 | Cameras | Planned |
+| 6 | Item database & calculators (recycle/craft/research) | In progress |
 
 ## License
 

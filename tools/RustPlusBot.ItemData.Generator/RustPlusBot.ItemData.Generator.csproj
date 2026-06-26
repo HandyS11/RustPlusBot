@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RustPlusBot.ItemData.Generator.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RustPlusBot.Features.ItemData\RustPlusBot.Features.ItemData.csproj" />
+  </ItemGroup>
+
+</Project>

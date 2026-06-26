@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.StorageMonitors.Hosting;
-using RustPlusBot.Features.StorageMonitors.Naming;
+using RustPlusBot.Features.ItemData;
 using RustPlusBot.Features.StorageMonitors.Pairing;
 using RustPlusBot.Features.StorageMonitors.Posting;
 using RustPlusBot.Features.StorageMonitors.Relaying;
@@ -21,7 +21,7 @@ public static class StorageMonitorServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddRustPlusBotLocalization();
-        services.AddSingleton<IItemNameResolver, EmbeddedItemNameResolver>();
+        services.AddItemData();
         services.AddSingleton<StorageMonitorEmbedRenderer>();
         services.AddSingleton<IStorageMonitorChannelPoster, DiscordStorageMonitorChannelPoster>();
         services.AddSingleton<StorageMonitorPairingCoordinator>();

@@ -249,6 +249,33 @@
   <data name="command.wipe.unknown" xml:space="preserve">
     <value>Wipe time is unknown.</value>
   </data>
+  <data name="command.craft.none" xml:space="preserve">
+    <value>{0} is not craftable.</value>
+  </data>
+  <data name="command.craft.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.item.ambiguous" xml:space="preserve">
+    <value>Did you mean: {0}?</value>
+  </data>
+  <data name="command.item.notfound" xml:space="preserve">
+    <value>No item matching '{0}'.</value>
+  </data>
+  <data name="command.item.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.recycle.none" xml:space="preserve">
+    <value>{0} is not recyclable.</value>
+  </data>
+  <data name="command.recycle.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.research.none" xml:space="preserve">
+    <value>{0} cannot be researched.</value>
+  </data>
+  <data name="command.research.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="event.cargo.entered" xml:space="preserve">
     <value>🚢 Cargo Ship entered at {0}</value>
   </data>
@@ -324,11 +351,17 @@
   <data name="help.alive" xml:space="preserve">
     <value>Show how long each teammate has survived.</value>
   </data>
+  <data name="help.craft" xml:space="preserve">
+    <value>Show an item's craft recipe</value>
+  </data>
   <data name="help.group.bot" xml:space="preserve">
     <value>Bot</value>
   </data>
   <data name="help.group.control" xml:space="preserve">
     <value>Control</value>
+  </data>
+  <data name="help.group.itemdb" xml:space="preserve">
+    <value>Item Database</value>
   </data>
   <data name="help.group.server" xml:space="preserve">
     <value>Server</value>
@@ -338,6 +371,9 @@
   </data>
   <data name="help.group.teamintel" xml:space="preserve">
     <value>Team</value>
+  </data>
+  <data name="help.item" xml:space="preserve">
+    <value>Look up an item's name, id, stack, and despawn</value>
   </data>
   <data name="help.mute" xml:space="preserve">
     <value>Silence all bot output to the game.</value>
@@ -357,11 +393,29 @@
   <data name="help.prox" xml:space="preserve">
     <value>Show distance to each teammate.</value>
   </data>
+  <data name="help.recycle" xml:space="preserve">
+    <value>Show recycler output for an item</value>
+  </data>
+  <data name="help.research" xml:space="preserve">
+    <value>Show an item's research scrap cost</value>
+  </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Show this help message.</value>
   </data>
   <data name="help.slash.leader" xml:space="preserve">
     <value>Transfer in-game team leadership.</value>
+  </data>
+  <data name="help.slash.craft" xml:space="preserve">
+    <value>Show an item's craft recipe.</value>
+  </data>
+  <data name="help.slash.item" xml:space="preserve">
+    <value>Look up an item by name or id.</value>
+  </data>
+  <data name="help.slash.recycle" xml:space="preserve">
+    <value>Show recycler output for an item.</value>
+  </data>
+  <data name="help.slash.research" xml:space="preserve">
+    <value>Show an item's research scrap cost.</value>
   </data>
   <data name="help.slash.uptime" xml:space="preserve">
     <value>Show the bot's uptime.</value>

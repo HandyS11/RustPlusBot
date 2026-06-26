@@ -5,11 +5,12 @@ namespace RustPlusBot.Features.Commands.Tests.Help;
 
 public sealed class CommandHelpCatalogTests
 {
-    /// <summary>The 13 registered in-game handler names (see AddCommands / CommandRegistrationTests).</summary>
+    /// <summary>The 17 registered in-game handler names (see AddCommands / CommandRegistrationTests).</summary>
     private static readonly string[] HandlerNames =
     [
         "mute", "unmute", "uptime", "pop", "wipe", "time",
         "online", "offline", "team", "steamid", "alive", "afk", "prox",
+        "item", "recycle", "craft", "research",
     ];
 
     [Fact]
@@ -40,6 +41,16 @@ public sealed class CommandHelpCatalogTests
         {
             Assert.NotEqual(entry.DescriptionKey, loc.Get(entry.DescriptionKey, "en"));
             Assert.NotEqual(entry.DescriptionKey, loc.Get(entry.DescriptionKey, "fr"));
+        }
+    }
+
+    [Fact]
+    public void EveryInGameGroupIsCoveredByHelpEmbedRenderer()
+    {
+        var coveredGroups = HelpEmbedRenderer.GroupOrder.Select(g => g.Group).ToHashSet();
+        foreach (var group in CommandHelpCatalog.InGame.Select(e => e.Group).Distinct())
+        {
+            Assert.Contains(group, coveredGroups);
         }
     }
 }

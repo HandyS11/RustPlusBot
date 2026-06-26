@@ -10,6 +10,7 @@ using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Servers;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Features.ItemData;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Servers;
@@ -35,6 +36,7 @@ public sealed class CommandRegistrationTests
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
         services.AddOptions<CommandOptions>();
+        services.AddItemData();
         services.AddCommands();
 
         using var provider = services.BuildServiceProvider(validateScopes: true);
@@ -49,7 +51,7 @@ public sealed class CommandRegistrationTests
         using var scope = provider.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CommandDispatcher>());
         var handlers = scope.ServiceProvider.GetServices<ICommandHandler>().ToList();
-        Assert.Equal(19, handlers.Count);
+        Assert.Equal(23, handlers.Count);
         Assert.Contains(handlers, h => h.Name == "mute");
         Assert.Contains(handlers, h => h.Name == "pop");
         Assert.Contains(handlers, h => h.Name == "time");
@@ -87,6 +89,7 @@ public sealed class CommandRegistrationTests
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
         services.AddOptions<CommandOptions>();
+        services.AddItemData();
         services.AddCommands();
 
         using var provider = services.BuildServiceProvider(validateScopes: true);

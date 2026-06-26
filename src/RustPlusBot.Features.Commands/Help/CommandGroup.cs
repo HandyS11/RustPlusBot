@@ -14,4 +14,7 @@ internal enum CommandGroup
 
     /// <summary>Bot-meta commands (uptime).</summary>
     Bot = 3,
+
+    /// <summary>Item-database commands (item/recycle/craft/research).</summary>
+    ItemDb = 4,
 }

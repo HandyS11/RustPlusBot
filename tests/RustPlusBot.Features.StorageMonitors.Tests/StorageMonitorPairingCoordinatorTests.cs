@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Domain.StorageMonitors;
-using RustPlusBot.Features.StorageMonitors.Naming;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Features.StorageMonitors.Pairing;
 using RustPlusBot.Features.StorageMonitors.Posting;
 using RustPlusBot.Features.StorageMonitors.Rendering;

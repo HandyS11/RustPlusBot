@@ -8,12 +8,13 @@ namespace RustPlusBot.Features.Commands.Help;
 /// <param name="localizer">Resolves the title, group headings, and per-command descriptions.</param>
 internal sealed class HelpEmbedRenderer(ILocalizer localizer)
 {
-    private static readonly (CommandGroup Group, string HeadingKey)[] GroupOrder =
+    internal static readonly (CommandGroup Group, string HeadingKey)[] GroupOrder =
     [
         (CommandGroup.Control, "help.group.control"),
         (CommandGroup.Server, "help.group.server"),
         (CommandGroup.TeamIntel, "help.group.teamintel"),
         (CommandGroup.Bot, "help.group.bot"),
+        (CommandGroup.ItemDb, "help.group.itemdb"),
     ];
 
     /// <summary>Renders the help embed.</summary>

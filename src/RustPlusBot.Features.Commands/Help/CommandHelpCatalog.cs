@@ -25,6 +25,10 @@ internal static class CommandHelpCatalog
         new("afk", CommandGroup.TeamIntel, "help.afk"),
         new("prox", CommandGroup.TeamIntel, "help.prox"),
         new("uptime", CommandGroup.Bot, "help.uptime"),
+        new("item", CommandGroup.ItemDb, "help.item"),
+        new("recycle", CommandGroup.ItemDb, "help.recycle"),
+        new("craft", CommandGroup.ItemDb, "help.craft"),
+        new("research", CommandGroup.ItemDb, "help.research"),
     ];
 
     /// <summary>The Discord slash commands, in display order.</summary>
@@ -33,5 +37,9 @@ internal static class CommandHelpCatalog
         new("help", CommandGroup.Bot, "help.slash.help"),
         new("uptime", CommandGroup.Bot, "help.slash.uptime"),
         new("leader", CommandGroup.Bot, "help.slash.leader"),
+        new("item", CommandGroup.ItemDb, "help.slash.item"),
+        new("recycle", CommandGroup.ItemDb, "help.slash.recycle"),
+        new("craft", CommandGroup.ItemDb, "help.slash.craft"),
+        new("research", CommandGroup.ItemDb, "help.slash.research"),
     ];
 }

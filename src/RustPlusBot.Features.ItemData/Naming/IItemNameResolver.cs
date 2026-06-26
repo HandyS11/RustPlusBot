@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.StorageMonitors.Naming;
+namespace RustPlusBot.Features.ItemData.Naming;
 
 /// <summary>Resolves a Rust item id to a human-readable display name.</summary>
 public interface IItemNameResolver
