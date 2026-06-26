@@ -9,6 +9,7 @@ using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Map;
 using RustPlusBot.Domain.Servers;
+using RustPlusBot.Domain.StorageMonitors;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Persistence.Configurations;
@@ -52,6 +53,9 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Paired and managed Smart Alarms.</summary>
     public DbSet<SmartAlarm> SmartAlarms => Set<SmartAlarm>();
 
+    /// <summary>Managed Smart Storage Monitors.</summary>
+    public DbSet<SmartStorageMonitor> SmartStorageMonitors => Set<SmartStorageMonitor>();
+
     /// <summary>Per-guild event subscriptions.</summary>
     public DbSet<EventSubscription> EventSubscriptions => Set<EventSubscription>();
 
@@ -81,6 +85,7 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new PairedEntityConfiguration())
             .ApplyConfiguration(new SmartSwitchConfiguration())
             .ApplyConfiguration(new SmartAlarmConfiguration())
+            .ApplyConfiguration(new SmartStorageMonitorConfiguration())
             .ApplyConfiguration(new EventSubscriptionConfiguration())
             .ApplyConfiguration(new ProvisionedCategoryConfiguration())
             .ApplyConfiguration(new ProvisionedChannelConfiguration())
