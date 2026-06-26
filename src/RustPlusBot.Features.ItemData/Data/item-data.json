@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "sources": {
+    "namesAsOf": "2026-04-08",
+    "recycleAsOf": "2024-09-07",
+    "craftAsOf": "2024-09-07",
+    "researchAsOf": "2024-09-07"
+  },
+  "items": [
+    {
+      "id": -2069578888, "name": "M249", "stackSize": 1, "despawnSeconds": 3600,
+      "recycle": { "recycler": [ { "itemId": 69511070, "quantity": 25, "probability": 1.0 } ] },
+      "craft": null,
+      "research": { "scrap": 500 }
+    },
+    {
+      "id": 1545779598, "name": "AK-47", "stackSize": 1, "despawnSeconds": 3600,
+      "recycle": { "recycler": [ { "itemId": -1059362949, "quantity": 4, "probability": 1.0 } ] },
+      "craft": { "ingredients": [ { "itemId": -1059362949, "quantity": 200 } ], "timeSeconds": 30.0, "workbenchLevel": 3 },
+      "research": { "scrap": 500 }
+    },
+    {
+      "id": -151838493, "name": "Wood", "stackSize": 1000, "despawnSeconds": null,
+      "recycle": null, "craft": null, "research": null
+    },
+    {
+      "id": 200773292, "name": "Sleeping Bag", "stackSize": 1, "despawnSeconds": 300,
+      "recycle": null,
+      "craft": { "ingredients": [ { "itemId": -151838493, "quantity": 100 } ], "timeSeconds": 7.5, "workbenchLevel": null },
+      "research": null
+    }
+  ]
+}

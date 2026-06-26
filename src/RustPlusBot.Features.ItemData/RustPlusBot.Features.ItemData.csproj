@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <EmbeddedResource Include="Data/item-data.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="RustPlusBot.Features.ItemData.Tests" />
   </ItemGroup>
 
