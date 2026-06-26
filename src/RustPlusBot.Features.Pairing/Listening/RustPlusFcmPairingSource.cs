@@ -70,6 +70,7 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
             _fcm.OnServerPairing += OnServerPairing;
             _fcm.OnSmartSwitchPairing += OnSmartSwitchPairing;
             _fcm.OnSmartAlarmPairing += OnSmartAlarmPairing;
+            _fcm.OnStorageMonitorPairing += OnStorageMonitorPairing;
         }
 
         /// <inheritdoc />
@@ -103,6 +104,7 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
             _fcm.OnServerPairing -= OnServerPairing;
             _fcm.OnSmartSwitchPairing -= OnSmartSwitchPairing;
             _fcm.OnSmartAlarmPairing -= OnSmartAlarmPairing;
+            _fcm.OnStorageMonitorPairing -= OnStorageMonitorPairing;
             await _fcm.DisposeAsync().ConfigureAwait(false);
         }
 
@@ -167,6 +169,23 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
                 FacepunchServerId: e.ServerId,
                 EntityId: entityId,
                 EntityKind: RustPlusBot.Domain.Entities.PairedEntityKind.SmartAlarm));
+        }
+
+        private void OnStorageMonitorPairing(object? sender, Notification<ulong?> e)
+        {
+            if (e?.Data is not { } entityId)
+            {
+                return;
+            }
+
+            Dispatch(new PairingNotification(
+                Kind: PairingKind.Entity,
+                ServerName: string.Empty, Ip: string.Empty, Port: 0,
+                PlayerId: e.PlayerId,
+                PlayerToken: e.PlayerToken.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                FacepunchServerId: e.ServerId,
+                EntityId: entityId,
+                EntityKind: RustPlusBot.Domain.Entities.PairedEntityKind.StorageMonitor));
         }
 
         private void Dispatch(PairingNotification notification)
