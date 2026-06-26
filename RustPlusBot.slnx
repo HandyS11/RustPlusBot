@@ -19,6 +19,9 @@
     <Project Path="src/RustPlusBot.Localization/RustPlusBot.Localization.csproj" />
     <Project Path="src/RustPlusBot.Persistence/RustPlusBot.Persistence.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/RustPlusBot.ItemData.Generator/RustPlusBot.ItemData.Generator.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RustPlusBot.Abstractions.Tests/RustPlusBot.Abstractions.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Commands.Tests/RustPlusBot.Features.Commands.Tests.csproj" />
@@ -35,5 +38,6 @@
     <Project Path="tests/RustPlusBot.Features.Events.Tests/RustPlusBot.Features.Events.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Localization.Tests/RustPlusBot.Localization.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Persistence.Tests/RustPlusBot.Persistence.Tests.csproj" />
+    <Project Path="tests/RustPlusBot.ItemData.Generator.Tests/RustPlusBot.ItemData.Generator.Tests.csproj" />
   </Folder>
 </Solution>
