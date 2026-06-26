@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RustPlusBot.Features.ItemData.Data;
+using RustPlusBot.Features.ItemData.Lookup;
 
 namespace RustPlusBot.Features.ItemData;
 
@@ -25,6 +26,9 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
 
     /// <inheritdoc />
     public ItemRecord? GetById(int id) => ById.GetValueOrDefault(id);
+
+    /// <inheritdoc />
+    public ItemMatch Resolve(string query) => ItemLookup.Resolve(query, GetById, Dataset.Items);
 
     private static ItemDataset Load()
     {
