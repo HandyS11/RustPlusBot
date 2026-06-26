@@ -67,6 +67,18 @@ public interface IRustServerQuery
         ulong entityId,
         CancellationToken cancellationToken);
 
+    /// <summary>Reads a storage monitor's contents for a (guild, server), or null when there is no live socket.</summary>
+    /// <param name="guildId">The guild snowflake.</param>
+    /// <param name="serverId">The server id.</param>
+    /// <param name="entityId">The storage-monitor entity id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The contents snapshot, or null when unreachable.</returns>
+    Task<StorageContentsSnapshot?> GetStorageContentsAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        CancellationToken cancellationToken);
+
     /// <summary>Sets a smart switch on/off; returns false when there is no live socket or the call fails.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The target server id.</param>

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
@@ -21,7 +22,7 @@ using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Tests;
 
-public sealed class SwitchQueryTests
+public sealed class StorageMonitorPrimingTests
 {
     private static (ServiceProvider Provider, ConnectionSupervisor Supervisor, InMemoryEventBus Bus) CreateHarness(
         FakeRustSocketSource source)
@@ -40,7 +41,7 @@ public sealed class SwitchQueryTests
         services.AddSingleton(dm);
         services.AddSingleton<IEventBus>(bus);
 
-        var cs = $"DataSource=switchquery-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        var cs = $"DataSource=storagepriming-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
         var keepAlive = new SqliteConnection(cs);
         keepAlive.Open();
         using (var seed = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options))
@@ -71,7 +72,7 @@ public sealed class SwitchQueryTests
         return (provider, provider.GetRequiredService<ConnectionSupervisor>(), bus);
     }
 
-    private static async Task<Guid> SeedServerWithActiveAndSwitchAsync(ServiceProvider provider, ulong entityId)
+    private static async Task<Guid> SeedServerWithActiveAndMonitorAsync(ServiceProvider provider, ulong entityId)
     {
         using var scope = provider.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<BotDbContext>();
@@ -90,8 +91,8 @@ public sealed class SwitchQueryTests
             Status = CredentialStatus.Active,
         });
         await ctx.SaveChangesAsync();
-        var store = scope.ServiceProvider.GetRequiredService<ISwitchStore>();
-        await store.AddAsync(10UL, server.Id, entityId, $"Switch {entityId}", 1UL);
+        var store = scope.ServiceProvider.GetRequiredService<IStorageMonitorStore>();
+        await store.AddAsync(10UL, server.Id, entityId, $"Storage Monitor {entityId}", 1UL);
         return server.Id;
     }
 
@@ -105,55 +106,31 @@ public sealed class SwitchQueryTests
     }
 
     [Fact]
-    public async Task SetSmartSwitch_forwards_value_when_connected()
-    {
-        var source = new FakeRustSocketSource();
-        var (provider, supervisor, _) = CreateHarness(source);
-        await using var disposeProvider = provider;
-        var serverId = await SeedServerWithActiveAndSwitchAsync(provider, entityId: 42UL);
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
-        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
-
-        var ok = await supervisor.SetSmartSwitchAsync(10UL, serverId, 42UL, value: true, cts.Token);
-
-        Assert.True(ok);
-        Assert.Contains((42UL, true), source.LastConnection!.SetSwitchCalls);
-        await supervisor.StopAllAsync();
-    }
-
-    [Fact]
-    public async Task SetSmartSwitch_returns_false_when_no_live_socket()
-    {
-        var source = new FakeRustSocketSource();
-        var (provider, supervisor, _) = CreateHarness(source);
-        await using var disposeProvider = provider;
-
-        Assert.False(await supervisor.SetSmartSwitchAsync(10UL, Guid.NewGuid(), 42UL, true, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Priming_publishes_state_for_persisted_switch_on_connect()
+    public async Task Priming_publishes_StorageMonitorTriggeredEvent_for_persisted_monitor_on_connect()
     {
         var source = new FakeRustSocketSource();
         var (provider, supervisor, bus) = CreateHarness(source);
         await using var disposeProvider = provider;
-        var serverId = await SeedServerWithActiveAndSwitchAsync(provider, entityId: 42UL);
+        var serverId = await SeedServerWithActiveAndMonitorAsync(provider, entityId: 777UL);
+
+        var contents = new StorageContentsSnapshot(48, null, null, []);
+
+        // Pre-stage the storage contents BEFORE EnsureConnectionAsync so the prime loop sees it.
+        source.EnqueueStorageInfo(777UL, contents);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Subscribe BEFORE connecting: SubscribeAsync registers the channel eagerly on THIS thread, so the primed
         // publish (which fires during EnsureConnectionAsync) is observed. Only the enumeration runs in Task.Run.
-        var stream = bus.SubscribeAsync<SmartDeviceTriggeredEvent>(cts.Token);
+        var stream = bus.SubscribeAsync<StorageMonitorTriggeredEvent>(cts.Token);
         var received =
-            new TaskCompletionSource<SmartDeviceTriggeredEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+            new TaskCompletionSource<StorageMonitorTriggeredEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
         _ = Task.Run(
             async () =>
             {
                 await foreach (var evt in stream)
                 {
-                    if (evt.EntityId == 42UL)
+                    if (evt.EntityId == 777UL)
                     {
                         received.TrySetResult(evt);
                         break;
@@ -162,36 +139,73 @@ public sealed class SwitchQueryTests
             },
             cts.Token);
 
-        // The fake defaults entity 42 absent → GetSmartDeviceInfoAsync returns null → priming publishes off.
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
 
-        var evt = await received.Task.WaitAsync(cts.Token);
-        Assert.Equal(42UL, evt.EntityId);
-        Assert.False(evt.IsActive); // absent in SwitchStates → null → defaulted off
+        var result = await received.Task.WaitAsync(cts.Token);
+        Assert.Equal(777UL, result.EntityId);
+        Assert.Equal(48, result.Contents.Capacity);
         await supervisor.StopAllAsync();
     }
 
     [Fact]
-    public async Task Trigger_publishes_state_change()
+    public async Task GetStorageContentsAsync_returns_null_when_no_live_socket()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor, _) = CreateHarness(source);
+        await using var disposeProvider = provider;
+
+        var result = await supervisor.GetStorageContentsAsync(10UL, Guid.NewGuid(), 777UL, CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetStorageContentsAsync_returns_contents_when_live_socket_exists()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor, _) = CreateHarness(source);
+        await using var disposeProvider = provider;
+        var serverId = await SeedServerWithActiveAndMonitorAsync(provider, entityId: 888UL);
+
+        var expectedContents = new StorageContentsSnapshot(24, null, null,
+            [new StorageItemSnapshot(-151838493, 100, false)]);
+        source.EnqueueStorageInfo(888UL, expectedContents);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        var result = await supervisor.GetStorageContentsAsync(10UL, serverId, 888UL, cts.Token);
+
+        Assert.NotNull(result);
+        Assert.Equal(24, result.Capacity);
+        var item = Assert.Single(result.Items);
+        Assert.Equal(-151838493, item.ItemId);
+        Assert.Equal(100, item.Quantity);
+        await supervisor.StopAllAsync();
+    }
+
+    [Fact]
+    public async Task Trigger_publishes_StorageMonitorTriggeredEvent_on_storage_change()
     {
         var source = new FakeRustSocketSource();
         var (provider, supervisor, bus) = CreateHarness(source);
         await using var disposeProvider = provider;
-        var serverId = await SeedServerWithActiveAndSwitchAsync(provider, entityId: 42UL);
+        var serverId = await SeedServerWithActiveAndMonitorAsync(provider, entityId: 999UL);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Subscribe BEFORE raising the trigger so the channel is registered when the publish fires.
-        var stream = bus.SubscribeAsync<SmartDeviceTriggeredEvent>(cts.Token);
+        var stream = bus.SubscribeAsync<StorageMonitorTriggeredEvent>(cts.Token);
         var received =
-            new TaskCompletionSource<SmartDeviceTriggeredEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+            new TaskCompletionSource<StorageMonitorTriggeredEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
         _ = Task.Run(
             async () =>
             {
                 await foreach (var e in stream)
                 {
-                    // Skip the prime (off) and match the trigger (on) for entity 42.
-                    if (e is { EntityId: 42UL, IsActive: true })
+                    // Skip any prime (null → not published) and match the trigger for entity 999.
+                    if (e is { EntityId: 999UL })
                     {
                         received.TrySetResult(e);
                         break;
@@ -203,10 +217,13 @@ public sealed class SwitchQueryTests
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
         await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
 
-        source.LastConnection!.RaiseSmartDeviceTriggered(42UL, isActive: true);
+        var triggerContents = new StorageContentsSnapshot(48, null, null,
+            [new StorageItemSnapshot(-151838493, 500, false)]);
+        source.LastConnection!.RaiseStorageMonitorTriggered(999UL, triggerContents);
 
         var evt = await received.Task.WaitAsync(cts.Token);
-        Assert.True(evt.IsActive);
+        Assert.Equal(999UL, evt.EntityId);
+        Assert.Equal(48, evt.Contents.Capacity);
         await supervisor.StopAllAsync();
     }
 }

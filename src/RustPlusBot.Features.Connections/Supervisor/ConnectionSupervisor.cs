@@ -14,6 +14,7 @@ using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.StorageMonitors;
 using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Supervisor;
@@ -267,6 +268,23 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<StorageContentsSnapshot?> GetStorageContentsAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection
+            .GetStorageMonitorInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> SetSmartSwitchAsync(
         ulong guildId,
         Guid serverId,
@@ -481,9 +499,17 @@ internal sealed partial class ConnectionSupervisor(
         }
 #pragma warning restore RCS1163
 
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<StorageMonitorTrigger> delegate shape.
+        void OnStorage(object? sender, StorageMonitorTrigger trigger)
+        {
+            _ = PublishStorageTriggerAsync(key, trigger);
+        }
+#pragma warning restore RCS1163
+
         var tracker = new TeamStateTracker();
         connection.TeamMessageReceived += OnTeamMessage;
         connection.SmartDeviceTriggered += OnSmartDevice;
+        connection.StorageMonitorTriggered += OnStorage;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
         await PrimeDevicesAsync(key, connection, ct).ConfigureAwait(false);
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -510,6 +536,7 @@ internal sealed partial class ConnectionSupervisor(
             _liveSockets.TryRemove(key, out _);
             connection.TeamMessageReceived -= OnTeamMessage;
             connection.SmartDeviceTriggered -= OnSmartDevice;
+            connection.StorageMonitorTriggered -= OnStorage;
         }
     }
 
@@ -868,6 +895,48 @@ internal sealed partial class ConnectionSupervisor(
 
         await PrimeEntityIdsAsync(key, connection,
             (IReadOnlyList<ulong>)[.. alarms.Select(a => a.EntityId)]).ConfigureAwait(false);
+
+        IReadOnlyList<Domain.StorageMonitors.SmartStorageMonitor> monitors;
+        try
+        {
+            var scope = scopeFactory.CreateAsyncScope();
+            await using (scope.ConfigureAwait(false))
+            {
+                var store = scope.ServiceProvider.GetRequiredService<IStorageMonitorStore>();
+                monitors = await store.ListByServerAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a failed monitor-list read just skips storage priming for this connection.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogDeviceListFailed(logger, ex, key.Server);
+            return;
+        }
+
+#pragma warning disable S3267 // Not a projection: each iteration awaits with per-entity best-effort error handling.
+        foreach (var monitor in monitors)
+#pragma warning restore S3267
+        {
+            try
+            {
+                await PublishStoragePrimeAsync(key, connection, monitor.EntityId).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+#pragma warning disable CA1031 // Broad catch: a single monitor's prime failure is logged and skipped.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogDevicePrimeFailed(logger, ex, monitor.EntityId, key.Server);
+            }
+        }
     }
 
     private async Task PrimeEntityIdsAsync(
@@ -956,6 +1025,76 @@ internal sealed partial class ConnectionSupervisor(
             // Shutting down.
         }
 #pragma warning disable CA1031 // Broad catch: a device prime failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogDevicePublishFailed(logger, ex, entityId, key.Server);
+        }
+    }
+
+    /// <summary>Trigger path: contents are carried on the broadcast arg — no re-read.</summary>
+    /// <param name="key">The (guild, server) routing key.</param>
+    /// <param name="trigger">The storage trigger carrying the entity id and contents.</param>
+    private async Task PublishStorageTriggerAsync((ulong Guild, Guid Server) key, StorageMonitorTrigger trigger)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await eventBus.PublishAsync(
+                    new StorageMonitorTriggeredEvent(key.Guild, key.Server, trigger.EntityId, trigger.Contents),
+                    _shutdown.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a storage publish failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogDevicePublishFailed(logger, ex, trigger.EntityId, key.Server);
+        }
+    }
+
+    /// <summary>Prime path: read contents on connect (also primes the socket's interest), then publish.</summary>
+    /// <param name="key">The (guild, server) routing key.</param>
+    /// <param name="connection">The live connection used to read contents.</param>
+    /// <param name="entityId">The storage-monitor entity id to prime.</param>
+    private async Task PublishStoragePrimeAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        ulong entityId)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            var contents = await connection
+                .GetStorageMonitorInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
+                .ConfigureAwait(false);
+            if (contents is null)
+            {
+                return; // unreachable read; the relay leaves the embed as-is (or unreachable via status events).
+            }
+
+            await eventBus.PublishAsync(
+                    new StorageMonitorTriggeredEvent(key.Guild, key.Server, entityId, contents),
+                    _shutdown.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a storage prime failure must not crash the connect path.
         catch (Exception ex)
 #pragma warning restore CA1031
         {

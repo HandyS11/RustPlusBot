@@ -21,6 +21,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private readonly ConcurrentQueue<SocketConnectOutcome> _connectOutcomes = new();
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
     private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _pendingMarkerScript = new();
+    private readonly Dictionary<ulong, StorageContentsSnapshot?> _pendingStorageContents = [];
     private int _createCount;
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
@@ -56,6 +57,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         connection.MonumentsResult = _pendingMonuments;
         _pendingMonuments = [];
 
+        // Transfer any pre-staged storage contents so they are in place before the prime loop starts.
+        foreach (var (entityId, contents) in _pendingStorageContents)
+        {
+            connection.StorageContents[entityId] = contents;
+        }
+
+        _pendingStorageContents.Clear();
+
         LastConnection = connection;
         return connection;
     }
@@ -82,6 +91,17 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// </summary>
     /// <param name="monuments">The monument list to return from <see cref="IRustServerConnection.GetMonumentsAsync"/>.</param>
     public void SetMonuments(IReadOnlyList<MonumentSnapshot> monuments) => _pendingMonuments = monuments;
+
+    /// <summary>
+    /// Pre-stages storage contents for a given entity, to be transferred to the NEXT connection created by
+    /// <see cref="Create"/>. Eliminates the setup race when the prime loop reads contents before the test can
+    /// assign them on <see cref="FakeConnection.StorageContents"/>.
+    /// Call this before <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    /// <param name="entityId">The storage-monitor entity id to stage.</param>
+    /// <param name="contents">The contents snapshot to return from <see cref="IRustServerConnection.GetStorageMonitorInfoAsync"/>.</param>
+    public void EnqueueStorageInfo(ulong entityId, StorageContentsSnapshot? contents) =>
+        _pendingStorageContents[entityId] = contents;
 
     internal HeartbeatResult NextHeartbeat()
     {
