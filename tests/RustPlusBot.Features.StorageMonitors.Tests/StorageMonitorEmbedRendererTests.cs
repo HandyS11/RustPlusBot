@@ -2,7 +2,7 @@ using Discord;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.StorageMonitors;
-using RustPlusBot.Features.StorageMonitors.Naming;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Features.StorageMonitors.Rendering;
 using RustPlusBot.Localization;
 

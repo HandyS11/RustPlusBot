@@ -13,15 +13,12 @@
     <ProjectReference Include="..\RustPlusBot.Domain\RustPlusBot.Domain.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Workspace\RustPlusBot.Features.Workspace.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Connections\RustPlusBot.Features.Connections.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.ItemData\RustPlusBot.Features.ItemData.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Discord.Net" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="Naming/items.json" />
   </ItemGroup>
 
 </Project>

@@ -3,7 +3,7 @@ using System.Text;
 using Discord;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.StorageMonitors;
-using RustPlusBot.Features.StorageMonitors.Naming;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.StorageMonitors.Rendering;

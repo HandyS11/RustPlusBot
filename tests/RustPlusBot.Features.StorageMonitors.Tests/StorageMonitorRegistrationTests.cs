@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Features.StorageMonitors;
-using RustPlusBot.Features.StorageMonitors.Naming;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Features.StorageMonitors.Pairing;
 using RustPlusBot.Features.StorageMonitors.Relaying;
 using RustPlusBot.Features.StorageMonitors.Rendering;
