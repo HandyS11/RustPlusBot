@@ -50,10 +50,14 @@ public sealed class ItemLookupTests
     [Fact]
     public void MultipleSubstring_AmbiguousPrefixFirst()
     {
-        // "rifle" hits "Semi-Automatic Rifle"; "a" would be too broad. Use a query that hits 2.
+        // Query "a": "AK-47" starts with 'A' (prefix match); "Semi-Automatic Rifle" and
+        // "Sleeping Bag" only contain 'a' as an interior character (substring matches).
+        // Ranking: OrderByDescending(StartsWith) → "AK-47" must be at index 0.
         var match = ItemLookup.Resolve("a", id => All.FirstOrDefault(i => i.Id == id), All);
         var amb = Assert.IsType<ItemMatch.Ambiguous>(match);
         Assert.True(amb.Candidates.Count >= 2);
+        Assert.Equal("AK-47", amb.Candidates[0].Name);
+        Assert.DoesNotContain(amb.Candidates.Skip(1), c => c.Name.StartsWith('A') || c.Name.StartsWith('a'));
     }
 
     [Fact]
