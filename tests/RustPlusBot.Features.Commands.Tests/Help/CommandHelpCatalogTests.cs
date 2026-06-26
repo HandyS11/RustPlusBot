@@ -43,4 +43,14 @@ public sealed class CommandHelpCatalogTests
             Assert.NotEqual(entry.DescriptionKey, loc.Get(entry.DescriptionKey, "fr"));
         }
     }
+
+    [Fact]
+    public void EveryInGameGroupIsCoveredByHelpEmbedRenderer()
+    {
+        var coveredGroups = HelpEmbedRenderer.GroupOrder.Select(g => g.Group).ToHashSet();
+        foreach (var group in CommandHelpCatalog.InGame.Select(e => e.Group).Distinct())
+        {
+            Assert.Contains(group, coveredGroups);
+        }
+    }
 }

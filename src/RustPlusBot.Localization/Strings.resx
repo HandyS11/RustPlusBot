@@ -360,6 +360,9 @@
   <data name="help.group.control" xml:space="preserve">
     <value>Control</value>
   </data>
+  <data name="help.group.itemdb" xml:space="preserve">
+    <value>Item Database</value>
+  </data>
   <data name="help.group.server" xml:space="preserve">
     <value>Server</value>
   </data>
