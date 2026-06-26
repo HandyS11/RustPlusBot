@@ -424,6 +424,45 @@ namespace RustPlusBot.Persistence.Migrations
                     b.ToTable("RustServers");
                 });
 
+            modelBuilder.Entity("RustPlusBot.Domain.StorageMonitors.SmartStorageMonitor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("EntityId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("MessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PairedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("GuildId", "ServerId", "EntityId")
+                        .IsUnique();
+
+                    b.ToTable("SmartStorageMonitors");
+                });
+
             modelBuilder.Entity("RustPlusBot.Domain.Switches.SmartSwitch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -615,6 +654,15 @@ namespace RustPlusBot.Persistence.Migrations
                     b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
                         .WithOne()
                         .HasForeignKey("RustPlusBot.Domain.Map.ServerMapSettings", "ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.StorageMonitors.SmartStorageMonitor", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

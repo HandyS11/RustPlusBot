@@ -83,6 +83,12 @@ internal sealed partial class PairingHandler(
                     .PublishAsync(new AlarmPairedEvent(guildId, server.Id, notification.EntityId), cancellationToken)
                     .ConfigureAwait(false);
                 break;
+            case RustPlusBot.Domain.Entities.PairedEntityKind.StorageMonitor:
+                await eventBus
+                    .PublishAsync(new StorageMonitorPairedEvent(guildId, server.Id, notification.EntityId),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                break;
             default:
                 LogUnroutedEntityKind(logger, notification.EntityKind);
                 break;

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using RustPlusApi;
 using RustPlusBot.Abstractions.Connections;
@@ -54,6 +55,11 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             CancellationToken cancellationToken) =>
             Task.FromResult<bool?>(null);
 
+        public Task<StorageContentsSnapshot?> GetStorageMonitorInfoAsync(ulong entityId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<StorageContentsSnapshot?>(null);
+
         public Task<bool> SetSmartSwitchValueAsync(ulong entityId,
             bool value,
             TimeSpan timeout,
@@ -94,6 +100,12 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             remove { _ = value; }
         }
 
+        public event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered
+        {
+            add { _ = value; }
+            remove { _ = value; }
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -118,6 +130,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             _rustPlus = new RustPlus(connection);
             _rustPlus.OnTeamChatReceived += OnTeamChatReceived;
             _rustPlus.OnSmartDeviceTriggered += OnSmartDeviceTriggered;
+            _rustPlus.OnStorageMonitorTriggered += OnStorageMonitorTriggered;
         }
 
         public async Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
@@ -348,6 +361,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
         public event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
 
+        public event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
+
         public async Task<bool?> GetSmartDeviceInfoAsync(ulong entityId,
             TimeSpan timeout,
             CancellationToken cancellationToken)
@@ -373,6 +388,35 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 #pragma warning restore CA1031
             {
                 LogQueryFailed(_logger, ex);
+                return null;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<StorageContentsSnapshot?> GetStorageMonitorInfoAsync(
+            ulong entityId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.3): GetStorageMonitorInfoAsync(ulong, CancellationToken) returns
+                // Task<Response<StorageMonitorInfo?>>; the read also primes the entity so OnStorageMonitorTriggered
+                // fires for it thereafter.
+                var response = await _rustPlus.GetStorageMonitorInfoAsync(entityId, timeoutCts.Token)
+                    .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+                return response is { IsSuccess: true, Data: { } info } ? MapContents(info) : null;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: a failed/timed-out storage read returns null; the caller treats null as unreachable.
+            catch (Exception)
+#pragma warning restore CA1031
+            {
                 return null;
             }
         }
@@ -558,6 +602,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         {
             _rustPlus.OnTeamChatReceived -= OnTeamChatReceived;
             _rustPlus.OnSmartDeviceTriggered -= OnSmartDeviceTriggered;
+            _rustPlus.OnStorageMonitorTriggered -= OnStorageMonitorTriggered;
             try
             {
                 // CONFIRMED: RustPlusSocket implements IAsyncDisposable in 2.0.0-beta.1.
@@ -574,6 +619,26 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
         private void OnSmartDeviceTriggered(object? sender, RustPlusApi.Data.Events.SmartDeviceEventArg e) =>
             SmartDeviceTriggered?.Invoke(this, new SmartDeviceTrigger(e.Id, e.IsActive));
+
+        private void OnStorageMonitorTriggered(object? sender, RustPlusApi.Data.Events.StorageMonitorEventArg e) =>
+            StorageMonitorTriggered?.Invoke(this, new StorageMonitorTrigger(e.Id, MapContents(e)));
+
+        private static StorageContentsSnapshot MapContents(RustPlusApi.Data.Entities.StorageMonitorInfo info)
+        {
+            var items = info.Items is null
+                ? (IReadOnlyList<StorageItemSnapshot>)[]
+                :
+                [
+                    .. info.Items.Select(i =>
+                        new StorageItemSnapshot(i.Id, i.Quantity ?? 0, i.IsItemBlueprint ?? false))
+                ];
+
+            DateTimeOffset? expiry = info.HasProtection == true
+                ? new DateTimeOffset(DateTime.SpecifyKind(info.ProtectionExpiry, DateTimeKind.Utc))
+                : null;
+
+            return new StorageContentsSnapshot(info.Capacity, info.HasProtection, expiry, items);
+        }
 
         private static void AddMarkers<TMarker>(
             List<MapMarkerSnapshot> into,

@@ -13,8 +13,10 @@ using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Connections.Supervisor;
 using RustPlusBot.Features.Connections.Tests.Fakes;
 using RustPlusBot.Persistence;
+using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.StorageMonitors;
 using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Tests;
@@ -51,6 +53,8 @@ public sealed class SwitchQueryTests
         services.AddScoped<IConnectionStore, ConnectionStore>();
         services.AddScoped<IServerService, ServerService>();
         services.AddScoped<ISwitchStore, SwitchStore>();
+        services.AddScoped<IAlarmStore, AlarmStore>();
+        services.AddScoped<IStorageMonitorStore, StorageMonitorStore>();
         services.AddSingleton<IRustSocketSource>(source);
         services.AddSingleton(Options.Create(new ConnectionOptions
         {

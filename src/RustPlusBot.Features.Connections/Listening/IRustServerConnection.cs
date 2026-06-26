@@ -56,6 +56,15 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <returns>True/false for on/off, or null on failure/timeout.</returns>
     Task<bool?> GetSmartDeviceInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken);
 
+    /// <summary>Reads a storage monitor's contents, or null on failure/timeout. Also primes the socket's interest so triggers fire for it thereafter.</summary>
+    /// <param name="entityId">The in-game storage-monitor entity id.</param>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The contents snapshot, or null on failure/timeout.</returns>
+    Task<StorageContentsSnapshot?> GetStorageMonitorInfoAsync(ulong entityId,
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
+
     /// <summary>Sets a smart switch on/off; returns true on success, false on failure/timeout.</summary>
     /// <param name="entityId">The in-game smart-switch entity id.</param>
     /// <param name="value">True to turn on, false to turn off.</param>
@@ -111,4 +120,7 @@ internal interface IRustServerConnection : IAsyncDisposable
 
     /// <summary>Raised when a managed smart device's state changes in-game; carries the entity id and new state.</summary>
     event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
+
+    /// <summary>Raised when a managed storage monitor's contents change in-game; carries the entity id and the new contents.</summary>
+    event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
 }

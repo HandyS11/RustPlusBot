@@ -38,6 +38,10 @@ public sealed class PairingHandlerTests
         new(PairingKind.Entity, string.Empty, string.Empty, 0, 1UL, "t",
             FacepunchServerId: fpServer, EntityId: entityId, EntityKind: PairedEntityKind.SmartAlarm);
 
+    private static PairingNotification StorageMonitorPairing(Guid fpServer, ulong entityId = 77UL) =>
+        new(PairingKind.Entity, string.Empty, string.Empty, 0, 1UL, "t",
+            FacepunchServerId: fpServer, EntityId: entityId, EntityKind: PairedEntityKind.StorageMonitor);
+
     [Fact]
     public async Task ServerPairing_CreatesServerCredentialAndFiresEventOnce()
     {
@@ -145,6 +149,26 @@ public sealed class PairingHandlerTests
 
         await bus.Received(1).PublishAsync(
             Arg.Is<AlarmPairedEvent>(e => e.ServerId == server.Id && e.EntityId == 55UL), Arg.Any<CancellationToken>());
+        await bus.DidNotReceive().PublishAsync(Arg.Any<SwitchPairedEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task EntityPairing_StorageMonitor_PublishesStorageMonitorPairedEvent_NotSwitch()
+    {
+        var (context, connection) = TestDb.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var bus = Substitute.For<IEventBus>();
+        var handler = CreateHandler(context, bus);
+        await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
+        var server = await context.RustServers.SingleAsync();
+        bus.ClearReceivedCalls();
+
+        await handler.HandleAsync(10UL, 1UL, StorageMonitorPairing(FpServer, 77UL), CancellationToken.None);
+
+        await bus.Received(1).PublishAsync(
+            Arg.Is<StorageMonitorPairedEvent>(e => e.ServerId == server.Id && e.EntityId == 77UL),
+            Arg.Any<CancellationToken>());
         await bus.DidNotReceive().PublishAsync(Arg.Any<SwitchPairedEvent>(), Arg.Any<CancellationToken>());
     }
 }

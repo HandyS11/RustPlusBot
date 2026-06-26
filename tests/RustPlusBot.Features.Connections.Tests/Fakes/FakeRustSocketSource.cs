@@ -21,6 +21,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private readonly ConcurrentQueue<SocketConnectOutcome> _connectOutcomes = new();
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
     private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _pendingMarkerScript = new();
+    private readonly Dictionary<ulong, StorageContentsSnapshot?> _pendingStorageContents = [];
     private int _createCount;
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
@@ -56,6 +57,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         connection.MonumentsResult = _pendingMonuments;
         _pendingMonuments = [];
 
+        // Transfer any pre-staged storage contents so they are in place before the prime loop starts.
+        foreach (var (entityId, contents) in _pendingStorageContents)
+        {
+            connection.StorageContents[entityId] = contents;
+        }
+
+        _pendingStorageContents.Clear();
+
         LastConnection = connection;
         return connection;
     }
@@ -82,6 +91,17 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// </summary>
     /// <param name="monuments">The monument list to return from <see cref="IRustServerConnection.GetMonumentsAsync"/>.</param>
     public void SetMonuments(IReadOnlyList<MonumentSnapshot> monuments) => _pendingMonuments = monuments;
+
+    /// <summary>
+    /// Pre-stages storage contents for a given entity, to be transferred to the NEXT connection created by
+    /// <see cref="Create"/>. Eliminates the setup race when the prime loop reads contents before the test can
+    /// assign them on <see cref="FakeConnection.StorageContents"/>.
+    /// Call this before <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    /// <param name="entityId">The storage-monitor entity id to stage.</param>
+    /// <param name="contents">The contents snapshot to return from <see cref="IRustServerConnection.GetStorageMonitorInfoAsync"/>.</param>
+    public void EnqueueStorageInfo(ulong entityId, StorageContentsSnapshot? contents) =>
+        _pendingStorageContents[entityId] = contents;
 
     internal HeartbeatResult NextHeartbeat()
     {
@@ -121,6 +141,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The state returned by <see cref="GetSmartDeviceInfoAsync"/> per entity id; absent → null.</summary>
         public Dictionary<ulong, bool?> SwitchStates { get; } = [];
 
+        /// <summary>The contents returned by <see cref="GetStorageMonitorInfoAsync"/> per entity id; absent → null.</summary>
+        public Dictionary<ulong, StorageContentsSnapshot?> StorageContents { get; } = [];
+
         /// <summary>The result returned by <see cref="SetSmartSwitchValueAsync"/>. Defaults to true.</summary>
         public bool SetSwitchResult { get; set; } = true;
 
@@ -154,6 +177,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         /// <summary>Raised by <see cref="RaiseSmartDeviceTriggered"/>.</summary>
         public event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
+
+        /// <summary>Raised by <see cref="RaiseStorageMonitorTriggered"/>.</summary>
+        public event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
 
         public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(outcome);
@@ -189,6 +215,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             TimeSpan timeout,
             CancellationToken cancellationToken) =>
             Task.FromResult(SwitchStates.TryGetValue(entityId, out var s) ? s : null);
+#pragma warning restore RCS1163
+
+#pragma warning disable RCS1163 // Unused parameters for fake implementation
+        public Task<StorageContentsSnapshot?> GetStorageMonitorInfoAsync(ulong entityId,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(StorageContents.TryGetValue(entityId, out var c) ? c : null);
 #pragma warning restore RCS1163
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
@@ -263,5 +296,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <param name="isActive">The current active state carried on the trigger arg.</param>
         public void RaiseSmartDeviceTriggered(ulong entityId, bool isActive) =>
             SmartDeviceTriggered?.Invoke(this, new SmartDeviceTrigger(entityId, isActive));
+
+        /// <summary>Simulates an in-game storage-monitor contents change.</summary>
+        /// <param name="entityId">The storage-monitor entity id to raise the event for.</param>
+        /// <param name="contents">The contents snapshot carried on the trigger.</param>
+        public void RaiseStorageMonitorTriggered(ulong entityId, StorageContentsSnapshot contents) =>
+            StorageMonitorTriggered?.Invoke(this, new StorageMonitorTrigger(entityId, contents));
     }
 }
