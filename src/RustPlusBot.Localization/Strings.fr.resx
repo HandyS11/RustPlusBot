@@ -90,6 +90,9 @@
   <data name="channel.setup.name" xml:space="preserve">
     <value>configuration</value>
   </data>
+  <data name="channel.storagemonitors.name" xml:space="preserve">
+    <value>moniteurs-stockage</value>
+  </data>
   <data name="channel.switches.name" xml:space="preserve">
     <value>interrupteurs</value>
   </data>
@@ -587,6 +590,60 @@
   </data>
   <data name="switch.unreachable.ephemeral" xml:space="preserve">
     <value>L'interrupteur est injoignable pour le moment.</value>
+  </data>
+  <data name="storage.button.refresh" xml:space="preserve">
+    <value>Actualiser</value>
+  </data>
+  <data name="storage.button.rename" xml:space="preserve">
+    <value>Renommer</value>
+  </data>
+  <data name="storage.contents.bp" xml:space="preserve">
+    <value>{0} (PL)</value>
+  </data>
+  <data name="storage.contents.empty" xml:space="preserve">
+    <value>Vide</value>
+  </data>
+  <data name="storage.contents.line" xml:space="preserve">
+    <value>{0} ×{1}</value>
+  </data>
+  <data name="storage.embed.footer" xml:space="preserve">
+    <value>Entité {0}</value>
+  </data>
+  <data name="storage.protection.off" xml:space="preserve">
+    <value>Non protégé</value>
+  </data>
+  <data name="storage.protection.on" xml:space="preserve">
+    <value>Protégé — expire dans {0}</value>
+  </data>
+  <data name="storage.prompt.accept" xml:space="preserve">
+    <value>Ajouter</value>
+  </data>
+  <data name="storage.prompt.body" xml:space="preserve">
+    <value>Ajouter **{0}** ?</value>
+  </data>
+  <data name="storage.prompt.dismiss" xml:space="preserve">
+    <value>Ignorer</value>
+  </data>
+  <data name="storage.prompt.title" xml:space="preserve">
+    <value>Nouveau moniteur de stockage détecté</value>
+  </data>
+  <data name="storage.slots" xml:space="preserve">
+    <value>{0} / {1} emplacements</value>
+  </data>
+  <data name="storage.status.unreachable" xml:space="preserve">
+    <value>⚠️ Injoignable</value>
+  </data>
+  <data name="storage.type.largebox" xml:space="preserve">
+    <value>Grande caisse</value>
+  </data>
+  <data name="storage.type.smallbox" xml:space="preserve">
+    <value>Petite caisse</value>
+  </data>
+  <data name="storage.type.toolcupboard" xml:space="preserve">
+    <value>Armoire à outils</value>
+  </data>
+  <data name="storage.type.unknown" xml:space="preserve">
+    <value>Moniteur de stockage</value>
   </data>
   <data name="uptime.ok" xml:space="preserve">
     <value>Disponibilité du bot : {0}</value>
