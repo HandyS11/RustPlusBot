@@ -18,4 +18,17 @@ public sealed class ServerWorkspaceSpecProviderTests
         Assert.Equal(ChannelPermissionProfile.Interactive, teamchat.Permissions);
         Assert.Equal("channel.teamchat.name", teamchat.NameKey);
     }
+
+    [Fact]
+    public void Contributes_storagemonitors_as_interactive_per_server_channel()
+    {
+        var provider = new ServerWorkspaceSpecProvider();
+
+        var storagemonitors = provider.GetChannelSpecs()
+            .Single(c => c.Key == WorkspaceChannelKeys.ServerStorageMonitors);
+
+        Assert.Equal(WorkspaceScope.PerServer, storagemonitors.Scope);
+        Assert.Equal(ChannelPermissionProfile.Interactive, storagemonitors.Permissions);
+        Assert.Equal("channel.storagemonitors.name", storagemonitors.NameKey);
+    }
 }
