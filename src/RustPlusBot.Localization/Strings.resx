@@ -415,7 +415,7 @@
     <value>Show an item's research scrap cost</value>
   </data>
   <data name="help.slash.decay" xml:space="preserve">
-    <value>Show an item's decay time</value>
+    <value>Show an item's decay time.</value>
   </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Show this help message.</value>
@@ -436,7 +436,7 @@
     <value>Show an item's research scrap cost.</value>
   </data>
   <data name="help.slash.upkeep" xml:space="preserve">
-    <value>Show a building block's upkeep cost</value>
+    <value>Show a building block's upkeep cost.</value>
   </data>
   <data name="help.slash.uptime" xml:space="preserve">
     <value>Show the bot's uptime.</value>

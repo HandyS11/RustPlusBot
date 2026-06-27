@@ -72,7 +72,10 @@ public sealed class EmbeddedItemDatabaseTests
         var rec = _db.GetById(1729120840);
         Assert.NotNull(rec);
         Assert.NotNull(rec!.Upkeep);
-        Assert.NotEmpty(rec.Upkeep!.Entries);
+        var entry = Assert.Single(rec.Upkeep!.Entries);
+        Assert.Equal(-151838493, entry.ItemId);
+        Assert.Equal(30, entry.QuantityMin);
+        Assert.Equal(100, entry.QuantityMax);
     }
 
     [Fact]

@@ -24,5 +24,16 @@ public sealed class DecayFormatterTests
         var line = DecayLine.Format(item);
         Assert.Contains("outside", line, StringComparison.Ordinal);
         Assert.Contains("inside", line, StringComparison.Ordinal);
+        Assert.Contains("250", line, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DecayLine_ShowsDashAndHpWhenNoDecaySeconds()
+    {
+        var item = new ItemRecord(1, "Thing", 1, null, null, null, null,
+            new DecayInfo(null, null, null, null, 100), null);
+        var line = DecayLine.Format(item);
+        Assert.Contains("—", line, StringComparison.Ordinal);
+        Assert.Contains("100", line, StringComparison.Ordinal);
     }
 }
