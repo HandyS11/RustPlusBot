@@ -43,5 +43,7 @@ internal static class CommandHelpCatalog
         new("recycle", CommandGroup.ItemDb, "help.slash.recycle"),
         new("craft", CommandGroup.ItemDb, "help.slash.craft"),
         new("research", CommandGroup.ItemDb, "help.slash.research"),
+        new("decay", CommandGroup.ItemDb, "help.slash.decay"),
+        new("upkeep", CommandGroup.ItemDb, "help.slash.upkeep"),
     ];
 }

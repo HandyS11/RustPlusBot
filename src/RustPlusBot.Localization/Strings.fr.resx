@@ -414,6 +414,9 @@
   <data name="help.research" xml:space="preserve">
     <value>Afficher le coût de recherche (ferraille) d'un objet</value>
   </data>
+  <data name="help.slash.decay" xml:space="preserve">
+    <value>Affiche le temps de dégradation d'un objet</value>
+  </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Afficher ce message d'aide.</value>
   </data>
@@ -431,6 +434,9 @@
   </data>
   <data name="help.slash.research" xml:space="preserve">
     <value>Afficher le coût de recherche (ferraille) d'un objet.</value>
+  </data>
+  <data name="help.slash.upkeep" xml:space="preserve">
+    <value>Affiche le coût d'entretien d'un bloc de construction</value>
   </data>
   <data name="help.slash.uptime" xml:space="preserve">
     <value>Afficher la disponibilité du bot.</value>
