@@ -46,6 +46,34 @@ internal static class DatasetValidator
             }
         }
 
+        foreach (var item in dataset.Items.Where(i => i.Upkeep is not null))
+        {
+            foreach (var entry in item.Upkeep!.Entries)
+            {
+                if (!ids.Contains(entry.ItemId))
+                {
+                    errors.Add(
+                        $"item {item.Id} ({item.Name}): upkeep references unknown id {entry.ItemId}");
+                }
+
+                if (entry.QuantityMin > entry.QuantityMax)
+                {
+                    errors.Add(
+                        $"item {item.Id} ({item.Name}): upkeep quantity min {entry.QuantityMin} > max {entry.QuantityMax}");
+                }
+            }
+        }
+
+        foreach (var item in dataset.Items.Where(i => i.Decay is not null))
+        {
+            var decay = item.Decay!;
+            if (decay.Seconds is < 0 || decay.OutsideSeconds is < 0 || decay.InsideSeconds is < 0 ||
+                decay.UnderwaterSeconds is < 0 || decay.Hp is < 0)
+            {
+                errors.Add($"item {item.Id} ({item.Name}): decay has a negative value");
+            }
+        }
+
         return errors;
     }
 }
