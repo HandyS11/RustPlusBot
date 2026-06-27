@@ -60,7 +60,9 @@ internal static class Program
         var rustLabsSource = new OfflineRustLabsSource(
             Path.Combine(rustplusDir, "rustlabsRecycleData.json"),
             Path.Combine(rustplusDir, "rustlabsCraftData.json"),
-            Path.Combine(rustplusDir, "rustlabsResearchData.json"));
+            Path.Combine(rustplusDir, "rustlabsResearchData.json"),
+            Path.Combine(rustplusDir, "rustlabsDecayData.json"),
+            Path.Combine(rustplusDir, "rustlabsUpkeepData.json"));
 
         var names = namesSource.LoadNames();
         Console.WriteLine($"Loaded {names.Count} names from items.json");

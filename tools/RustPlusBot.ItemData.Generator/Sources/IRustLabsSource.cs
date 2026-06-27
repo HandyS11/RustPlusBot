@@ -13,4 +13,10 @@ internal interface IRustLabsSource
 
     /// <summary>Loads research costs keyed by item id.</summary>
     IReadOnlyDictionary<int, ResearchCost> LoadResearchCosts();
+
+    /// <summary>Loads decay info keyed by item id.</summary>
+    IReadOnlyDictionary<int, DecayInfo> LoadDecay();
+
+    /// <summary>Loads upkeep costs keyed by item id.</summary>
+    IReadOnlyDictionary<int, UpkeepCost> LoadUpkeep();
 }

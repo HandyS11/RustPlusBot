@@ -4,14 +4,18 @@ using RustPlusBot.Features.ItemData.Data;
 
 namespace RustPlusBot.ItemData.Generator.Sources;
 
-/// <summary>Reads recycle, craft, and research data from the offline RustLabs JSON files.</summary>
+/// <summary>Reads recycle, craft, research, decay, and upkeep data from the offline RustLabs JSON files.</summary>
 /// <param name="RecycleFilePath">Path to the <c>rustlabsRecycleData.json</c> file.</param>
 /// <param name="CraftFilePath">Path to the <c>rustlabsCraftData.json</c> file.</param>
 /// <param name="ResearchFilePath">Path to the <c>rustlabsResearchData.json</c> file.</param>
+/// <param name="DecayFilePath">Path to the <c>rustlabsDecayData.json</c> file.</param>
+/// <param name="UpkeepFilePath">Path to the <c>rustlabsUpkeepData.json</c> file.</param>
 internal sealed class OfflineRustLabsSource(
     string RecycleFilePath,
     string CraftFilePath,
-    string ResearchFilePath) : IRustLabsSource
+    string ResearchFilePath,
+    string DecayFilePath,
+    string UpkeepFilePath) : IRustLabsSource
 {
     private static readonly Dictionary<string, int> WorkbenchLevels = new()
     {
@@ -155,6 +159,85 @@ internal sealed class OfflineRustLabsSource(
             if (researchTableEl.TryGetInt32(out var scrap))
             {
                 result[id] = new ResearchCost(scrap);
+            }
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<int, DecayInfo> LoadDecay()
+    {
+        using var stream = File.OpenRead(DecayFilePath);
+        using var doc = JsonDocument.Parse(stream);
+
+        var result = new Dictionary<int, DecayInfo>();
+        if (!doc.RootElement.TryGetProperty("items", out var itemsEl))
+        {
+            return result;
+        }
+
+        foreach (var prop in itemsEl.EnumerateObject())
+        {
+            if (!int.TryParse(prop.Name, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+            {
+                continue;
+            }
+
+            result[id] = new DecayInfo(
+                ReadInt(prop.Value, "decay"),
+                ReadInt(prop.Value, "decayOutside"),
+                ReadInt(prop.Value, "decayInside"),
+                ReadInt(prop.Value, "decayUnderwater"),
+                ReadInt(prop.Value, "hp"));
+        }
+
+        return result;
+
+        static int? ReadInt(JsonElement element, string name) =>
+            element.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Number
+                ? p.GetInt32()
+                : null;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<int, UpkeepCost> LoadUpkeep()
+    {
+        using var stream = File.OpenRead(UpkeepFilePath);
+        using var doc = JsonDocument.Parse(stream);
+
+        var result = new Dictionary<int, UpkeepCost>();
+        if (!doc.RootElement.TryGetProperty("items", out var itemsEl))
+        {
+            return result;
+        }
+
+        foreach (var prop in itemsEl.EnumerateObject())
+        {
+            if (!int.TryParse(prop.Name, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+            {
+                continue;
+            }
+
+            var entries = new List<UpkeepEntry>();
+            foreach (var entry in prop.Value.EnumerateArray())
+            {
+                var entryIdStr = entry.GetProperty("id").GetString();
+                if (entryIdStr is null ||
+                    !int.TryParse(entryIdStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var entryId))
+                {
+                    continue;
+                }
+
+                var quantity = entry.GetProperty("quantity").GetString()
+                               ?? throw new InvalidOperationException($"upkeep {id}: null quantity");
+                var (min, max) = UpkeepQuantity.Parse(quantity);
+                entries.Add(new UpkeepEntry(entryId, min, max));
+            }
+
+            if (entries.Count > 0)
+            {
+                result[id] = new UpkeepCost(entries);
             }
         }
 
