@@ -7,11 +7,12 @@ namespace RustPlusBot.ItemData.Generator.Tests;
 public sealed class DatasetValidatorTests
 {
     private static ItemDataset Good() => new(1,
-        new DatasetSources(new(2026, 4, 8), new(2024, 9, 7), new(2024, 9, 7), new(2024, 9, 7)),
+        new DatasetSources(new(2026, 4, 8), new(2024, 9, 7), new(2024, 9, 7), new(2024, 9, 7), new(2024, 9, 7),
+            new(2024, 9, 7)),
         [
             new ItemRecord(1, "AK-47", 1, 3600,
-                new RecycleYield([new YieldEntry(2, 4, 1.0)]), null, null),
-            new ItemRecord(2, "Metal Fragments", 1000, null, null, null, null),
+                new RecycleYield([new YieldEntry(2, 4, 1.0)]), null, null, null, null),
+            new ItemRecord(2, "Metal Fragments", 1000, null, null, null, null, null, null),
         ]);
 
     /// <summary>A dataset with all referential constraints satisfied should produce no errors.</summary>
@@ -37,7 +38,7 @@ public sealed class DatasetValidatorTests
         var bad = new ItemDataset(1, Good().Sources,
         [
             new ItemRecord(1, "AK-47", 1, null,
-                new RecycleYield([new YieldEntry(99999, 4, 1.0)]), null, null),
+                new RecycleYield([new YieldEntry(99999, 4, 1.0)]), null, null, null, null),
         ]);
         var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
         Assert.Contains(errors, e => e.Contains("99999", StringComparison.Ordinal));
@@ -50,9 +51,48 @@ public sealed class DatasetValidatorTests
         var bad = new ItemDataset(1, Good().Sources,
         [
             new ItemRecord(1, "AK-47", 1, null, null,
-                new CraftRecipe([new Ingredient(88888, 100)], 30.0, 3), null),
+                new CraftRecipe([new Ingredient(88888, 100)], 30.0, 3), null, null, null),
         ]);
         var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
         Assert.Contains(errors, e => e.Contains("88888", StringComparison.Ordinal));
+    }
+
+    /// <summary>An upkeep entry that references an unknown item id should produce an error.</summary>
+    [Fact]
+    public void UnresolvableUpkeepId_isError()
+    {
+        var bad = new ItemDataset(2, Good().Sources,
+        [
+            new ItemRecord(1, "Wooden Door", 1, null, null, null, null, null,
+                new UpkeepCost([new UpkeepEntry(77777, 8, 25)])),
+        ]);
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("77777", StringComparison.Ordinal));
+    }
+
+    /// <summary>An upkeep entry with min greater than max should produce an error.</summary>
+    [Fact]
+    public void UpkeepMinGreaterThanMax_isError()
+    {
+        var bad = new ItemDataset(2, Good().Sources,
+        [
+            new ItemRecord(1, "Wooden Door", 1, null, null, null, null, null,
+                new UpkeepCost([new UpkeepEntry(1, 25, 8)])),
+        ]);
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("upkeep", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Negative decay seconds should produce an error.</summary>
+    [Fact]
+    public void NegativeDecay_isError()
+    {
+        var bad = new ItemDataset(2, Good().Sources,
+        [
+            new ItemRecord(1, "Stone Barricade", 1, null, null, null, null,
+                new DecayInfo(-900, null, null, null, 100), null),
+        ]);
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("decay", StringComparison.OrdinalIgnoreCase));
     }
 }

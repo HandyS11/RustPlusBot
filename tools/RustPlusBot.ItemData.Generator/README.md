@@ -2,7 +2,7 @@
 
 A maintainer CLI that regenerates the embedded Rust item dataset
 (`src/RustPlusBot.Features.ItemData/Data/item-data.json`) consumed by the bot's
-`/item`, `/recycle`, `/craft`, and `/research` calculators.
+`/item`, `/recycle`, `/craft`, `/research`, `/decay`, and `/upkeep` calculators.
 
 This tool is **not** part of the running bot — it is referenced by nothing in
 the application graph. It exists so the bundled item data can be refreshed when
@@ -13,11 +13,11 @@ Rust updates, rather than shipping a frozen copy that silently rots.
 The reference data has two very different freshness profiles:
 
 - **Item names / ids** are well maintained and current.
-- **Calculator data** (recycle yields, craft recipes, research costs) is sourced
-  from rustlabs and tends to lag game updates.
+- **Calculator data** (recycle yields, craft recipes, research costs, decay
+  times, upkeep costs) is sourced from rustlabs and tends to lag game updates.
 
 So the dataset carries per-section provenance dates (`Sources.NamesAsOf`,
-`RecycleAsOf`, `CraftAsOf`, `ResearchAsOf`), surfaced to users as a
+`RecycleAsOf`, `CraftAsOf`, `ResearchAsOf`, `DecayAsOf`, `UpkeepAsOf`), surfaced to users as a
 "data as of `<date>`" footer, and this tool can re-emit a fresh snapshot on
 demand. It **validates loudly and refuses to overwrite a good bundle with
 garbage** if the upstream shape drifts.
@@ -35,12 +35,16 @@ garbage** if the upstream shape drifts.
    | `rustlabsRecycleData.json` | recycler yields |
    | `rustlabsCraftData.json` | craft ingredients + time |
    | `rustlabsResearchData.json` | research scrap cost |
+   | `rustlabsDecayData.json` | decay time + HP |
+   | `rustlabsUpkeepData.json` | upkeep cost (resource + quantity range) |
 
 2. Projects them into our own typed schema (`ItemDataset` /
    `ItemRecord` / …, defined in `RustPlusBot.Features.ItemData`), keyed by item id,
    with calculator data inlined per item (null where an item has none).
-3. **Validates** the result (`DatasetValidator`): a minimum item-count floor and
-   that every recycle-yield / craft-ingredient id resolves to a known item.
+3. **Validates** the result (`DatasetValidator`): a minimum item-count floor,
+   that every recycle-yield / craft-ingredient / upkeep-cost id resolves to a
+   known item, that upkeep quantity ranges are well-formed (`min <= max`), and
+   that decay values are non-negative.
 4. On any validation error, prints the errors to stderr and exits non-zero
    **without writing** — the existing good bundle is never clobbered.
 5. On success, writes the dataset as indented JSON and exits 0.

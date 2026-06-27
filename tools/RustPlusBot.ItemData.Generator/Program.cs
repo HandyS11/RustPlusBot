@@ -12,6 +12,8 @@ internal static class Program
     private static readonly DateOnly RecycleAsOf = new(2024, 9, 7);
     private static readonly DateOnly CraftAsOf = new(2024, 9, 7);
     private static readonly DateOnly ResearchAsOf = new(2024, 9, 7);
+    private static readonly DateOnly DecayAsOf = new(2024, 9, 7);
+    private static readonly DateOnly UpkeepAsOf = new(2024, 9, 7);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -60,7 +62,9 @@ internal static class Program
         var rustLabsSource = new OfflineRustLabsSource(
             Path.Combine(rustplusDir, "rustlabsRecycleData.json"),
             Path.Combine(rustplusDir, "rustlabsCraftData.json"),
-            Path.Combine(rustplusDir, "rustlabsResearchData.json"));
+            Path.Combine(rustplusDir, "rustlabsResearchData.json"),
+            Path.Combine(rustplusDir, "rustlabsDecayData.json"),
+            Path.Combine(rustplusDir, "rustlabsUpkeepData.json"));
 
         var names = namesSource.LoadNames();
         Console.WriteLine($"Loaded {names.Count} names from items.json");
@@ -70,6 +74,8 @@ internal static class Program
         var recycleYields = rustLabsSource.LoadRecycleYields();
         var craftRecipes = rustLabsSource.LoadCraftRecipes();
         var researchCosts = rustLabsSource.LoadResearchCosts();
+        var decayInfos = rustLabsSource.LoadDecay();
+        var upkeepCosts = rustLabsSource.LoadUpkeep();
 
         var nameIds = new HashSet<int>(names.Keys);
 
@@ -81,6 +87,11 @@ internal static class Program
         Console.WriteLine($"dropped {orphanCraft} orphan craft entries with no item name");
         Console.WriteLine($"dropped {orphanResearch} orphan research entries with no item name");
 
+        var orphanDecay = decayInfos.Keys.Count(k => !nameIds.Contains(k));
+        var orphanUpkeep = upkeepCosts.Keys.Count(k => !nameIds.Contains(k));
+        Console.WriteLine($"dropped {orphanDecay} orphan decay entries with no item name");
+        Console.WriteLine($"dropped {orphanUpkeep} orphan upkeep entries with no item name");
+
         var items = names
             .Select(kv =>
             {
@@ -91,13 +102,15 @@ internal static class Program
                 var recycle = recycleYields.TryGetValue(id, out var ry) ? ry : null;
                 var craft = craftRecipes.TryGetValue(id, out var cr) ? cr : null;
                 var research = researchCosts.TryGetValue(id, out var rc) ? rc : null;
-                return new ItemRecord(id, name, stackSize, despawn, recycle, craft, research);
+                var decay = decayInfos.TryGetValue(id, out var di) ? di : null;
+                var upkeep = upkeepCosts.TryGetValue(id, out var uc) ? uc : null;
+                return new ItemRecord(id, name, stackSize, despawn, recycle, craft, research, decay, upkeep);
             })
             .ToList();
 
         var dataset = new ItemDataset(
-            1,
-            new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf),
+            2,
+            new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf, DecayAsOf, UpkeepAsOf),
             items);
 
         var validationOptions = new ValidationOptions(MinItemCount: minItems);

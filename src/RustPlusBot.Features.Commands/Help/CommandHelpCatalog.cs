@@ -29,6 +29,8 @@ internal static class CommandHelpCatalog
         new("recycle", CommandGroup.ItemDb, "help.recycle"),
         new("craft", CommandGroup.ItemDb, "help.craft"),
         new("research", CommandGroup.ItemDb, "help.research"),
+        new("decay", CommandGroup.ItemDb, "help.decay"),
+        new("upkeep", CommandGroup.ItemDb, "help.upkeep"),
     ];
 
     /// <summary>The Discord slash commands, in display order.</summary>
@@ -41,5 +43,7 @@ internal static class CommandHelpCatalog
         new("recycle", CommandGroup.ItemDb, "help.slash.recycle"),
         new("craft", CommandGroup.ItemDb, "help.slash.craft"),
         new("research", CommandGroup.ItemDb, "help.slash.research"),
+        new("decay", CommandGroup.ItemDb, "help.slash.decay"),
+        new("upkeep", CommandGroup.ItemDb, "help.slash.upkeep"),
     ];
 }

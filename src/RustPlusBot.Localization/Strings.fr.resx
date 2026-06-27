@@ -255,6 +255,12 @@
   <data name="command.craft.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.decay.none" xml:space="preserve">
+    <value>{0} ne se dégrade pas.</value>
+  </data>
+  <data name="command.decay.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="command.item.ambiguous" xml:space="preserve">
     <value>Vouliez-vous dire : {0} ?</value>
   </data>
@@ -274,6 +280,12 @@
     <value>{0} ne peut pas être recherché.</value>
   </data>
   <data name="command.research.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.upkeep.none" xml:space="preserve">
+    <value>{0} n'a pas de coût d'entretien.</value>
+  </data>
+  <data name="command.upkeep.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
   <data name="event.cargo.entered" xml:space="preserve">
@@ -372,6 +384,9 @@
   <data name="help.group.teamintel" xml:space="preserve">
     <value>Équipe</value>
   </data>
+  <data name="help.decay" xml:space="preserve">
+    <value>Temps de dégradation d'un objet</value>
+  </data>
   <data name="help.item" xml:space="preserve">
     <value>Afficher le nom, l'id, la pile et la disparition d'un objet</value>
   </data>
@@ -399,6 +414,9 @@
   <data name="help.research" xml:space="preserve">
     <value>Afficher le coût de recherche (ferraille) d'un objet</value>
   </data>
+  <data name="help.slash.decay" xml:space="preserve">
+    <value>Affiche le temps de dégradation d'un objet.</value>
+  </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Afficher ce message d'aide.</value>
   </data>
@@ -417,6 +435,9 @@
   <data name="help.slash.research" xml:space="preserve">
     <value>Afficher le coût de recherche (ferraille) d'un objet.</value>
   </data>
+  <data name="help.slash.upkeep" xml:space="preserve">
+    <value>Affiche le coût d'entretien d'un bloc de construction.</value>
+  </data>
   <data name="help.slash.uptime" xml:space="preserve">
     <value>Afficher la disponibilité du bot.</value>
   </data>
@@ -434,6 +455,9 @@
   </data>
   <data name="help.unmute" xml:space="preserve">
     <value>Réactiver la sortie du bot vers le jeu.</value>
+  </data>
+  <data name="help.upkeep" xml:space="preserve">
+    <value>Coût d'entretien d'un bloc de construction</value>
   </data>
   <data name="help.uptime" xml:space="preserve">
     <value>Afficher depuis combien de temps le bot fonctionne.</value>

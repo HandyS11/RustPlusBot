@@ -11,7 +11,7 @@ using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Commands.Modules;
 
-/// <summary>The /item, /recycle, /craft, and /research slash commands.</summary>
+/// <summary>The /item, /recycle, /craft, /research, /decay, and /upkeep slash commands.</summary>
 /// <param name="scopeFactory">Creates a short-lived DI scope per interaction.</param>
 public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     : InteractionModuleBase<SocketInteractionContext>
@@ -20,14 +20,14 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     /// <param name="item">The item name or id.</param>
     [SlashCommand("item", "Look up an item")]
     public Task ItemAsync([Summary("item", "Item name or id")] string item) =>
-        RespondForAsync(item, (_, _, rec, loc, culture) =>
+        RespondForAsync(item, db => db.Sources.NamesAsOf, (_, _, rec, loc, culture) =>
             loc.Get("command.item.ok", culture, ItemLine.Format(rec)));
 
     /// <summary>Shows recycler output for an item.</summary>
     /// <param name="item">The item name or id.</param>
     [SlashCommand("recycle", "Show recycler output for an item")]
     public Task RecycleAsync([Summary("item", "Item name or id")] string item) =>
-        RespondForAsync(item, (_, names, rec, loc, culture) => rec.Recycle is not null
+        RespondForAsync(item, db => db.Sources.RecycleAsOf, (_, names, rec, loc, culture) => rec.Recycle is not null
             ? loc.Get("command.recycle.ok", culture, RecycleLine.Format(rec, names))
             : loc.Get("command.recycle.none", culture, rec.Name));
 
@@ -35,7 +35,7 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     /// <param name="item">The item name or id.</param>
     [SlashCommand("craft", "Show an item's craft recipe")]
     public Task CraftAsync([Summary("item", "Item name or id")] string item) =>
-        RespondForAsync(item, (_, names, rec, loc, culture) => rec.Craft is not null
+        RespondForAsync(item, db => db.Sources.CraftAsOf, (_, names, rec, loc, culture) => rec.Craft is not null
             ? loc.Get("command.craft.ok", culture, CraftLine.Format(rec, names))
             : loc.Get("command.craft.none", culture, rec.Name));
 
@@ -43,12 +43,29 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     /// <param name="item">The item name or id.</param>
     [SlashCommand("research", "Show an item's research scrap cost")]
     public Task ResearchAsync([Summary("item", "Item name or id")] string item) =>
-        RespondForAsync(item, (_, _, rec, loc, culture) => rec.Research is not null
+        RespondForAsync(item, db => db.Sources.ResearchAsOf, (_, _, rec, loc, culture) => rec.Research is not null
             ? loc.Get("command.research.ok", culture, ResearchLine.Format(rec))
             : loc.Get("command.research.none", culture, rec.Name));
 
+    /// <summary>Shows an item's decay time.</summary>
+    /// <param name="item">The item name or id.</param>
+    [SlashCommand("decay", "Show an item's decay time")]
+    public Task DecayAsync([Summary("item", "Item name or id")] string item) =>
+        RespondForAsync(item, db => db.Sources.DecayAsOf, (_, _, rec, loc, culture) => rec.Decay is not null
+            ? loc.Get("command.decay.ok", culture, DecayLine.Format(rec))
+            : loc.Get("command.decay.none", culture, rec.Name));
+
+    /// <summary>Shows a building block's upkeep cost.</summary>
+    /// <param name="item">The item name or id.</param>
+    [SlashCommand("upkeep", "Show a building block's upkeep cost")]
+    public Task UpkeepAsync([Summary("item", "Item name or id")] string item) =>
+        RespondForAsync(item, db => db.Sources.UpkeepAsOf, (_, names, rec, loc, culture) => rec.Upkeep is not null
+            ? loc.Get("command.upkeep.ok", culture, UpkeepLine.Format(rec, names))
+            : loc.Get("command.upkeep.none", culture, rec.Name));
+
     private async Task RespondForAsync(
         string query,
+        Func<IItemDatabase, DateOnly> dateSelector,
         Func<IItemDatabase, IItemNameResolver, ItemRecord, ILocalizer, string, string> onFound)
     {
         if (Context.Guild is null)
@@ -76,7 +93,7 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
 
             var embed = new EmbedBuilder()
                 .WithDescription(text)
-                .WithFooter($"data as of {db.Sources.NamesAsOf:yyyy-MM-dd}")
+                .WithFooter($"data as of {dateSelector(db):yyyy-MM-dd}")
                 .Build();
             await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
         }

@@ -9,7 +9,7 @@ namespace RustPlusBot.Features.ItemData;
 /// <summary>Loads the embedded <c>item-data.json</c> once and serves lookups. Singleton.</summary>
 public sealed class EmbeddedItemDatabase : IItemDatabase
 {
-    private const int ExpectedSchemaVersion = 1;
+    private const int ExpectedSchemaVersion = 2;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
