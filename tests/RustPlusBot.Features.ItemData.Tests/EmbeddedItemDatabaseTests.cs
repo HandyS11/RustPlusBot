@@ -55,4 +55,30 @@ public sealed class EmbeddedItemDatabaseTests
         var index = EmbeddedItemDatabase.IndexById([first, last]);
         Assert.Equal("Last", index[42].Name);
     }
+
+    [Fact]
+    public void GetById_StoneBarricade_HasDecay()
+    {
+        var rec = _db.GetById(15388698);
+        Assert.NotNull(rec);
+        Assert.NotNull(rec!.Decay);
+        Assert.Equal(900, rec.Decay!.Seconds);
+        Assert.Equal(100, rec.Decay.Hp);
+    }
+
+    [Fact]
+    public void GetById_WoodenDoor_HasUpkeep()
+    {
+        var rec = _db.GetById(1729120840);
+        Assert.NotNull(rec);
+        Assert.NotNull(rec!.Upkeep);
+        Assert.NotEmpty(rec.Upkeep!.Entries);
+    }
+
+    [Fact]
+    public void Sources_DecayAndUpkeep_ArePopulated()
+    {
+        Assert.Equal(new DateOnly(2024, 9, 7), _db.Sources.DecayAsOf);
+        Assert.Equal(new DateOnly(2024, 9, 7), _db.Sources.UpkeepAsOf);
+    }
 }
