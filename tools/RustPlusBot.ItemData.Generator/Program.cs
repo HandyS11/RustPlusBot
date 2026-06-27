@@ -91,13 +91,13 @@ internal static class Program
                 var recycle = recycleYields.TryGetValue(id, out var ry) ? ry : null;
                 var craft = craftRecipes.TryGetValue(id, out var cr) ? cr : null;
                 var research = researchCosts.TryGetValue(id, out var rc) ? rc : null;
-                return new ItemRecord(id, name, stackSize, despawn, recycle, craft, research);
+                return new ItemRecord(id, name, stackSize, despawn, recycle, craft, research, null, null);
             })
             .ToList();
 
         var dataset = new ItemDataset(
             1,
-            new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf),
+            new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf, new(2024, 9, 7), new(2024, 9, 7)),
             items);
 
         var validationOptions = new ValidationOptions(MinItemCount: minItems);

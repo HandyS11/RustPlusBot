@@ -50,8 +50,8 @@ public sealed class EmbeddedItemDatabaseTests
     [Fact]
     public void IndexById_DuplicateId_LastWins()
     {
-        var first = new ItemRecord(42, "First", 1, null, null, null, null);
-        var last = new ItemRecord(42, "Last", 1, null, null, null, null);
+        var first = new ItemRecord(42, "First", 1, null, null, null, null, null, null);
+        var last = new ItemRecord(42, "Last", 1, null, null, null, null, null, null);
         var index = EmbeddedItemDatabase.IndexById([first, last]);
         Assert.Equal("Last", index[42].Name);
     }

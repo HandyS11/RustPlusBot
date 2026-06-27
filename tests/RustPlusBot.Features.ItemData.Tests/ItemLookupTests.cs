@@ -5,10 +5,10 @@ namespace RustPlusBot.Features.ItemData.Tests;
 
 public sealed class ItemLookupTests
 {
-    private static readonly ItemRecord Ak = new(1, "AK-47", 1, null, null, null, null);
-    private static readonly ItemRecord Semi = new(2, "Semi-Automatic Rifle", 1, null, null, null, null);
-    private static readonly ItemRecord Wood = new(3, "Wood", 1000, null, null, null, null);
-    private static readonly ItemRecord Bag = new(4, "Sleeping Bag", 1, null, null, null, null);
+    private static readonly ItemRecord Ak = new(1, "AK-47", 1, null, null, null, null, null, null);
+    private static readonly ItemRecord Semi = new(2, "Semi-Automatic Rifle", 1, null, null, null, null, null, null);
+    private static readonly ItemRecord Wood = new(3, "Wood", 1000, null, null, null, null, null, null);
+    private static readonly ItemRecord Bag = new(4, "Sleeping Bag", 1, null, null, null, null, null, null);
     private static readonly IReadOnlyList<ItemRecord> All = [Ak, Semi, Wood, Bag];
 
     private static ItemMatch Resolve(string q) =>
@@ -64,8 +64,8 @@ public sealed class ItemLookupTests
     public void ExactNameCollision_ReturnsAmbiguousOrderedById()
     {
         // Two items share the same case-insensitive name; the one with the lower id should be first.
-        var recyclable = new ItemRecord(10, "Sunglasses", 1, null, new RecycleYield([]), null, null);
-        var notRecyclable = new ItemRecord(5, "Sunglasses", 1, null, null, null, null);
+        var recyclable = new ItemRecord(10, "Sunglasses", 1, null, new RecycleYield([]), null, null, null, null);
+        var notRecyclable = new ItemRecord(5, "Sunglasses", 1, null, null, null, null, null, null);
         IReadOnlyList<ItemRecord> items = [recyclable, notRecyclable];
         var match = ItemLookup.Resolve("sunglasses", id => items.FirstOrDefault(i => i.Id == id), items);
         var amb = Assert.IsType<ItemMatch.Ambiguous>(match);
@@ -79,9 +79,9 @@ public sealed class ItemLookupTests
     public void ExactNameCollision_DoesNotFallThroughToSubstring()
     {
         // Even though there are 2 exact matches, the result must be Ambiguous (not a substring-ranked list).
-        var a = new ItemRecord(1, "Sunglasses", 1, null, null, null, null);
-        var b = new ItemRecord(2, "Sunglasses", 1, null, null, null, null);
-        var extra = new ItemRecord(3, "Cool Sunglasses", 1, null, null, null, null);
+        var a = new ItemRecord(1, "Sunglasses", 1, null, null, null, null, null, null);
+        var b = new ItemRecord(2, "Sunglasses", 1, null, null, null, null, null, null);
+        var extra = new ItemRecord(3, "Cool Sunglasses", 1, null, null, null, null, null, null);
         IReadOnlyList<ItemRecord> items = [a, b, extra];
         var match = ItemLookup.Resolve("Sunglasses", id => items.FirstOrDefault(i => i.Id == id), items);
         var amb = Assert.IsType<ItemMatch.Ambiguous>(match);
@@ -114,7 +114,8 @@ public sealed class ItemLookupTests
     [Fact]
     public void Ambiguous_RespectsCap()
     {
-        var many = Enumerable.Range(1, 50).Select(i => new ItemRecord(i, $"Gun {i}", 1, null, null, null, null))
+        var many = Enumerable.Range(1, 50)
+            .Select(i => new ItemRecord(i, $"Gun {i}", 1, null, null, null, null, null, null))
             .ToList();
         var match = ItemLookup.Resolve("gun", id => many.FirstOrDefault(x => x.Id == id), many, cap: 10);
         var amb = Assert.IsType<ItemMatch.Ambiguous>(match);
