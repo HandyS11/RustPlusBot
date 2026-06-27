@@ -282,6 +282,12 @@
   <data name="command.research.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.upkeep.none" xml:space="preserve">
+    <value>{0} has no upkeep cost.</value>
+  </data>
+  <data name="command.upkeep.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="event.cargo.entered" xml:space="preserve">
     <value>🚢 Cargo Ship entered at {0}</value>
   </data>
@@ -443,6 +449,9 @@
   </data>
   <data name="help.unmute" xml:space="preserve">
     <value>Resume bot output to the game.</value>
+  </data>
+  <data name="help.upkeep" xml:space="preserve">
+    <value>Upkeep cost for a building block</value>
   </data>
   <data name="help.uptime" xml:space="preserve">
     <value>Show how long the bot has been running.</value>

@@ -5,12 +5,12 @@ namespace RustPlusBot.Features.Commands.Tests.Help;
 
 public sealed class CommandHelpCatalogTests
 {
-    /// <summary>The 18 registered in-game handler names (see AddCommands / CommandRegistrationTests).</summary>
+    /// <summary>The 19 registered in-game handler names (see AddCommands / CommandRegistrationTests).</summary>
     private static readonly string[] HandlerNames =
     [
         "mute", "unmute", "uptime", "pop", "wipe", "time",
         "online", "offline", "team", "steamid", "alive", "afk", "prox",
-        "item", "recycle", "craft", "research", "decay",
+        "item", "recycle", "craft", "research", "decay", "upkeep",
     ];
 
     [Fact]

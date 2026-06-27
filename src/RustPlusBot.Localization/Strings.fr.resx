@@ -282,6 +282,12 @@
   <data name="command.research.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.upkeep.none" xml:space="preserve">
+    <value>{0} n'a pas de coût d'entretien.</value>
+  </data>
+  <data name="command.upkeep.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="event.cargo.entered" xml:space="preserve">
     <value>🚢 Cargo Ship arrivé en {0}</value>
   </data>
@@ -443,6 +449,9 @@
   </data>
   <data name="help.unmute" xml:space="preserve">
     <value>Réactiver la sortie du bot vers le jeu.</value>
+  </data>
+  <data name="help.upkeep" xml:space="preserve">
+    <value>Coût d'entretien d'un bloc de construction</value>
   </data>
   <data name="help.uptime" xml:space="preserve">
     <value>Afficher depuis combien de temps le bot fonctionne.</value>
