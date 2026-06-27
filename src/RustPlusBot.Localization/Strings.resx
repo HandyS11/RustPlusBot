@@ -255,6 +255,12 @@
   <data name="command.craft.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.decay.none" xml:space="preserve">
+    <value>{0} does not decay.</value>
+  </data>
+  <data name="command.decay.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="command.item.ambiguous" xml:space="preserve">
     <value>Did you mean: {0}?</value>
   </data>
@@ -371,6 +377,9 @@
   </data>
   <data name="help.group.teamintel" xml:space="preserve">
     <value>Team</value>
+  </data>
+  <data name="help.decay" xml:space="preserve">
+    <value>Decay time for an item</value>
   </data>
   <data name="help.item" xml:space="preserve">
     <value>Look up an item's name, id, stack, and despawn</value>

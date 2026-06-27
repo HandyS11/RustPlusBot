@@ -51,7 +51,7 @@ public sealed class CommandRegistrationTests
         using var scope = provider.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CommandDispatcher>());
         var handlers = scope.ServiceProvider.GetServices<ICommandHandler>().ToList();
-        Assert.Equal(23, handlers.Count);
+        Assert.Equal(24, handlers.Count);
         Assert.Contains(handlers, h => h.Name == "mute");
         Assert.Contains(handlers, h => h.Name == "pop");
         Assert.Contains(handlers, h => h.Name == "time");
@@ -69,6 +69,7 @@ public sealed class CommandRegistrationTests
         Assert.Contains(handlers, h => h.Name == "small");
         Assert.Contains(handlers, h => h.Name == "large");
         Assert.Contains(handlers, h => h.Name == "afk");
+        Assert.Contains(handlers, h => h.Name == "decay");
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerResolver>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerQueryService>());
     }

@@ -29,6 +29,7 @@ internal static class CommandHelpCatalog
         new("recycle", CommandGroup.ItemDb, "help.recycle"),
         new("craft", CommandGroup.ItemDb, "help.craft"),
         new("research", CommandGroup.ItemDb, "help.research"),
+        new("decay", CommandGroup.ItemDb, "help.decay"),
     ];
 
     /// <summary>The Discord slash commands, in display order.</summary>
