@@ -11,7 +11,7 @@ using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Commands.Modules;
 
-/// <summary>The /item, /recycle, /craft, /research, /decay, /upkeep, and /durability slash commands.</summary>
+/// <summary>The /item, /recycle, /craft, /research, /decay, /upkeep, /durability, and /smelt slash commands.</summary>
 /// <param name="scopeFactory">Creates a short-lived DI scope per interaction.</param>
 public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     : InteractionModuleBase<SocketInteractionContext>
@@ -68,6 +68,12 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     [SlashCommand("durability", "Show the explosives needed to destroy a target")]
     public Task DurabilityAsync([Summary("target", "Item, wall/door, or vehicle name")] string target) =>
         RespondForRaidAsync(target);
+
+    /// <summary>Shows what a smelter converts and its fuel/time cost.</summary>
+    /// <param name="smelter">The smelter name or id.</param>
+    [SlashCommand("smelt", "Show what a smelter converts and its fuel/time cost")]
+    public Task SmeltAsync([Summary("smelter", "Furnace, Camp Fire, Electric Furnace, …")] string smelter) =>
+        RespondForSmeltAsync(smelter);
 
     private async Task RespondForAsync(
         string query,
@@ -133,6 +139,39 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
             var embed = new EmbedBuilder()
                 .WithDescription(text)
                 .WithFooter($"data as of {db.Sources.DurabilityAsOf:yyyy-MM-dd}")
+                .Build();
+            await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RespondForSmeltAsync(string query)
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This command must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
+            var names = scope.ServiceProvider.GetRequiredService<IItemNameResolver>();
+            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
+            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
+            var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
+
+            var text = db.ResolveSmelter(query) switch
+            {
+                SmeltMatch.Found f => loc.Get("command.smelt.ok", culture, SmeltLine.Format(f.Smelter, names)),
+                SmeltMatch.Ambiguous a => loc.Get("command.item.ambiguous", culture,
+                    string.Join(", ", a.Candidates.Select(c => c.Name))),
+                _ => loc.Get("command.item.notfound", culture, query),
+            };
+
+            var embed = new EmbedBuilder()
+                .WithDescription(text)
+                .WithFooter($"data as of {db.Sources.SmeltingAsOf:yyyy-MM-dd}")
                 .Build();
             await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
         }
