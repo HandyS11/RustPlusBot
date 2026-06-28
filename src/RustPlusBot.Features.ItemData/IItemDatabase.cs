@@ -17,4 +17,9 @@ public interface IItemDatabase
     /// <param name="query">The raw user input.</param>
     /// <returns>A match describing the outcome.</returns>
     ItemMatch Resolve(string query);
+
+    /// <summary>Resolves a user query (target name or id) to a raid target.</summary>
+    /// <param name="query">The raw user input.</param>
+    /// <returns>A match describing the outcome.</returns>
+    RaidMatch ResolveRaidTarget(string query);
 }
