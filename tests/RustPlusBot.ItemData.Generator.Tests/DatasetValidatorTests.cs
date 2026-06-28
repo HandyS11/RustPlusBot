@@ -40,11 +40,11 @@ public sealed class DatasetValidatorTests
     public void UnresolvableYieldId_isError()
     {
         var bad = new ItemDataset(1, Good().Sources,
-        [
-            new ItemRecord(1, "AK-47", 1, null,
-                new RecycleYield([new YieldEntry(99999, 4, 1.0)]), null, null, null, null),
-        ],
-        []);
+            [
+                new ItemRecord(1, "AK-47", 1, null,
+                    new RecycleYield([new YieldEntry(99999, 4, 1.0)]), null, null, null, null),
+            ],
+            []);
         var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
         Assert.Contains(errors, e => e.Contains("99999", StringComparison.Ordinal));
     }
@@ -54,11 +54,11 @@ public sealed class DatasetValidatorTests
     public void UnresolvableCraftIngredientId_isError()
     {
         var bad = new ItemDataset(1, Good().Sources,
-        [
-            new ItemRecord(1, "AK-47", 1, null, null,
-                new CraftRecipe([new Ingredient(88888, 100)], 30.0, 3), null, null, null),
-        ],
-        []);
+            [
+                new ItemRecord(1, "AK-47", 1, null, null,
+                    new CraftRecipe([new Ingredient(88888, 100)], 30.0, 3), null, null, null),
+            ],
+            []);
         var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
         Assert.Contains(errors, e => e.Contains("88888", StringComparison.Ordinal));
     }
@@ -68,11 +68,11 @@ public sealed class DatasetValidatorTests
     public void UnresolvableUpkeepId_isError()
     {
         var bad = new ItemDataset(2, Good().Sources,
-        [
-            new ItemRecord(1, "Wooden Door", 1, null, null, null, null, null,
-                new UpkeepCost([new UpkeepEntry(77777, 8, 25)])),
-        ],
-        []);
+            [
+                new ItemRecord(1, "Wooden Door", 1, null, null, null, null, null,
+                    new UpkeepCost([new UpkeepEntry(77777, 8, 25)])),
+            ],
+            []);
         var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
         Assert.Contains(errors, e => e.Contains("77777", StringComparison.Ordinal));
     }
@@ -82,11 +82,11 @@ public sealed class DatasetValidatorTests
     public void UpkeepMinGreaterThanMax_isError()
     {
         var bad = new ItemDataset(2, Good().Sources,
-        [
-            new ItemRecord(1, "Wooden Door", 1, null, null, null, null, null,
-                new UpkeepCost([new UpkeepEntry(1, 25, 8)])),
-        ],
-        []);
+            [
+                new ItemRecord(1, "Wooden Door", 1, null, null, null, null, null,
+                    new UpkeepCost([new UpkeepEntry(1, 25, 8)])),
+            ],
+            []);
         var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
         Assert.Contains(errors, e => e.Contains("upkeep", StringComparison.OrdinalIgnoreCase));
     }
@@ -96,11 +96,11 @@ public sealed class DatasetValidatorTests
     public void NegativeDecay_isError()
     {
         var bad = new ItemDataset(2, Good().Sources,
-        [
-            new ItemRecord(1, "Stone Barricade", 1, null, null, null, null,
-                new DecayInfo(-900, null, null, null, 100), null),
-        ],
-        []);
+            [
+                new ItemRecord(1, "Stone Barricade", 1, null, null, null, null,
+                    new DecayInfo(-900, null, null, null, 100), null),
+            ],
+            []);
         var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
         Assert.Contains(errors, e => e.Contains("decay", StringComparison.OrdinalIgnoreCase));
     }

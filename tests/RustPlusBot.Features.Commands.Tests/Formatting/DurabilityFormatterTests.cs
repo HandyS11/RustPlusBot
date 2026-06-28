@@ -32,14 +32,15 @@ public sealed class DurabilityFormatterTests
     {
         var target = new RaidTarget("X", "X", RaidTargetKind.Item,
         [
-            new RaidCost(1, null, null, 1, null, null, 50),  // no sulfur → sorts last
+            new RaidCost(1, null, null, 1, null, null, 50), // no sulfur → sorts last
             new RaidCost(2, null, null, 1, 10, 1400, 30),
         ]);
 
         var line = DurabilityLine.Format(target, _names);
 
         // tool id 2 (1400 sulfur) appears before tool id 1 (no sulfur)
-        Assert.True(line.IndexOf("Item 2", StringComparison.Ordinal) < line.IndexOf("Item 1", StringComparison.Ordinal));
+        Assert.True(line.IndexOf("Item 2", StringComparison.Ordinal) <
+                    line.IndexOf("Item 1", StringComparison.Ordinal));
     }
 
     [Fact]

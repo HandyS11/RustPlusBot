@@ -6,7 +6,10 @@ namespace RustPlusBot.Features.ItemData.Tests;
 public sealed class RaidLookupTests
 {
     private static readonly RaidTarget Wall = new("Stone Wall", "Stone Wall", RaidTargetKind.BuildingBlock, []);
-    private static readonly RaidTarget Door = new("Sheet Metal Door", "Sheet Metal Door", RaidTargetKind.BuildingBlock, []);
+
+    private static readonly RaidTarget Door = new("Sheet Metal Door", "Sheet Metal Door", RaidTargetKind.BuildingBlock,
+        []);
+
     private static readonly RaidTarget Tc = new("100", "Tool Cupboard", RaidTargetKind.Item, []);
     private static readonly IReadOnlyList<RaidTarget> All = [Wall, Door, Tc];
 

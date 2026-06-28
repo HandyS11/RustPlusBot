@@ -2,7 +2,7 @@
 
 A maintainer CLI that regenerates the embedded Rust item dataset
 (`src/RustPlusBot.Features.ItemData/Data/item-data.json`) consumed by the bot's
-`/item`, `/recycle`, `/craft`, `/research`, `/decay`, and `/upkeep` calculators.
+`/item`, `/recycle`, `/craft`, `/research`, `/decay`, `/upkeep`, and `/durability` calculators.
 
 This tool is **not** part of the running bot — it is referenced by nothing in
 the application graph. It exists so the bundled item data can be refreshed when
@@ -37,14 +37,17 @@ garbage** if the upstream shape drifts.
    | `rustlabsResearchData.json` | research scrap cost |
    | `rustlabsDecayData.json` | decay time + HP |
    | `rustlabsUpkeepData.json` | upkeep cost (resource + quantity range) |
+   | `rustlabsDurabilityData.json` | raid cost (explosives only — trimmed) |
 
 2. Projects them into our own typed schema (`ItemDataset` /
    `ItemRecord` / …, defined in `RustPlusBot.Features.ItemData`), keyed by item id,
    with calculator data inlined per item (null where an item has none).
 3. **Validates** the result (`DatasetValidator`): a minimum item-count floor,
-   that every recycle-yield / craft-ingredient / upkeep-cost id resolves to a
-   known item, that upkeep quantity ranges are well-formed (`min <= max`), and
-   that decay values are non-negative.
+   a minimum raid-target count floor, that every recycle-yield /
+   craft-ingredient / upkeep-cost id resolves to a known item, that upkeep
+   quantity ranges are well-formed (`min <= max`), that decay values are
+   non-negative, and that every raid cost has a positive quantity and a valid
+   tool-item id.
 4. On any validation error, prints the errors to stderr and exits non-zero
    **without writing** — the existing good bundle is never clobbered.
 5. On success, writes the dataset as indented JSON and exits 0.
@@ -88,7 +91,8 @@ tests assert known items resolve correctly.
 
 The source dates stamped into the dataset are currently hard-coded constants in
 [`Program.cs`](Program.cs) (`NamesAsOf`, `RecycleAsOf`, `CraftAsOf`,
-`ResearchAsOf`). Update them when you refresh from newer upstream data.
+`ResearchAsOf`, `DecayAsOf`, `UpkeepAsOf`, `DurabilityAsOf`). Update them when
+you refresh from newer upstream data.
 
 ## Notes
 
@@ -97,6 +101,11 @@ The source dates stamped into the dataset are currently hard-coded constants in
   transforms a local rustplusplus checkout.
 - Recycle data covers the standard **recycler** only; safe-zone recycler and
   shredder yields are out of scope for this slice.
+- Durability data is **trimmed to the `explosive` tool group** during the
+  transform (`OfflineDurabilitySource`) and projected into `RaidTargets`
+  (item / building-block / vehicle). The raw source (`rustlabsDurabilityData.json`)
+  is ~19 MB and is **never bundled** — only the projected, explosive-only rows
+  are written into `item-data.json`.
 
 ## Attribution
 

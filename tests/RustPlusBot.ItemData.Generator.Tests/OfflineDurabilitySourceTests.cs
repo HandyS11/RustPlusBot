@@ -16,19 +16,19 @@ public sealed class OfflineDurabilitySourceTests
     public void LoadRaidTargets_KeepsExplosiveOnly_AndProjectsAllThreeKinds()
     {
         const string json = """
-        {
-          "items": { "100": [
-            {"group":"explosive","which":null,"toolId":"1248356124","caption":null,"quantity":1,"time":10,"fuel":60,"sulfur":2200},
-            {"group":"guns","which":null,"toolId":"99","caption":"AK","quantity":500,"time":120,"fuel":null,"sulfur":null}
-          ]},
-          "buildingBlocks": { "Stone Wall": [
-            {"group":"explosive","which":"soft","toolId":"1248356124","caption":null,"quantity":2,"time":11.5,"fuel":120,"sulfur":4400}
-          ]},
-          "other": { "Bradley APC": [
-            {"group":"explosive","which":null,"toolId":"-742865266","caption":null,"quantity":7,"time":30,"fuel":null,"sulfur":9800}
-          ]}
-        }
-        """;
+                            {
+                              "items": { "100": [
+                                {"group":"explosive","which":null,"toolId":"1248356124","caption":null,"quantity":1,"time":10,"fuel":60,"sulfur":2200},
+                                {"group":"guns","which":null,"toolId":"99","caption":"AK","quantity":500,"time":120,"fuel":null,"sulfur":null}
+                              ]},
+                              "buildingBlocks": { "Stone Wall": [
+                                {"group":"explosive","which":"soft","toolId":"1248356124","caption":null,"quantity":2,"time":11.5,"fuel":120,"sulfur":4400}
+                              ]},
+                              "other": { "Bradley APC": [
+                                {"group":"explosive","which":null,"toolId":"-742865266","caption":null,"quantity":7,"time":30,"fuel":null,"sulfur":9800}
+                              ]}
+                            }
+                            """;
         var names = new Dictionary<int, string>
         {
             [100] = "Tool Cupboard", [1248356124] = "Timed Explosive Charge", [-742865266] = "Rocket",

@@ -26,8 +26,11 @@ internal sealed class OfflineDurabilitySource(string DurabilityFilePath) : IDura
         return targets;
     }
 
-    private static void AddSection(JsonElement root, string section, RaidTargetKind kind,
-        IReadOnlyDictionary<int, string> names, List<RaidTarget> into)
+    private static void AddSection(JsonElement root,
+        string section,
+        RaidTargetKind kind,
+        IReadOnlyDictionary<int, string> names,
+        List<RaidTarget> into)
     {
         if (!root.TryGetProperty(section, out var sectionEl) || sectionEl.ValueKind != JsonValueKind.Object)
         {
