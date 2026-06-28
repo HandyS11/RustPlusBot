@@ -25,7 +25,11 @@ public sealed class OfflineSmeltingSourceTests
                             """;
         var names = new Dictionary<int, string>
         {
-            [100] = "Furnace", [10] = "Metal Ore", [20] = "Metal Fragments", [11] = "Wood", [21] = "Charcoal",
+            [100] = "Furnace",
+            [10] = "Metal Ore",
+            [20] = "Metal Fragments",
+            [11] = "Wood",
+            [21] = "Charcoal",
         };
 
         var smelters = SourceWith(json).LoadSmelters(names);
@@ -48,7 +52,10 @@ public sealed class OfflineSmeltingSourceTests
     {
         const string json =
             """{"999":[{"fromId":"10","woodQuantity":1,"toId":"20","toQuantity":1,"toProbability":1,"time":2}]}""";
-        var names = new Dictionary<int, string> { [10] = "Metal Ore", [20] = "Metal Fragments" };
+        var names = new Dictionary<int, string>
+        {
+            [10] = "Metal Ore", [20] = "Metal Fragments"
+        };
         Assert.Empty(SourceWith(json).LoadSmelters(names));
     }
 
@@ -57,7 +64,10 @@ public sealed class OfflineSmeltingSourceTests
     {
         const string json =
             """{"100":[{"fromId":"10","woodQuantity":1,"toId":"999","toQuantity":1,"toProbability":1,"time":2}]}""";
-        var names = new Dictionary<int, string> { [100] = "Furnace", [10] = "Metal Ore" };
+        var names = new Dictionary<int, string>
+        {
+            [100] = "Furnace", [10] = "Metal Ore"
+        };
         Assert.Empty(SourceWith(json).LoadSmelters(names)); // smelter dropped: no valid conversions remain
     }
 }
