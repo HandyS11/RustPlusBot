@@ -16,6 +16,9 @@ public sealed class DatasetValidatorTests
         ],
         []);
 
+    private static ItemDataset WithRaid(params RaidTarget[] raid) =>
+        new(3, Good().Sources, Good().Items, raid);
+
     /// <summary>A dataset with all referential constraints satisfied should produce no errors.</summary>
     [Fact]
     public void Good_dataset_hasNoErrors()
@@ -100,5 +103,33 @@ public sealed class DatasetValidatorTests
         []);
         var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
         Assert.Contains(errors, e => e.Contains("decay", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>A raid cost that references an unknown tool id should produce an error.</summary>
+    [Fact]
+    public void RaidCost_UnknownToolId_isError()
+    {
+        var bad = WithRaid(new RaidTarget("Stone Wall", "Stone Wall", RaidTargetKind.BuildingBlock,
+            [new RaidCost(424242, null, null, 2, 11.5, 4400, 120)]));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("424242", StringComparison.Ordinal));
+    }
+
+    /// <summary>A raid cost with a non-positive quantity should produce an error.</summary>
+    [Fact]
+    public void RaidCost_NonPositiveQuantity_isError()
+    {
+        var bad = WithRaid(new RaidTarget("Stone Wall", "Stone Wall", RaidTargetKind.BuildingBlock,
+            [new RaidCost(1, null, null, 0, 1, 1, null)]));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("quantity", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Too few raid targets should produce an error when a floor is set.</summary>
+    [Fact]
+    public void TooFewRaidTargets_isError()
+    {
+        var errors = DatasetValidator.Validate(Good(), new ValidationOptions(MinItemCount: 1, MinRaidTargetCount: 300));
+        Assert.Contains(errors, e => e.Contains("raid target count", StringComparison.OrdinalIgnoreCase));
     }
 }

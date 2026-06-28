@@ -1,6 +1,7 @@
 using System.Text;
 using RustPlusBot.Features.ItemData;
 using RustPlusBot.Features.ItemData.Data;
+using RustPlusBot.Features.ItemData.Lookup;
 
 namespace RustPlusBot.Features.ItemData.Tests;
 
@@ -83,5 +84,19 @@ public sealed class EmbeddedItemDatabaseTests
     {
         Assert.Equal(new DateOnly(2024, 9, 7), _db.Sources.DecayAsOf);
         Assert.Equal(new DateOnly(2024, 9, 7), _db.Sources.UpkeepAsOf);
+    }
+
+    [Fact]
+    public void ResolveRaidTarget_StoneWall_ListsTimedExplosiveCharge()
+    {
+        var found = Assert.IsType<RaidMatch.Found>(_db.ResolveRaidTarget("Stone Wall"));
+        Assert.Equal("Stone Wall", found.Target.Name);
+        Assert.Contains(found.Target.Costs, c => c.ToolId == 1248356124); // Timed Explosive Charge (C4)
+    }
+
+    [Fact]
+    public void Sources_DurabilityAsOf_IsPopulated()
+    {
+        Assert.Equal(new DateOnly(2024, 9, 7), _db.Sources.DurabilityAsOf);
     }
 }
