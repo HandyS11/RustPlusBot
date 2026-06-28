@@ -264,6 +264,9 @@
   <data name="command.durability.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.smelt.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="command.item.ambiguous" xml:space="preserve">
     <value>Vouliez-vous dire : {0} ?</value>
   </data>
