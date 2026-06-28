@@ -15,6 +15,7 @@ internal static class Program
     private static readonly DateOnly DecayAsOf = new(2024, 9, 7);
     private static readonly DateOnly UpkeepAsOf = new(2024, 9, 7);
     private static readonly DateOnly DurabilityAsOf = new(2024, 9, 7);
+    private static readonly DateOnly SmeltingAsOf = new(2023, 11, 5);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -115,9 +116,11 @@ internal static class Program
 
         var dataset = new ItemDataset(
             3,
-            new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf, DecayAsOf, UpkeepAsOf, DurabilityAsOf),
+            new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf, DecayAsOf, UpkeepAsOf, DurabilityAsOf,
+                SmeltingAsOf),
             items,
-            raidTargets);
+            raidTargets,
+            []);
 
         var validationOptions = new ValidationOptions(MinItemCount: minItems, MinRaidTargetCount: 300);
         var errors = DatasetValidator.Validate(dataset, validationOptions);
