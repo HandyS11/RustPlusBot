@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RustPlusBot.Features.ItemData.Data;
@@ -9,7 +10,7 @@ namespace RustPlusBot.Features.ItemData;
 /// <summary>Loads the embedded <c>item-data.json</c> once and serves lookups. Singleton.</summary>
 public sealed class EmbeddedItemDatabase : IItemDatabase
 {
-    private const int ExpectedSchemaVersion = 2;
+    private const int ExpectedSchemaVersion = 3;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -20,6 +21,10 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
 
     private static readonly FrozenDictionary<int, ItemRecord> ById = IndexById(Dataset.Items);
 
+    private static readonly IReadOnlyList<RaidTarget> Raid = Dataset.RaidTargets ?? [];
+
+    private static readonly FrozenDictionary<int, RaidTarget> RaidById = IndexRaidById(Raid);
+
     /// <inheritdoc />
     public DatasetSources Sources => Dataset.Sources;
 
@@ -28,6 +33,9 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
 
     /// <inheritdoc />
     public ItemMatch Resolve(string query) => ItemLookup.Resolve(query, GetById, Dataset.Items);
+
+    /// <inheritdoc />
+    public RaidMatch ResolveRaidTarget(string query) => RaidLookup.Resolve(query, RaidById.GetValueOrDefault, Raid);
 
     /// <summary>
     /// Deserializes and validates an item dataset from <paramref name="stream"/>.
@@ -61,6 +69,14 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
     /// <returns>A frozen dictionary keyed by item id.</returns>
     internal static FrozenDictionary<int, ItemRecord> IndexById(IReadOnlyList<ItemRecord> items) =>
         items.GroupBy(i => i.Id).ToFrozenDictionary(g => g.Key, g => g.Last());
+
+    /// <summary>Builds a frozen id→target index from the item-kind raid targets.</summary>
+    /// <param name="targets">All raid targets.</param>
+    /// <returns>A frozen dictionary keyed by item id (item-kind targets only).</returns>
+    internal static FrozenDictionary<int, RaidTarget> IndexRaidById(IReadOnlyList<RaidTarget> targets) =>
+        targets.Where(t => t.Kind == RaidTargetKind.Item)
+            .GroupBy(t => int.Parse(t.Key, CultureInfo.InvariantCulture))
+            .ToFrozenDictionary(g => g.Key, g => g.Last());
 
     private static ItemDataset Load()
     {

@@ -14,6 +14,7 @@ internal static class Program
     private static readonly DateOnly ResearchAsOf = new(2024, 9, 7);
     private static readonly DateOnly DecayAsOf = new(2024, 9, 7);
     private static readonly DateOnly UpkeepAsOf = new(2024, 9, 7);
+    private static readonly DateOnly DurabilityAsOf = new(2024, 9, 7);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -65,6 +66,8 @@ internal static class Program
             Path.Combine(rustplusDir, "rustlabsResearchData.json"),
             Path.Combine(rustplusDir, "rustlabsDecayData.json"),
             Path.Combine(rustplusDir, "rustlabsUpkeepData.json"));
+        var durabilitySource = new OfflineDurabilitySource(
+            Path.Combine(rustplusDir, "rustlabsDurabilityData.json"));
 
         var names = namesSource.LoadNames();
         Console.WriteLine($"Loaded {names.Count} names from items.json");
@@ -76,6 +79,8 @@ internal static class Program
         var researchCosts = rustLabsSource.LoadResearchCosts();
         var decayInfos = rustLabsSource.LoadDecay();
         var upkeepCosts = rustLabsSource.LoadUpkeep();
+        var raidTargets = durabilitySource.LoadRaidTargets(names);
+        Console.WriteLine($"Loaded {raidTargets.Count} raid targets");
 
         var nameIds = new HashSet<int>(names.Keys);
 
@@ -109,11 +114,12 @@ internal static class Program
             .ToList();
 
         var dataset = new ItemDataset(
-            2,
-            new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf, DecayAsOf, UpkeepAsOf),
-            items);
+            3,
+            new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf, DecayAsOf, UpkeepAsOf, DurabilityAsOf),
+            items,
+            raidTargets);
 
-        var validationOptions = new ValidationOptions(MinItemCount: minItems);
+        var validationOptions = new ValidationOptions(MinItemCount: minItems, MinRaidTargetCount: 300);
         var errors = DatasetValidator.Validate(dataset, validationOptions);
         if (errors.Count > 0)
         {

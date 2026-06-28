@@ -261,6 +261,9 @@
   <data name="command.decay.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.durability.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="command.item.ambiguous" xml:space="preserve">
     <value>Vouliez-vous dire : {0} ?</value>
   </data>
@@ -387,6 +390,9 @@
   <data name="help.decay" xml:space="preserve">
     <value>Temps de dégradation d'un objet</value>
   </data>
+  <data name="help.durability" xml:space="preserve">
+    <value>Explosifs nécessaires pour détruire une cible</value>
+  </data>
   <data name="help.item" xml:space="preserve">
     <value>Afficher le nom, l'id, la pile et la disparition d'un objet</value>
   </data>
@@ -416,6 +422,9 @@
   </data>
   <data name="help.slash.decay" xml:space="preserve">
     <value>Affiche le temps de dégradation d'un objet.</value>
+  </data>
+  <data name="help.slash.durability" xml:space="preserve">
+    <value>Affiche les explosifs nécessaires pour détruire une cible.</value>
   </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Afficher ce message d'aide.</value>

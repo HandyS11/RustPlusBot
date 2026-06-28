@@ -11,7 +11,7 @@ using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Commands.Modules;
 
-/// <summary>The /item, /recycle, /craft, /research, /decay, and /upkeep slash commands.</summary>
+/// <summary>The /item, /recycle, /craft, /research, /decay, /upkeep, and /durability slash commands.</summary>
 /// <param name="scopeFactory">Creates a short-lived DI scope per interaction.</param>
 public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     : InteractionModuleBase<SocketInteractionContext>
@@ -63,6 +63,12 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
             ? loc.Get("command.upkeep.ok", culture, UpkeepLine.Format(rec, names))
             : loc.Get("command.upkeep.none", culture, rec.Name));
 
+    /// <summary>Lists the explosives needed to destroy a target.</summary>
+    /// <param name="target">The item, building block, or vehicle name.</param>
+    [SlashCommand("durability", "Show the explosives needed to destroy a target")]
+    public Task DurabilityAsync([Summary("target", "Item, wall/door, or vehicle name")] string target) =>
+        RespondForRaidAsync(target);
+
     private async Task RespondForAsync(
         string query,
         Func<IItemDatabase, DateOnly> dateSelector,
@@ -94,6 +100,39 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
             var embed = new EmbedBuilder()
                 .WithDescription(text)
                 .WithFooter($"data as of {dateSelector(db):yyyy-MM-dd}")
+                .Build();
+            await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
+        }
+    }
+
+    private async Task RespondForRaidAsync(string query)
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This command must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
+            var names = scope.ServiceProvider.GetRequiredService<IItemNameResolver>();
+            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
+            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
+            var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
+
+            var text = db.ResolveRaidTarget(query) switch
+            {
+                RaidMatch.Found f => loc.Get("command.durability.ok", culture, DurabilityLine.Format(f.Target, names)),
+                RaidMatch.Ambiguous a => loc.Get("command.item.ambiguous", culture,
+                    string.Join(", ", a.Candidates.Select(c => c.Name))),
+                _ => loc.Get("command.item.notfound", culture, query),
+            };
+
+            var embed = new EmbedBuilder()
+                .WithDescription(text)
+                .WithFooter($"data as of {db.Sources.DurabilityAsOf:yyyy-MM-dd}")
                 .Build();
             await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
         }

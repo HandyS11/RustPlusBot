@@ -4,7 +4,8 @@ namespace RustPlusBot.ItemData.Generator.Validation;
 
 /// <summary>Options that control dataset validation thresholds.</summary>
 /// <param name="MinItemCount">The minimum number of items the dataset must contain.</param>
-internal sealed record ValidationOptions(int MinItemCount);
+/// <param name="MinRaidTargetCount">The minimum number of raid targets the dataset must contain.</param>
+internal sealed record ValidationOptions(int MinItemCount, int MinRaidTargetCount = 0);
 
 /// <summary>Validates an <see cref="ItemDataset"/> for structural integrity.</summary>
 internal static class DatasetValidator
@@ -71,6 +72,28 @@ internal static class DatasetValidator
                 decay.UnderwaterSeconds is < 0 || decay.Hp is < 0)
             {
                 errors.Add($"item {item.Id} ({item.Name}): decay has a negative value");
+            }
+        }
+
+        var raid = dataset.RaidTargets ?? [];
+        if (raid.Count < options.MinRaidTargetCount)
+        {
+            errors.Add($"raid target count {raid.Count} below minimum {options.MinRaidTargetCount}");
+        }
+
+        foreach (var target in raid)
+        {
+            foreach (var cost in target.Costs)
+            {
+                if (!ids.Contains(cost.ToolId))
+                {
+                    errors.Add($"raid target {target.Name}: cost references unknown tool id {cost.ToolId}");
+                }
+
+                if (cost.Quantity <= 0)
+                {
+                    errors.Add($"raid target {target.Name}: non-positive quantity {cost.Quantity}");
+                }
             }
         }
 

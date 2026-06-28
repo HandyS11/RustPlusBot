@@ -28,4 +28,19 @@ public sealed class ItemDatasetTests
         Assert.Equal(8, record.Upkeep.Entries[0].QuantityMin);
         Assert.Equal(25, record.Upkeep.Entries[0].QuantityMax);
     }
+
+    [Fact]
+    public void RaidTarget_CarriesExplosiveCosts()
+    {
+        var target = new RaidTarget("Stone Wall", "Stone Wall", RaidTargetKind.BuildingBlock,
+        [
+            new RaidCost(1248356124, "both", null, 2, 11.5, 4400, 120),
+        ]);
+
+        Assert.Equal(RaidTargetKind.BuildingBlock, target.Kind);
+        var cost = Assert.Single(target.Costs);
+        Assert.Equal(1248356124, cost.ToolId);
+        Assert.Equal(4400, cost.Sulfur);
+        Assert.Equal(2, cost.Quantity);
+    }
 }
