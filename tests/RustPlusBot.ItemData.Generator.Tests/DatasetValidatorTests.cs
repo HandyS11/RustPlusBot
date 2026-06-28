@@ -20,6 +20,9 @@ public sealed class DatasetValidatorTests
     private static ItemDataset WithRaid(params RaidTarget[] raid) =>
         new(3, Good().Sources, Good().Items, raid, []);
 
+    private static ItemDataset WithSmelters(params Smelter[] smelters) =>
+        new(4, Good().Sources, Good().Items, [], smelters);
+
     /// <summary>A dataset with all referential constraints satisfied should produce no errors.</summary>
     [Fact]
     public void Good_dataset_hasNoErrors()
@@ -137,5 +140,39 @@ public sealed class DatasetValidatorTests
     {
         var errors = DatasetValidator.Validate(Good(), new ValidationOptions(MinItemCount: 1, MinRaidTargetCount: 300));
         Assert.Contains(errors, e => e.Contains("raid target count", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SmelterConversion_UnknownInputId_isError()
+    {
+        var bad = WithSmelters(new Smelter("100", "Furnace",
+            [new SmeltConversion(424242, 2, 1, 1, 1, 3)]));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("424242", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SmelterConversion_NonPositiveTime_isError()
+    {
+        var bad = WithSmelters(new Smelter("100", "Furnace",
+            [new SmeltConversion(1, 2, 1, 1, 1, 0)]));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("time", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SmelterConversion_ProbabilityOutOfRange_isError()
+    {
+        var bad = WithSmelters(new Smelter("100", "Furnace",
+            [new SmeltConversion(1, 2, 1, 1.5, 1, 3)]));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("probability", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void TooFewSmelters_isError()
+    {
+        var errors = DatasetValidator.Validate(Good(), new ValidationOptions(MinItemCount: 1, MinSmelterCount: 8));
+        Assert.Contains(errors, e => e.Contains("smelter count", StringComparison.OrdinalIgnoreCase));
     }
 }
