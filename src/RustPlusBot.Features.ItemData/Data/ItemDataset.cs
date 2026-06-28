@@ -4,7 +4,12 @@ namespace RustPlusBot.Features.ItemData.Data;
 /// <param name="SchemaVersion">The schema version; the loader rejects a mismatched bundle.</param>
 /// <param name="Sources">Per-section provenance dates.</param>
 /// <param name="Items">Every known item, one record each.</param>
-public sealed record ItemDataset(int SchemaVersion, DatasetSources Sources, IReadOnlyList<ItemRecord> Items);
+/// <param name="RaidTargets">Every raid target (item/building-block/vehicle) and its explosive cost.</param>
+public sealed record ItemDataset(
+    int SchemaVersion,
+    DatasetSources Sources,
+    IReadOnlyList<ItemRecord> Items,
+    IReadOnlyList<RaidTarget> RaidTargets);
 
 /// <summary>When each section of the dataset was last sourced, for "data as of" display.</summary>
 /// <param name="NamesAsOf">Names/ids/stack source date.</param>
@@ -13,13 +18,15 @@ public sealed record ItemDataset(int SchemaVersion, DatasetSources Sources, IRea
 /// <param name="ResearchAsOf">Research data source date.</param>
 /// <param name="DecayAsOf">Decay data source date.</param>
 /// <param name="UpkeepAsOf">Upkeep data source date.</param>
+/// <param name="DurabilityAsOf">Durability/raid-cost data source date.</param>
 public sealed record DatasetSources(
     DateOnly NamesAsOf,
     DateOnly RecycleAsOf,
     DateOnly CraftAsOf,
     DateOnly ResearchAsOf,
     DateOnly DecayAsOf,
-    DateOnly UpkeepAsOf);
+    DateOnly UpkeepAsOf,
+    DateOnly DurabilityAsOf);
 
 /// <summary>One item, with all calculator data inlined (null where not applicable).</summary>
 /// <param name="Id">The Rust item id.</param>
@@ -91,3 +98,40 @@ public sealed record UpkeepCost(IReadOnlyList<UpkeepEntry> Entries);
 /// <param name="QuantityMin">The lower bound of the cost.</param>
 /// <param name="QuantityMax">The upper bound of the cost.</param>
 public sealed record UpkeepEntry(int ItemId, int QuantityMin, int QuantityMax);
+
+/// <summary>The kind of raid target, mapping to the three sections of the RustLabs durability source.</summary>
+public enum RaidTargetKind
+{
+    /// <summary>A deployable item (resolves to a known item id).</summary>
+    Item = 0,
+
+    /// <summary>A building block (wall, door, floor) — name-keyed, not an item.</summary>
+    BuildingBlock = 1,
+
+    /// <summary>A vehicle or NPC target — name-keyed, not an item.</summary>
+    Vehicle = 2,
+}
+
+/// <summary>One raid target and the explosive cost to destroy it.</summary>
+/// <param name="Key">The item id as a string (<see cref="RaidTargetKind.Item"/>) or the target name otherwise.</param>
+/// <param name="Name">The display name.</param>
+/// <param name="Kind">The target kind.</param>
+/// <param name="Costs">The per-explosive cost entries (always non-empty).</param>
+public sealed record RaidTarget(string Key, string Name, RaidTargetKind Kind, IReadOnlyList<RaidCost> Costs);
+
+/// <summary>One explosive's cost against a target. Fields are null where RustLabs omits them.</summary>
+/// <param name="ToolId">The explosive item id (resolves via the item spine).</param>
+/// <param name="Side">The building-block face: "soft", "hard", "both", or null.</param>
+/// <param name="Caption">A sub-label (e.g. ammo variant or placement note), or null.</param>
+/// <param name="Quantity">Units of the tool required.</param>
+/// <param name="TimeSeconds">Total time in seconds, or null.</param>
+/// <param name="Sulfur">Total sulfur cost, or null.</param>
+/// <param name="Fuel">Total low-grade fuel cost, or null.</param>
+public sealed record RaidCost(
+    int ToolId,
+    string? Side,
+    string? Caption,
+    double Quantity,
+    double? TimeSeconds,
+    int? Sulfur,
+    int? Fuel);
