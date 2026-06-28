@@ -33,11 +33,25 @@ internal static class DurabilityLine
             ? string.Create(CultureInfo.InvariantCulture, $" — {s} sulfur")
             : string.Empty;
         var time = cost.TimeSeconds is { } t and > 0
-            ? string.Create(CultureInfo.InvariantCulture, $" ({DurationFormat.Compact(TimeSpan.FromSeconds(t))})")
+            ? string.Create(CultureInfo.InvariantCulture, $" ({FormatTime(t)})")
             : string.Empty;
         var caption = string.IsNullOrEmpty(cost.Caption)
             ? string.Empty
             : string.Create(CultureInfo.InvariantCulture, $" · {cost.Caption}");
         return string.Create(CultureInfo.InvariantCulture, $"{tool} ×{quantity}{side}{sulfur}{time}{caption}");
+    }
+
+    private static string FormatTime(double seconds)
+    {
+        if (seconds < 60)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"{seconds:0.#}s");
+        }
+
+        var span = TimeSpan.FromSeconds(seconds);
+        var minutes = (int)span.TotalMinutes;
+        return span.Seconds == 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{minutes}m")
+            : string.Create(CultureInfo.InvariantCulture, $"{minutes}m {span.Seconds}s");
     }
 }

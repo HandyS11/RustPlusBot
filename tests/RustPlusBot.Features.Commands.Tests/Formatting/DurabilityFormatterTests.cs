@@ -54,4 +54,23 @@ public sealed class DurabilityFormatterTests
         Assert.Contains("×173", line, StringComparison.Ordinal); // 172.5 rounded up
         Assert.Contains("Semi-Automatic Rifle", line, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void DurabilityLine_RendersSubMinuteTimeInSeconds()
+    {
+        var target = new RaidTarget("Stone Wall", "Stone Wall", RaidTargetKind.BuildingBlock,
+            [new RaidCost(1, null, null, 2, 11.5, 4400, 120)]);
+        var line = DurabilityLine.Format(target, _names);
+        Assert.Contains("11.5s", line, StringComparison.Ordinal);
+        Assert.DoesNotContain("0m", line, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DurabilityLine_RendersOverMinuteTimeAsMinutesAndSeconds()
+    {
+        var target = new RaidTarget("X", "X", RaidTargetKind.Item,
+            [new RaidCost(1, null, null, 46, 175.125, 5520, null)]);
+        var line = DurabilityLine.Format(target, _names);
+        Assert.Contains("2m 55s", line, StringComparison.Ordinal);
+    }
 }
