@@ -10,7 +10,7 @@ namespace RustPlusBot.Features.ItemData;
 /// <summary>Loads the embedded <c>item-data.json</c> once and serves lookups. Singleton.</summary>
 public sealed class EmbeddedItemDatabase : IItemDatabase
 {
-    private const int ExpectedSchemaVersion = 3;
+    private const int ExpectedSchemaVersion = 4;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -25,6 +25,10 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
 
     private static readonly FrozenDictionary<int, RaidTarget> RaidById = IndexRaidById(Raid);
 
+    private static readonly IReadOnlyList<Smelter> Smelters = Dataset.Smelters ?? [];
+
+    private static readonly FrozenDictionary<int, Smelter> SmelterById = IndexSmelterById(Smelters);
+
     /// <inheritdoc />
     public DatasetSources Sources => Dataset.Sources;
 
@@ -36,6 +40,10 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
 
     /// <inheritdoc />
     public RaidMatch ResolveRaidTarget(string query) => RaidLookup.Resolve(query, RaidById.GetValueOrDefault, Raid);
+
+    /// <inheritdoc />
+    public SmeltMatch ResolveSmelter(string query) =>
+        SmeltLookup.Resolve(query, SmelterById.GetValueOrDefault, Smelters);
 
     /// <summary>
     /// Deserializes and validates an item dataset from <paramref name="stream"/>.
@@ -76,6 +84,13 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
     internal static FrozenDictionary<int, RaidTarget> IndexRaidById(IReadOnlyList<RaidTarget> targets) =>
         targets.Where(t => t.Kind == RaidTargetKind.Item)
             .GroupBy(t => int.Parse(t.Key, CultureInfo.InvariantCulture))
+            .ToFrozenDictionary(g => g.Key, g => g.Last());
+
+    /// <summary>Builds a frozen id→smelter index keyed by the smelter's item id.</summary>
+    /// <param name="smelters">All smelters.</param>
+    /// <returns>A frozen dictionary keyed by smelter item id.</returns>
+    internal static FrozenDictionary<int, Smelter> IndexSmelterById(IReadOnlyList<Smelter> smelters) =>
+        smelters.GroupBy(s => int.Parse(s.Key, CultureInfo.InvariantCulture))
             .ToFrozenDictionary(g => g.Key, g => g.Last());
 
     private static ItemDataset Load()

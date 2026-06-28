@@ -22,4 +22,9 @@ public interface IItemDatabase
     /// <param name="query">The raw user input.</param>
     /// <returns>A match describing the outcome.</returns>
     RaidMatch ResolveRaidTarget(string query);
+
+    /// <summary>Resolves a user query (smelter name or id) to a smelter.</summary>
+    /// <param name="query">The raw user input.</param>
+    /// <returns>A match describing the outcome.</returns>
+    SmeltMatch ResolveSmelter(string query);
 }

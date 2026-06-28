@@ -264,6 +264,9 @@
   <data name="command.durability.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.smelt.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
   <data name="command.item.ambiguous" xml:space="preserve">
     <value>Did you mean: {0}?</value>
   </data>
@@ -393,6 +396,9 @@
   <data name="help.durability" xml:space="preserve">
     <value>Explosives needed to destroy a target</value>
   </data>
+  <data name="help.smelt" xml:space="preserve">
+    <value>What a smelter converts, with fuel and time</value>
+  </data>
   <data name="help.item" xml:space="preserve">
     <value>Look up an item's name, id, stack, and despawn</value>
   </data>
@@ -425,6 +431,9 @@
   </data>
   <data name="help.slash.durability" xml:space="preserve">
     <value>Show the explosives needed to destroy a target.</value>
+  </data>
+  <data name="help.slash.smelt" xml:space="preserve">
+    <value>Show what a smelter converts and its fuel/time cost.</value>
   </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Show this help message.</value>

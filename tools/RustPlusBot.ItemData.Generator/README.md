@@ -2,7 +2,7 @@
 
 A maintainer CLI that regenerates the embedded Rust item dataset
 (`src/RustPlusBot.Features.ItemData/Data/item-data.json`) consumed by the bot's
-`/item`, `/recycle`, `/craft`, `/research`, `/decay`, `/upkeep`, and `/durability` calculators.
+`/item`, `/recycle`, `/craft`, `/research`, `/decay`, `/upkeep`, `/durability`, and `/smelt` calculators.
 
 This tool is **not** part of the running bot — it is referenced by nothing in
 the application graph. It exists so the bundled item data can be refreshed when
@@ -38,6 +38,7 @@ garbage** if the upstream shape drifts.
    | `rustlabsDecayData.json` | decay time + HP |
    | `rustlabsUpkeepData.json` | upkeep cost (resource + quantity range) |
    | `rustlabsDurabilityData.json` | raid cost (explosives only — trimmed) |
+   | `rustlabsSmeltingData.json` | smelting/cooking conversions (per smelter) |
 
 2. Projects them into our own typed schema (`ItemDataset` /
    `ItemRecord` / …, defined in `RustPlusBot.Features.ItemData`), keyed by item id,
@@ -91,8 +92,8 @@ tests assert known items resolve correctly.
 
 The source dates stamped into the dataset are currently hard-coded constants in
 [`Program.cs`](Program.cs) (`NamesAsOf`, `RecycleAsOf`, `CraftAsOf`,
-`ResearchAsOf`, `DecayAsOf`, `UpkeepAsOf`, `DurabilityAsOf`). Update them when
-you refresh from newer upstream data.
+`ResearchAsOf`, `DecayAsOf`, `UpkeepAsOf`, `DurabilityAsOf`, `SmeltingAsOf`).
+Update them when you refresh from newer upstream data.
 
 ## Notes
 
@@ -106,6 +107,11 @@ you refresh from newer upstream data.
   (item / building-block / vehicle). The raw source (`rustlabsDurabilityData.json`)
   is ~19 MB and is **never bundled** — only the projected, explosive-only rows
   are written into `item-data.json`.
+- Smelting data (`rustlabsSmeltingData.json`, ~28 KB) is keyed by **smelter**
+  and projected into a dedicated `Smelters` table (`OfflineSmeltingSource`),
+  resolved by name like raid targets. Its provenance (`SmeltingAsOf`,
+  2023-11-05) lags the other rustlabs sources because the upstream file has not
+  changed since then.
 
 ## Attribution
 

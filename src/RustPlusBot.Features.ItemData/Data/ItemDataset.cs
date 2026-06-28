@@ -5,11 +5,13 @@ namespace RustPlusBot.Features.ItemData.Data;
 /// <param name="Sources">Per-section provenance dates.</param>
 /// <param name="Items">Every known item, one record each.</param>
 /// <param name="RaidTargets">Every raid target (item/building-block/vehicle) and its explosive cost.</param>
+/// <param name="Smelters">Every known smelter and the conversions it performs.</param>
 public sealed record ItemDataset(
     int SchemaVersion,
     DatasetSources Sources,
     IReadOnlyList<ItemRecord> Items,
-    IReadOnlyList<RaidTarget> RaidTargets);
+    IReadOnlyList<RaidTarget> RaidTargets,
+    IReadOnlyList<Smelter> Smelters);
 
 /// <summary>When each section of the dataset was last sourced, for "data as of" display.</summary>
 /// <param name="NamesAsOf">Names/ids/stack source date.</param>
@@ -19,6 +21,7 @@ public sealed record ItemDataset(
 /// <param name="DecayAsOf">Decay data source date.</param>
 /// <param name="UpkeepAsOf">Upkeep data source date.</param>
 /// <param name="DurabilityAsOf">Durability/raid-cost data source date.</param>
+/// <param name="SmeltingAsOf">Smelting data source date.</param>
 public sealed record DatasetSources(
     DateOnly NamesAsOf,
     DateOnly RecycleAsOf,
@@ -26,7 +29,8 @@ public sealed record DatasetSources(
     DateOnly ResearchAsOf,
     DateOnly DecayAsOf,
     DateOnly UpkeepAsOf,
-    DateOnly DurabilityAsOf);
+    DateOnly DurabilityAsOf,
+    DateOnly SmeltingAsOf);
 
 /// <summary>One item, with all calculator data inlined (null where not applicable).</summary>
 /// <param name="Id">The Rust item id.</param>
@@ -135,3 +139,24 @@ public sealed record RaidCost(
     double? TimeSeconds,
     int? Sulfur,
     int? Fuel);
+
+/// <summary>One smelter (furnace, oven, refinery, cooker) and the conversions it performs.</summary>
+/// <param name="Key">The smelter's Rust item id, as a string.</param>
+/// <param name="Name">The display name (e.g. "Furnace", "Camp Fire").</param>
+/// <param name="Conversions">The input → output conversions, in source order (always non-empty).</param>
+public sealed record Smelter(string Key, string Name, IReadOnlyList<SmeltConversion> Conversions);
+
+/// <summary>One input → output conversion within a smelter.</summary>
+/// <param name="InputId">The smeltable input item id (resolves via the item spine).</param>
+/// <param name="OutputId">The produced item id (resolves via the item spine).</param>
+/// <param name="OutputQuantity">Units produced per smelt.</param>
+/// <param name="OutputProbability">The probability (0..1] of producing the output.</param>
+/// <param name="WoodQuantity">Wood (fuel) consumed per smelt; 0 means electric / no fuel.</param>
+/// <param name="TimeSeconds">Seconds per smelt.</param>
+public sealed record SmeltConversion(
+    int InputId,
+    int OutputId,
+    int OutputQuantity,
+    double OutputProbability,
+    double WoodQuantity,
+    double TimeSeconds);

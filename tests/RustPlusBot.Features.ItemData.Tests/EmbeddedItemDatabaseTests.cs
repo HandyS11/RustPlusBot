@@ -99,4 +99,18 @@ public sealed class EmbeddedItemDatabaseTests
     {
         Assert.Equal(new DateOnly(2024, 9, 7), _db.Sources.DurabilityAsOf);
     }
+
+    [Fact]
+    public void ResolveSmelter_Furnace_ListsMetalFragmentsOutput()
+    {
+        var found = Assert.IsType<SmeltMatch.Found>(_db.ResolveSmelter("Furnace"));
+        Assert.Equal("Furnace", found.Smelter.Name);
+        Assert.Contains(found.Smelter.Conversions, c => c.OutputId == 69511070); // Metal Fragments
+    }
+
+    [Fact]
+    public void Sources_SmeltingAsOf_IsPopulated()
+    {
+        Assert.Equal(new DateOnly(2023, 11, 5), _db.Sources.SmeltingAsOf);
+    }
 }

@@ -22,4 +22,21 @@ internal static class DurationFormat
 
         return string.Create(CultureInfo.InvariantCulture, $"{(int)span.TotalMinutes}m");
     }
+
+    /// <summary>Renders a sub-minute-aware duration: "&lt;n&gt;s" under a minute, else "&lt;m&gt;m &lt;s&gt;s".</summary>
+    /// <param name="seconds">The duration in seconds.</param>
+    /// <returns>A compact duration string.</returns>
+    public static string Seconds(double seconds)
+    {
+        if (seconds < 60)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"{seconds:0.#}s");
+        }
+
+        var span = TimeSpan.FromSeconds(seconds);
+        var minutes = (int)span.TotalMinutes;
+        return span.Seconds == 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{minutes}m")
+            : string.Create(CultureInfo.InvariantCulture, $"{minutes}m {span.Seconds}s");
+    }
 }
