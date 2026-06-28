@@ -46,5 +46,6 @@ internal static class CommandHelpCatalog
         new("research", CommandGroup.ItemDb, "help.slash.research"),
         new("decay", CommandGroup.ItemDb, "help.slash.decay"),
         new("upkeep", CommandGroup.ItemDb, "help.slash.upkeep"),
+        new("durability", CommandGroup.ItemDb, "help.slash.durability"),
     ];
 }

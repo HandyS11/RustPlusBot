@@ -423,6 +423,9 @@
   <data name="help.slash.decay" xml:space="preserve">
     <value>Affiche le temps de dégradation d'un objet.</value>
   </data>
+  <data name="help.slash.durability" xml:space="preserve">
+    <value>Affiche les explosifs nécessaires pour détruire une cible.</value>
+  </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Afficher ce message d'aide.</value>
   </data>
