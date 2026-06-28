@@ -10,7 +10,7 @@ public sealed class CommandHelpCatalogTests
     [
         "mute", "unmute", "uptime", "pop", "wipe", "time",
         "online", "offline", "team", "steamid", "alive", "afk", "prox",
-        "item", "recycle", "craft", "research", "decay", "upkeep",
+        "item", "recycle", "craft", "research", "decay", "upkeep", "durability",
     ];
 
     [Fact]
