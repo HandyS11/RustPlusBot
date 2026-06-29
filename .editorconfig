@@ -475,6 +475,10 @@ dotnet_diagnostic.CS1591.severity = none # XML docs not required in sample apps
 dotnet_diagnostic.CA2007.severity = none # ConfigureAwait not required in test projects
 dotnet_diagnostic.CS1591.severity = none # XML docs not required in test projects
 dotnet_diagnostic.VSTHRD003.severity = none # Awaiting stored Task fields is acceptable in test infrastructure
+dotnet_diagnostic.VSTHRD103.severity = none # EF Core DbSet.Add is not blocking; false positive from VS.Threading.Analyzers 18.x (see src/RustPlusBot.Persistence)
 
 [tools/**]
 dotnet_diagnostic.CS1591.severity = none # XML docs not required in internal tooling
+
+[src/RustPlusBot.Persistence/**]
+dotnet_diagnostic.VSTHRD103.severity = none # EF Core DbSet.Add is not blocking; AddAsync only matters for special value generators. False positive from VS.Threading.Analyzers 18.x.
