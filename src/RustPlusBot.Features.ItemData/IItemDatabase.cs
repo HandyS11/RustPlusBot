@@ -27,4 +27,7 @@ public interface IItemDatabase
     /// <param name="query">The raw user input.</param>
     /// <returns>A match describing the outcome.</returns>
     SmeltMatch ResolveSmelter(string query);
+
+    /// <summary>All CCTV monument entries from the bundle.</summary>
+    IReadOnlyList<CctvMonument> CctvMonuments { get; }
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "sources": {
     "namesAsOf": "2026-04-08",
     "recycleAsOf": "2024-09-07",
@@ -8,7 +8,8 @@
     "decayAsOf": "2024-09-07",
     "upkeepAsOf": "2024-09-07",
     "durabilityAsOf": "2024-09-07",
-    "smeltingAsOf": "2023-11-05"
+    "smeltingAsOf": "2023-11-05",
+    "cctvAsOf": "2025-11-12"
   },
   "items": [
     {
@@ -80759,6 +80760,131 @@
           "timeSeconds": 10
         }
       ]
+    }
+  ],
+  "cctv": [
+    {
+      "name": "Abandoned Military Base",
+      "codes": [
+        "COMPOUND******",
+        "OUTDOOR******"
+      ],
+      "dynamic": true
+    },
+    {
+      "name": "Airfield",
+      "codes": [
+        "AIRFIELDHELIPAD"
+      ],
+      "dynamic": false
+    },
+    {
+      "name": "Bandit Camp",
+      "codes": [
+        "TOWNWEAPONS",
+        "CASINO"
+      ],
+      "dynamic": false
+    },
+    {
+      "name": "Dome",
+      "codes": [
+        "DOME1",
+        "DOMETOP"
+      ],
+      "dynamic": false
+    },
+    {
+      "name": "Large Oil Rig",
+      "codes": [
+        "OILRIG2HELI",
+        "OILRIG2DOCK",
+        "OILRIG2EXHAUST",
+        "OILRIG2L1",
+        "OILRIG2L2",
+        "OILRIG2L3A",
+        "OILRIG2L3B",
+        "OILRIG2L4",
+        "OILRIG2L5",
+        "OILRIG2L6A",
+        "OILRIG2L6B",
+        "OILRIG2L6C",
+        "OILRIG2L6D"
+      ],
+      "dynamic": false
+    },
+    {
+      "name": "Missile Silo",
+      "codes": [
+        "SILOTOWER",
+        "SILOEXIT1",
+        "SILOEXIT2",
+        "SILOSHIPPING",
+        "SILOMISSILE"
+      ],
+      "dynamic": false
+    },
+    {
+      "name": "Outpost",
+      "codes": [
+        "COMPOUNDSTREET",
+        "COMPOUNDMUSIC",
+        "COMPOUNDCRUDE",
+        "COMPOUNDCHILL"
+      ],
+      "dynamic": false
+    },
+    {
+      "name": "Small Oil Rig",
+      "codes": [
+        "OILRIG1HELI",
+        "OILRIG1DOCK",
+        "OILRIG1L1",
+        "OILRIG1L2",
+        "OILRIG1L3",
+        "OILRIG1L4"
+      ],
+      "dynamic": false
+    },
+    {
+      "name": "Underwater Labs",
+      "codes": [
+        "AUXPOWER****",
+        "BRIG****",
+        "CANTINA****",
+        "CAPTAINQUARTER****",
+        "CLASSIFIED****",
+        "CREWQUARTERS****",
+        "HALLWAY****",
+        "INFIRMARY****",
+        "LAB****",
+        "LOCKERROOM****",
+        "OPERATIONS****",
+        "SECURITYHALL****",
+        "TECHCABINET****"
+      ],
+      "dynamic": true
+    },
+    {
+      "name": "Cargo Ship",
+      "codes": [
+        "CARGODECK",
+        "CARGOBRIDGE",
+        "CARGOSTERN",
+        "CARGOHOLD1",
+        "CARGOHOLD2"
+      ],
+      "dynamic": false
+    },
+    {
+      "name": "Ferry Terminal",
+      "codes": [
+        "FERRYDOCK",
+        "FERRYLOGISTICS",
+        "FERRYPARKING",
+        "FERRYUTILITIES"
+      ],
+      "dynamic": false
     }
   ]
 }

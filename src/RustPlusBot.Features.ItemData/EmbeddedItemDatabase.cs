@@ -10,7 +10,7 @@ namespace RustPlusBot.Features.ItemData;
 /// <summary>Loads the embedded <c>item-data.json</c> once and serves lookups. Singleton.</summary>
 public sealed class EmbeddedItemDatabase : IItemDatabase
 {
-    private const int ExpectedSchemaVersion = 4;
+    private const int ExpectedSchemaVersion = 5;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -29,6 +29,8 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
 
     private static readonly FrozenDictionary<int, Smelter> SmelterById = IndexSmelterById(Smelters);
 
+    private static readonly IReadOnlyList<CctvMonument> CctvList = Dataset.Cctv ?? [];
+
     /// <inheritdoc />
     public DatasetSources Sources => Dataset.Sources;
 
@@ -44,6 +46,9 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
     /// <inheritdoc />
     public SmeltMatch ResolveSmelter(string query) =>
         SmeltLookup.Resolve(query, SmelterById.GetValueOrDefault, Smelters);
+
+    /// <inheritdoc />
+    public IReadOnlyList<CctvMonument> CctvMonuments => CctvList;
 
     /// <summary>
     /// Deserializes and validates an item dataset from <paramref name="stream"/>.
