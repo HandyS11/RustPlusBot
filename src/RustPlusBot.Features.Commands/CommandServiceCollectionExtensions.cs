@@ -53,6 +53,7 @@ public static class CommandServiceCollectionExtensions
         services.AddScoped<ICommandHandler, UpkeepCommandHandler>();
         services.AddScoped<ICommandHandler, DurabilityCommandHandler>();
         services.AddScoped<ICommandHandler, SmeltCommandHandler>();
+        services.AddScoped<ICommandHandler, CctvCommandHandler>();
 
         services.AddScoped<CommandDispatcher>();
         services.AddHostedService<CommandsHostedService>();

@@ -267,6 +267,12 @@
   <data name="command.smelt.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.cctv.ok" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="command.cctv.note" xml:space="preserve">
+    <value>* = un code numérique différent pour chaque carte.</value>
+  </data>
   <data name="command.item.ambiguous" xml:space="preserve">
     <value>Vouliez-vous dire : {0} ?</value>
   </data>
@@ -399,6 +405,9 @@
   <data name="help.smelt" xml:space="preserve">
     <value>Ce qu'un fondeur transforme, avec carburant et temps</value>
   </data>
+  <data name="help.cctv" xml:space="preserve">
+    <value>Codes de vidéosurveillance d'un monument</value>
+  </data>
   <data name="help.item" xml:space="preserve">
     <value>Afficher le nom, l'id, la pile et la disparition d'un objet</value>
   </data>
@@ -434,6 +443,9 @@
   </data>
   <data name="help.slash.smelt" xml:space="preserve">
     <value>Affiche ce qu'un fondeur transforme et son coût en carburant/temps.</value>
+  </data>
+  <data name="help.slash.cctv" xml:space="preserve">
+    <value>Afficher les codes de vidéosurveillance d'un monument.</value>
   </data>
   <data name="help.slash.help" xml:space="preserve">
     <value>Afficher ce message d'aide.</value>
