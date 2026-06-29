@@ -9,6 +9,9 @@ public interface IItemDatabase
     /// <summary>Per-section provenance dates, for "data as of" display.</summary>
     DatasetSources Sources { get; }
 
+    /// <summary>All CCTV monument entries from the bundle.</summary>
+    IReadOnlyList<CctvMonument> CctvMonuments { get; }
+
     /// <summary>Gets the record for an item id, or null if unknown.</summary>
     /// <param name="id">The Rust item id.</param>
     ItemRecord? GetById(int id);
@@ -27,9 +30,6 @@ public interface IItemDatabase
     /// <param name="query">The raw user input.</param>
     /// <returns>A match describing the outcome.</returns>
     SmeltMatch ResolveSmelter(string query);
-
-    /// <summary>All CCTV monument entries from the bundle.</summary>
-    IReadOnlyList<CctvMonument> CctvMonuments { get; }
 
     /// <summary>Resolves a user query (monument name) to a CCTV monument.</summary>
     /// <param name="query">The raw user input.</param>

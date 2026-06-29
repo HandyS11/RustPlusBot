@@ -12,8 +12,11 @@ public sealed class CctvChoiceDriftTests
         var parameter = typeof(ItemCommandModule)
             .GetMethod(nameof(ItemCommandModule.CctvAsync))!
             .GetParameters()[0];
-        return [..parameter.GetCustomAttributes<ChoiceAttribute>()
-            .Select(c => (string)c.Value!)];
+        return
+        [
+            ..parameter.GetCustomAttributes<ChoiceAttribute>()
+                .Select(c => (string)c.Value!)
+        ];
     }
 
     [Fact]

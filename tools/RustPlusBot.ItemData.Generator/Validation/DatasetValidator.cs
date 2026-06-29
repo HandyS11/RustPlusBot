@@ -7,7 +7,10 @@ namespace RustPlusBot.ItemData.Generator.Validation;
 /// <param name="MinRaidTargetCount">The minimum number of raid targets the dataset must contain.</param>
 /// <param name="MinSmelterCount">The minimum number of smelters the dataset must contain.</param>
 /// <param name="MinCctvCount">The minimum number of CCTV monuments the dataset must contain.</param>
-internal sealed record ValidationOptions(int MinItemCount, int MinRaidTargetCount = 0, int MinSmelterCount = 0,
+internal sealed record ValidationOptions(
+    int MinItemCount,
+    int MinRaidTargetCount = 0,
+    int MinSmelterCount = 0,
     int MinCctvCount = 0);
 
 /// <summary>Validates an <see cref="ItemDataset"/> for structural integrity.</summary>
