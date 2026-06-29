@@ -6,7 +6,9 @@ namespace RustPlusBot.ItemData.Generator.Validation;
 /// <param name="MinItemCount">The minimum number of items the dataset must contain.</param>
 /// <param name="MinRaidTargetCount">The minimum number of raid targets the dataset must contain.</param>
 /// <param name="MinSmelterCount">The minimum number of smelters the dataset must contain.</param>
-internal sealed record ValidationOptions(int MinItemCount, int MinRaidTargetCount = 0, int MinSmelterCount = 0);
+/// <param name="MinCctvCount">The minimum number of CCTV monuments the dataset must contain.</param>
+internal sealed record ValidationOptions(int MinItemCount, int MinRaidTargetCount = 0, int MinSmelterCount = 0,
+    int MinCctvCount = 0);
 
 /// <summary>Validates an <see cref="ItemDataset"/> for structural integrity.</summary>
 internal static class DatasetValidator
@@ -143,6 +145,30 @@ internal static class DatasetValidator
                     errors.Add(
                         $"smelter {smelter.Name}: output probability {c.OutputProbability} out of range (0,1]");
                 }
+            }
+        }
+
+        var cctv = dataset.Cctv ?? [];
+        if (cctv.Count < options.MinCctvCount)
+        {
+            errors.Add($"cctv monument count {cctv.Count} below minimum {options.MinCctvCount}");
+        }
+
+        foreach (var monument in cctv)
+        {
+            if (string.IsNullOrWhiteSpace(monument.Name))
+            {
+                errors.Add("cctv monument has an empty name");
+            }
+
+            if (monument.Codes.Count == 0)
+            {
+                errors.Add($"cctv monument {monument.Name}: has no codes");
+            }
+
+            foreach (var code in monument.Codes.Where(string.IsNullOrWhiteSpace))
+            {
+                errors.Add($"cctv monument {monument.Name}: has an empty code");
             }
         }
 

@@ -24,6 +24,9 @@ public sealed class DatasetValidatorTests
     private static ItemDataset WithSmelters(params Smelter[] smelters) =>
         new(4, Good().Sources, Good().Items, [], smelters, []);
 
+    private static ItemDataset WithCctv(params CctvMonument[] cctv) =>
+        new(5, Good().Sources, Good().Items, [], [], cctv);
+
     /// <summary>A dataset with all referential constraints satisfied should produce no errors.</summary>
     [Fact]
     public void Good_dataset_hasNoErrors()
@@ -180,5 +183,37 @@ public sealed class DatasetValidatorTests
     {
         var errors = DatasetValidator.Validate(Good(), new ValidationOptions(MinItemCount: 1, MinSmelterCount: 8));
         Assert.Contains(errors, e => e.Contains("smelter count", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GoodCctv_hasNoErrors()
+    {
+        var ds = WithCctv(new CctvMonument("Dome", ["DOME1"], false));
+        var errors = DatasetValidator.Validate(ds, new ValidationOptions(MinItemCount: 1, MinCctvCount: 1));
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void TooFewMonuments_isError()
+    {
+        var ds = WithCctv(new CctvMonument("Dome", ["DOME1"], false));
+        var errors = DatasetValidator.Validate(ds, new ValidationOptions(MinItemCount: 1, MinCctvCount: 8));
+        Assert.Contains(errors, e => e.Contains("cctv monument count", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void MonumentWithNoCodes_isError()
+    {
+        var ds = WithCctv(new CctvMonument("Dome", [], false));
+        var errors = DatasetValidator.Validate(ds, new ValidationOptions(MinItemCount: 1, MinCctvCount: 1));
+        Assert.Contains(errors, e => e.Contains("no codes", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void MonumentWithEmptyCode_isError()
+    {
+        var ds = WithCctv(new CctvMonument("Dome", ["  "], false));
+        var errors = DatasetValidator.Validate(ds, new ValidationOptions(MinItemCount: 1, MinCctvCount: 1));
+        Assert.Contains(errors, e => e.Contains("empty code", StringComparison.OrdinalIgnoreCase));
     }
 }
