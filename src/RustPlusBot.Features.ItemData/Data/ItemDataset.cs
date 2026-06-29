@@ -6,12 +6,14 @@ namespace RustPlusBot.Features.ItemData.Data;
 /// <param name="Items">Every known item, one record each.</param>
 /// <param name="RaidTargets">Every raid target (item/building-block/vehicle) and its explosive cost.</param>
 /// <param name="Smelters">Every known smelter and the conversions it performs.</param>
+/// <param name="Cctv">Every monument and its Computer Station CCTV codes.</param>
 public sealed record ItemDataset(
     int SchemaVersion,
     DatasetSources Sources,
     IReadOnlyList<ItemRecord> Items,
     IReadOnlyList<RaidTarget> RaidTargets,
-    IReadOnlyList<Smelter> Smelters);
+    IReadOnlyList<Smelter> Smelters,
+    IReadOnlyList<CctvMonument> Cctv);
 
 /// <summary>When each section of the dataset was last sourced, for "data as of" display.</summary>
 /// <param name="NamesAsOf">Names/ids/stack source date.</param>
@@ -22,6 +24,7 @@ public sealed record ItemDataset(
 /// <param name="UpkeepAsOf">Upkeep data source date.</param>
 /// <param name="DurabilityAsOf">Durability/raid-cost data source date.</param>
 /// <param name="SmeltingAsOf">Smelting data source date.</param>
+/// <param name="CctvAsOf">CCTV codes source date.</param>
 public sealed record DatasetSources(
     DateOnly NamesAsOf,
     DateOnly RecycleAsOf,
@@ -30,7 +33,8 @@ public sealed record DatasetSources(
     DateOnly DecayAsOf,
     DateOnly UpkeepAsOf,
     DateOnly DurabilityAsOf,
-    DateOnly SmeltingAsOf);
+    DateOnly SmeltingAsOf,
+    DateOnly CctvAsOf);
 
 /// <summary>One item, with all calculator data inlined (null where not applicable).</summary>
 /// <param name="Id">The Rust item id.</param>
@@ -160,3 +164,10 @@ public sealed record SmeltConversion(
     double OutputProbability,
     double WoodQuantity,
     double TimeSeconds);
+
+/// <summary>One monument and the CCTV codes for its Computer Station cameras.</summary>
+/// <param name="Name">The monument display name (e.g. "Small Oil Rig", "Underwater Labs").</param>
+/// <param name="Codes">The camera codes, in source order; always non-empty. Wildcard codes keep
+/// literal asterisks (e.g. "COMPOUND******").</param>
+/// <param name="Dynamic">True when the codes contain a per-map numerical wildcard (the asterisks).</param>
+public sealed record CctvMonument(string Name, IReadOnlyList<string> Codes, bool Dynamic);

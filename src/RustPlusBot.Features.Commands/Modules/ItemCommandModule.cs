@@ -75,6 +75,24 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     public Task SmeltAsync([Summary("smelter", "Furnace, Camp Fire, Electric Furnace, …")] string smelter) =>
         RespondForSmeltAsync(smelter);
 
+    /// <summary>Shows a monument's Computer Station CCTV camera codes.</summary>
+    /// <param name="monument">The monument to look up.</param>
+    [SlashCommand("cctv", "Show the CCTV camera codes for a monument")]
+    public Task CctvAsync(
+        [Summary("monument", "The monument to look up")]
+        [Choice("Abandoned Military Base", "Abandoned Military Base")]
+        [Choice("Airfield", "Airfield")]
+        [Choice("Bandit Camp", "Bandit Camp")]
+        [Choice("Dome", "Dome")]
+        [Choice("Large Oil Rig", "Large Oil Rig")]
+        [Choice("Missile Silo", "Missile Silo")]
+        [Choice("Outpost", "Outpost")]
+        [Choice("Small Oil Rig", "Small Oil Rig")]
+        [Choice("Underwater Labs", "Underwater Labs")]
+        [Choice("Cargo Ship", "Cargo Ship")]
+        [Choice("Ferry Terminal", "Ferry Terminal")]
+        string monument) => RespondForCctvAsync(monument);
+
     private async Task RespondForAsync(
         string query,
         Func<IItemDatabase, DateOnly> dateSelector,
@@ -175,5 +193,53 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
                 .Build();
             await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
         }
+    }
+
+    private async Task RespondForCctvAsync(string query)
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This command must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
+            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
+            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
+            var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
+
+            var text = db.ResolveCctv(query) switch
+            {
+                CctvMatch.Found f => RenderEmbed(f.Monument, loc, culture),
+                CctvMatch.Ambiguous a => loc.Get("command.item.ambiguous", culture,
+                    string.Join(", ", a.Candidates.Select(c => c.Name))),
+                _ => loc.Get("command.item.notfound", culture, query),
+            };
+
+            var embed = new EmbedBuilder()
+                .WithDescription(text)
+                .WithFooter($"data as of {db.Sources.CctvAsOf:yyyy-MM-dd}")
+                .Build();
+            await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Discord-only presentation: fence the codes so wildcard asterisks render literally and the
+    /// codes are copy-clean; the localized wildcard note rides outside the fence as prose.
+    /// </summary>
+    /// <param name="monument">The resolved CCTV monument.</param>
+    /// <param name="loc">The localizer for string resources.</param>
+    /// <param name="culture">The guild culture code.</param>
+    private static string RenderEmbed(CctvMonument monument, ILocalizer loc, string culture)
+    {
+        var fenced = loc.Get("command.cctv.ok", culture,
+            $"```\n{CctvLine.Format(monument)}\n```");
+        return monument.Dynamic
+            ? $"{fenced}\n\n{loc.Get("command.cctv.note", culture)}"
+            : fenced;
     }
 }

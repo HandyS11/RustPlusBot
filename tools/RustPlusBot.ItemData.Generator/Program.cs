@@ -16,6 +16,7 @@ internal static class Program
     private static readonly DateOnly UpkeepAsOf = new(2024, 9, 7);
     private static readonly DateOnly DurabilityAsOf = new(2024, 9, 7);
     private static readonly DateOnly SmeltingAsOf = new(2023, 11, 5);
+    private static readonly DateOnly CctvAsOf = new(2025, 11, 12);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -83,10 +84,14 @@ internal static class Program
         var smeltingSource = new OfflineSmeltingSource(
             Path.Combine(rustplusDir, "rustlabsSmeltingData.json"));
 
+        var cctvSource = new OfflineCctvSource(Path.Combine(rustplusDir, "cctv.json"));
+
         var raidTargets = durabilitySource.LoadRaidTargets(names);
         Console.WriteLine($"Loaded {raidTargets.Count} raid targets");
         var smelters = smeltingSource.LoadSmelters(names);
         Console.WriteLine($"Loaded {smelters.Count} smelters");
+        var cctvMonuments = cctvSource.LoadMonuments();
+        Console.WriteLine($"Loaded {cctvMonuments.Count} cctv monuments");
 
         var nameIds = new HashSet<int>(names.Keys);
 
@@ -120,15 +125,16 @@ internal static class Program
             .ToList();
 
         var dataset = new ItemDataset(
-            4,
+            5,
             new DatasetSources(NamesAsOf, RecycleAsOf, CraftAsOf, ResearchAsOf, DecayAsOf, UpkeepAsOf, DurabilityAsOf,
-                SmeltingAsOf),
+                SmeltingAsOf, CctvAsOf),
             items,
             raidTargets,
-            smelters);
+            smelters,
+            cctvMonuments);
 
         var validationOptions = new ValidationOptions(MinItemCount: minItems, MinRaidTargetCount: 300,
-            MinSmelterCount: 8);
+            MinSmelterCount: 8, MinCctvCount: 8);
         var errors = DatasetValidator.Validate(dataset, validationOptions);
         if (errors.Count > 0)
         {

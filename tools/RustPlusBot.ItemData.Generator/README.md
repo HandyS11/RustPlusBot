@@ -2,7 +2,7 @@
 
 A maintainer CLI that regenerates the embedded Rust item dataset
 (`src/RustPlusBot.Features.ItemData/Data/item-data.json`) consumed by the bot's
-`/item`, `/recycle`, `/craft`, `/research`, `/decay`, `/upkeep`, `/durability`, and `/smelt` calculators.
+`/item`, `/recycle`, `/craft`, `/research`, `/decay`, `/upkeep`, `/durability`, `/smelt`, and `/cctv` calculators.
 
 This tool is **not** part of the running bot — it is referenced by nothing in
 the application graph. It exists so the bundled item data can be refreshed when
@@ -39,6 +39,7 @@ garbage** if the upstream shape drifts.
    | `rustlabsUpkeepData.json` | upkeep cost (resource + quantity range) |
    | `rustlabsDurabilityData.json` | raid cost (explosives only — trimmed) |
    | `rustlabsSmeltingData.json` | smelting/cooking conversions (per smelter) |
+   | `cctv.json` | monument CCTV camera codes |
 
 2. Projects them into our own typed schema (`ItemDataset` /
    `ItemRecord` / …, defined in `RustPlusBot.Features.ItemData`), keyed by item id,
@@ -92,7 +93,7 @@ tests assert known items resolve correctly.
 
 The source dates stamped into the dataset are currently hard-coded constants in
 [`Program.cs`](Program.cs) (`NamesAsOf`, `RecycleAsOf`, `CraftAsOf`,
-`ResearchAsOf`, `DecayAsOf`, `UpkeepAsOf`, `DurabilityAsOf`, `SmeltingAsOf`).
+`ResearchAsOf`, `DecayAsOf`, `UpkeepAsOf`, `DurabilityAsOf`, `SmeltingAsOf`, `CctvAsOf`).
 Update them when you refresh from newer upstream data.
 
 ## Notes
@@ -112,6 +113,9 @@ Update them when you refresh from newer upstream data.
   resolved by name like raid targets. Its provenance (`SmeltingAsOf`,
   2023-11-05) lags the other rustlabs sources because the upstream file has not
   changed since then.
+- CCTV data (`cctv.json`, ~2 KB) is keyed by **monument name** and projected into a dedicated
+  `Cctv` table (`OfflineCctvSource`), resolved by name. Codes are un-escaped (`\*` → `*`) during the
+  transform. Its provenance (`CctvAsOf`, 2025-11-12) is the upstream last-change date for the file.
 
 ## Attribution
 
