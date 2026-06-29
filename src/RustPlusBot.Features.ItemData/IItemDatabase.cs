@@ -30,4 +30,9 @@ public interface IItemDatabase
 
     /// <summary>All CCTV monument entries from the bundle.</summary>
     IReadOnlyList<CctvMonument> CctvMonuments { get; }
+
+    /// <summary>Resolves a user query (monument name) to a CCTV monument.</summary>
+    /// <param name="query">The raw user input.</param>
+    /// <returns>A match describing the outcome.</returns>
+    CctvMatch ResolveCctv(string query);
 }

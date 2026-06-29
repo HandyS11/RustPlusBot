@@ -50,6 +50,9 @@ public sealed class EmbeddedItemDatabase : IItemDatabase
     /// <inheritdoc />
     public IReadOnlyList<CctvMonument> CctvMonuments => CctvList;
 
+    /// <inheritdoc />
+    public CctvMatch ResolveCctv(string query) => CctvLookup.Resolve(query, CctvList);
+
     /// <summary>
     /// Deserializes and validates an item dataset from <paramref name="stream"/>.
     /// Throws <see cref="InvalidOperationException"/> when the schema version does not match
