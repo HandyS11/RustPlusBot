@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
@@ -116,9 +117,9 @@ public sealed class SwitchQueryTests
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
         await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
 
-        var ok = await supervisor.SetSmartSwitchAsync(10UL, serverId, 42UL, value: true, cts.Token);
+        var result = await supervisor.SetSmartSwitchAsync(10UL, serverId, 42UL, value: true, cts.Token);
 
-        Assert.True(ok);
+        Assert.Equal(DeviceReachability.Reachable, result);
         Assert.Contains((42UL, true), source.LastConnection!.SetSwitchCalls);
         await supervisor.StopAllAsync();
     }
@@ -130,7 +131,8 @@ public sealed class SwitchQueryTests
         var (provider, supervisor, _) = CreateHarness(source);
         await using var disposeProvider = provider;
 
-        Assert.False(await supervisor.SetSmartSwitchAsync(10UL, Guid.NewGuid(), 42UL, true, CancellationToken.None));
+        Assert.Equal(DeviceReachability.NoResponse,
+            await supervisor.SetSmartSwitchAsync(10UL, Guid.NewGuid(), 42UL, true, CancellationToken.None));
     }
 
     [Fact]

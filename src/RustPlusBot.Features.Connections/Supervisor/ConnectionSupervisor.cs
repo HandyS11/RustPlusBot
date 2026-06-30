@@ -288,7 +288,7 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
-    public async Task<bool> SetSmartSwitchAsync(
+    public async Task<DeviceReachability> SetSmartSwitchAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
@@ -297,17 +297,16 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return false;
+            return DeviceReachability.NoResponse;
         }
 
-        var reachability = await live.Connection
+        return await live.Connection
             .SetSmartSwitchValueAsync(entityId, value, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
-        return reachability == DeviceReachability.Reachable;
     }
 
     /// <inheritdoc />
-    public async Task<bool> StrobeSmartSwitchAsync(
+    public async Task<DeviceReachability> StrobeSmartSwitchAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
@@ -317,13 +316,12 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return false;
+            return DeviceReachability.NoResponse;
         }
 
-        var reachability = await live.Connection
+        return await live.Connection
             .StrobeSmartSwitchAsync(entityId, timeoutMs, value, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
-        return reachability == DeviceReachability.Reachable;
     }
 
     /// <inheritdoc />

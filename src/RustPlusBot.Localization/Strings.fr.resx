@@ -714,6 +714,15 @@
   <data name="switch.status.unreachable" xml:space="preserve">
     <value>⚠️ Injoignable</value>
   </data>
+  <data name="switch.actuation.noprivilege" xml:space="preserve">
+    <value>Aucun privilège de construction pour cet interrupteur.</value>
+  </data>
+  <data name="switch.actuation.noresponse" xml:space="preserve">
+    <value>L'interrupteur n'a pas répondu. Réessayez.</value>
+  </data>
+  <data name="switch.actuation.removed" xml:space="preserve">
+    <value>Cet interrupteur a été supprimé en jeu.</value>
+  </data>
   <data name="switch.unreachable.ephemeral" xml:space="preserve">
     <value>L'interrupteur est injoignable pour le moment.</value>
   </data>
