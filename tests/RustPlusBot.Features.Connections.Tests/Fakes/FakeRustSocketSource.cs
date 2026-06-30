@@ -144,11 +144,19 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The contents returned by <see cref="GetStorageMonitorInfoAsync"/> per entity id; absent → null.</summary>
         public Dictionary<ulong, StorageContentsSnapshot?> StorageContents { get; } = [];
 
-        /// <summary>The result returned by <see cref="SetSmartSwitchValueAsync"/>. Defaults to true.</summary>
-        public bool SetSwitchResult { get; set; } = true;
+        /// <summary>
+        /// Per-entity reachability override consulted by <see cref="GetSmartDeviceInfoAsync"/> and
+        /// <see cref="GetStorageMonitorInfoAsync"/>. Absent → <see cref="DeviceReachability.Reachable"/>.
+        /// Set this in tests (Task 5+) to inject <see cref="DeviceReachability.Removed"/> or
+        /// <see cref="DeviceReachability.NoPrivilege"/> for specific entities.
+        /// </summary>
+        public Dictionary<ulong, DeviceReachability> DeviceReachabilityOverrides { get; } = [];
 
-        /// <summary>The result returned by <see cref="StrobeSmartSwitchAsync"/>. Defaults to true.</summary>
-        public bool StrobeSwitchResult { get; set; } = true;
+        /// <summary>The result returned by <see cref="SetSmartSwitchValueAsync"/>. Defaults to <see cref="DeviceReachability.Reachable"/>.</summary>
+        public DeviceReachability SetSwitchReachability { get; set; } = DeviceReachability.Reachable;
+
+        /// <summary>The result returned by <see cref="StrobeSmartSwitchAsync"/>. Defaults to <see cref="DeviceReachability.Reachable"/>.</summary>
+        public DeviceReachability StrobeSwitchReachability { get; set; } = DeviceReachability.Reachable;
 
         /// <summary>Records (entityId, value) passed to <see cref="SetSmartSwitchValueAsync"/>.</summary>
         public List<(ulong EntityId, bool Value)> SetSwitchCalls { get; } = [];
@@ -211,37 +219,45 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         }
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
-        public Task<bool?> GetSmartDeviceInfoAsync(ulong entityId,
+        public Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
             TimeSpan timeout,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(SwitchStates.TryGetValue(entityId, out var s) ? s : null);
+            CancellationToken cancellationToken)
+        {
+            var reachability = DeviceReachabilityOverrides.TryGetValue(entityId, out var r) ? r : DeviceReachability.Reachable;
+            var state = SwitchStates.TryGetValue(entityId, out var s) ? s : null;
+            return Task.FromResult(new DeviceReading(reachability == DeviceReachability.Reachable ? state : null, reachability));
+        }
 #pragma warning restore RCS1163
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
-        public Task<StorageContentsSnapshot?> GetStorageMonitorInfoAsync(ulong entityId,
+        public Task<StorageReading> GetStorageMonitorInfoAsync(ulong entityId,
             TimeSpan timeout,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(StorageContents.TryGetValue(entityId, out var c) ? c : null);
+            CancellationToken cancellationToken)
+        {
+            var reachability = DeviceReachabilityOverrides.TryGetValue(entityId, out var r) ? r : DeviceReachability.Reachable;
+            var contents = StorageContents.TryGetValue(entityId, out var c) ? c : null;
+            return Task.FromResult(new StorageReading(reachability == DeviceReachability.Reachable ? contents : null, reachability));
+        }
 #pragma warning restore RCS1163
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
-        public Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+        public Task<DeviceReachability> SetSmartSwitchValueAsync(ulong entityId,
             bool value,
             TimeSpan timeout,
             CancellationToken cancellationToken)
 #pragma warning restore RCS1163
         {
             SetSwitchCalls.Add((entityId, value));
-            return Task.FromResult(SetSwitchResult);
+            return Task.FromResult(SetSwitchReachability);
         }
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
-        public Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+        public Task<DeviceReachability> StrobeSmartSwitchAsync(ulong entityId,
             int timeoutMs,
             bool value,
             TimeSpan timeout,
             CancellationToken cancellationToken) =>
-            Task.FromResult(StrobeSwitchResult);
+            Task.FromResult(StrobeSwitchReachability);
 #pragma warning restore RCS1163
 
         public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,

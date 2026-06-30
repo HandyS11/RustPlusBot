@@ -263,8 +263,9 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        return await live.Connection.GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
+        var reading = await live.Connection.GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
+        return reading.IsActive;
     }
 
     /// <inheritdoc />
@@ -279,9 +280,10 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        return await live.Connection
+        var reading = await live.Connection
             .GetStorageMonitorInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
+        return reading.Contents;
     }
 
     /// <inheritdoc />
@@ -297,9 +299,10 @@ internal sealed partial class ConnectionSupervisor(
             return false;
         }
 
-        return await live.Connection
+        var reachability = await live.Connection
             .SetSmartSwitchValueAsync(entityId, value, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
+        return reachability == DeviceReachability.Reachable;
     }
 
     /// <inheritdoc />
@@ -316,9 +319,10 @@ internal sealed partial class ConnectionSupervisor(
             return false;
         }
 
-        return await live.Connection
+        var reachability = await live.Connection
             .StrobeSmartSwitchAsync(entityId, timeoutMs, value, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
+        return reachability == DeviceReachability.Reachable;
     }
 
     /// <inheritdoc />
@@ -1012,11 +1016,11 @@ internal sealed partial class ConnectionSupervisor(
 
         try
         {
-            var isActive = await connection
+            var reading = await connection
                 .GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
                 .ConfigureAwait(false);
             await eventBus.PublishAsync(
-                    new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId, isActive ?? false),
+                    new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId, reading.IsActive ?? false),
                     _shutdown.Token)
                 .ConfigureAwait(false);
         }
@@ -1077,10 +1081,10 @@ internal sealed partial class ConnectionSupervisor(
 
         try
         {
-            var contents = await connection
+            var reading = await connection
                 .GetStorageMonitorInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
                 .ConfigureAwait(false);
-            if (contents is null)
+            if (reading.Contents is not { } contents)
             {
                 return; // unreachable read; the relay leaves the embed as-is (or unreachable via status events).
             }
