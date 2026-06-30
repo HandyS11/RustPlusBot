@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Switches;
@@ -78,6 +79,42 @@ internal sealed class SwitchStateRelay(
             var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken)
                 .ConfigureAwait(false);
             await RenderAsync(store, sw, evt.IsActive, evt.GuildId, evt.ServerId, culture, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Handles a per-device reachability change: ignore foreign entities, else persist + re-render.</summary>
+    /// <param name="evt">The device-reachability-changed event.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the embed has been re-rendered (or the id was ignored).</returns>
+    public async Task HandleReachabilityChangedAsync(
+        DeviceReachabilityChangedEvent evt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evt);
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<ISwitchStore>();
+            if (!await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return; // not a switch this relay manages — ignore.
+            }
+
+            await store.SetReachabilityAsync(evt.GuildId, evt.ServerId, evt.EntityId, evt.Reachability,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var sw = await store.GetAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                .ConfigureAwait(false);
+            if (sw is null)
+            {
+                return;
+            }
+
+            var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken)
+                .ConfigureAwait(false);
+            await RenderAsync(store, sw, sw.LastIsActive, evt.GuildId, evt.ServerId, culture, cancellationToken)
                 .ConfigureAwait(false);
         }
     }

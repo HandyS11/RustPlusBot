@@ -693,6 +693,15 @@
   <data name="switch.status.on" xml:space="preserve">
     <value>⚡ ON</value>
   </data>
+  <data name="switch.status.noprivilege" xml:space="preserve">
+    <value>⛔ No building privilege</value>
+  </data>
+  <data name="switch.status.noresponse" xml:space="preserve">
+    <value>⚠️ No response</value>
+  </data>
+  <data name="switch.status.removed" xml:space="preserve">
+    <value>❌ Removed in-game</value>
+  </data>
   <data name="switch.status.unreachable" xml:space="preserve">
     <value>⚠️ Unreachable</value>
   </data>

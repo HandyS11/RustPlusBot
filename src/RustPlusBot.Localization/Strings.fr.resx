@@ -693,6 +693,15 @@
   <data name="switch.status.on" xml:space="preserve">
     <value>⚡ ALLUMÉ</value>
   </data>
+  <data name="switch.status.noprivilege" xml:space="preserve">
+    <value>⛔ Aucun privilège de construction</value>
+  </data>
+  <data name="switch.status.noresponse" xml:space="preserve">
+    <value>⚠️ Aucune réponse</value>
+  </data>
+  <data name="switch.status.removed" xml:space="preserve">
+    <value>❌ Supprimé en jeu</value>
+  </data>
   <data name="switch.status.unreachable" xml:space="preserve">
     <value>⚠️ Injoignable</value>
   </data>

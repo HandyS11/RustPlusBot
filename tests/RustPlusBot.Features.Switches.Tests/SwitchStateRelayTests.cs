@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Switches;
@@ -151,6 +152,51 @@ public sealed class SwitchStateRelayTests
             Arg.Any<bool>(), Arg.Any<CancellationToken>());
         await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
             Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReachabilityChanged_ForeignEntity_IsIgnored()
+    {
+        var h = Create();
+        var serverId = Guid.NewGuid();
+        h.Store.ExistsAsync(10UL, serverId, 999UL, Arg.Any<CancellationToken>()).Returns(false);
+
+        await h.Relay.HandleReachabilityChangedAsync(
+            new DeviceReachabilityChangedEvent(10UL, serverId, 999UL, DeviceReachability.Removed),
+            CancellationToken.None);
+
+        await h.Store.DidNotReceive().SetReachabilityAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<DeviceReachability>(), Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReachabilityChanged_OwnedEntity_PersistsAndRenders()
+    {
+        var h = Create();
+        var serverId = Guid.NewGuid();
+        h.Store.ExistsAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>()).Returns(true);
+        h.Store.GetAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>())
+            .Returns(new SmartSwitch
+            {
+                GuildId = 10UL,
+                ServerId = serverId,
+                EntityId = 42UL,
+                Name = "Door",
+                MessageId = 900UL,
+                Reachability = DeviceReachability.Removed,
+            });
+
+        await h.Relay.HandleReachabilityChangedAsync(
+            new DeviceReachabilityChangedEvent(10UL, serverId, 42UL, DeviceReachability.Removed),
+            CancellationToken.None);
+
+        await h.Store.Received(1).SetReachabilityAsync(10UL, serverId, 42UL, DeviceReachability.Removed,
+            Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(777UL, 900UL, Arg.Any<global::Discord.Embed>(),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
     }
 
