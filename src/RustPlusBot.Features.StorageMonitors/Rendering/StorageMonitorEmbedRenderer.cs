@@ -24,12 +24,35 @@ internal sealed class StorageMonitorEmbedRenderer(ILocalizer localizer, IItemNam
         string culture)
     {
         ArgumentNullException.ThrowIfNull(monitor);
-        var unreachable = contents is null;
+        var reason = monitor.Reachability;
+
+        // Removed and NoPrivilege block controls (device gone or locked); NoResponse is transient — controls stay enabled.
+        var blocked = reason is DeviceReachability.Removed or DeviceReachability.NoPrivilege;
+
+        string? statusKey;
+#pragma warning disable IDE0045 // Collapsing to a nested ternary trips RCS1238/S3358 (nested conditional); the if/else chain is intentional.
+        if (reason == DeviceReachability.Removed)
+        {
+            statusKey = "storage.status.removed";
+        }
+        else if (reason == DeviceReachability.NoPrivilege)
+        {
+            statusKey = "storage.status.noprivilege";
+        }
+        else if (reason == DeviceReachability.NoResponse)
+        {
+            statusKey = "storage.status.noresponse";
+        }
+        else
+        {
+            statusKey = contents is null ? "storage.status.unreachable" : null;
+        }
+#pragma warning restore IDE0045
 
         var description = new StringBuilder();
-        if (unreachable)
+        if (statusKey is not null)
         {
-            description.Append(localizer.Get("storage.status.unreachable", culture));
+            description.Append(localizer.Get(statusKey, culture));
         }
         else
         {
@@ -44,12 +67,14 @@ internal sealed class StorageMonitorEmbedRenderer(ILocalizer localizer, IItemNam
             .WithFooter(localizer.Get("storage.embed.footer", culture, monitor.EntityId))
             .Build();
 
+        // Buttons disabled when: blocked (Removed/NoPrivilege), or server is down (Reachable but no contents).
+        var disableButtons = blocked || (reason == DeviceReachability.Reachable && contents is null);
         var tail = $"{monitor.ServerId}:{monitor.EntityId}";
         var components = new ComponentBuilder()
             .WithButton(localizer.Get("storage.button.refresh", culture),
-                StorageMonitorComponentIds.RefreshPrefix + tail, ButtonStyle.Primary, disabled: unreachable)
+                StorageMonitorComponentIds.RefreshPrefix + tail, ButtonStyle.Primary, disabled: disableButtons)
             .WithButton(localizer.Get("storage.button.rename", culture),
-                StorageMonitorComponentIds.RenamePrefix + tail, ButtonStyle.Secondary, disabled: unreachable)
+                StorageMonitorComponentIds.RenamePrefix + tail, ButtonStyle.Secondary, disabled: disableButtons)
             .Build();
 
         return (embed, components);

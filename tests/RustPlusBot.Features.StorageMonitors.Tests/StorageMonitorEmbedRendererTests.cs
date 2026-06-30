@@ -91,6 +91,73 @@ public sealed class StorageMonitorEmbedRendererTests
         Assert.Contains("Small Box", desc, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(DeviceReachability.Removed, "Removed in-game")]
+    [InlineData(DeviceReachability.NoPrivilege, "No building privilege")]
+    [InlineData(DeviceReachability.NoResponse, "No response")]
+    public void RenderMonitor_NonReachable_ShowsReasonStatus(DeviceReachability reachability, string expectedText)
+    {
+        var renderer = Create(out _);
+        var monitor = new SmartStorageMonitor
+        {
+            Id = Guid.NewGuid(),
+            ServerId = Guid.NewGuid(),
+            EntityId = 7UL,
+            Name = "Box",
+            Reachability = reachability,
+        };
+
+        var (embed, _) = renderer.RenderMonitor(monitor, contents: null, culture: "en");
+
+        Assert.Contains(expectedText, embed.Description ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(DeviceReachability.Removed)]
+    [InlineData(DeviceReachability.NoPrivilege)]
+    public void RenderMonitor_BlockedReachability_DisablesButtons(DeviceReachability reachability)
+    {
+        var renderer = Create(out _);
+        var monitor = new SmartStorageMonitor
+        {
+            Id = Guid.NewGuid(),
+            ServerId = Guid.NewGuid(),
+            EntityId = 7UL,
+            Name = "Box",
+            Reachability = reachability,
+        };
+
+        var (_, components) = renderer.RenderMonitor(monitor, contents: null, culture: "en");
+
+        var buttons = components.Components.OfType<ActionRowComponent>()
+            .SelectMany(r => r.Components)
+            .OfType<ButtonComponent>()
+            .ToList();
+        Assert.All(buttons, b => Assert.True(b.IsDisabled));
+    }
+
+    [Fact]
+    public void RenderMonitor_NoResponse_KeepsButtonsEnabled()
+    {
+        var renderer = Create(out _);
+        var monitor = new SmartStorageMonitor
+        {
+            Id = Guid.NewGuid(),
+            ServerId = Guid.NewGuid(),
+            EntityId = 7UL,
+            Name = "Box",
+            Reachability = DeviceReachability.NoResponse,
+        };
+
+        var (_, components) = renderer.RenderMonitor(monitor, contents: null, culture: "en");
+
+        var buttons = components.Components.OfType<ActionRowComponent>()
+            .SelectMany(r => r.Components)
+            .OfType<ButtonComponent>()
+            .ToList();
+        Assert.False(buttons.All(b => b.IsDisabled));
+    }
+
     [Fact]
     public void RenderPrompt_HasAcceptAndDismissButtons()
     {

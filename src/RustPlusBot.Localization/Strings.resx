@@ -756,6 +756,15 @@
   <data name="storage.slots" xml:space="preserve">
     <value>{0} / {1} slots</value>
   </data>
+  <data name="storage.status.noprivilege" xml:space="preserve">
+    <value>⛔ No building privilege</value>
+  </data>
+  <data name="storage.status.noresponse" xml:space="preserve">
+    <value>⚠️ No response</value>
+  </data>
+  <data name="storage.status.removed" xml:space="preserve">
+    <value>❌ Removed in-game</value>
+  </data>
   <data name="storage.status.unreachable" xml:space="preserve">
     <value>⚠️ Unreachable</value>
   </data>
