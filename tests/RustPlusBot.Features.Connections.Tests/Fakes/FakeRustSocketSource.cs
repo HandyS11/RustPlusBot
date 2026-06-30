@@ -22,6 +22,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
     private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _pendingMarkerScript = new();
     private readonly Dictionary<ulong, StorageContentsSnapshot?> _pendingStorageContents = [];
+    private readonly Dictionary<ulong, DeviceReachability> _pendingDeviceReachabilityOverrides = [];
     private int _createCount;
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
@@ -65,6 +66,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         _pendingStorageContents.Clear();
 
+        // Transfer any pre-staged device-reachability overrides so they are available before the prime loop starts.
+        foreach (var (entityId, reachability) in _pendingDeviceReachabilityOverrides)
+        {
+            connection.DeviceReachabilityOverrides[entityId] = reachability;
+        }
+
+        _pendingDeviceReachabilityOverrides.Clear();
+
         LastConnection = connection;
         return connection;
     }
@@ -102,6 +111,19 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// <param name="contents">The contents snapshot to return from <see cref="IRustServerConnection.GetStorageMonitorInfoAsync"/>.</param>
     public void EnqueueStorageInfo(ulong entityId, StorageContentsSnapshot? contents) =>
         _pendingStorageContents[entityId] = contents;
+
+    /// <summary>
+    /// Pre-stages a device-reachability override for a given entity, to be transferred to the NEXT connection
+    /// created by <see cref="Create"/>. Eliminates the setup race when the prime loop reads reachability before
+    /// the test can assign it on <see cref="FakeConnection.DeviceReachabilityOverrides"/>.
+    /// Call this before <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    /// <param name="entityId">The entity id to stage.</param>
+    /// <param name="reachability">The reachability to return from
+    /// <see cref="IRustServerConnection.GetSmartDeviceInfoAsync"/> or
+    /// <see cref="IRustServerConnection.GetStorageMonitorInfoAsync"/> for this entity.</param>
+    public void StageDeviceReachability(ulong entityId, DeviceReachability reachability) =>
+        _pendingDeviceReachabilityOverrides[entityId] = reachability;
 
     internal HeartbeatResult NextHeartbeat()
     {

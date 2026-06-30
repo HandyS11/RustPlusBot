@@ -1020,9 +1020,16 @@ internal sealed partial class ConnectionSupervisor(
                 .GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
                 .ConfigureAwait(false);
             await eventBus.PublishAsync(
-                    new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId, reading.IsActive ?? false),
+                    new DeviceReachabilityChangedEvent(key.Guild, key.Server, entityId, reading.Reachability),
                     _shutdown.Token)
                 .ConfigureAwait(false);
+            if (reading.Reachability == DeviceReachability.Reachable)
+            {
+                await eventBus.PublishAsync(
+                        new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId, reading.IsActive ?? false),
+                        _shutdown.Token)
+                    .ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1084,15 +1091,17 @@ internal sealed partial class ConnectionSupervisor(
             var reading = await connection
                 .GetStorageMonitorInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
                 .ConfigureAwait(false);
-            if (reading.Contents is not { } contents)
-            {
-                return; // unreachable read; the relay leaves the embed as-is (or unreachable via status events).
-            }
-
             await eventBus.PublishAsync(
-                    new StorageMonitorTriggeredEvent(key.Guild, key.Server, entityId, contents),
+                    new DeviceReachabilityChangedEvent(key.Guild, key.Server, entityId, reading.Reachability),
                     _shutdown.Token)
                 .ConfigureAwait(false);
+            if (reading.Reachability == DeviceReachability.Reachable && reading.Contents is { } contents)
+            {
+                await eventBus.PublishAsync(
+                        new StorageMonitorTriggeredEvent(key.Guild, key.Server, entityId, contents),
+                        _shutdown.Token)
+                    .ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {
