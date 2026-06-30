@@ -54,6 +54,42 @@ internal sealed class StorageMonitorStateRelay(
         }
     }
 
+    /// <summary>Handles a per-device reachability change: ignore foreign entities, else persist + re-render.</summary>
+    /// <param name="evt">The device-reachability-changed event.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the embed has been re-rendered (or the id was ignored).</returns>
+    public async Task HandleReachabilityChangedAsync(
+        DeviceReachabilityChangedEvent evt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evt);
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IStorageMonitorStore>();
+            if (!await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return; // not a storage monitor this relay manages — ignore.
+            }
+
+            await store.SetReachabilityAsync(evt.GuildId, evt.ServerId, evt.EntityId, evt.Reachability,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var monitor = await store.GetAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                .ConfigureAwait(false);
+            if (monitor is null)
+            {
+                return;
+            }
+
+            var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken)
+                .ConfigureAwait(false);
+            await RenderAsync(store, monitor, contents: null, evt.GuildId, evt.ServerId, culture, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
     /// <summary>Handles a connection-status change: a non-Connected server marks its storage monitor embeds unreachable.</summary>
     /// <param name="evt">The connection-status change.</param>
     /// <param name="cancellationToken">A cancellation token.</param>

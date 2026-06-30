@@ -1,3 +1,5 @@
+using RustPlusBot.Abstractions.Connections;
+
 namespace RustPlusBot.Domain.StorageMonitors;
 
 /// <summary>A paired Smart Storage Monitor the bot manages, surviving restarts. Guild- and server-scoped.</summary>
@@ -26,4 +28,7 @@ public sealed class SmartStorageMonitor
 
     /// <summary>When the monitor was accepted (UTC).</summary>
     public DateTimeOffset CreatedUtc { get; set; }
+
+    /// <summary>Per-device reachability; defaults to Reachable. Orthogonal to whole-server connection status.</summary>
+    public DeviceReachability Reachability { get; set; } = DeviceReachability.Reachable;
 }

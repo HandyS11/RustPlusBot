@@ -49,41 +49,41 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <returns>True if the promotion succeeded; false on failure/timeout.</returns>
     Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken);
 
-    /// <summary>Reads a smart device's on/off state, or null on failure/timeout. Also primes the socket's interest in the entity (so triggers fire for it thereafter).</summary>
+    /// <summary>Reads a smart device's on/off state and reachability. Also primes the socket's interest in the entity (so triggers fire for it thereafter).</summary>
     /// <param name="entityId">The in-game entity id (switch or alarm).</param>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>True/false for on/off, or null on failure/timeout.</returns>
-    Task<bool?> GetSmartDeviceInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken);
+    /// <returns>A <see cref="DeviceReading"/> with the active state (non-null only when <see cref="DeviceReachability.Reachable"/>) and the reachability outcome.</returns>
+    Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken);
 
-    /// <summary>Reads a storage monitor's contents, or null on failure/timeout. Also primes the socket's interest so triggers fire for it thereafter.</summary>
+    /// <summary>Reads a storage monitor's contents and reachability. Also primes the socket's interest so triggers fire for it thereafter.</summary>
     /// <param name="entityId">The in-game storage-monitor entity id.</param>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The contents snapshot, or null on failure/timeout.</returns>
-    Task<StorageContentsSnapshot?> GetStorageMonitorInfoAsync(ulong entityId,
+    /// <returns>A <see cref="StorageReading"/> with the contents snapshot (non-null only when <see cref="DeviceReachability.Reachable"/>) and the reachability outcome.</returns>
+    Task<StorageReading> GetStorageMonitorInfoAsync(ulong entityId,
         TimeSpan timeout,
         CancellationToken cancellationToken);
 
-    /// <summary>Sets a smart switch on/off; returns true on success, false on failure/timeout.</summary>
+    /// <summary>Sets a smart switch on/off; returns the reachability outcome.</summary>
     /// <param name="entityId">The in-game smart-switch entity id.</param>
     /// <param name="value">True to turn on, false to turn off.</param>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>True on success; false on failure/timeout.</returns>
-    Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+    /// <returns>The <see cref="DeviceReachability"/> outcome of the operation.</returns>
+    Task<DeviceReachability> SetSmartSwitchValueAsync(ulong entityId,
         bool value,
         TimeSpan timeout,
         CancellationToken cancellationToken);
 
-    /// <summary>Strobes a smart switch; returns true on success, false on failure/timeout.</summary>
+    /// <summary>Strobes a smart switch; returns the reachability outcome.</summary>
     /// <param name="entityId">The in-game smart-switch entity id.</param>
     /// <param name="timeoutMs">The in-game strobe duration in milliseconds.</param>
     /// <param name="value">The terminal value after strobing.</param>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>True on success; false on failure/timeout.</returns>
-    Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+    /// <returns>The <see cref="DeviceReachability"/> outcome of the operation.</returns>
+    Task<DeviceReachability> StrobeSmartSwitchAsync(ulong entityId,
         int timeoutMs,
         bool value,
         TimeSpan timeout,

@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
@@ -334,6 +335,53 @@ public sealed class AlarmStateRelayTests
             Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         await h.Refresher.DidNotReceive()
             .RefreshAsync(Arg.Any<SmartAlarm>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Reachability changed
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>A reachability change for an owned alarm persists the new value and triggers a refresh.</summary>
+    [Fact]
+    public async Task ReachabilityChanged_owned_alarm_persists_and_refreshes()
+    {
+        var serverId = Guid.NewGuid();
+        var h = Create();
+
+        h.Store.ExistsAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>()).Returns(true);
+
+        await h.Relay.HandleReachabilityChangedAsync(
+            new DeviceReachabilityChangedEvent(10UL, serverId, 42UL, DeviceReachability.NoPrivilege),
+            CancellationToken.None);
+
+        await h.Store.Received(1)
+            .SetReachabilityAsync(10UL, serverId, 42UL, DeviceReachability.NoPrivilege,
+                Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1)
+            .RefreshAsync(10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>A reachability change for a foreign entity (not in the alarm store) is silently ignored.</summary>
+    [Fact]
+    public async Task ReachabilityChanged_foreign_entity_is_ignored()
+    {
+        var serverId = Guid.NewGuid();
+        var h = Create();
+
+        // ExistsAsync returns false by default for unknown entities.
+        h.Store.ExistsAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(), Arg.Any<CancellationToken>())
+            .Returns(false);
+
+        await h.Relay.HandleReachabilityChangedAsync(
+            new DeviceReachabilityChangedEvent(10UL, serverId, 99UL, DeviceReachability.Removed),
+            CancellationToken.None);
+
+        await h.Store.DidNotReceive()
+            .SetReachabilityAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+                Arg.Any<DeviceReachability>(), Arg.Any<CancellationToken>());
+        await h.Refresher.DidNotReceive()
+            .RefreshAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+                Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
     private sealed record Harness(

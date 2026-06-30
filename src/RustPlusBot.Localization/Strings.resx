@@ -60,6 +60,15 @@
   <data name="alarm.status.armed" xml:space="preserve">
     <value>🔔 Armed</value>
   </data>
+  <data name="alarm.status.noprivilege" xml:space="preserve">
+    <value>⛔ No building privilege</value>
+  </data>
+  <data name="alarm.status.noresponse" xml:space="preserve">
+    <value>⚠️ No response</value>
+  </data>
+  <data name="alarm.status.removed" xml:space="preserve">
+    <value>❌ Removed in-game</value>
+  </data>
   <data name="alarm.status.unreachable" xml:space="preserve">
     <value>⚠️ Unreachable</value>
   </data>
@@ -693,8 +702,26 @@
   <data name="switch.status.on" xml:space="preserve">
     <value>⚡ ON</value>
   </data>
+  <data name="switch.status.noprivilege" xml:space="preserve">
+    <value>⛔ No building privilege</value>
+  </data>
+  <data name="switch.status.noresponse" xml:space="preserve">
+    <value>⚠️ No response</value>
+  </data>
+  <data name="switch.status.removed" xml:space="preserve">
+    <value>❌ Removed in-game</value>
+  </data>
   <data name="switch.status.unreachable" xml:space="preserve">
     <value>⚠️ Unreachable</value>
+  </data>
+  <data name="switch.actuation.noprivilege" xml:space="preserve">
+    <value>No building privilege for this switch.</value>
+  </data>
+  <data name="switch.actuation.noresponse" xml:space="preserve">
+    <value>The switch didn't respond. Try again.</value>
+  </data>
+  <data name="switch.actuation.removed" xml:space="preserve">
+    <value>This switch was removed in-game.</value>
   </data>
   <data name="switch.unreachable.ephemeral" xml:space="preserve">
     <value>Switch is unreachable right now.</value>
@@ -737,6 +764,15 @@
   </data>
   <data name="storage.slots" xml:space="preserve">
     <value>{0} / {1} slots</value>
+  </data>
+  <data name="storage.status.noprivilege" xml:space="preserve">
+    <value>⛔ No building privilege</value>
+  </data>
+  <data name="storage.status.noresponse" xml:space="preserve">
+    <value>⚠️ No response</value>
+  </data>
+  <data name="storage.status.removed" xml:space="preserve">
+    <value>❌ Removed in-game</value>
   </data>
   <data name="storage.status.unreachable" xml:space="preserve">
     <value>⚠️ Unreachable</value>

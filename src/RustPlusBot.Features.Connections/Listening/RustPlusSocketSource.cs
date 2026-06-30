@@ -50,28 +50,28 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<bool?> GetSmartDeviceInfoAsync(ulong entityId,
+        public Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
             TimeSpan timeout,
             CancellationToken cancellationToken) =>
-            Task.FromResult<bool?>(null);
+            Task.FromResult(new DeviceReading(null, DeviceReachability.NoResponse));
 
-        public Task<StorageContentsSnapshot?> GetStorageMonitorInfoAsync(ulong entityId,
+        public Task<StorageReading> GetStorageMonitorInfoAsync(ulong entityId,
             TimeSpan timeout,
             CancellationToken cancellationToken) =>
-            Task.FromResult<StorageContentsSnapshot?>(null);
+            Task.FromResult(new StorageReading(null, DeviceReachability.NoResponse));
 
-        public Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+        public Task<DeviceReachability> SetSmartSwitchValueAsync(ulong entityId,
             bool value,
             TimeSpan timeout,
             CancellationToken cancellationToken) =>
-            Task.FromResult(false);
+            Task.FromResult(DeviceReachability.NoResponse);
 
-        public Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+        public Task<DeviceReachability> StrobeSmartSwitchAsync(ulong entityId,
             int timeoutMs,
             bool value,
             TimeSpan timeout,
             CancellationToken cancellationToken) =>
-            Task.FromResult(false);
+            Task.FromResult(DeviceReachability.NoResponse);
 
         public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
@@ -363,7 +363,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
         public event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
 
-        public async Task<bool?> GetSmartDeviceInfoAsync(ulong entityId,
+        public async Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
@@ -375,25 +375,28 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 // Task of Response of SmartDeviceInfo; Response.IsSuccess and Response.Data are the accessors and
                 // SmartDeviceInfo.IsActive is a bool. The call also primes the socket's interest in this
                 // entity, so OnSmartDeviceTriggered fires for it thereafter.
+                // CONFIRMED: Response.Error is ErrorMessage? (null on success), so response.Error?.Code is correct.
                 var response = await _rustPlus.GetSmartSwitchInfoAsync(entityId, timeoutCts.Token)
                     .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
-                return response.IsSuccess && response.Data is { } info ? info.IsActive : null;
+                var reachability = ReachabilityMapping.FromResponse(response.IsSuccess, response.Error?.Code);
+                var isActive = response is { IsSuccess: true, Data: { } info } ? info.IsActive : (bool?)null;
+                return new DeviceReading(isActive, reachability);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return null;
+                return new DeviceReading(null, DeviceReachability.NoResponse);
             }
-#pragma warning disable CA1031 // Broad catch: any switch-info failure maps to null; never surface a token/secret.
+#pragma warning disable CA1031 // Broad catch: a failed read maps to NoResponse; never surface a token/secret.
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
                 LogQueryFailed(_logger, ex);
-                return null;
+                return new DeviceReading(null, DeviceReachability.NoResponse);
             }
         }
 
         /// <inheritdoc />
-        public async Task<StorageContentsSnapshot?> GetStorageMonitorInfoAsync(
+        public async Task<StorageReading> GetStorageMonitorInfoAsync(
             ulong entityId,
             TimeSpan timeout,
             CancellationToken cancellationToken)
@@ -405,23 +408,27 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 // CONFIRMED (2.0.0-beta.3): GetStorageMonitorInfoAsync(ulong, CancellationToken) returns
                 // Task<Response<StorageMonitorInfo?>>; the read also primes the entity so OnStorageMonitorTriggered
                 // fires for it thereafter.
+                // CONFIRMED: Response.Error is ErrorMessage? (null on success), so response.Error?.Code is correct.
                 var response = await _rustPlus.GetStorageMonitorInfoAsync(entityId, timeoutCts.Token)
                     .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
-                return response is { IsSuccess: true, Data: { } info } ? MapContents(info) : null;
+                var reachability = ReachabilityMapping.FromResponse(response.IsSuccess, response.Error?.Code);
+                var contents = response is { IsSuccess: true, Data: { } info } ? MapContents(info) : null;
+                return new StorageReading(contents, reachability);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return null;
+                return new StorageReading(null, DeviceReachability.NoResponse);
             }
-#pragma warning disable CA1031 // Broad catch: a failed/timed-out storage read returns null; the caller treats null as unreachable.
-            catch (Exception)
+#pragma warning disable CA1031 // Broad catch: a failed read maps to NoResponse; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
-                return null;
+                LogQueryFailed(_logger, ex);
+                return new StorageReading(null, DeviceReachability.NoResponse);
             }
         }
 
-        public async Task<bool> SetSmartSwitchValueAsync(ulong entityId,
+        public async Task<DeviceReachability> SetSmartSwitchValueAsync(ulong entityId,
             bool value,
             TimeSpan timeout,
             CancellationToken cancellationToken)
@@ -432,24 +439,25 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             {
                 // CONFIRMED (2.0.0-beta.3): SetSmartSwitchValueAsync(ulong, bool, CancellationToken) returns
                 // Task of Response of SmartDeviceInfo; Response.IsSuccess indicates the outcome.
+                // CONFIRMED: Response.Error is ErrorMessage? (null on success), so response.Error?.Code is correct.
                 var response = await _rustPlus.SetSmartSwitchValueAsync(entityId, value, timeoutCts.Token)
                     .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
-                return response.IsSuccess;
+                return ReachabilityMapping.FromResponse(response.IsSuccess, response.Error?.Code);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return false;
+                return DeviceReachability.NoResponse;
             }
-#pragma warning disable CA1031 // Broad catch: any set failure maps to false; never surface a token/secret.
+#pragma warning disable CA1031 // Broad catch: a failed set maps to NoResponse; never surface a token/secret.
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
                 LogQueryFailed(_logger, ex);
-                return false;
+                return DeviceReachability.NoResponse;
             }
         }
 
-        public async Task<bool> StrobeSmartSwitchAsync(ulong entityId,
+        public async Task<DeviceReachability> StrobeSmartSwitchAsync(ulong entityId,
             int timeoutMs,
             bool value,
             TimeSpan timeout,
@@ -461,20 +469,21 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             {
                 // CONFIRMED (2.0.0-beta.3): StrobeSmartSwitchAsync(ulong, int timeoutMs, bool value, CancellationToken)
                 // returns Task of Response of SmartDeviceInfo; Response.IsSuccess indicates the outcome.
+                // CONFIRMED: Response.Error is ErrorMessage? (null on success), so response.Error?.Code is correct.
                 var response = await _rustPlus.StrobeSmartSwitchAsync(entityId, timeoutMs, value, timeoutCts.Token)
                     .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
-                return response.IsSuccess;
+                return ReachabilityMapping.FromResponse(response.IsSuccess, response.Error?.Code);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return false;
+                return DeviceReachability.NoResponse;
             }
-#pragma warning disable CA1031 // Broad catch: any strobe failure maps to false; never surface a token/secret.
+#pragma warning disable CA1031 // Broad catch: a failed strobe maps to NoResponse; never surface a token/secret.
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
                 LogQueryFailed(_logger, ex);
-                return false;
+                return DeviceReachability.NoResponse;
             }
         }
 

@@ -60,6 +60,15 @@
   <data name="alarm.status.armed" xml:space="preserve">
     <value>🔔 Armée</value>
   </data>
+  <data name="alarm.status.noprivilege" xml:space="preserve">
+    <value>⛔ Aucun privilège de construction</value>
+  </data>
+  <data name="alarm.status.noresponse" xml:space="preserve">
+    <value>⚠️ Aucune réponse</value>
+  </data>
+  <data name="alarm.status.removed" xml:space="preserve">
+    <value>❌ Supprimé en jeu</value>
+  </data>
   <data name="alarm.status.unreachable" xml:space="preserve">
     <value>⚠️ Injoignable</value>
   </data>
@@ -693,8 +702,26 @@
   <data name="switch.status.on" xml:space="preserve">
     <value>⚡ ALLUMÉ</value>
   </data>
+  <data name="switch.status.noprivilege" xml:space="preserve">
+    <value>⛔ Aucun privilège de construction</value>
+  </data>
+  <data name="switch.status.noresponse" xml:space="preserve">
+    <value>⚠️ Aucune réponse</value>
+  </data>
+  <data name="switch.status.removed" xml:space="preserve">
+    <value>❌ Supprimé en jeu</value>
+  </data>
   <data name="switch.status.unreachable" xml:space="preserve">
     <value>⚠️ Injoignable</value>
+  </data>
+  <data name="switch.actuation.noprivilege" xml:space="preserve">
+    <value>Aucun privilège de construction pour cet interrupteur.</value>
+  </data>
+  <data name="switch.actuation.noresponse" xml:space="preserve">
+    <value>L'interrupteur n'a pas répondu. Réessayez.</value>
+  </data>
+  <data name="switch.actuation.removed" xml:space="preserve">
+    <value>Cet interrupteur a été supprimé en jeu.</value>
   </data>
   <data name="switch.unreachable.ephemeral" xml:space="preserve">
     <value>L'interrupteur est injoignable pour le moment.</value>
@@ -737,6 +764,15 @@
   </data>
   <data name="storage.slots" xml:space="preserve">
     <value>{0} / {1} emplacements</value>
+  </data>
+  <data name="storage.status.noprivilege" xml:space="preserve">
+    <value>⛔ Aucun privilège de construction</value>
+  </data>
+  <data name="storage.status.noresponse" xml:space="preserve">
+    <value>⚠️ Aucune réponse</value>
+  </data>
+  <data name="storage.status.removed" xml:space="preserve">
+    <value>❌ Supprimé en jeu</value>
   </data>
   <data name="storage.status.unreachable" xml:space="preserve">
     <value>⚠️ Injoignable</value>

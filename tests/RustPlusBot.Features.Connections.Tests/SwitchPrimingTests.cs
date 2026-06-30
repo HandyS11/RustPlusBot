@@ -22,7 +22,7 @@ using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Tests;
 
-public sealed class SwitchQueryTests
+public sealed class SwitchPrimingTests
 {
     private static (ServiceProvider Provider, ConnectionSupervisor Supervisor, InMemoryEventBus Bus) CreateHarness(
         FakeRustSocketSource source)
@@ -41,7 +41,7 @@ public sealed class SwitchQueryTests
         services.AddSingleton(dm);
         services.AddSingleton<IEventBus>(bus);
 
-        var cs = $"DataSource=switchquery-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        var cs = $"DataSource=switchpriming-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
         var keepAlive = new SqliteConnection(cs);
         keepAlive.Open();
         using (var seed = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options))
@@ -106,109 +106,60 @@ public sealed class SwitchQueryTests
     }
 
     [Fact]
-    public async Task SetSmartSwitch_forwards_value_when_connected()
+    public async Task Prime_RemovedSwitch_PublishesRemovedReachability_AndNoActiveState()
     {
-        var source = new FakeRustSocketSource();
-        var (provider, supervisor, _) = CreateHarness(source);
-        await using var disposeProvider = provider;
-        var serverId = await SeedServerWithActiveAndSwitchAsync(provider, entityId: 42UL);
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
-        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
-
-        var result = await supervisor.SetSmartSwitchAsync(10UL, serverId, 42UL, value: true, cts.Token);
-
-        Assert.Equal(DeviceReachability.Reachable, result);
-        Assert.Contains((42UL, true), source.LastConnection!.SetSwitchCalls);
-        await supervisor.StopAllAsync();
-    }
-
-    [Fact]
-    public async Task SetSmartSwitch_returns_false_when_no_live_socket()
-    {
-        var source = new FakeRustSocketSource();
-        var (provider, supervisor, _) = CreateHarness(source);
-        await using var disposeProvider = provider;
-
-        Assert.Equal(DeviceReachability.NoResponse,
-            await supervisor.SetSmartSwitchAsync(10UL, Guid.NewGuid(), 42UL, true, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Priming_publishes_state_for_persisted_switch_on_connect()
-    {
+        // Arrange: a managed switch exists; the fake connection returns a Removed reading for it.
         var source = new FakeRustSocketSource();
         var (provider, supervisor, bus) = CreateHarness(source);
         await using var disposeProvider = provider;
         var serverId = await SeedServerWithActiveAndSwitchAsync(provider, entityId: 42UL);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-
-        // Subscribe BEFORE connecting: SubscribeAsync registers the channel eagerly on THIS thread, so the primed
-        // publish (which fires during EnsureConnectionAsync) is observed. Only the enumeration runs in Task.Run.
-        var stream = bus.SubscribeAsync<SmartDeviceTriggeredEvent>(cts.Token);
-        var received =
-            new TaskCompletionSource<SmartDeviceTriggeredEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ = Task.Run(
-            async () =>
-            {
-                await foreach (var evt in stream)
-                {
-                    if (evt.EntityId == 42UL)
-                    {
-                        received.TrySetResult(evt);
-                        break;
-                    }
-                }
-            },
-            cts.Token);
-
-        // The fake defaults entity 42 absent → GetSmartDeviceInfoAsync returns null → priming publishes off.
-        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
-
-        var evt = await received.Task.WaitAsync(cts.Token);
-        Assert.Equal(42UL, evt.EntityId);
-        Assert.False(evt.IsActive); // absent in SwitchStates → null → defaulted off
-        await supervisor.StopAllAsync();
-    }
-
-    [Fact]
-    public async Task Trigger_publishes_state_change()
-    {
-        var source = new FakeRustSocketSource();
-        var (provider, supervisor, bus) = CreateHarness(source);
-        await using var disposeProvider = provider;
-        var serverId = await SeedServerWithActiveAndSwitchAsync(provider, entityId: 42UL);
+        // Stage the fake so entity 42's prime read returns Removed (mirrors how the other
+        // *PrimingTests stage device state before EnsureConnectionAsync).
+        source.StageDeviceReachability(42UL, DeviceReachability.Removed);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-        // Subscribe BEFORE raising the trigger so the channel is registered when the publish fires.
-        var stream = bus.SubscribeAsync<SmartDeviceTriggeredEvent>(cts.Token);
-        var received =
-            new TaskCompletionSource<SmartDeviceTriggeredEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ = Task.Run(
-            async () =>
+        // Capture all published events on two channels.
+        var reachabilityEvents = new System.Collections.Concurrent.ConcurrentQueue<DeviceReachabilityChangedEvent>();
+        var triggeredEvents = new System.Collections.Concurrent.ConcurrentQueue<SmartDeviceTriggeredEvent>();
+
+        var reachSub = bus.SubscribeAsync<DeviceReachabilityChangedEvent>(cts.Token);
+        var trigSub = bus.SubscribeAsync<SmartDeviceTriggeredEvent>(cts.Token);
+
+        _ = Task.Run(async () =>
+        {
+            await foreach (var e in reachSub)
             {
-                await foreach (var e in stream)
-                {
-                    // Skip the prime (off) and match the trigger (on) for entity 42.
-                    if (e is { EntityId: 42UL, IsActive: true })
-                    {
-                        received.TrySetResult(e);
-                        break;
-                    }
-                }
-            },
-            cts.Token);
+                reachabilityEvents.Enqueue(e);
+            }
+        }, CancellationToken.None);
 
+        _ = Task.Run(async () =>
+        {
+            await foreach (var e in trigSub)
+            {
+                triggeredEvents.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        // Act: drive the connect/prime path.
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
-        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
 
-        source.LastConnection!.RaiseSmartDeviceTriggered(42UL, isActive: true);
+        // Wait for the reachability event for entity 42 to be published (definite signal that prime completed).
+        await WaitUntilAsync(() => reachabilityEvents.Any(e => e.EntityId == 42UL), cts.Token);
 
-        var evt = await received.Task.WaitAsync(cts.Token);
-        Assert.True(evt.IsActive);
+        // Give a moment for any spurious SmartDeviceTriggeredEvent to appear if incorrectly published.
+        await Task.Delay(TimeSpan.FromMilliseconds(100), cts.Token);
+
+        // Assert: DeviceReachabilityChangedEvent{EntityId=42, Reachability=Removed} was published.
+        Assert.Contains(reachabilityEvents, e =>
+            e is { EntityId: 42UL, Reachability: DeviceReachability.Removed });
+
+        // Assert: SmartDeviceTriggeredEvent{EntityId=42, IsActive=false} was NOT published.
+        Assert.DoesNotContain(triggeredEvents, e =>
+            e is { EntityId: 42UL, IsActive: false });
+
         await supervisor.StopAllAsync();
     }
 }

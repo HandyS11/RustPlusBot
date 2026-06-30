@@ -6,7 +6,9 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Switches.Pairing;
 using RustPlusBot.Features.Switches.Rendering;
+using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Switches;
+using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Switches.Modules;
 
@@ -14,10 +16,12 @@ namespace RustPlusBot.Features.Switches.Modules;
 /// <param name="scopeFactory">Creates a short-lived DI scope per interaction.</param>
 /// <param name="query">Live socket read/control.</param>
 /// <param name="eventBus">Publishes a state-changed event to drive an embed refresh.</param>
+/// <param name="localizer">Resolves localized strings for actuation failure replies.</param>
 public sealed class SwitchComponentModule(
     IServiceScopeFactory scopeFactory,
     IRustServerQuery query,
-    IEventBus eventBus) : InteractionModuleBase<SocketInteractionContext>
+    IEventBus eventBus,
+    ILocalizer localizer) : InteractionModuleBase<SocketInteractionContext>
 {
     private const string InvalidControlMessage = "That control wasn't valid.";
 
@@ -91,13 +95,25 @@ public sealed class SwitchComponentModule(
         }
 
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        var ok = await query
+        var strobeResult = await query
             .StrobeSmartSwitchAsync(Context.Guild.Id, serverId, entityId, timeoutMs: 1000, value: true,
                 CancellationToken.None)
             .ConfigureAwait(false);
-        if (!ok)
+        if (strobeResult != DeviceReachability.Reachable)
         {
-            await FollowupAsync("Switch is unreachable right now.", ephemeral: true).ConfigureAwait(false);
+            var strobeScope = scopeFactory.CreateAsyncScope();
+            await using (strobeScope.ConfigureAwait(false))
+            {
+                var culture = await strobeScope.ServiceProvider.GetRequiredService<IWorkspaceStore>()
+                    .GetCultureAsync(Context.Guild.Id, CancellationToken.None).ConfigureAwait(false);
+                await eventBus
+                    .PublishAsync(new DeviceReachabilityChangedEvent(Context.Guild.Id, serverId, entityId,
+                        strobeResult))
+                    .ConfigureAwait(false);
+                await FollowupAsync(SwitchActuationReply.Describe(strobeResult, localizer, culture), ephemeral: true)
+                    .ConfigureAwait(false);
+            }
+
             return;
         }
 
@@ -170,11 +186,23 @@ public sealed class SwitchComponentModule(
         }
 
         await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        var ok = await query.SetSmartSwitchAsync(Context.Guild.Id, serverId, entityId, value, CancellationToken.None)
+        var result = await query
+            .SetSmartSwitchAsync(Context.Guild.Id, serverId, entityId, value, CancellationToken.None)
             .ConfigureAwait(false);
-        if (!ok)
+        if (result != DeviceReachability.Reachable)
         {
-            await FollowupAsync("Switch is unreachable right now.", ephemeral: true).ConfigureAwait(false);
+            var setScope = scopeFactory.CreateAsyncScope();
+            await using (setScope.ConfigureAwait(false))
+            {
+                var culture = await setScope.ServiceProvider.GetRequiredService<IWorkspaceStore>()
+                    .GetCultureAsync(Context.Guild.Id, CancellationToken.None).ConfigureAwait(false);
+                await eventBus
+                    .PublishAsync(new DeviceReachabilityChangedEvent(Context.Guild.Id, serverId, entityId, result))
+                    .ConfigureAwait(false);
+                await FollowupAsync(SwitchActuationReply.Describe(result, localizer, culture), ephemeral: true)
+                    .ConfigureAwait(false);
+            }
+
             return;
         }
 

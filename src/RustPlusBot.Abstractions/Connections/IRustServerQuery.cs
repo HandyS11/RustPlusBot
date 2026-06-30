@@ -79,28 +79,28 @@ public interface IRustServerQuery
         ulong entityId,
         CancellationToken cancellationToken);
 
-    /// <summary>Sets a smart switch on/off; returns false when there is no live socket or the call fails.</summary>
+    /// <summary>Sets a smart switch on/off; returns the reachability reason when the call fails or there is no live socket.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The target server id.</param>
     /// <param name="entityId">The in-game smart-switch entity id.</param>
     /// <param name="value">True to turn on, false to turn off.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>True on success; false when unavailable or the call fails.</returns>
-    Task<bool> SetSmartSwitchAsync(ulong guildId,
+    /// <returns><see cref="DeviceReachability.Reachable"/> on success; the failure reason otherwise.</returns>
+    Task<DeviceReachability> SetSmartSwitchAsync(ulong guildId,
         Guid serverId,
         ulong entityId,
         bool value,
         CancellationToken cancellationToken);
 
-    /// <summary>Strobes a smart switch; returns false when there is no live socket or the call fails.</summary>
+    /// <summary>Strobes a smart switch; returns the reachability reason when the call fails or there is no live socket.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The target server id.</param>
     /// <param name="entityId">The in-game smart-switch entity id.</param>
     /// <param name="timeoutMs">The in-game strobe duration in milliseconds.</param>
     /// <param name="value">The terminal value after strobing.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>True on success; false when unavailable or the call fails.</returns>
-    Task<bool> StrobeSmartSwitchAsync(ulong guildId,
+    /// <returns><see cref="DeviceReachability.Reachable"/> on success; the failure reason otherwise.</returns>
+    Task<DeviceReachability> StrobeSmartSwitchAsync(ulong guildId,
         Guid serverId,
         ulong entityId,
         int timeoutMs,

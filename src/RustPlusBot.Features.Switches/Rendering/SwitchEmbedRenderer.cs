@@ -1,4 +1,5 @@
 using Discord;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Localization;
 
@@ -16,13 +17,22 @@ internal sealed class SwitchEmbedRenderer(ILocalizer localizer)
     public (Embed Embed, MessageComponent Components) RenderSwitch(SmartSwitch sw, bool? isActive, string culture)
     {
         ArgumentNullException.ThrowIfNull(sw);
-        var unreachable = isActive is null;
-        var statusKey = isActive switch
+        var reason = sw.Reachability;
+        var blocked = reason is DeviceReachability.Removed or DeviceReachability.NoPrivilege;
+        var serverDown = reason == DeviceReachability.Reachable && isActive is null;
+        var statusKey = reason switch
         {
-            true => "switch.status.on",
-            false => "switch.status.off",
-            null => "switch.status.unreachable",
+            DeviceReachability.Removed => "switch.status.removed",
+            DeviceReachability.NoPrivilege => "switch.status.noprivilege",
+            DeviceReachability.NoResponse => "switch.status.noresponse",
+            _ => isActive switch
+            {
+                true => "switch.status.on",
+                false => "switch.status.off",
+                null => "switch.status.unreachable",
+            },
         };
+        var controlsDisabled = blocked || serverDown;
 
         var embed = new EmbedBuilder()
             .WithTitle(sw.Name)
@@ -33,13 +43,13 @@ internal sealed class SwitchEmbedRenderer(ILocalizer localizer)
         var tail = $"{sw.ServerId}:{sw.EntityId}";
         var components = new ComponentBuilder()
             .WithButton(localizer.Get("switch.button.on", culture), SwitchComponentIds.OnPrefix + tail,
-                ButtonStyle.Success, disabled: unreachable || isActive == true)
+                ButtonStyle.Success, disabled: controlsDisabled || isActive == true)
             .WithButton(localizer.Get("switch.button.off", culture), SwitchComponentIds.OffPrefix + tail,
-                ButtonStyle.Secondary, disabled: unreachable || isActive == false)
+                ButtonStyle.Secondary, disabled: controlsDisabled || isActive == false)
             .WithButton(localizer.Get("switch.button.strobe", culture), SwitchComponentIds.StrobePrefix + tail,
-                ButtonStyle.Primary, disabled: unreachable)
+                ButtonStyle.Primary, disabled: controlsDisabled)
             .WithButton(localizer.Get("switch.button.rename", culture), SwitchComponentIds.RenamePrefix + tail,
-                ButtonStyle.Secondary, disabled: unreachable)
+                ButtonStyle.Secondary, disabled: controlsDisabled)
             .Build();
 
         return (embed, components);

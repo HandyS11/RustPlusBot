@@ -138,6 +138,49 @@ public sealed class StorageMonitorStateRelayTests
             Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleReachabilityChangedAsync_ForeignEntity_DoesNothing()
+    {
+        var h = Create();
+        h.Store.ExistsAsync(Guild, Server, 99UL, Arg.Any<CancellationToken>()).Returns(false);
+
+        await h.Relay.HandleReachabilityChangedAsync(
+            new DeviceReachabilityChangedEvent(Guild, Server, 99UL, DeviceReachability.Removed),
+            CancellationToken.None);
+
+        await h.Store.DidNotReceive().SetReachabilityAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<DeviceReachability>(), Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleReachabilityChangedAsync_OwnedEntity_PersistsAndRenders()
+    {
+        var h = Create();
+        h.Store.ExistsAsync(Guild, Server, 42UL, Arg.Any<CancellationToken>()).Returns(true);
+        h.Store.GetAsync(Guild, Server, 42UL, Arg.Any<CancellationToken>())
+            .Returns(new SmartStorageMonitor
+            {
+                GuildId = Guild,
+                ServerId = Server,
+                EntityId = 42UL,
+                Name = "TC",
+                MessageId = 900UL,
+                Reachability = DeviceReachability.Removed,
+            });
+
+        await h.Relay.HandleReachabilityChangedAsync(
+            new DeviceReachabilityChangedEvent(Guild, Server, 42UL, DeviceReachability.Removed),
+            CancellationToken.None);
+
+        await h.Store.Received(1).SetReachabilityAsync(Guild, Server, 42UL, DeviceReachability.Removed,
+            Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(555UL, 900UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
     private sealed record Harness(
         StorageMonitorStateRelay Relay,
         IStorageMonitorStore Store,

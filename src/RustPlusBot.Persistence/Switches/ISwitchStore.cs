@@ -1,3 +1,4 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Switches;
 
 namespace RustPlusBot.Persistence.Switches;
@@ -95,6 +96,20 @@ public interface ISwitchStore
         Guid serverId,
         ulong entityId,
         bool isActive,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Sets a device's reachability (no-op if absent).</summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="serverId">The Rust server id.</param>
+    /// <param name="entityId">The in-game smart-switch entity id.</param>
+    /// <param name="reachability">The new reachability value.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the reachability has been persisted.</returns>
+    Task SetReachabilityAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        DeviceReachability reachability,
         CancellationToken cancellationToken = default);
 
     /// <summary>Removes a switch (no-op if absent).</summary>

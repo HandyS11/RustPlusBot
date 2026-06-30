@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.StorageMonitors;
@@ -141,5 +142,20 @@ public sealed class StorageMonitorStoreTests
         await store.RemoveAsync(10UL, serverId, 777UL);
 
         Assert.Null(await store.GetAsync(10UL, serverId, 777UL));
+    }
+
+    [Fact]
+    public async Task SetReachabilityAsync_PersistsTheReachability()
+    {
+        var (store, context, conn) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+        var serverId = await SeedServerAsync(context);
+        await store.AddAsync(1UL, serverId, 777UL, "Box", 5UL);
+
+        await store.SetReachabilityAsync(1UL, serverId, 777UL, DeviceReachability.NoResponse);
+
+        var m = await store.GetAsync(1UL, serverId, 777UL);
+        Assert.Equal(DeviceReachability.NoResponse, m!.Reachability);
     }
 }

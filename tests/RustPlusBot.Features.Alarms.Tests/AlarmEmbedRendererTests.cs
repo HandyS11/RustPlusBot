@@ -1,5 +1,6 @@
 using Discord;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Features.Alarms.Rendering;
@@ -270,6 +271,65 @@ public sealed class AlarmEmbedRendererTests
         var (embed, _) = Create().RenderPrompt(Guid.NewGuid(), 1UL, "Alarme Test", "fr");
 
         Assert.Contains("détectée", embed.Title ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    // ── Per-device reachability reason ───────────────────────────────────────
+
+    [Theory]
+    [InlineData(DeviceReachability.Removed, "Removed")]
+    [InlineData(DeviceReachability.NoPrivilege, "privilege")]
+    [InlineData(DeviceReachability.NoResponse, "response")]
+    public void RenderAlarm_non_reachable_shows_reason_status(DeviceReachability reachability, string expectedFragment)
+    {
+        var alarm = new SmartAlarm
+        {
+            GuildId = 10UL,
+            ServerId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            EntityId = 42UL,
+            Name = "Trap",
+            Reachability = reachability,
+        };
+        var (embed, _) = Create().RenderAlarm(alarm, unreachable: false, "en");
+
+        Assert.Contains(expectedFragment, embed.Description ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(DeviceReachability.Removed)]
+    [InlineData(DeviceReachability.NoPrivilege)]
+    public void RenderAlarm_removed_or_noprivilege_disables_buttons(DeviceReachability reachability)
+    {
+        var alarm = new SmartAlarm
+        {
+            GuildId = 10UL,
+            ServerId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            EntityId = 42UL,
+            Name = "Trap",
+            Reachability = reachability,
+        };
+        var (_, components) = Create().RenderAlarm(alarm, unreachable: false, "en");
+        var buttons = Buttons(components);
+
+        Assert.NotEmpty(buttons);
+        Assert.All(buttons, b => Assert.True(b.IsDisabled));
+    }
+
+    [Fact]
+    public void RenderAlarm_noresponse_leaves_buttons_enabled()
+    {
+        var alarm = new SmartAlarm
+        {
+            GuildId = 10UL,
+            ServerId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            EntityId = 42UL,
+            Name = "Trap",
+            Reachability = DeviceReachability.NoResponse,
+        };
+        var (_, components) = Create().RenderAlarm(alarm, unreachable: false, "en");
+        var buttons = Buttons(components);
+
+        Assert.NotEmpty(buttons);
+        Assert.All(buttons, b => Assert.False(b.IsDisabled));
     }
 
     [Fact]

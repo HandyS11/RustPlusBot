@@ -1,3 +1,5 @@
+using RustPlusBot.Abstractions.Connections;
+
 namespace RustPlusBot.Domain.Switches;
 
 /// <summary>A paired Smart Switch the bot manages, surviving restarts. Guild- and server-scoped.</summary>
@@ -29,4 +31,7 @@ public sealed class SmartSwitch
 
     /// <summary>When the switch was accepted (UTC).</summary>
     public DateTimeOffset CreatedUtc { get; set; }
+
+    /// <summary>Per-device reachability; defaults to Reachable. Orthogonal to whole-server connection status.</summary>
+    public DeviceReachability Reachability { get; set; } = DeviceReachability.Reachable;
 }

@@ -1,3 +1,4 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Alarms;
 
 namespace RustPlusBot.Persistence.Alarms;
@@ -125,6 +126,20 @@ public interface IAlarmStore
         ulong entityId,
         bool isActive,
         DateTimeOffset? triggeredUtc,
+        CancellationToken ct = default);
+
+    /// <summary>Sets a device's reachability (no-op if absent).</summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="serverId">The Rust server id.</param>
+    /// <param name="entityId">The in-game smart-alarm entity id.</param>
+    /// <param name="reachability">The new reachability value.</param>
+    /// <param name="ct">A cancellation token.</param>
+    /// <returns>A task that completes when the reachability has been persisted.</returns>
+    Task SetReachabilityAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        DeviceReachability reachability,
         CancellationToken ct = default);
 
     /// <summary>Removes an alarm (no-op if absent).</summary>

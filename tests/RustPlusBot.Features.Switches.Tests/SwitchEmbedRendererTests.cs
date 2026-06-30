@@ -1,4 +1,5 @@
 using Discord;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Features.Switches.Rendering;
 using RustPlusBot.Localization;
@@ -66,6 +67,61 @@ public sealed class SwitchEmbedRendererTests
     {
         var (embed, _) = Create().RenderSwitch(Sample(), isActive: true, "fr");
         Assert.Contains("ALLUMÉ", embed.Description ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(DeviceReachability.Removed, "Removed in-game")]
+    [InlineData(DeviceReachability.NoPrivilege, "No building privilege")]
+    [InlineData(DeviceReachability.NoResponse, "No response")]
+    public void RenderSwitch_NonReachable_ShowsReasonStatus(DeviceReachability reachability, string expectedText)
+    {
+        var sw = new SmartSwitch
+        {
+            GuildId = 10UL,
+            ServerId = Guid.NewGuid(),
+            EntityId = 42UL,
+            Name = "Door",
+            Reachability = reachability,
+        };
+        var (embed, _) = Create().RenderSwitch(sw, isActive: true, "en");
+        Assert.Contains(expectedText, embed.Description ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RenderSwitch_NoResponse_keeps_controls_enabled()
+    {
+        var sw = new SmartSwitch
+        {
+            GuildId = 10UL,
+            ServerId = Guid.NewGuid(),
+            EntityId = 42UL,
+            Name = "Door",
+            Reachability = DeviceReachability.NoResponse,
+        };
+        var (_, components) = Create().RenderSwitch(sw, isActive: false, "en");
+        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components)
+            .OfType<ButtonComponent>().ToList();
+        // NoResponse is transient — controls remain enabled
+        Assert.False(buttons.All(b => b.IsDisabled));
+    }
+
+    [Theory]
+    [InlineData(DeviceReachability.Removed)]
+    [InlineData(DeviceReachability.NoPrivilege)]
+    public void RenderSwitch_BlockedReachability_disables_all_control_buttons(DeviceReachability reachability)
+    {
+        var sw = new SmartSwitch
+        {
+            GuildId = 10UL,
+            ServerId = Guid.NewGuid(),
+            EntityId = 42UL,
+            Name = "Door",
+            Reachability = reachability,
+        };
+        var (_, components) = Create().RenderSwitch(sw, isActive: true, "en");
+        var buttons = components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components)
+            .OfType<ButtonComponent>().ToList();
+        Assert.All(buttons, b => Assert.True(b.IsDisabled));
     }
 
     [Fact]

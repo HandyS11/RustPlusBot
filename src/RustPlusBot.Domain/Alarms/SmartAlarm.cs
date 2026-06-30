@@ -1,3 +1,5 @@
+using RustPlusBot.Abstractions.Connections;
+
 namespace RustPlusBot.Domain.Alarms;
 
 /// <summary>A paired Smart Alarm the bot manages, surviving restarts. Guild- and server-scoped. Driven by the live socket (primed on connect, reacts to SmartDeviceTriggered) — the entity id is the switch-vs-alarm discriminant.</summary>
@@ -38,4 +40,7 @@ public sealed class SmartAlarm
 
     /// <summary>When the alarm most recently went active (UTC), or null if never triggered.</summary>
     public DateTimeOffset? LastTriggeredUtc { get; set; }
+
+    /// <summary>Per-device reachability; defaults to Reachable. Orthogonal to whole-server connection status.</summary>
+    public DeviceReachability Reachability { get; set; } = DeviceReachability.Reachable;
 }

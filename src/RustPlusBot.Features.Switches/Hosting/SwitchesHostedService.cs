@@ -20,6 +20,7 @@ internal sealed partial class SwitchesHostedService(
     private readonly CancellationTokenSource _cts = new();
     private Task? _deviceLoop;
     private Task? _pairedLoop;
+    private Task? _reachabilityLoop;
     private Task? _stateLoop;
     private Task? _statusLoop;
 
@@ -33,6 +34,7 @@ internal sealed partial class SwitchesHostedService(
         _stateLoop = Task.Run(() => ConsumeStateAsync(_cts.Token), CancellationToken.None);
         _statusLoop = Task.Run(() => ConsumeStatusAsync(_cts.Token), CancellationToken.None);
         _deviceLoop = Task.Run(() => ConsumeDeviceTriggeredAsync(_cts.Token), CancellationToken.None);
+        _reachabilityLoop = Task.Run(() => ConsumeReachabilityChangedAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
 
@@ -42,7 +44,7 @@ internal sealed partial class SwitchesHostedService(
         await _cts.CancelAsync().ConfigureAwait(false);
         foreach (var loop in new[]
                  {
-                     _pairedLoop, _stateLoop, _statusLoop, _deviceLoop
+                     _pairedLoop, _stateLoop, _statusLoop, _deviceLoop, _reachabilityLoop
                  }.Where(t => t is not null))
         {
             try
@@ -146,6 +148,28 @@ internal sealed partial class SwitchesHostedService(
         }
     }
 
+    private async Task ConsumeReachabilityChangedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<DeviceReachabilityChangedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await relay.HandleReachabilityChangedAsync(evt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogReachabilityLoopFaulted(logger, ex);
+        }
+    }
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Switch device-triggered relay loop faulted.")]
     private static partial void LogDeviceLoopFaulted(ILogger logger, Exception exception);
 
@@ -157,4 +181,7 @@ internal sealed partial class SwitchesHostedService(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Switch connection-status relay loop faulted.")]
     private static partial void LogStatusLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Switch reachability relay loop faulted.")]
+    private static partial void LogReachabilityLoopFaulted(ILogger logger, Exception exception);
 }

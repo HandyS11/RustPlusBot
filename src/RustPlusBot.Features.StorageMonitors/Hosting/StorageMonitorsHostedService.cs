@@ -6,7 +6,7 @@ using RustPlusBot.Features.StorageMonitors.Relaying;
 
 namespace RustPlusBot.Features.StorageMonitors.Hosting;
 
-/// <summary>Runs the storage-monitor pairing loop, the triggered relay loop, and the connection-status relay loop.</summary>
+/// <summary>Runs the storage-monitor pairing loop, the triggered relay loop, the connection-status relay loop, and the reachability relay loop.</summary>
 /// <param name="eventBus">The in-process event bus.</param>
 /// <param name="coordinator">Handles paired storage monitors.</param>
 /// <param name="relay">Re-renders storage monitors on trigger/connection changes.</param>
@@ -19,6 +19,7 @@ internal sealed partial class StorageMonitorsHostedService(
 {
     private readonly CancellationTokenSource _cts = new();
     private Task? _pairedLoop;
+    private Task? _reachabilityLoop;
     private Task? _statusLoop;
     private Task? _triggeredLoop;
 
@@ -31,6 +32,7 @@ internal sealed partial class StorageMonitorsHostedService(
         _pairedLoop = Task.Run(() => ConsumePairedAsync(_cts.Token), CancellationToken.None);
         _triggeredLoop = Task.Run(() => ConsumeTriggeredAsync(_cts.Token), CancellationToken.None);
         _statusLoop = Task.Run(() => ConsumeStatusAsync(_cts.Token), CancellationToken.None);
+        _reachabilityLoop = Task.Run(() => ConsumeReachabilityChangedAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
 
@@ -40,7 +42,7 @@ internal sealed partial class StorageMonitorsHostedService(
         await _cts.CancelAsync().ConfigureAwait(false);
         foreach (var loop in new[]
                  {
-                     _pairedLoop, _triggeredLoop, _statusLoop
+                     _pairedLoop, _triggeredLoop, _statusLoop, _reachabilityLoop
                  }.Where(t => t is not null))
         {
             try
@@ -122,6 +124,28 @@ internal sealed partial class StorageMonitorsHostedService(
         }
     }
 
+    private async Task ConsumeReachabilityChangedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<DeviceReachabilityChangedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await relay.HandleReachabilityChangedAsync(evt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogReachabilityLoopFaulted(logger, ex);
+        }
+    }
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Storage monitor pairing loop faulted.")]
     private static partial void LogPairedLoopFaulted(ILogger logger, Exception exception);
 
@@ -130,4 +154,7 @@ internal sealed partial class StorageMonitorsHostedService(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Storage monitor connection-status relay loop faulted.")]
     private static partial void LogStatusLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Storage monitor reachability relay loop faulted.")]
+    private static partial void LogReachabilityLoopFaulted(ILogger logger, Exception exception);
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.StorageMonitors;
 
@@ -100,6 +101,15 @@ public sealed class StorageMonitorStore(BotDbContext context, IClock clock) : IS
         ulong messageId,
         CancellationToken cancellationToken = default) =>
         MutateAsync(guildId, serverId, entityId, s => s.MessageId = messageId, cancellationToken);
+
+    /// <inheritdoc />
+    public Task SetReachabilityAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        DeviceReachability reachability,
+        CancellationToken cancellationToken = default) =>
+        MutateAsync(guildId, serverId, entityId, s => s.Reachability = reachability, cancellationToken);
 
     /// <inheritdoc />
     public async Task RemoveAsync(

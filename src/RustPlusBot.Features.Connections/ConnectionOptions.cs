@@ -41,4 +41,7 @@ public sealed class ConnectionOptions
 
     /// <summary>Movement tolerance (world units) below which a member is considered still. Default 1.</summary>
     public float AfkEpsilon { get; set; } = 1f;
+
+    /// <summary>How often to poll managed devices for reachability changes while connected. Default 5m.</summary>
+    public TimeSpan ReachabilityPollInterval { get; set; } = TimeSpan.FromMinutes(5);
 }

@@ -263,8 +263,10 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        return await live.Connection.GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
+        var reading = await live.Connection
+            .GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
+        return reading.IsActive;
     }
 
     /// <inheritdoc />
@@ -279,13 +281,14 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        return await live.Connection
+        var reading = await live.Connection
             .GetStorageMonitorInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
+        return reading.Contents;
     }
 
     /// <inheritdoc />
-    public async Task<bool> SetSmartSwitchAsync(
+    public async Task<DeviceReachability> SetSmartSwitchAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
@@ -294,7 +297,7 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return false;
+            return DeviceReachability.NoResponse;
         }
 
         return await live.Connection
@@ -303,7 +306,7 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
-    public async Task<bool> StrobeSmartSwitchAsync(
+    public async Task<DeviceReachability> StrobeSmartSwitchAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
@@ -313,7 +316,7 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return false;
+            return DeviceReachability.NoResponse;
         }
 
         return await live.Connection
@@ -515,6 +518,8 @@ internal sealed partial class ConnectionSupervisor(
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
             CancellationToken.None);
+        var reachabilityPoll = Task.Run(() => PollReachabilityAsync(key, connection, pollCts.Token),
+            CancellationToken.None);
         try
         {
             return await RunHeartbeatLoopAsync(key, connection, credentialId, ct).ConfigureAwait(false);
@@ -524,8 +529,8 @@ internal sealed partial class ConnectionSupervisor(
             await pollCts.CancelAsync().ConfigureAwait(false);
             try
             {
-#pragma warning disable VSTHRD003 // Suppress: markerPoll is owned by this connected window and explicitly joined on exit.
-                await markerPoll.ConfigureAwait(false);
+#pragma warning disable VSTHRD003 // Suppress: markerPoll and reachabilityPoll are owned by this connected window and explicitly joined on exit.
+                await Task.WhenAll(markerPoll, reachabilityPoll).ConfigureAwait(false);
 #pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)
@@ -626,6 +631,91 @@ internal sealed partial class ConnectionSupervisor(
             var delay = anyCh47 ? _options.MarkerPollFastInterval : _options.MarkerPollInterval;
             await Task.Delay(delay, ct).ConfigureAwait(false);
         }
+    }
+
+    private async Task PollReachabilityAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        CancellationToken ct)
+    {
+        var previous = new Dictionary<ulong, DeviceReachability>();
+        var seeded = false;
+        while (!ct.IsCancellationRequested)
+        {
+            await Task.Delay(_options.ReachabilityPollInterval, ct).ConfigureAwait(false);
+            Dictionary<ulong, DeviceReachability> current;
+            try
+            {
+                current = await ReadAllReachabilityAsync(key, connection, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+#pragma warning disable CA1031 // Broad catch: a failed reachability sweep is logged and retried next cycle.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogReachabilityPollFailed(logger, ex, key.Server);
+                continue;
+            }
+
+            if (!seeded)
+            {
+                foreach (var kvp in current)
+                {
+                    previous[kvp.Key] = kvp.Value;
+                }
+
+                seeded = true;
+                continue; // first cycle: silent baseline
+            }
+
+            foreach (var change in ReachabilitySweep.Diff(previous, current))
+            {
+                previous[change.Key] = change.Value;
+                await eventBus.PublishAsync(
+                        new DeviceReachabilityChangedEvent(key.Guild, key.Server, change.Key, change.Value), ct)
+                    .ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task<Dictionary<ulong, DeviceReachability>> ReadAllReachabilityAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        CancellationToken ct)
+    {
+        var result = new Dictionary<ulong, DeviceReachability>();
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var switches = await scope.ServiceProvider.GetRequiredService<ISwitchStore>()
+                .ListByServerAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+            var alarms = await scope.ServiceProvider.GetRequiredService<IAlarmStore>()
+                .ListByServerAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+            var monitors = await scope.ServiceProvider.GetRequiredService<IStorageMonitorStore>()
+                .ListByServerAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
+
+            foreach (var entityId in switches.Select(s => s.EntityId).Concat(alarms.Select(a => a.EntityId)))
+            {
+                var reading = await connection.GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, ct)
+                    .ConfigureAwait(false);
+                result[entityId] = reading.Reachability;
+            }
+
+#pragma warning disable S3267 // Not a projection: each iteration awaits with per-monitor best-effort error handling.
+            foreach (var monitor in monitors)
+#pragma warning restore S3267
+            {
+                var reading = await connection
+                    .GetStorageMonitorInfoAsync(monitor.EntityId, _options.HeartbeatTimeout, ct)
+                    .ConfigureAwait(false);
+                result[monitor.EntityId] = reading.Reachability;
+            }
+        }
+
+        return result;
     }
 
     private async Task DetectRigActivationsAsync(
@@ -1012,13 +1102,20 @@ internal sealed partial class ConnectionSupervisor(
 
         try
         {
-            var isActive = await connection
+            var reading = await connection
                 .GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
                 .ConfigureAwait(false);
             await eventBus.PublishAsync(
-                    new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId, isActive ?? false),
+                    new DeviceReachabilityChangedEvent(key.Guild, key.Server, entityId, reading.Reachability),
                     _shutdown.Token)
                 .ConfigureAwait(false);
+            if (reading.Reachability == DeviceReachability.Reachable)
+            {
+                await eventBus.PublishAsync(
+                        new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId, reading.IsActive ?? false),
+                        _shutdown.Token)
+                    .ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1077,18 +1174,20 @@ internal sealed partial class ConnectionSupervisor(
 
         try
         {
-            var contents = await connection
+            var reading = await connection
                 .GetStorageMonitorInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
                 .ConfigureAwait(false);
-            if (contents is null)
-            {
-                return; // unreachable read; the relay leaves the embed as-is (or unreachable via status events).
-            }
-
             await eventBus.PublishAsync(
-                    new StorageMonitorTriggeredEvent(key.Guild, key.Server, entityId, contents),
+                    new DeviceReachabilityChangedEvent(key.Guild, key.Server, entityId, reading.Reachability),
                     _shutdown.Token)
                 .ConfigureAwait(false);
+            if (reading.Reachability == DeviceReachability.Reachable && reading.Contents is { } contents)
+            {
+                await eventBus.PublishAsync(
+                        new StorageMonitorTriggeredEvent(key.Guild, key.Server, entityId, contents),
+                        _shutdown.Token)
+                    .ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1104,6 +1203,9 @@ internal sealed partial class ConnectionSupervisor(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Marker poll for server {ServerId} failed.")]
     private static partial void LogMarkerPollFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reachability poll for server {ServerId} failed.")]
+    private static partial void LogReachabilityPollFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message =
