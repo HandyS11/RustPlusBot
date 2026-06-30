@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Domain.Servers;
 
@@ -16,6 +17,10 @@ internal sealed class SmartAlarmConfiguration : IEntityTypeConfiguration<SmartAl
         {
             a.GuildId, a.ServerId, a.EntityId
         }).IsUnique();
+
+        builder.Property(a => a.Reachability)
+            .HasConversion<int>()
+            .HasDefaultValue(DeviceReachability.Reachable);
 
         // Removing a RustServer cascades to its alarms so no orphaned rows linger.
         builder.HasOne<RustServer>()

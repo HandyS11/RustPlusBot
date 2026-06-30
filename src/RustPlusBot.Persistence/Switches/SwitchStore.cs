@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Switches;
 
@@ -110,6 +111,15 @@ public sealed class SwitchStore(BotDbContext context, IClock clock) : ISwitchSto
         bool isActive,
         CancellationToken cancellationToken = default) =>
         MutateAsync(guildId, serverId, entityId, s => s.LastIsActive = isActive, cancellationToken);
+
+    /// <inheritdoc />
+    public Task SetReachabilityAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        DeviceReachability reachability,
+        CancellationToken cancellationToken = default) =>
+        MutateAsync(guildId, serverId, entityId, s => s.Reachability = reachability, cancellationToken);
 
     /// <inheritdoc />
     public async Task RemoveAsync(

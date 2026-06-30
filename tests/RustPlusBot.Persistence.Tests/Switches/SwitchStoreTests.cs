@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Switches;
@@ -145,5 +146,20 @@ public sealed class SwitchStoreTests
         await store.RemoveAsync(10UL, serverId, 42UL);
 
         Assert.Null(await store.GetAsync(10UL, serverId, 42UL));
+    }
+
+    [Fact]
+    public async Task SetReachabilityAsync_PersistsTheReachability()
+    {
+        var (store, context, conn) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+        var serverId = await SeedServerAsync(context);
+        await store.AddAsync(1UL, serverId, 42UL, "Door", 7UL);
+
+        await store.SetReachabilityAsync(1UL, serverId, 42UL, DeviceReachability.Removed);
+
+        var sw = await store.GetAsync(1UL, serverId, 42UL);
+        Assert.Equal(DeviceReachability.Removed, sw!.Reachability);
     }
 }

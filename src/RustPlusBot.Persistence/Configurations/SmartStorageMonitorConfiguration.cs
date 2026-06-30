@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.StorageMonitors;
 
@@ -16,6 +17,10 @@ internal sealed class SmartStorageMonitorConfiguration : IEntityTypeConfiguratio
         {
             s.GuildId, s.ServerId, s.EntityId
         }).IsUnique();
+
+        builder.Property(s => s.Reachability)
+            .HasConversion<int>()
+            .HasDefaultValue(DeviceReachability.Reachable);
 
         // Removing a RustServer cascades to its storage monitors so no orphaned rows linger.
         builder.HasOne<RustServer>()

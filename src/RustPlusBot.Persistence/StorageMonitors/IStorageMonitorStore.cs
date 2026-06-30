@@ -1,3 +1,4 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.StorageMonitors;
 
 namespace RustPlusBot.Persistence.StorageMonitors;
@@ -81,6 +82,20 @@ public interface IStorageMonitorStore
         Guid serverId,
         ulong entityId,
         ulong messageId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Sets a device's reachability (no-op if absent).</summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="serverId">The Rust server id.</param>
+    /// <param name="entityId">The in-game storage-monitor entity id.</param>
+    /// <param name="reachability">The new reachability value.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the reachability has been persisted.</returns>
+    Task SetReachabilityAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        DeviceReachability reachability,
         CancellationToken cancellationToken = default);
 
     /// <summary>Removes a storage monitor (no-op if absent).</summary>

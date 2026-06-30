@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
 
@@ -135,6 +136,15 @@ public sealed class AlarmStore(BotDbContext context, IClock clock) : IAlarmStore
                 a.LastTriggeredUtc = t;
             }
         }, ct);
+
+    /// <inheritdoc />
+    public Task SetReachabilityAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        DeviceReachability reachability,
+        CancellationToken ct = default) =>
+        MutateAsync(guildId, serverId, entityId, a => a.Reachability = reachability, ct);
 
     /// <inheritdoc />
     public async Task RemoveAsync(
