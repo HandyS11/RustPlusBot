@@ -29,12 +29,29 @@ internal static class DatasetValidator
         var errors = new List<string>();
         var ids = new HashSet<int>(dataset.Items.Select(i => i.Id));
 
+        ValidateItemCount(dataset, options, errors);
+        ValidateRecycleReferences(dataset, ids, errors);
+        ValidateCraftReferences(dataset, ids, errors);
+        ValidateUpkeep(dataset, ids, errors);
+        ValidateDecay(dataset, errors);
+        ValidateRaidTargets(dataset, ids, options, errors);
+        ValidateSmelters(dataset, ids, options, errors);
+        ValidateCctv(dataset, options, errors);
+
+        return errors;
+    }
+
+    private static void ValidateItemCount(ItemDataset dataset, ValidationOptions options, List<string> errors)
+    {
         if (dataset.Items.Count < options.MinItemCount)
         {
             errors.Add(
                 $"item count {dataset.Items.Count} below minimum {options.MinItemCount}");
         }
+    }
 
+    private static void ValidateRecycleReferences(ItemDataset dataset, HashSet<int> ids, List<string> errors)
+    {
         foreach (var item in dataset.Items.Where(i => i.Recycle is not null))
         {
             foreach (var entry in item.Recycle!.Recycler.Where(e => !ids.Contains(e.ItemId)))
@@ -43,7 +60,10 @@ internal static class DatasetValidator
                     $"item {item.Id} ({item.Name}): recycle yield references unknown id {entry.ItemId}");
             }
         }
+    }
 
+    private static void ValidateCraftReferences(ItemDataset dataset, HashSet<int> ids, List<string> errors)
+    {
         foreach (var item in dataset.Items.Where(i => i.Craft is not null))
         {
             foreach (var ingredient in item.Craft!.Ingredients.Where(ing => !ids.Contains(ing.ItemId)))
@@ -52,7 +72,10 @@ internal static class DatasetValidator
                     $"item {item.Id} ({item.Name}): craft ingredient references unknown id {ingredient.ItemId}");
             }
         }
+    }
 
+    private static void ValidateUpkeep(ItemDataset dataset, HashSet<int> ids, List<string> errors)
+    {
         foreach (var item in dataset.Items.Where(i => i.Upkeep is not null))
         {
             foreach (var entry in item.Upkeep!.Entries)
@@ -70,7 +93,10 @@ internal static class DatasetValidator
                 }
             }
         }
+    }
 
+    private static void ValidateDecay(ItemDataset dataset, List<string> errors)
+    {
         foreach (var item in dataset.Items.Where(i => i.Decay is not null))
         {
             var decay = item.Decay!;
@@ -80,7 +106,13 @@ internal static class DatasetValidator
                 errors.Add($"item {item.Id} ({item.Name}): decay has a negative value");
             }
         }
+    }
 
+    private static void ValidateRaidTargets(ItemDataset dataset,
+        HashSet<int> ids,
+        ValidationOptions options,
+        List<string> errors)
+    {
         var raid = dataset.RaidTargets ?? [];
         if (raid.Count < options.MinRaidTargetCount)
         {
@@ -102,7 +134,13 @@ internal static class DatasetValidator
                 }
             }
         }
+    }
 
+    private static void ValidateSmelters(ItemDataset dataset,
+        HashSet<int> ids,
+        ValidationOptions options,
+        List<string> errors)
+    {
         var smelters = dataset.Smelters ?? [];
         if (smelters.Count < options.MinSmelterCount)
         {
@@ -150,7 +188,10 @@ internal static class DatasetValidator
                 }
             }
         }
+    }
 
+    private static void ValidateCctv(ItemDataset dataset, ValidationOptions options, List<string> errors)
+    {
         var cctv = dataset.Cctv ?? [];
         if (cctv.Count < options.MinCctvCount)
         {
@@ -174,7 +215,5 @@ internal static class DatasetValidator
                 errors.Add($"cctv monument {monument.Name}: has an empty code");
             }
         }
-
-        return errors;
     }
 }
