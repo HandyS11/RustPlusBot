@@ -20,9 +20,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 {
     private readonly ConcurrentQueue<SocketConnectOutcome> _connectOutcomes = new();
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
+    private readonly Dictionary<ulong, DeviceReachability> _pendingDeviceReachabilityOverrides = [];
     private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _pendingMarkerScript = new();
     private readonly Dictionary<ulong, StorageContentsSnapshot?> _pendingStorageContents = [];
-    private readonly Dictionary<ulong, DeviceReachability> _pendingDeviceReachabilityOverrides = [];
     private int _createCount;
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
@@ -245,9 +245,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
-            var reachability = DeviceReachabilityOverrides.TryGetValue(entityId, out var r) ? r : DeviceReachability.Reachable;
+            var reachability = DeviceReachabilityOverrides.TryGetValue(entityId, out var r)
+                ? r
+                : DeviceReachability.Reachable;
             var state = SwitchStates.TryGetValue(entityId, out var s) ? s : null;
-            return Task.FromResult(new DeviceReading(reachability == DeviceReachability.Reachable ? state : null, reachability));
+            return Task.FromResult(new DeviceReading(reachability == DeviceReachability.Reachable ? state : null,
+                reachability));
         }
 #pragma warning restore RCS1163
 
@@ -256,9 +259,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
-            var reachability = DeviceReachabilityOverrides.TryGetValue(entityId, out var r) ? r : DeviceReachability.Reachable;
+            var reachability = DeviceReachabilityOverrides.TryGetValue(entityId, out var r)
+                ? r
+                : DeviceReachability.Reachable;
             var contents = StorageContents.TryGetValue(entityId, out var c) ? c : null;
-            return Task.FromResult(new StorageReading(reachability == DeviceReachability.Reachable ? contents : null, reachability));
+            return Task.FromResult(new StorageReading(reachability == DeviceReachability.Reachable ? contents : null,
+                reachability));
         }
 #pragma warning restore RCS1163
 

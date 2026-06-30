@@ -10,7 +10,10 @@ public sealed class ReachabilitySweepTests
     [Fact]
     public void Diff_FirstObservedRemoved_IsReported()
     {
-        var current = new Dictionary<ulong, DeviceReachability> { [1] = DeviceReachability.Removed };
+        var current = new Dictionary<ulong, DeviceReachability>
+        {
+            [1] = DeviceReachability.Removed
+        };
         var changes = ReachabilitySweep.Diff(new Dictionary<ulong, DeviceReachability>(), current);
         // 1 went from (absent==Reachable default) to Removed
         Assert.Single(changes);
@@ -22,8 +25,7 @@ public sealed class ReachabilitySweepTests
     {
         var previous = new Dictionary<ulong, DeviceReachability>
         {
-            [1] = DeviceReachability.Removed,
-            [2] = DeviceReachability.Reachable,
+            [1] = DeviceReachability.Removed, [2] = DeviceReachability.Reachable,
         };
         var current = new Dictionary<ulong, DeviceReachability>
         {
@@ -40,7 +42,10 @@ public sealed class ReachabilitySweepTests
     [Fact]
     public void Diff_NoChanges_ReturnsEmpty()
     {
-        var same = new Dictionary<ulong, DeviceReachability> { [1] = DeviceReachability.Reachable };
+        var same = new Dictionary<ulong, DeviceReachability>
+        {
+            [1] = DeviceReachability.Reachable
+        };
         Assert.Empty(ReachabilitySweep.Diff(same, new Dictionary<ulong, DeviceReachability>(same)));
     }
 }

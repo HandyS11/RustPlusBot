@@ -60,6 +60,15 @@
   <data name="alarm.status.armed" xml:space="preserve">
     <value>🔔 Armed</value>
   </data>
+  <data name="alarm.status.noprivilege" xml:space="preserve">
+    <value>⛔ No building privilege</value>
+  </data>
+  <data name="alarm.status.noresponse" xml:space="preserve">
+    <value>⚠️ No response</value>
+  </data>
+  <data name="alarm.status.removed" xml:space="preserve">
+    <value>❌ Removed in-game</value>
+  </data>
   <data name="alarm.status.unreachable" xml:space="preserve">
     <value>⚠️ Unreachable</value>
   </data>

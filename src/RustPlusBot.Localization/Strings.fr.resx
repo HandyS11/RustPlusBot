@@ -60,6 +60,15 @@
   <data name="alarm.status.armed" xml:space="preserve">
     <value>🔔 Armée</value>
   </data>
+  <data name="alarm.status.noprivilege" xml:space="preserve">
+    <value>⛔ Aucun privilège de construction</value>
+  </data>
+  <data name="alarm.status.noresponse" xml:space="preserve">
+    <value>⚠️ Aucune réponse</value>
+  </data>
+  <data name="alarm.status.removed" xml:space="preserve">
+    <value>❌ Supprimé en jeu</value>
+  </data>
   <data name="alarm.status.unreachable" xml:space="preserve">
     <value>⚠️ Injoignable</value>
   </data>

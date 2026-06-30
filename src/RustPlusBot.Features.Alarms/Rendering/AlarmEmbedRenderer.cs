@@ -1,5 +1,6 @@
 using System.Globalization;
 using Discord;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Localization;
@@ -22,7 +23,19 @@ internal sealed class AlarmEmbedRenderer(ILocalizer localizer, IClock clock)
 
         string statusKey;
 #pragma warning disable IDE0045 // Collapsing to a nested ternary trips RCS1238/S3358 (nested conditional); the if/else chain is intentional.
-        if (unreachable)
+        if (alarm.Reachability == DeviceReachability.Removed)
+        {
+            statusKey = "alarm.status.removed";
+        }
+        else if (alarm.Reachability == DeviceReachability.NoPrivilege)
+        {
+            statusKey = "alarm.status.noprivilege";
+        }
+        else if (alarm.Reachability == DeviceReachability.NoResponse)
+        {
+            statusKey = "alarm.status.noresponse";
+        }
+        else if (unreachable)
         {
             statusKey = "alarm.status.unreachable";
         }
@@ -35,6 +48,11 @@ internal sealed class AlarmEmbedRenderer(ILocalizer localizer, IClock clock)
             statusKey = "alarm.status.armed";
         }
 #pragma warning restore IDE0045
+
+        // Removed and NoPrivilege disable controls (device is gone or locked); NoResponse leaves them enabled
+        // so the user can still interact while the device is temporarily unresponsive.
+        var blocked = alarm.Reachability is DeviceReachability.Removed or DeviceReachability.NoPrivilege;
+        var disableButtons = unreachable || blocked;
 
         var triggered = alarm.LastTriggeredUtc is { } t
             ? localizer.Get("alarm.embed.lasttriggered", culture, CompactDuration(clock.UtcNow - t))
@@ -51,11 +69,11 @@ internal sealed class AlarmEmbedRenderer(ILocalizer localizer, IClock clock)
         var relayKey = alarm.RelayToTeamChat ? "alarm.button.relay.on" : "alarm.button.relay.off";
         var components = new ComponentBuilder()
             .WithButton(localizer.Get(pingKey, culture), AlarmComponentIds.PingTogglePrefix + tail,
-                alarm.PingEveryone ? ButtonStyle.Success : ButtonStyle.Secondary, disabled: unreachable)
+                alarm.PingEveryone ? ButtonStyle.Success : ButtonStyle.Secondary, disabled: disableButtons)
             .WithButton(localizer.Get(relayKey, culture), AlarmComponentIds.RelayTogglePrefix + tail,
-                alarm.RelayToTeamChat ? ButtonStyle.Success : ButtonStyle.Secondary, disabled: unreachable)
+                alarm.RelayToTeamChat ? ButtonStyle.Success : ButtonStyle.Secondary, disabled: disableButtons)
             .WithButton(localizer.Get("alarm.button.rename", culture), AlarmComponentIds.RenamePrefix + tail,
-                ButtonStyle.Secondary, disabled: unreachable)
+                ButtonStyle.Secondary, disabled: disableButtons)
             .Build();
 
         return (embed, components);

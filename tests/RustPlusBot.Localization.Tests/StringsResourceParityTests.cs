@@ -42,6 +42,6 @@ public sealed class StringsResourceParityTests
     [Fact]
     public void Catalog_has_expected_key_count()
     {
-        Assert.Equal(251, EnglishKeys().Count);
+        Assert.Equal(254, EnglishKeys().Count);
     }
 }

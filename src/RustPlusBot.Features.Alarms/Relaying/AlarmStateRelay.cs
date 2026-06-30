@@ -10,6 +10,7 @@ using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Connections;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Alarms.Relaying;
@@ -132,6 +133,39 @@ internal sealed partial class AlarmStateRelay(
                 await refresher.RefreshAsync(alarm, unreachable: true, ct).ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// Handles a per-device reachability change: if the entity belongs to a managed alarm, persists the new
+    /// reachability and triggers a refresh. Foreign entities are silently ignored.
+    /// </summary>
+    /// <param name="evt">The device-reachability-changed event.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the embed has been re-rendered (or the entity was ignored).</returns>
+    public async Task HandleReachabilityChangedAsync(
+        DeviceReachabilityChangedEvent evt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evt);
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
+            if (!await store.ExistsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return; // not an alarm this relay manages — ignore.
+            }
+
+            await store.SetReachabilityAsync(evt.GuildId, evt.ServerId, evt.EntityId, evt.Reachability,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        // The refresher re-loads + renders; server-down 'unreachable' stays false here — the connection-status
+        // path owns that flag. The renderer reads alarm.Reachability for the per-device reason.
+        await refresher.RefreshAsync(evt.GuildId, evt.ServerId, evt.EntityId, unreachable: false, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task RelayToTeamChatSafeAsync(SmartDeviceTriggeredEvent evt, string name, CancellationToken ct)

@@ -263,7 +263,8 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        var reading = await live.Connection.GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
+        var reading = await live.Connection
+            .GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
         return reading.IsActive;
     }
