@@ -114,33 +114,8 @@ public sealed class SwitchPrimingTests
         await using var disposeProvider = provider;
         var serverId = await SeedServerWithActiveAndSwitchAsync(provider, entityId: 42UL);
 
-        // Configure the fake's reachability override so GetSmartDeviceInfoAsync returns Removed for entity 42.
-        // This must be staged before EnsureConnectionAsync so it's in place when the prime loop runs.
-        // FakeConnection is created inside Create(), so we stage via the source's pre-connect hook, but
-        // DeviceReachabilityOverrides is on FakeConnection — we set it after the first Create() via
-        // LastConnection. However, Create() fires during EnsureConnectionAsync (inside the background task),
-        // so we can't access LastConnection before EnsureConnectionAsync completes. Instead we use
-        // a connect-outcome hook: stage Connected so the connection is created; then wait for HasLiveSocket.
-        //
-        // To avoid the race, we subscribe to DeviceReachabilityChangedEvent before connecting and
-        // set the override on the source's pending-storage approach is not available for switches.
-        // The brief says to use DeviceReachabilityOverrides — set it before EnsureConnectionAsync
-        // by using a custom FakeRustSocketSource subclass or by seeding it via a staging dictionary.
-        //
-        // The cleanest race-free approach: subscribe first, then EnsureConnectionAsync, then wait
-        // for HasLiveSocket, then check published events — but priming fires BEFORE HasLiveSocket
-        // check is possible via polling. We use the same approach as AlarmPrimingTests: subscribe
-        // to the reachability event (which fires only after the new prime code), wait for it, then
-        // assert absence of SmartDeviceTriggeredEvent{IsActive:false}.
-        //
-        // To stage the override before prime: add a pre-stage dictionary on FakeRustSocketSource
-        // analogous to _pendingStorageContents (which transfers to FakeConnection at Create time).
-        // However the brief says the fake already has DeviceReachabilityOverrides and to "use it".
-        // Per the brief Task 4 note: "Read that fake to learn its exact API."
-        // FakeRustSocketSource already has _pendingStorageContents transferred at Create time;
-        // FakeConnection.DeviceReachabilityOverrides exists but has no pre-stage path in the source.
-        // We add a minimal PendingDeviceReachabilityOverrides staging dict to FakeRustSocketSource
-        // (transferred at Create time, like _pendingStorageContents) — documented in the report.
+        // Stage the fake so entity 42's prime read returns Removed (mirrors how the other
+        // *PrimingTests stage device state before EnsureConnectionAsync).
         source.StageDeviceReachability(42UL, DeviceReachability.Removed);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
