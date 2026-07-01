@@ -51,6 +51,7 @@ public static class WorkspaceServiceCollectionExtensions
         services.AddScoped<WorkspaceTeardownService>();
         services.AddScoped<IWorkspaceTeardownService>(sp => sp.GetRequiredService<WorkspaceTeardownService>());
         services.AddScoped<IServerWorkspaceRemover>(sp => sp.GetRequiredService<WorkspaceTeardownService>());
+        services.AddScoped<IGuildPurgeService, GuildPurgeService>();
 
         // Options (Host binds the "Workspace" section; default = danger commands off).
         services.AddOptions<WorkspaceOptions>();
