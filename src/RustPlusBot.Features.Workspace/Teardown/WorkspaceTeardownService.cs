@@ -24,6 +24,19 @@ internal sealed class WorkspaceTeardownService(
     public async Task ResetGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
         using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
+        await ResetGuildCoreAsync(guildId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Deletes the guild's provisioned resources and records WITHOUT taking the provisioning lock.
+    /// The caller MUST already hold the guild's <see cref="IProvisioningLock"/> — <see cref="GuildPurgeService"/>
+    /// uses this so it can hold the lock across the wider purge. External callers use <see cref="ResetGuildAsync"/>.
+    /// </summary>
+    /// <param name="guildId">The guild to reset.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task.</returns>
+    internal async Task ResetGuildCoreAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
         var categories = await store.GetAllCategoriesAsync(guildId, cancellationToken).ConfigureAwait(false);
         foreach (var category in categories)
         {

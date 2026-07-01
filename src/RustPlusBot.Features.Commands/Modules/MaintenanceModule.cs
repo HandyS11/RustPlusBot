@@ -30,7 +30,9 @@ public sealed class MaintenanceModule(
 
         if (!options.Value.EnableDangerCommands)
         {
-            await RespondAsync("Developer commands are disabled.", ephemeral: true).ConfigureAwait(false);
+            await RespondAsync(
+                "Dangerous maintenance commands are disabled. Set `Workspace:EnableDangerCommands` to enable them.",
+                ephemeral: true).ConfigureAwait(false);
             return;
         }
 

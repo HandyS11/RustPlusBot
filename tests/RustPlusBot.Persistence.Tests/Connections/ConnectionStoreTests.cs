@@ -147,4 +147,30 @@ public sealed class ConnectionStoreTests
         var after = await store.ListConnectableServersAsync();
         Assert.DoesNotContain((10UL, serverId), after);
     }
+
+    [Fact]
+    public async Task GetStatesForGuild_ReturnsOnlyThatGuildsStates()
+    {
+        var (store, context, conn) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+
+        var serverA = new RustServer
+        {
+            GuildId = 10UL, Name = "A", Ip = "1.1.1.1", Port = 28015
+        };
+        var serverB = new RustServer
+        {
+            GuildId = 20UL, Name = "B", Ip = "2.2.2.2", Port = 28015
+        };
+        context.RustServers.AddRange(serverA, serverB);
+        await context.SaveChangesAsync();
+        await store.UpsertStatusAsync(10UL, serverA.Id, ConnectionStatus.Connected, 5, null);
+        await store.UpsertStatusAsync(20UL, serverB.Id, ConnectionStatus.Connecting, null, null);
+
+        var states = await store.GetStatesForGuildAsync(10UL);
+
+        Assert.Equal(serverA.Id, Assert.Single(states).RustServerId);
+        Assert.Empty(await store.GetStatesForGuildAsync(30UL));
+    }
 }

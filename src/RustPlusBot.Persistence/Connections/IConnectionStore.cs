@@ -16,6 +16,14 @@ public interface IConnectionStore
     /// <returns>The connection state, or null.</returns>
     Task<ConnectionState?> GetStateAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default);
 
+    /// <summary>Gets every server's connection state for a guild in a single query.</summary>
+    /// <param name="guildId">Owning Discord guild snowflake.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The guild's connection states (empty if none).</returns>
+    Task<IReadOnlyList<ConnectionState>> GetStatesForGuildAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Upserts the connection state. Returns true only when the persisted (status, player count, active
     /// credential) actually changed, so callers can skip a redundant #info refresh.

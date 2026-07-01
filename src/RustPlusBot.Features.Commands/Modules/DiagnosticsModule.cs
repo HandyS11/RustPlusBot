@@ -47,6 +47,8 @@ public sealed class DiagnosticsModule(IServiceScopeFactory scopeFactory)
             var connections = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
 
             var known = await servers.ListAsync(Context.Guild.Id).ConfigureAwait(false);
+            var states = (await connections.GetStatesForGuildAsync(Context.Guild.Id).ConfigureAwait(false))
+                .ToDictionary(state => state.RustServerId);
 
             var embed = new EmbedBuilder()
                 .WithTitle("Bot status")
@@ -61,11 +63,10 @@ public sealed class DiagnosticsModule(IServiceScopeFactory scopeFactory)
             // Cap server fields so the embed stays under Discord's 25-field limit (4 header fields above).
             foreach (var server in known.Take(20))
             {
-                var state = await connections.GetStateAsync(Context.Guild.Id, server.Id).ConfigureAwait(false);
-                var line = state is null
-                    ? "unknown"
-                    : string.Create(CultureInfo.InvariantCulture,
-                        $"{state.Status} · {state.PlayerCount?.ToString(CultureInfo.InvariantCulture) ?? "?"} players");
+                var line = states.TryGetValue(server.Id, out var state)
+                    ? string.Create(CultureInfo.InvariantCulture,
+                        $"{state.Status} · {state.PlayerCount?.ToString(CultureInfo.InvariantCulture) ?? "?"} players")
+                    : "unknown";
                 embed.AddField(server.Name, line);
             }
 

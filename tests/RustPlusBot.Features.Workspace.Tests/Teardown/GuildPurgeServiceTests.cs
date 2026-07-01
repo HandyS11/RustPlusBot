@@ -8,9 +8,13 @@ using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Switches;
+using RustPlusBot.Domain.Workspace;
+using RustPlusBot.Features.Workspace.Gateway;
+using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Teardown;
 using RustPlusBot.Persistence;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Workspace.Tests.Teardown;
 
@@ -79,12 +83,20 @@ public sealed class GuildPurgeServiceTests
         });
         await context.SaveChangesAsync();
 
-        var teardown = Substitute.For<IWorkspaceTeardownService>();
-        var service = new GuildPurgeService(context, new ServerService(context), teardown);
+        // Real teardown over fake Discord I/O, sharing the lock the purge holds. An empty category set
+        // makes the teardown core a no-op on channels while still proving it runs under the held lock.
+        var gateway = Substitute.For<IWorkspaceGateway>();
+        var store = Substitute.For<IWorkspaceStore>();
+        IReadOnlyList<ProvisionedCategory> noCategories = [];
+        store.GetAllCategoriesAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>())
+            .Returns(noCategories);
+        var provisioningLock = new ProvisioningLock();
+        var teardown = new WorkspaceTeardownService(gateway, store, provisioningLock);
+        var service = new GuildPurgeService(context, new ServerService(context), teardown, provisioningLock);
 
         await service.PurgeGuildAsync(1);
 
-        await teardown.Received(1).ResetGuildAsync(1, Arg.Any<CancellationToken>());
+        await store.Received(1).GetAllCategoriesAsync(1, Arg.Any<CancellationToken>());
         Assert.Empty(await context.RustServers.Where(s => s.GuildId == 1).ToListAsync());
         Assert.Empty(await context.SmartSwitches.ToListAsync());
         Assert.Empty(await context.ConnectionStates.ToListAsync());

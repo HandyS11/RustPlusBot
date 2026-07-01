@@ -16,35 +16,34 @@ public sealed class DatabaseMaintenanceService(BotDbContext context) : IDatabase
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        // Keep one connection open across every statement so the FK pragma persists
-        // (with per-statement connections the pragma would reset before the DELETEs).
-        await context.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        try
+        // Wipe every table in one transaction so an interruption rolls back rather than leaving the
+        // database partially cleared. defer_foreign_keys defers FK enforcement to commit time (and
+        // resets itself when the transaction ends), so tables can be cleared in any order — once every
+        // table is empty the commit-time check has nothing to violate. This also avoids leaving a
+        // connection-level foreign_keys pragma toggled off on a pooled connection.
+        var transaction = await context.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await using (transaction.ConfigureAwait(false))
         {
-            await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys = OFF", cancellationToken)
+            await context.Database.ExecuteSqlRawAsync("PRAGMA defer_foreign_keys = ON", cancellationToken)
                 .ConfigureAwait(false);
 
             foreach (var table in tables)
             {
-                // Deletion order is deliberately irrelevant: PRAGMA foreign_keys = OFF (above) suspends
-                // FK enforcement for the wipe, so do not "fix" this by adding a topological sort.
-                // Table names come from the EF model (never user input); the identifier guard keeps
-                // the raw statement demonstrably injection-safe for the Sonar gate.
+                // Table names come from the EF model (never user input). Fail loud on an unexpected
+                // identifier rather than silently skipping it and reporting a misleading success; the
+                // guard also keeps the raw statement demonstrably injection-safe for the Sonar gate.
                 if (!IsSafeIdentifier(table!))
                 {
-                    continue;
+                    throw new InvalidOperationException(
+                        string.Create(CultureInfo.InvariantCulture,
+                            $"Refusing to clear table with an unexpected identifier: '{table}'."));
                 }
 
                 var sql = string.Create(CultureInfo.InvariantCulture, $"DELETE FROM \"{table}\"");
                 await context.Database.ExecuteSqlRawAsync(sql, cancellationToken).ConfigureAwait(false);
             }
 
-            await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys = ON", cancellationToken)
-                .ConfigureAwait(false);
-        }
-        finally
-        {
-            await context.Database.CloseConnectionAsync().ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
