@@ -23,6 +23,12 @@ public sealed class WorkspaceAdminModule(
     /// <summary>Custom id for the reset confirmation button.</summary>
     public const string ConfirmResetId = "workspace:reset:confirm";
 
+    /// <summary>Custom id for the rebuild confirmation button.</summary>
+    public const string ConfirmRebuildId = "workspace:rebuild:confirm";
+
+    /// <summary>Custom id for the purge confirmation button.</summary>
+    public const string ConfirmPurgeId = "workspace:purge:confirm";
+
     /// <summary>Prompts to delete the entire provisioned workspace (dev-gated).</summary>
     [SlashCommand("reset", "Delete ALL of the bot's channels and records in this Discord server (dangerous)")]
     public async Task ResetAsync()
@@ -91,6 +97,128 @@ public sealed class WorkspaceAdminModule(
             await eventBus.PublishAsync(new ServerRegisteredEvent(Context.Guild.Id, server.Id)).ConfigureAwait(false);
             await FollowupAsync($"Registered **{name}** and published ServerRegisteredEvent.", ephemeral: true)
                 .ConfigureAwait(false);
+        }
+        finally
+        {
+            await scope.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Recreates any missing categories/channels/messages without deleting data.</summary>
+    [SlashCommand("repair", "Recreate any missing bot channels without deleting data")]
+    public async Task RepairAsync()
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This command must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var scope = scopeFactory.CreateAsyncScope();
+        try
+        {
+            var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
+            await reconciler.HealGuildAsync(Context.Guild.Id).ConfigureAwait(false);
+            await FollowupAsync("Workspace repaired.", ephemeral: true).ConfigureAwait(false);
+        }
+        finally
+        {
+            await scope.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Prompts to delete and re-provision the entire workspace (dev-gated).</summary>
+    [SlashCommand("rebuild", "Delete and re-create all the bot's channels here (dangerous)")]
+    public async Task RebuildAsync()
+    {
+        if (!await EnsureEnabledAsync().ConfigureAwait(false))
+        {
+            return;
+        }
+
+        var components = new ComponentBuilder()
+            .WithButton("Confirm rebuild", ConfirmRebuildId, ButtonStyle.Danger)
+            .Build();
+        await RespondAsync(
+            "This deletes every provisioned channel and re-creates them from scratch. Confirm?",
+            ephemeral: true, components: components).ConfigureAwait(false);
+    }
+
+    /// <summary>Executes the rebuild after confirmation.</summary>
+    [ComponentInteraction(ConfirmRebuildId)]
+    public async Task ConfirmRebuildAsync()
+    {
+        if (!await EnsureEnabledAsync().ConfigureAwait(false))
+        {
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var scope = scopeFactory.CreateAsyncScope();
+        try
+        {
+            var teardown = scope.ServiceProvider.GetRequiredService<IWorkspaceTeardownService>();
+            var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
+            var servers = scope.ServiceProvider.GetRequiredService<IServerService>();
+
+            await teardown.ResetGuildAsync(Context.Guild.Id).ConfigureAwait(false);
+
+            var result = await reconciler.ReconcileGlobalAsync(Context.Guild.Id).ConfigureAwait(false);
+            if (result.Status == ReconcileStatus.MissingPermissions)
+            {
+                await FollowupAsync(
+                    $"I'm missing required permissions: {string.Join(", ", result.MissingPermissions)}.",
+                    ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
+            foreach (var server in await servers.ListAsync(Context.Guild.Id).ConfigureAwait(false))
+            {
+                await reconciler.ReconcileServerAsync(Context.Guild.Id, server.Id).ConfigureAwait(false);
+            }
+
+            await FollowupAsync("Workspace rebuilt.", ephemeral: true).ConfigureAwait(false);
+        }
+        finally
+        {
+            await scope.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Prompts to delete all of this guild's data (dev-gated).</summary>
+    [SlashCommand("purge", "Delete ALL of this server's bot data (servers, settings, channels) (dangerous)")]
+    public async Task PurgeAsync()
+    {
+        if (!await EnsureEnabledAsync().ConfigureAwait(false))
+        {
+            return;
+        }
+
+        var components = new ComponentBuilder()
+            .WithButton("Confirm purge", ConfirmPurgeId, ButtonStyle.Danger)
+            .Build();
+        await RespondAsync(
+            "This deletes every server, setting, and channel the bot stores for this Discord server. Confirm?",
+            ephemeral: true, components: components).ConfigureAwait(false);
+    }
+
+    /// <summary>Executes the purge after confirmation.</summary>
+    [ComponentInteraction(ConfirmPurgeId)]
+    public async Task ConfirmPurgeAsync()
+    {
+        if (!await EnsureEnabledAsync().ConfigureAwait(false))
+        {
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var scope = scopeFactory.CreateAsyncScope();
+        try
+        {
+            var purge = scope.ServiceProvider.GetRequiredService<IGuildPurgeService>();
+            await purge.PurgeGuildAsync(Context.Guild.Id).ConfigureAwait(false);
+            await FollowupAsync("Guild data purged.", ephemeral: true).ConfigureAwait(false);
         }
         finally
         {
