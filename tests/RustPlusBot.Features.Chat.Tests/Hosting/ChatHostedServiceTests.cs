@@ -99,7 +99,8 @@ public sealed class ChatHostedServiceTests
             await Task.Delay(20);
         }
 
-        // The loop swallowed the fault (LogRelayLoopFaulted); StopAsync must join cleanly, not rethrow.
+        // The relay threw, causing the loop to fault and complete (LogRelayLoopFaulted). StopAsync joins the
+        // faulted task cleanly — no rethrow. This is crash-isolation, not per-event resilience.
         await poster.Received().PostAsync(Arg.Any<ulong>(), "Bob", "boom", Arg.Any<CancellationToken>());
         await service.StopAsync(default);
     }

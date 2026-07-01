@@ -230,7 +230,8 @@ public sealed class StorageMonitorsHostedServiceTests
             await Task.Delay(20);
         }
 
-        // The relay threw; the loop swallowed it (LogTriggeredLoopFaulted) so StopAsync joins cleanly.
+        // The relay threw, causing the loop to fault and complete (LogTriggeredLoopFaulted). StopAsync joins the
+        // faulted task cleanly — no rethrow. This is crash-isolation, not per-event resilience.
         await h.Store.Received().GetAsync(Guild, serverId, 7UL, Arg.Any<CancellationToken>());
         await h.Service.StopAsync(default);
     }
