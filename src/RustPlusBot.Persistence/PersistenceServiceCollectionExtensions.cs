@@ -5,6 +5,7 @@ using RustPlusBot.Persistence.Alarms;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Credentials;
+using RustPlusBot.Persistence.Maintenance;
 using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.StorageMonitors;
@@ -34,6 +35,7 @@ public static class PersistenceServiceCollectionExtensions
             sp.GetRequiredService<IDbContextFactory<BotDbContext>>().CreateDbContext());
 
         services.AddScoped<IServerService, ServerService>();
+        services.AddScoped<IDatabaseMaintenanceService, DatabaseMaintenanceService>();
         services.AddScoped<ICredentialStore, CredentialStore>();
         services.AddScoped<IFcmRegistrationStore, FcmRegistrationStore>();
         services.AddScoped<IWorkspaceStore, WorkspaceStore>();

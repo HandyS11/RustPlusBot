@@ -19,6 +19,15 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
             .SingleOrDefaultAsync(s => s.GuildId == guildId && s.RustServerId == serverId, cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ConnectionState>> GetStatesForGuildAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default) =>
+        await context.ConnectionStates
+            .Where(s => s.GuildId == guildId)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <inheritdoc />
     public async Task<bool> UpsertStatusAsync(
         ulong guildId,
         Guid serverId,
