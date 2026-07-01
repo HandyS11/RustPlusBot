@@ -236,6 +236,30 @@ public sealed class SwitchesHostedServiceTests
         await h.Service.StopAsync(default);
     }
 
+    [Fact]
+    public async Task StateLoop_survives_a_faulting_relay_and_StopAsync_completes_cleanly()
+    {
+        var h = Create();
+        await h.Service.StartAsync(default);
+
+        var serverId = Guid.NewGuid();
+        h.Store.When(s => s.UpdateStateAsync(10UL, serverId, 42UL, Arg.Any<bool>(), Arg.Any<CancellationToken>()))
+            .Do(_ => throw new InvalidOperationException("relay boom"));
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline
+               && !h.Store.ReceivedCalls().Any(c =>
+                   c.GetMethodInfo().Name == nameof(ISwitchStore.UpdateStateAsync)))
+        {
+            await h.Bus.PublishAsync(new SwitchStateChangedEvent(10UL, serverId, 42UL, IsActive: true));
+            await Task.Delay(20);
+        }
+
+        // The relay threw; the loop must have swallowed it (LogStateLoopFaulted) so StopAsync joins cleanly.
+        await h.Store.Received().UpdateStateAsync(10UL, serverId, 42UL, true, Arg.Any<CancellationToken>());
+        await h.Service.StopAsync(default);
+    }
+
     private sealed record Harness(
         SwitchesHostedService Service,
         InMemoryEventBus Bus,

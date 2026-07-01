@@ -197,6 +197,30 @@ public sealed class AlarmsHostedServiceTests
         await h.Service.StopAsync(default);
     }
 
+    [Fact]
+    public async Task TriggeredLoop_survives_a_faulting_relay_and_StopAsync_completes_cleanly()
+    {
+        var h = Create();
+        await h.Service.StartAsync(default);
+
+        var serverId = Guid.NewGuid();
+        h.Store.When(s => s.GetAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>()))
+            .Do(_ => throw new InvalidOperationException("relay boom"));
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline
+               && !h.Store.ReceivedCalls().Any(c =>
+                   c.GetMethodInfo().Name == nameof(IAlarmStore.GetAsync)))
+        {
+            await h.Bus.PublishAsync(new SmartDeviceTriggeredEvent(10UL, serverId, 42UL, IsActive: true));
+            await Task.Delay(20);
+        }
+
+        // The relay threw; the loop swallowed it (LogTriggeredLoopFaulted) so StopAsync joins cleanly.
+        await h.Store.Received().GetAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>());
+        await h.Service.StopAsync(default);
+    }
+
     private sealed record Harness(
         AlarmsHostedService Service,
         InMemoryEventBus Bus,
