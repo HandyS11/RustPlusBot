@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using RustPlusBot.Domain.Connections;
+using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Entities;
 using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
@@ -68,6 +69,14 @@ public sealed class GuildPurgeServiceTests
         {
             GuildId = 2, Culture = "fr"
         });
+        context.FcmRegistrations.Add(new FcmRegistration
+        {
+            GuildId = 1, OwnerUserId = 100, ProtectedFcmCredentials = "x"
+        });
+        context.FcmRegistrations.Add(new FcmRegistration
+        {
+            GuildId = 2, OwnerUserId = 200, ProtectedFcmCredentials = "y"
+        });
         await context.SaveChangesAsync();
 
         var teardown = Substitute.For<IWorkspaceTeardownService>();
@@ -82,10 +91,12 @@ public sealed class GuildPurgeServiceTests
         Assert.Empty(await context.EventSubscriptions.Where(e => e.GuildId == 1).ToListAsync());
         Assert.Empty(await context.PairedEntities.Where(p => p.GuildId == 1).ToListAsync());
         Assert.Empty(await context.GuildSettings.Where(g => g.GuildId == 1).ToListAsync());
+        Assert.Empty(await context.FcmRegistrations.Where(f => f.GuildId == 1).ToListAsync());
 
         // Guild 2 untouched.
         Assert.Single(await context.RustServers.Where(s => s.GuildId == 2).ToListAsync());
         Assert.Single(await context.EventSubscriptions.Where(e => e.GuildId == 2).ToListAsync());
         Assert.Single(await context.GuildSettings.Where(g => g.GuildId == 2).ToListAsync());
+        Assert.Single(await context.FcmRegistrations.Where(f => f.GuildId == 2).ToListAsync());
     }
 }

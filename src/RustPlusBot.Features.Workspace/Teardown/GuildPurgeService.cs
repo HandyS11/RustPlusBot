@@ -27,12 +27,15 @@ internal sealed class GuildPurgeService(
             await servers.RemoveAsync(guildId, server.Id, cancellationToken).ConfigureAwait(false);
         }
 
-        // 3) Delete guild-keyed rows that have no cascade FK to RustServer.
+        // 3) Delete guild-keyed rows that have no cascade FK to RustServer (event subscriptions,
+        //    paired entities, guild settings, FCM registrations).
         await context.EventSubscriptions.Where(e => e.GuildId == guildId)
             .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
         await context.PairedEntities.Where(p => p.GuildId == guildId)
             .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
         await context.GuildSettings.Where(g => g.GuildId == guildId)
+            .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await context.FcmRegistrations.Where(f => f.GuildId == guildId)
             .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 }
