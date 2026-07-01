@@ -71,6 +71,8 @@ builder.Services.AddOptions<CommandOptions>()
     .Validate(static o => o.Cooldown > TimeSpan.Zero, "Commands:Cooldown must be positive.")
     .ValidateOnStart();
 builder.Services.AddCommands();
+builder.Services.AddOptions<MaintenanceOptions>()
+    .Bind(builder.Configuration.GetSection("Workspace"));
 builder.Services.AddEvents();
 builder.Services.AddPlayers();
 builder.Services.AddOptions<MapOptions>()

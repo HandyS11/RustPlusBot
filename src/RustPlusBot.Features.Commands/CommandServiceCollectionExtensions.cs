@@ -23,6 +23,7 @@ public static class CommandServiceCollectionExtensions
 
         services.AddSingleton<CommandCooldown>();
         services.AddSingleton<BotUptime>();
+        services.AddOptions<MaintenanceOptions>();
         services.AddRustPlusBotLocalization();
         services.AddItemData();
 
