@@ -26,6 +26,8 @@ public sealed class DatabaseMaintenanceService(BotDbContext context) : IDatabase
 
             foreach (var table in tables)
             {
+                // Deletion order is deliberately irrelevant: PRAGMA foreign_keys = OFF (above) suspends
+                // FK enforcement for the wipe, so do not "fix" this by adding a topological sort.
                 // Table names come from the EF model (never user input); the identifier guard keeps
                 // the raw statement demonstrably injection-safe for the Sonar gate.
                 if (!IsSafeIdentifier(table!))
