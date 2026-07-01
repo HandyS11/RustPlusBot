@@ -74,7 +74,8 @@ internal static class Program
         var nameIds = new HashSet<int>(names.Keys);
         ReportOrphans(nameIds, recycleYields, craftRecipes, researchCosts, decayInfos, upkeepCosts);
 
-        var items = BuildItems(names, stackSizes, despawnSeconds, recycleYields, craftRecipes, researchCosts, decayInfos,
+        var items = BuildItems(names, stackSizes, despawnSeconds, recycleYields, craftRecipes, researchCosts,
+            decayInfos,
             upkeepCosts);
 
         var dataset = new ItemDataset(
@@ -143,20 +144,20 @@ internal static class Program
         IReadOnlyDictionary<int, ResearchCost> researchCosts,
         IReadOnlyDictionary<int, DecayInfo> decayInfos,
         IReadOnlyDictionary<int, UpkeepCost> upkeepCosts) =>
-        [
-            .. names.Select(kv =>
-            {
-                var id = kv.Key;
-                var stackSize = stackSizes.TryGetValue(id, out var ss) ? ss : 1;
-                var despawn = despawnSeconds.TryGetValue(id, out var ds) ? (int?)ds : null;
-                var recycle = recycleYields.TryGetValue(id, out var ry) ? ry : null;
-                var craft = craftRecipes.TryGetValue(id, out var cr) ? cr : null;
-                var research = researchCosts.TryGetValue(id, out var rc) ? rc : null;
-                var decay = decayInfos.TryGetValue(id, out var di) ? di : null;
-                var upkeep = upkeepCosts.TryGetValue(id, out var uc) ? uc : null;
-                return new ItemRecord(id, kv.Value, stackSize, despawn, recycle, craft, research, decay, upkeep);
-            }),
-        ];
+    [
+        .. names.Select(kv =>
+        {
+            var id = kv.Key;
+            var stackSize = stackSizes.TryGetValue(id, out var ss) ? ss : 1;
+            var despawn = despawnSeconds.TryGetValue(id, out var ds) ? (int?)ds : null;
+            var recycle = recycleYields.TryGetValue(id, out var ry) ? ry : null;
+            var craft = craftRecipes.TryGetValue(id, out var cr) ? cr : null;
+            var research = researchCosts.TryGetValue(id, out var rc) ? rc : null;
+            var decay = decayInfos.TryGetValue(id, out var di) ? di : null;
+            var upkeep = upkeepCosts.TryGetValue(id, out var uc) ? uc : null;
+            return new ItemRecord(id, kv.Value, stackSize, despawn, recycle, craft, research, decay, upkeep);
+        }),
+    ];
 
     private static void ReportOrphans(
         HashSet<int> nameIds,
