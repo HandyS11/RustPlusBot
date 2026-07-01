@@ -595,15 +595,8 @@ internal sealed partial class ConnectionSupervisor(
                 }
                 else
                 {
-                    var added = current.Where(c => previous.All(p => p.Id != c.Id)).ToList();
-                    var removed = previous.Where(p => current.All(c => c.Id != p.Id)).ToList();
+                    await PublishMarkerDeltaAsync(key, dims, previous, current, ct).ConfigureAwait(false);
                     previous = current;
-                    if (added.Count > 0 || removed.Count > 0)
-                    {
-                        await eventBus.PublishAsync(
-                                new MapMarkersChangedEvent(key.Guild, key.Server, dims, added, removed), ct)
-                            .ConfigureAwait(false);
-                    }
                 }
 
                 await DetectRigActivationsAsync(key, current, rigs, dims, rigsInRadius, ct).ConfigureAwait(false);
@@ -630,6 +623,23 @@ internal sealed partial class ConnectionSupervisor(
 
             var delay = anyCh47 ? _options.MarkerPollFastInterval : _options.MarkerPollInterval;
             await Task.Delay(delay, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task PublishMarkerDeltaAsync(
+        (ulong Guild, Guid Server) key,
+        MapDimensions? dims,
+        IReadOnlyList<MapMarkerSnapshot> previous,
+        IReadOnlyList<MapMarkerSnapshot> current,
+        CancellationToken ct)
+    {
+        var added = current.Where(c => previous.All(p => p.Id != c.Id)).ToList();
+        var removed = previous.Where(p => current.All(c => c.Id != p.Id)).ToList();
+        if (added.Count > 0 || removed.Count > 0)
+        {
+            await eventBus.PublishAsync(
+                    new MapMarkersChangedEvent(key.Guild, key.Server, dims, added, removed), ct)
+                .ConfigureAwait(false);
         }
     }
 

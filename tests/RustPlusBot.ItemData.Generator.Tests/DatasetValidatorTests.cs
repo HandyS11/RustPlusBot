@@ -216,4 +216,47 @@ public sealed class DatasetValidatorTests
         var errors = DatasetValidator.Validate(ds, new ValidationOptions(MinItemCount: 1, MinCctvCount: 1));
         Assert.Contains(errors, e => e.Contains("empty code", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void SmelterWithNoConversions_isError()
+    {
+        var bad = WithSmelters(new Smelter("100", "Furnace", []));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("no conversions", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SmelterConversion_UnknownOutputId_isError()
+    {
+        var bad = WithSmelters(new Smelter("100", "Furnace",
+            [new SmeltConversion(1, 424242, 1, 1, 1, 3)]));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("424242", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SmelterConversion_NonPositiveOutputQuantity_isError()
+    {
+        var bad = WithSmelters(new Smelter("100", "Furnace",
+            [new SmeltConversion(1, 2, 0, 1, 1, 3)]));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("output quantity", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SmelterConversion_NegativeWood_isError()
+    {
+        var bad = WithSmelters(new Smelter("100", "Furnace",
+            [new SmeltConversion(1, 2, 1, 1, -5, 3)]));
+        var errors = DatasetValidator.Validate(bad, new ValidationOptions(MinItemCount: 1));
+        Assert.Contains(errors, e => e.Contains("wood", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void MonumentWithEmptyName_isError()
+    {
+        var ds = WithCctv(new CctvMonument(" ", ["DOME1"], false));
+        var errors = DatasetValidator.Validate(ds, new ValidationOptions(MinItemCount: 1, MinCctvCount: 1));
+        Assert.Contains(errors, e => e.Contains("empty name", StringComparison.OrdinalIgnoreCase));
+    }
 }

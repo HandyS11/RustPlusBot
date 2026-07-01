@@ -52,4 +52,65 @@ public sealed class ItemCommandHandlersTests
         var reply = await new ItemCommandHandler(_db, _loc).ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.NotNull(reply);
     }
+
+    // --- Craft ---
+
+    [Fact]
+    public async Task Craft_HasRecipe_returnsIngredients()
+    {
+        // "Assault Rifle" is craftable; reply should contain item name and ingredient names.
+        var reply = await new CraftCommandHandler(_db, _names, _loc).ExecuteAsync(
+            Ctx("Assault Rifle"), CancellationToken.None);
+        Assert.Contains("Assault Rifle", reply, StringComparison.Ordinal);
+        Assert.Contains("High Quality Metal", reply, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Craft_NotCraftable_returnsNoneMessage()
+    {
+        // "Wood" has no craft recipe.
+        var reply = await new CraftCommandHandler(_db, _names, _loc).ExecuteAsync(
+            Ctx("Wood"), CancellationToken.None);
+        Assert.Contains("Wood", reply, StringComparison.Ordinal);
+        Assert.Contains("not craftable", reply, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Craft_NotFound_returnsNotFoundMessage()
+    {
+        var reply = await new CraftCommandHandler(_db, _names, _loc).ExecuteAsync(
+            Ctx("zzzzz"), CancellationToken.None);
+        Assert.Contains("zzzzz", reply, StringComparison.Ordinal);
+    }
+
+    // --- Research ---
+
+    [Fact]
+    public async Task Research_HasCost_returnsScrapAmount()
+    {
+        // "Assault Rifle" costs 500 scrap to research.
+        var reply = await new ResearchCommandHandler(_db, _loc).ExecuteAsync(
+            Ctx("Assault Rifle"), CancellationToken.None);
+        Assert.Contains("Assault Rifle", reply, StringComparison.Ordinal);
+        Assert.Contains("500", reply, StringComparison.Ordinal);
+        Assert.Contains("scrap", reply, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Research_NotResearchable_returnsNoneMessage()
+    {
+        // "Wood" has no research cost.
+        var reply = await new ResearchCommandHandler(_db, _loc).ExecuteAsync(
+            Ctx("Wood"), CancellationToken.None);
+        Assert.Contains("Wood", reply, StringComparison.Ordinal);
+        Assert.Contains("cannot be researched", reply, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Research_NotFound_returnsNotFoundMessage()
+    {
+        var reply = await new ResearchCommandHandler(_db, _loc).ExecuteAsync(
+            Ctx("zzzzz"), CancellationToken.None);
+        Assert.Contains("zzzzz", reply, StringComparison.Ordinal);
+    }
 }

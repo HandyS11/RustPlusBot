@@ -16,6 +16,10 @@ namespace RustPlusBot.Features.Commands.Modules;
 public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
     : InteractionModuleBase<SocketInteractionContext>
 {
+    private const string MustBeUsedInServer = "This command must be used in a server.";
+    private const string AmbiguousKey = "command.item.ambiguous";
+    private const string NotFoundKey = "command.item.notfound";
+
     /// <summary>Looks up an item's name, id, stack size, and despawn time.</summary>
     /// <param name="item">The item name or id.</param>
     [SlashCommand("item", "Look up an item")]
@@ -93,139 +97,81 @@ public sealed class ItemCommandModule(IServiceScopeFactory scopeFactory)
         [Choice("Ferry Terminal", "Ferry Terminal")]
         string monument) => RespondForCctvAsync(monument);
 
-    private async Task RespondForAsync(
+    private async Task RespondWithEmbedAsync(
+        Func<IItemDatabase, IItemNameResolver, ILocalizer, string, string> describe,
+        Func<IItemDatabase, DateOnly> asOf)
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync(MustBeUsedInServer, ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
+            var names = scope.ServiceProvider.GetRequiredService<IItemNameResolver>();
+            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
+            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
+            var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
+
+            var embed = new EmbedBuilder()
+                .WithDescription(describe(db, names, loc, culture))
+                .WithFooter($"data as of {asOf(db):yyyy-MM-dd}")
+                .Build();
+            await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
+        }
+    }
+
+    private static string Ambiguous(ILocalizer loc, string culture, IEnumerable<string> candidates) =>
+        loc.Get(AmbiguousKey, culture, string.Join(", ", candidates));
+
+    private static string NotFound(ILocalizer loc, string culture, string query) =>
+        loc.Get(NotFoundKey, culture, query);
+
+    private Task RespondForAsync(
         string query,
         Func<IItemDatabase, DateOnly> dateSelector,
-        Func<IItemDatabase, IItemNameResolver, ItemRecord, ILocalizer, string, string> onFound)
-    {
-        if (Context.Guild is null)
-        {
-            await RespondAsync("This command must be used in a server.", ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var db = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
-            var names = scope.ServiceProvider.GetRequiredService<IItemNameResolver>();
-            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
-            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
-
-            var text = db.Resolve(query) switch
+        Func<IItemDatabase, IItemNameResolver, ItemRecord, ILocalizer, string, string> onFound) =>
+        RespondWithEmbedAsync(
+            (db, names, loc, culture) => db.Resolve(query) switch
             {
                 ItemMatch.Found f => onFound(db, names, f.Item, loc, culture),
-                ItemMatch.Ambiguous a => loc.Get("command.item.ambiguous", culture,
-                    string.Join(", ", a.Candidates.Select(c => c.Name))),
-                _ => loc.Get("command.item.notfound", culture, query),
-            };
+                ItemMatch.Ambiguous a => Ambiguous(loc, culture, a.Candidates.Select(c => c.Name)),
+                _ => NotFound(loc, culture, query),
+            },
+            dateSelector);
 
-            var embed = new EmbedBuilder()
-                .WithDescription(text)
-                .WithFooter($"data as of {dateSelector(db):yyyy-MM-dd}")
-                .Build();
-            await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
-        }
-    }
-
-    private async Task RespondForRaidAsync(string query)
-    {
-        if (Context.Guild is null)
-        {
-            await RespondAsync("This command must be used in a server.", ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var db = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
-            var names = scope.ServiceProvider.GetRequiredService<IItemNameResolver>();
-            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
-            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
-
-            var text = db.ResolveRaidTarget(query) switch
+    private Task RespondForRaidAsync(string query) =>
+        RespondWithEmbedAsync(
+            (db, names, loc, culture) => db.ResolveRaidTarget(query) switch
             {
                 RaidMatch.Found f => loc.Get("command.durability.ok", culture, DurabilityLine.Format(f.Target, names)),
-                RaidMatch.Ambiguous a => loc.Get("command.item.ambiguous", culture,
-                    string.Join(", ", a.Candidates.Select(c => c.Name))),
-                _ => loc.Get("command.item.notfound", culture, query),
-            };
+                RaidMatch.Ambiguous a => Ambiguous(loc, culture, a.Candidates.Select(c => c.Name)),
+                _ => NotFound(loc, culture, query),
+            },
+            db => db.Sources.DurabilityAsOf);
 
-            var embed = new EmbedBuilder()
-                .WithDescription(text)
-                .WithFooter($"data as of {db.Sources.DurabilityAsOf:yyyy-MM-dd}")
-                .Build();
-            await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
-        }
-    }
-
-    private async Task RespondForSmeltAsync(string query)
-    {
-        if (Context.Guild is null)
-        {
-            await RespondAsync("This command must be used in a server.", ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var db = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
-            var names = scope.ServiceProvider.GetRequiredService<IItemNameResolver>();
-            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
-            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
-
-            var text = db.ResolveSmelter(query) switch
+    private Task RespondForSmeltAsync(string query) =>
+        RespondWithEmbedAsync(
+            (db, names, loc, culture) => db.ResolveSmelter(query) switch
             {
                 SmeltMatch.Found f => loc.Get("command.smelt.ok", culture, SmeltLine.Format(f.Smelter, names)),
-                SmeltMatch.Ambiguous a => loc.Get("command.item.ambiguous", culture,
-                    string.Join(", ", a.Candidates.Select(c => c.Name))),
-                _ => loc.Get("command.item.notfound", culture, query),
-            };
+                SmeltMatch.Ambiguous a => Ambiguous(loc, culture, a.Candidates.Select(c => c.Name)),
+                _ => NotFound(loc, culture, query),
+            },
+            db => db.Sources.SmeltingAsOf);
 
-            var embed = new EmbedBuilder()
-                .WithDescription(text)
-                .WithFooter($"data as of {db.Sources.SmeltingAsOf:yyyy-MM-dd}")
-                .Build();
-            await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
-        }
-    }
-
-    private async Task RespondForCctvAsync(string query)
-    {
-        if (Context.Guild is null)
-        {
-            await RespondAsync("This command must be used in a server.", ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var db = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
-            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
-            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            var culture = await workspace.GetCultureAsync(Context.Guild.Id).ConfigureAwait(false);
-
-            var text = db.ResolveCctv(query) switch
+    private Task RespondForCctvAsync(string query) =>
+        RespondWithEmbedAsync(
+            (db, _, loc, culture) => db.ResolveCctv(query) switch
             {
                 CctvMatch.Found f => RenderEmbed(f.Monument, loc, culture),
-                CctvMatch.Ambiguous a => loc.Get("command.item.ambiguous", culture,
-                    string.Join(", ", a.Candidates.Select(c => c.Name))),
-                _ => loc.Get("command.item.notfound", culture, query),
-            };
-
-            var embed = new EmbedBuilder()
-                .WithDescription(text)
-                .WithFooter($"data as of {db.Sources.CctvAsOf:yyyy-MM-dd}")
-                .Build();
-            await RespondAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
-        }
-    }
+                CctvMatch.Ambiguous a => Ambiguous(loc, culture, a.Candidates.Select(c => c.Name)),
+                _ => NotFound(loc, culture, query),
+            },
+            db => db.Sources.CctvAsOf);
 
     /// <summary>
     /// Discord-only presentation: fence the codes so wildcard asterisks render literally and the

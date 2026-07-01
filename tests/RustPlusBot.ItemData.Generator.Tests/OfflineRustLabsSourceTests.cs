@@ -49,4 +49,56 @@ public sealed class OfflineRustLabsSourceTests
         Assert.Equal(1, entry.QuantityMin);
         Assert.Equal(1, entry.QuantityMax);
     }
+
+    private static OfflineRustLabsSource SourceForRecycle(string recycleJson)
+    {
+        var path = Path.GetTempFileName();
+        File.WriteAllText(path, recycleJson);
+        return new OfflineRustLabsSource(path, path, path, path, path);
+    }
+
+    [Fact]
+    public void LoadRecycleYields_parsesEntries()
+    {
+        const string json = """{"100":{"recycler":{"yield":[{"id":"200","quantity":4,"probability":1.0}]}}}""";
+        var result = SourceForRecycle(json).LoadRecycleYields();
+        var yield = Assert.Single(result[100].Recycler);
+        Assert.Equal(200, yield.ItemId);
+        Assert.Equal(4, yield.Quantity);
+    }
+
+    [Fact]
+    public void LoadRecycleYields_skipsNullRecycler()
+    {
+        const string json = """{"100":{"recycler":null}}""";
+        Assert.Empty(SourceForRecycle(json).LoadRecycleYields());
+    }
+
+    [Fact]
+    public void LoadCraftRecipes_parsesIngredientsTimeAndWorkbench()
+    {
+        const string json =
+            """{"100":{"ingredients":[{"id":"200","quantity":50}],"time":30,"workbench":"-41896755"}}""";
+        var result = SourceForRecycle(json).LoadCraftRecipes();
+        var recipe = result[100];
+        var ing = Assert.Single(recipe.Ingredients);
+        Assert.Equal(200, ing.ItemId);
+        Assert.Equal(50, ing.Quantity);
+        Assert.Equal(2, recipe.WorkbenchLevel); // "-41896755" maps to workbench 2
+    }
+
+    [Fact]
+    public void LoadCraftRecipes_skipsRecipeWithNoIngredients()
+    {
+        const string json = """{"100":{"ingredients":[],"time":30}}""";
+        Assert.Empty(SourceForRecycle(json).LoadCraftRecipes());
+    }
+
+    [Fact]
+    public void LoadResearchCosts_parsesScrap()
+    {
+        const string json = """{"100":{"researchTable":75}}""";
+        var result = SourceForRecycle(json).LoadResearchCosts();
+        Assert.Equal(75, result[100].Scrap);
+    }
 }

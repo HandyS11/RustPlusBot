@@ -48,21 +48,7 @@ internal sealed class OfflineRustLabsSource(
                 continue;
             }
 
-            var entries = new List<YieldEntry>();
-            foreach (var entry in yieldEl.EnumerateArray())
-            {
-                var entryIdStr = entry.GetProperty("id").GetString();
-                if (entryIdStr is null ||
-                    !int.TryParse(entryIdStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var entryId))
-                {
-                    continue;
-                }
-
-                var probability = entry.GetProperty("probability").GetDouble();
-                var quantity = entry.GetProperty("quantity").GetInt32();
-                entries.Add(new YieldEntry(entryId, quantity, probability));
-            }
-
+            var entries = ParseYieldEntries(yieldEl);
             if (entries.Count > 0)
             {
                 result[id] = new RecycleYield(entries);
@@ -92,20 +78,7 @@ internal sealed class OfflineRustLabsSource(
                 continue;
             }
 
-            var ingredients = new List<Ingredient>();
-            foreach (var entry in ingredientsEl.EnumerateArray())
-            {
-                var entryIdStr = entry.GetProperty("id").GetString();
-                if (entryIdStr is null ||
-                    !int.TryParse(entryIdStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var entryId))
-                {
-                    continue;
-                }
-
-                var quantity = entry.GetProperty("quantity").GetInt32();
-                ingredients.Add(new Ingredient(entryId, quantity));
-            }
-
+            var ingredients = ParseIngredients(ingredientsEl);
             if (ingredients.Count == 0)
             {
                 continue;
@@ -118,18 +91,7 @@ internal sealed class OfflineRustLabsSource(
             }
 
             var timeSeconds = timeEl.GetDouble();
-
-            int? workbenchLevel = null;
-            if (prop.Value.TryGetProperty("workbench", out var workbenchEl) &&
-                workbenchEl.ValueKind == JsonValueKind.String)
-            {
-                var wbStr = workbenchEl.GetString();
-                if (wbStr is not null && WorkbenchLevels.TryGetValue(wbStr, out var level))
-                {
-                    workbenchLevel = level;
-                }
-            }
-
+            var workbenchLevel = ReadWorkbenchLevel(prop.Value);
             result[id] = new CraftRecipe(ingredients, timeSeconds, workbenchLevel);
         }
 
@@ -242,5 +204,58 @@ internal sealed class OfflineRustLabsSource(
         }
 
         return result;
+    }
+
+    private static List<YieldEntry> ParseYieldEntries(JsonElement yieldEl)
+    {
+        var entries = new List<YieldEntry>();
+        foreach (var entry in yieldEl.EnumerateArray())
+        {
+            var entryIdStr = entry.GetProperty("id").GetString();
+            if (entryIdStr is null ||
+                !int.TryParse(entryIdStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var entryId))
+            {
+                continue;
+            }
+
+            entries.Add(new YieldEntry(entryId, entry.GetProperty("quantity").GetInt32(),
+                entry.GetProperty("probability").GetDouble()));
+        }
+
+        return entries;
+    }
+
+    private static List<Ingredient> ParseIngredients(JsonElement ingredientsEl)
+    {
+        var ingredients = new List<Ingredient>();
+        foreach (var entry in ingredientsEl.EnumerateArray())
+        {
+            var entryIdStr = entry.GetProperty("id").GetString();
+            if (entryIdStr is null ||
+                !int.TryParse(entryIdStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var entryId))
+            {
+                continue;
+            }
+
+            var quantity = entry.GetProperty("quantity").GetInt32();
+            ingredients.Add(new Ingredient(entryId, quantity));
+        }
+
+        return ingredients;
+    }
+
+    private static int? ReadWorkbenchLevel(JsonElement prop)
+    {
+        if (prop.TryGetProperty("workbench", out var workbenchEl) &&
+            workbenchEl.ValueKind == JsonValueKind.String)
+        {
+            var wbStr = workbenchEl.GetString();
+            if (wbStr is not null && WorkbenchLevels.TryGetValue(wbStr, out var level))
+            {
+                return level;
+            }
+        }
+
+        return null;
     }
 }
