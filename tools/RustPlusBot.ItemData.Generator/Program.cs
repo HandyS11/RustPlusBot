@@ -121,9 +121,11 @@ internal static class Program
         }
 
         var minIdx = argList.IndexOf("--min-items");
-        if (minIdx >= 0 && minIdx + 1 < argList.Count)
+        if (minIdx >= 0 && minIdx + 1 < argList.Count
+                        && !int.TryParse(argList[minIdx + 1], System.Globalization.NumberStyles.Integer,
+                            System.Globalization.CultureInfo.InvariantCulture, out minItems))
         {
-            minItems = int.Parse(argList[minIdx + 1], System.Globalization.CultureInfo.InvariantCulture);
+            return null;
         }
 
         var outIdx = argList.IndexOf("--out");
