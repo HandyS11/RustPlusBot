@@ -58,7 +58,8 @@ public sealed class DiagnosticsModule(IServiceScopeFactory scopeFactory)
                 .AddField("Servers (this guild)",
                     known.Count.ToString(CultureInfo.InvariantCulture), inline: true);
 
-            foreach (var server in known)
+            // Cap server fields so the embed stays under Discord's 25-field limit (4 header fields above).
+            foreach (var server in known.Take(20))
             {
                 var state = await connections.GetStateAsync(Context.Guild.Id, server.Id).ConfigureAwait(false);
                 var line = state is null
