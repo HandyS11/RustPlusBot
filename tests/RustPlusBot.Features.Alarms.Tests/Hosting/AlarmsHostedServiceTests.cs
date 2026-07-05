@@ -47,7 +47,7 @@ public sealed class AlarmsHostedServiceTests
         relayLocator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(777UL);
         var relayPoster = Substitute.For<IAlarmChannelPoster>();
-        var teamChatSender = Substitute.For<ITeamChatSender>();
+        var teamChatSender = Substitute.For<IBotTeamChatSender>();
         teamChatSender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(TeamChatSendResult.Sent);
 

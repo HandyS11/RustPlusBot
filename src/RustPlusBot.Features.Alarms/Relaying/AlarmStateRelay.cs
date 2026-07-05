@@ -22,7 +22,7 @@ namespace RustPlusBot.Features.Alarms.Relaying;
 internal sealed record AlarmRelayChannels(
     IAlarmChannelLocator Locator,
     IAlarmChannelPoster Poster,
-    ITeamChatSender TeamChatSender);
+    IBotTeamChatSender TeamChatSender);
 
 /// <summary>
 /// Keeps alarm embeds in sync with live socket events: updates state and re-renders on trigger; marks

@@ -44,7 +44,7 @@ public sealed class AlarmStateRelayTests
             .Returns(channelId);
 
         var poster = Substitute.For<IAlarmChannelPoster>();
-        var teamChatSender = Substitute.For<ITeamChatSender>();
+        var teamChatSender = Substitute.For<IBotTeamChatSender>();
         teamChatSender
             .SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(TeamChatSendResult.Sent);
@@ -462,6 +462,6 @@ public sealed class AlarmStateRelayTests
         IAlarmStore Store,
         IAlarmRefresher Refresher,
         IAlarmChannelPoster Poster,
-        ITeamChatSender TeamChatSender,
+        IBotTeamChatSender TeamChatSender,
         IConnectionStore Connections);
 }
