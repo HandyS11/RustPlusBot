@@ -27,7 +27,7 @@ public sealed class CommandRegistrationTests
         services.AddLogging();
         services.AddSingleton<IClock>(Substitute.For<IClock>());
         services.AddSingleton<IEventBus>(Substitute.For<IEventBus>());
-        services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
+        services.AddSingleton<IBotTeamChatSender>(Substitute.For<IBotTeamChatSender>());
         services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
         services.AddSingleton<IEventState>(_ => Substitute.For<IEventState>());
         services.AddSingleton<IRigState>(_ => Substitute.For<IRigState>());
@@ -85,7 +85,7 @@ public sealed class CommandRegistrationTests
         services.AddLogging();
         services.AddSingleton<IClock>(Substitute.For<IClock>());
         services.AddSingleton<IEventBus>(Substitute.For<IEventBus>());
-        services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
+        services.AddSingleton<IBotTeamChatSender>(Substitute.For<IBotTeamChatSender>());
         services.AddSingleton<IRustServerQuery>(Substitute.For<IRustServerQuery>());
         services.AddSingleton<IEventState>(_ => Substitute.For<IEventState>());
         services.AddSingleton<IRigState>(_ => Substitute.For<IRigState>());

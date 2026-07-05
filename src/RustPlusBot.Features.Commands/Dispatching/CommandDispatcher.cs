@@ -19,7 +19,7 @@ internal sealed partial class CommandDispatcher
     private readonly Dictionary<string, ICommandHandler> _handlers;
     private readonly ILogger<CommandDispatcher> _logger;
     private readonly IMuteStore _muteStore;
-    private readonly ITeamChatSender _sender;
+    private readonly IBotTeamChatSender _sender;
     private readonly IWorkspaceStore _workspace;
 
     /// <summary>Initializes the dispatcher.</summary>
@@ -34,7 +34,7 @@ internal sealed partial class CommandDispatcher
         CommandCooldown cooldown,
         IMuteStore muteStore,
         IWorkspaceStore workspace,
-        ITeamChatSender sender,
+        IBotTeamChatSender sender,
         ILogger<CommandDispatcher> logger)
     {
         ArgumentNullException.ThrowIfNull(handlers);

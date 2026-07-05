@@ -12,12 +12,12 @@ namespace RustPlusBot.Features.Commands.Tests.Dispatching;
 
 public sealed class CommandDispatcherTests
 {
-    private static (CommandDispatcher Sut, ITeamChatSender Sender, StubHandler Handler) Build(
+    private static (CommandDispatcher Sut, IBotTeamChatSender Sender, StubHandler Handler) Build(
         bool muted = false,
         string prefix = "!",
         string handlerName = "pop")
     {
-        var sender = Substitute.For<ITeamChatSender>();
+        var sender = Substitute.For<IBotTeamChatSender>();
         var settings = Substitute.For<IMuteStore>();
         settings.GetMutedAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(muted);
         settings.GetPrefixAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(prefix);

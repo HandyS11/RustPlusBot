@@ -16,7 +16,7 @@ public sealed class CommandsHostedServiceTests
 {
     private static Harness Create(bool prefixThrows = false)
     {
-        var sender = Substitute.For<ITeamChatSender>();
+        var sender = Substitute.For<IBotTeamChatSender>();
         sender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(TeamChatSendResult.Sent);
 
@@ -63,7 +63,7 @@ public sealed class CommandsHostedServiceTests
         var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
         while (DateTimeOffset.UtcNow < deadline
                && !h.Sender.ReceivedCalls().Any(c =>
-                   c.GetMethodInfo().Name == nameof(ITeamChatSender.SendAsync)))
+                   c.GetMethodInfo().Name == nameof(IBotTeamChatSender.SendAsync)))
         {
             await h.Bus.PublishAsync(
                 new TeamMessageReceivedEvent(10UL, serverId, 7UL, "alice", "!pop", FromActivePlayer: false));
@@ -115,7 +115,7 @@ public sealed class CommandsHostedServiceTests
     private sealed record Harness(
         CommandsHostedService Service,
         InMemoryEventBus Bus,
-        ITeamChatSender Sender,
+        IBotTeamChatSender Sender,
         StubHandler Handler,
         IMuteStore MuteStore);
 
