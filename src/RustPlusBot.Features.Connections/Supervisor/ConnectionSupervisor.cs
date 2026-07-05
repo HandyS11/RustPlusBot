@@ -270,6 +270,23 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<DeviceReading> GetSmartAlarmReadingAsync(
+        ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return new DeviceReading(null, DeviceReachability.NoResponse);
+        }
+
+        return await live.Connection
+            .GetSmartDeviceInfoAsync(entityId, SmartDeviceKind.Alarm, _options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<StorageContentsSnapshot?> GetStorageContentsAsync(
         ulong guildId,
         Guid serverId,
@@ -724,6 +741,16 @@ internal sealed partial class ConnectionSupervisor(
                     .GetSmartDeviceInfoAsync(entityId, kind, _options.HeartbeatTimeout, ct)
                     .ConfigureAwait(false);
                 result[entityId] = reading.Reachability;
+
+                // Republish the state the read already carries as an OBSERVED event so drifted alarm
+                // embeds self-correct (the consumer is silent: no ping/relay, no edit when unchanged).
+                // Deliberately alarms only: switch embeds sync via actuation replies and broadcasts.
+                if (kind == SmartDeviceKind.Alarm && reading is { IsActive: { } isActive })
+                {
+                    await eventBus.PublishAsync(
+                            new SmartDeviceStateObservedEvent(key.Guild, key.Server, entityId, isActive), ct)
+                        .ConfigureAwait(false);
+                }
             }
 
 #pragma warning disable S3267 // Not a projection: each iteration awaits with per-monitor best-effort error handling.
@@ -1150,10 +1177,24 @@ internal sealed partial class ConnectionSupervisor(
                 .ConfigureAwait(false);
             if (reading.Reachability == DeviceReachability.Reachable)
             {
-                await eventBus.PublishAsync(
-                        new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId, reading.IsActive ?? false),
-                        _shutdown.Token)
-                    .ConfigureAwait(false);
+                // A prime is an OBSERVATION for alarms: a triggered event would re-ping @everyone on every
+                // reconnect while the alarm is active. Switch embeds keep the triggered path (no ping semantics).
+                if (kind == SmartDeviceKind.Alarm)
+                {
+                    await eventBus.PublishAsync(
+                            new SmartDeviceStateObservedEvent(key.Guild, key.Server, entityId,
+                                reading.IsActive ?? false),
+                            _shutdown.Token)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    await eventBus.PublishAsync(
+                            new SmartDeviceTriggeredEvent(key.Guild, key.Server, entityId,
+                                reading.IsActive ?? false),
+                            _shutdown.Token)
+                        .ConfigureAwait(false);
+                }
             }
         }
         catch (OperationCanceledException)

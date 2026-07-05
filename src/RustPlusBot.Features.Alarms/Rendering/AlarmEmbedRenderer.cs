@@ -1,7 +1,6 @@
 using System.Globalization;
 using Discord;
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Localization;
 
@@ -9,8 +8,7 @@ namespace RustPlusBot.Features.Alarms.Rendering;
 
 /// <summary>Renders a Smart Alarm as a Discord embed + control row, and the pairing-prompt embed + row. Pure.</summary>
 /// <param name="localizer">The alarm localizer.</param>
-/// <param name="clock">The clock used to compute relative trigger times.</param>
-internal sealed class AlarmEmbedRenderer(ILocalizer localizer, IClock clock)
+internal sealed class AlarmEmbedRenderer(ILocalizer localizer)
 {
     /// <summary>Renders the alarm embed and its control buttons.</summary>
     /// <param name="alarm">The alarm to render.</param>
@@ -54,8 +52,11 @@ internal sealed class AlarmEmbedRenderer(ILocalizer localizer, IClock clock)
         var blocked = alarm.Reachability is DeviceReachability.Removed or DeviceReachability.NoPrivilege;
         var disableButtons = unreachable || blocked;
 
+        // <t:unix:R> is Discord's native relative timestamp — clients render "x minutes ago" and keep
+        // it updating live, so the embed never shows a stale duration between re-renders.
         var triggered = alarm.LastTriggeredUtc is { } t
-            ? localizer.Get("alarm.embed.lasttriggered", culture, CompactDuration(clock.UtcNow - t))
+            ? localizer.Get("alarm.embed.lasttriggered", culture,
+                string.Create(CultureInfo.InvariantCulture, $"<t:{t.ToUnixTimeSeconds()}:R>"))
             : localizer.Get("alarm.embed.nevertriggered", culture);
 
         var embed = new EmbedBuilder()
@@ -72,6 +73,8 @@ internal sealed class AlarmEmbedRenderer(ILocalizer localizer, IClock clock)
                 alarm.PingEveryone ? ButtonStyle.Success : ButtonStyle.Secondary, disabled: disableButtons)
             .WithButton(localizer.Get(relayKey, culture), AlarmComponentIds.RelayTogglePrefix + tail,
                 alarm.RelayToTeamChat ? ButtonStyle.Success : ButtonStyle.Secondary, disabled: disableButtons)
+            .WithButton(localizer.Get("alarm.button.refresh", culture), AlarmComponentIds.RefreshPrefix + tail,
+                ButtonStyle.Primary, disabled: disableButtons)
             .WithButton(localizer.Get("alarm.button.rename", culture), AlarmComponentIds.RenamePrefix + tail,
                 ButtonStyle.Secondary, disabled: disableButtons)
             .Build();
@@ -105,28 +108,5 @@ internal sealed class AlarmEmbedRenderer(ILocalizer localizer, IClock clock)
             .Build();
 
         return (embed, components);
-    }
-
-    /// <summary>Formats a duration compactly: "5m", "2h 10m", "3d 4h", "&lt;1m".</summary>
-    /// <param name="span">The duration to format.</param>
-    /// <returns>A compact human-readable duration string.</returns>
-    private static string CompactDuration(TimeSpan span)
-    {
-        if (span.TotalDays >= 1)
-        {
-            return string.Create(CultureInfo.InvariantCulture, $"{(int)span.TotalDays}d {span.Hours}h");
-        }
-
-        if (span.TotalHours >= 1)
-        {
-            return string.Create(CultureInfo.InvariantCulture, $"{(int)span.TotalHours}h {span.Minutes}m");
-        }
-
-        if (span.TotalMinutes >= 1)
-        {
-            return string.Create(CultureInfo.InvariantCulture, $"{(int)span.TotalMinutes}m");
-        }
-
-        return "<1m";
     }
 }

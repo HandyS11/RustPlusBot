@@ -67,6 +67,17 @@ public interface IRustServerQuery
         ulong entityId,
         CancellationToken cancellationToken);
 
+    /// <summary>Reads a smart alarm's live state and reachability (kind-aware Rust+ read).</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="entityId">The in-game smart-alarm entity id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The reading; <see cref="DeviceReachability.NoResponse"/> with a null state when there is no live socket.</returns>
+    Task<DeviceReading> GetSmartAlarmReadingAsync(ulong guildId,
+        Guid serverId,
+        ulong entityId,
+        CancellationToken cancellationToken);
+
     /// <summary>Reads a storage monitor's contents for a (guild, server), or null when there is no live socket.</summary>
     /// <param name="guildId">The guild snowflake.</param>
     /// <param name="serverId">The server id.</param>

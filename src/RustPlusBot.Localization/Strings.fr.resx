@@ -24,6 +24,9 @@
   <data name="alarm.button.relay.on" xml:space="preserve">
     <value>Relais tchat équipe : activé</value>
   </data>
+  <data name="alarm.button.refresh" xml:space="preserve">
+    <value>Actualiser</value>
+  </data>
   <data name="alarm.button.rename" xml:space="preserve">
     <value>Renommer</value>
   </data>

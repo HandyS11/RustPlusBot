@@ -21,6 +21,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private readonly ConcurrentQueue<SocketConnectOutcome> _connectOutcomes = new();
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
     private readonly Dictionary<ulong, DeviceReachability> _pendingDeviceReachabilityOverrides = [];
+    private readonly Dictionary<ulong, bool?> _pendingDeviceStates = [];
     private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _pendingMarkerScript = new();
     private readonly Dictionary<ulong, StorageContentsSnapshot?> _pendingStorageContents = [];
     private int _createCount;
@@ -74,6 +75,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         _pendingDeviceReachabilityOverrides.Clear();
 
+        // Transfer any pre-staged device states so they are in place before the prime/sweep loops read them.
+        foreach (var (entityId, state) in _pendingDeviceStates)
+        {
+            connection.SwitchStates[entityId] = state;
+        }
+
+        _pendingDeviceStates.Clear();
+
         LastConnection = connection;
         return connection;
     }
@@ -124,6 +133,17 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// <see cref="IRustServerConnection.GetStorageMonitorInfoAsync"/> for this entity.</param>
     public void StageDeviceReachability(ulong entityId, DeviceReachability reachability) =>
         _pendingDeviceReachabilityOverrides[entityId] = reachability;
+
+    /// <summary>
+    /// Pre-stages the on/off state returned by <see cref="FakeConnection.GetSmartDeviceInfoAsync"/> for a given
+    /// entity, to be transferred to the NEXT connection created by <see cref="Create"/>. Eliminates the setup
+    /// race when the prime/sweep loops read state before the test can assign
+    /// <see cref="FakeConnection.SwitchStates"/>. Call this before <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    /// <param name="entityId">The entity id to stage.</param>
+    /// <param name="isActive">The on/off state to return for this entity.</param>
+    public void StageDeviceState(ulong entityId, bool? isActive) =>
+        _pendingDeviceStates[entityId] = isActive;
 
     internal HeartbeatResult NextHeartbeat()
     {

@@ -51,7 +51,7 @@ public sealed class AlarmsHostedServiceTests
         teamChatSender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(TeamChatSendResult.Sent);
 
-        var alarmRenderer = new AlarmEmbedRenderer(new ResxLocalizer(), clock);
+        var alarmRenderer = new AlarmEmbedRenderer(new ResxLocalizer());
         var relay = new AlarmStateRelay(
             scopeFactory,
             refresher,
@@ -130,6 +130,43 @@ public sealed class AlarmsHostedServiceTests
             10UL, serverId, 42UL, true, FixedNow, Arg.Any<CancellationToken>());
         await h.Refresher.Received().RefreshAsync(
             10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
+
+        await h.Service.StopAsync(default);
+    }
+
+    [Fact]
+    public async Task SmartDeviceStateObservedEvent_drifted_alarm_routes_to_relay_and_syncs_silently()
+    {
+        var h = Create();
+        await h.Service.StartAsync(default);
+
+        var serverId = Guid.NewGuid();
+        h.Store.GetAsync(10UL, serverId, 42UL, Arg.Any<CancellationToken>())
+            .Returns(new SmartAlarm
+            {
+                GuildId = 10UL,
+                ServerId = serverId,
+                EntityId = 42UL,
+                Name = "Perimeter",
+                LastIsActive = false,
+            });
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline
+               && !h.Refresher.ReceivedCalls().Any(c =>
+                   c.GetMethodInfo().Name == nameof(IAlarmRefresher.RefreshAsync)))
+        {
+            await h.Bus.PublishAsync(new SmartDeviceStateObservedEvent(10UL, serverId, 42UL, IsActive: true));
+            await Task.Delay(20);
+        }
+
+        // Observed sync: state persisted WITHOUT a trigger timestamp, embed refreshed, no ping.
+        await h.Store.Received().UpdateStateAsync(
+            10UL, serverId, 42UL, true, null, Arg.Any<CancellationToken>());
+        await h.Refresher.Received().RefreshAsync(
+            10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceive()
+            .SendEveryonePingAsync(Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
 
         await h.Service.StopAsync(default);
     }
