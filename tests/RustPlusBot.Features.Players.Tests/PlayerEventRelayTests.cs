@@ -16,7 +16,7 @@ public sealed class PlayerEventRelayTests
 {
     private readonly IEventChannelLocator _locator = Substitute.For<IEventChannelLocator>();
     private readonly IPlayerChannelPoster _poster = Substitute.For<IPlayerChannelPoster>();
-    private readonly ITeamChatSender _sender = Substitute.For<ITeamChatSender>();
+    private readonly IBotTeamChatSender _sender = Substitute.For<IBotTeamChatSender>();
     private readonly IWorkspaceStore _workspace = Substitute.For<IWorkspaceStore>();
 
     private PlayerEventRelay BuildRelay()

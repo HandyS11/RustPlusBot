@@ -30,7 +30,7 @@ public sealed class PlayersHostedServiceTests
         locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ulong?)null);
         var poster = Substitute.For<IPlayerChannelPoster>();
-        var sender = Substitute.For<ITeamChatSender>();
+        var sender = Substitute.For<IBotTeamChatSender>();
         sender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(TeamChatSendResult.Sent);
 
@@ -57,7 +57,7 @@ public sealed class PlayersHostedServiceTests
         var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
         while (DateTimeOffset.UtcNow < deadline
                && !h.Sender.ReceivedCalls().Any(c =>
-                   c.GetMethodInfo().Name == nameof(ITeamChatSender.SendAsync)))
+                   c.GetMethodInfo().Name == nameof(IBotTeamChatSender.SendAsync)))
         {
             await h.Bus.PublishAsync(new PlayerStateChangedEvent(
                 10UL, serverId,
@@ -97,7 +97,7 @@ public sealed class PlayersHostedServiceTests
         var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
         while (DateTimeOffset.UtcNow < deadline
                && !h.Sender.ReceivedCalls().Any(c =>
-                   c.GetMethodInfo().Name == nameof(ITeamChatSender.SendAsync)))
+                   c.GetMethodInfo().Name == nameof(IBotTeamChatSender.SendAsync)))
         {
             await h.Bus.PublishAsync(new PlayerStateChangedEvent(
                 10UL, Guid.NewGuid(),
@@ -116,7 +116,7 @@ public sealed class PlayersHostedServiceTests
     private sealed record Harness(
         PlayersHostedService Service,
         InMemoryEventBus Bus,
-        ITeamChatSender Sender,
+        IBotTeamChatSender Sender,
         IEventChannelLocator Locator,
         IPlayerChannelPoster Poster);
 }

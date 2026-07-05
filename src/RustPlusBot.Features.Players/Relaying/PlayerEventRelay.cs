@@ -18,7 +18,7 @@ internal sealed class PlayerEventRelay(
     PlayerEventRenderer renderer,
     IEventChannelLocator locator,
     IPlayerChannelPoster poster,
-    ITeamChatSender teamChatSender,
+    IBotTeamChatSender teamChatSender,
     IServiceScopeFactory scopeFactory)
 {
     /// <summary>Handles one <see cref="PlayerStateChangedEvent"/>: posts embeds and broadcasts in-game.</summary>

@@ -30,7 +30,7 @@ public sealed class PlayerEventRegistrationTests
         services.AddSingleton(new DiscordSocketClient());
         services.AddSingleton<IEventChannelLocator>(Substitute.For<IEventChannelLocator>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
-        services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
+        services.AddSingleton<IBotTeamChatSender>(Substitute.For<IBotTeamChatSender>());
         services.AddPlayers();
         return services.BuildServiceProvider(validateScopes: true);
     }
