@@ -2,6 +2,8 @@ using System.Globalization;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Alarms.Pairing;
 using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
@@ -12,9 +14,13 @@ namespace RustPlusBot.Features.Alarms.Modules;
 /// <summary>Thin handler for the #alarms pairing prompt + control buttons + rename modal. Any guild member.</summary>
 /// <param name="scopeFactory">Creates a short-lived DI scope per interaction.</param>
 /// <param name="refresher">Re-renders the alarm embed on demand.</param>
+/// <param name="query">Live socket read (for Refresh).</param>
+/// <param name="eventBus">Publishes reachability/observed-state events to drive an embed refresh.</param>
 public sealed class AlarmComponentModule(
     IServiceScopeFactory scopeFactory,
-    IAlarmRefresher refresher) : InteractionModuleBase<SocketInteractionContext>
+    IAlarmRefresher refresher,
+    IRustServerQuery query,
+    IEventBus eventBus) : InteractionModuleBase<SocketInteractionContext>
 {
     private const string InvalidControlMessage = "That control wasn't valid.";
 
@@ -134,6 +140,39 @@ public sealed class AlarmComponentModule(
         await refresher.RefreshAsync(Context.Guild.Id, serverId, entityId, unreachable: false, CancellationToken.None)
             .ConfigureAwait(false);
         await FollowupAsync("Updated.", ephemeral: true).ConfigureAwait(false);
+    }
+
+    /// <summary>Re-reads the alarm's live state and republishes it so the embed refreshes.</summary>
+    /// <param name="tail">The "{serverId}:{entityId}" custom-id tail.</param>
+    [ComponentInteraction(AlarmComponentIds.RefreshPrefix + "*")]
+    public async Task RefreshAsync(string tail)
+    {
+        if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
+        {
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var reading = await query
+            .GetSmartAlarmReadingAsync(Context.Guild.Id, serverId, entityId, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        // Persist/render stays in the relay pipelines — this handler only reads and publishes.
+        await eventBus
+            .PublishAsync(new DeviceReachabilityChangedEvent(Context.Guild.Id, serverId, entityId,
+                reading.Reachability))
+            .ConfigureAwait(false);
+        if (reading is { Reachability: DeviceReachability.Reachable, IsActive: { } isActive })
+        {
+            await eventBus
+                .PublishAsync(new SmartDeviceStateObservedEvent(Context.Guild.Id, serverId, entityId, isActive))
+                .ConfigureAwait(false);
+            await FollowupAsync("Refreshed.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await FollowupAsync("Alarm is unreachable right now.", ephemeral: true).ConfigureAwait(false);
     }
 
     /// <summary>Opens the rename modal, carrying the target tail in the modal custom id.</summary>

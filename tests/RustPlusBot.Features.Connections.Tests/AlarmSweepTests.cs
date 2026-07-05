@@ -22,7 +22,7 @@ using RustPlusBot.Persistence.Switches;
 
 namespace RustPlusBot.Features.Connections.Tests;
 
-public sealed class AlarmPrimingTests
+public sealed class AlarmSweepTests
 {
     private static (ServiceProvider Provider, ConnectionSupervisor Supervisor, InMemoryEventBus Bus) CreateHarness(
         FakeRustSocketSource source)
@@ -41,7 +41,7 @@ public sealed class AlarmPrimingTests
         services.AddSingleton(dm);
         services.AddSingleton<IEventBus>(bus);
 
-        var cs = $"DataSource=alarmpriming-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        var cs = $"DataSource=alarmsweep-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
         var keepAlive = new SqliteConnection(cs);
         keepAlive.Open();
         using (var seed = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options))
@@ -64,6 +64,7 @@ public sealed class AlarmPrimingTests
             MaxRetryDelay = TimeSpan.FromMilliseconds(20),
             HeartbeatInterval = TimeSpan.FromMilliseconds(20),
             HeartbeatTimeout = TimeSpan.FromMilliseconds(200),
+            ReachabilityPollInterval = TimeSpan.FromMilliseconds(25),
         }));
         services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
@@ -96,49 +97,58 @@ public sealed class AlarmPrimingTests
         return server.Id;
     }
 
+    private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
+    {
+        while (!condition())
+        {
+            ct.ThrowIfCancellationRequested();
+            await Task.Delay(10, ct);
+        }
+    }
+
     [Fact]
-    public async Task Priming_publishes_observed_state_for_persisted_alarm_on_connect()
+    public async Task GetSmartAlarmReading_reads_with_alarm_kind_when_connected()
     {
         var source = new FakeRustSocketSource();
-        var (provider, supervisor, bus) = CreateHarness(source);
+        var (provider, supervisor, _) = CreateHarness(source);
         await using var disposeProvider = provider;
         var serverId = await SeedServerWithActiveAndAlarmAsync(provider, entityId: 77UL);
+        source.StageDeviceState(77UL, isActive: true);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-
-        // Subscribe BEFORE connecting: SubscribeAsync registers the channel eagerly on THIS thread, so the primed
-        // publish (which fires during EnsureConnectionAsync) is observed. Only the enumeration runs in Task.Run.
-        // An alarm prime is an OBSERVATION, not a trigger — a triggered event here would re-ping @everyone on
-        // every reconnect while the alarm is active.
-        var stream = bus.SubscribeAsync<SmartDeviceStateObservedEvent>(cts.Token);
-        var received =
-            new TaskCompletionSource<SmartDeviceStateObservedEvent>(TaskCreationOptions
-                .RunContinuationsAsynchronously);
-        _ = Task.Run(
-            async () =>
-            {
-                await foreach (var evt in stream)
-                {
-                    if (evt.EntityId == 77UL)
-                    {
-                        received.TrySetResult(evt);
-                        break;
-                    }
-                }
-            },
-            cts.Token);
-
-        // The fake defaults entity 77 absent → GetSmartDeviceInfoAsync returns null → priming publishes off.
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
 
-        var evt = await received.Task.WaitAsync(cts.Token);
-        Assert.Equal(77UL, evt.EntityId);
-        Assert.False(evt.IsActive); // absent in SwitchStates → null → defaulted off
+        var reading = await supervisor.GetSmartAlarmReadingAsync(10UL, serverId, 77UL, cts.Token);
+
+        Assert.Equal(DeviceReachability.Reachable, reading.Reachability);
+        Assert.True(reading.IsActive);
+        var connection = Assert.IsType<FakeRustSocketSource.FakeConnection>(source.LastConnection);
+        lock (connection.DeviceReadCalls)
+        {
+            // The Rust+ API type-checks reads: the refresh path must read the alarm AS an alarm.
+            Assert.Contains((77UL, SmartDeviceKind.Alarm), connection.DeviceReadCalls);
+        }
+
         await supervisor.StopAllAsync();
     }
 
     [Fact]
-    public async Task Priming_reads_alarm_with_alarm_kind()
+    public async Task GetSmartAlarmReading_returns_noresponse_when_no_live_socket()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor, _) = CreateHarness(source);
+        await using var disposeProvider = provider;
+
+        var reading = await supervisor.GetSmartAlarmReadingAsync(
+            10UL, Guid.NewGuid(), 77UL, CancellationToken.None);
+
+        Assert.Null(reading.IsActive);
+        Assert.Equal(DeviceReachability.NoResponse, reading.Reachability);
+    }
+
+    [Fact]
+    public async Task Sweep_publishes_observed_state_for_reachable_alarm()
     {
         var source = new FakeRustSocketSource();
         var (provider, supervisor, bus) = CreateHarness(source);
@@ -147,7 +157,8 @@ public sealed class AlarmPrimingTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-        // Wait for the prime publish so the device read has definitely happened before asserting.
+        // Subscribe BEFORE connecting. The periodic sweep must publish the alarm state it already reads
+        // as an OBSERVED event so drifted embeds self-correct without ping/relay side effects.
         var stream = bus.SubscribeAsync<SmartDeviceStateObservedEvent>(cts.Token);
         var received =
             new TaskCompletionSource<SmartDeviceStateObservedEvent>(TaskCreationOptions
@@ -157,7 +168,7 @@ public sealed class AlarmPrimingTests
             {
                 await foreach (var evt in stream)
                 {
-                    if (evt.EntityId == 77UL)
+                    if (evt.EntityId == 77UL && evt.IsActive)
                     {
                         received.TrySetResult(evt);
                         break;
@@ -166,16 +177,13 @@ public sealed class AlarmPrimingTests
             },
             cts.Token);
 
+        // The alarm reads as active; staged so it is in place before the connection is created.
+        source.StageDeviceState(77UL, isActive: true);
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
-        await received.Task.WaitAsync(cts.Token);
-        await supervisor.StopAllAsync();
 
-        // The Rust+ API type-checks entity reads: a switch read against an alarm entity fails and the
-        // device would be persisted NoResponse forever. The prime must read the alarm AS an alarm.
-        var connection = Assert.IsType<FakeRustSocketSource.FakeConnection>(source.LastConnection);
-        lock (connection.DeviceReadCalls)
-        {
-            Assert.Contains((77UL, SmartDeviceKind.Alarm), connection.DeviceReadCalls);
-        }
+        var evt = await received.Task.WaitAsync(cts.Token);
+        Assert.Equal(77UL, evt.EntityId);
+        Assert.True(evt.IsActive);
+        await supervisor.StopAllAsync();
     }
 }

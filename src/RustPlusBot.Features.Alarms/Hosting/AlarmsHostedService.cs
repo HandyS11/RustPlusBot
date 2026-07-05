@@ -6,10 +6,10 @@ using RustPlusBot.Features.Alarms.Relaying;
 
 namespace RustPlusBot.Features.Alarms.Hosting;
 
-/// <summary>Runs the alarm-pairing loop, the alarm-triggered relay loop, the connection-status relay loop, and the per-device reachability loop.</summary>
+/// <summary>Runs the alarm-pairing loop, the alarm-triggered relay loop, the connection-status relay loop, the per-device reachability loop, and the observed-state sync loop.</summary>
 /// <param name="eventBus">The in-process event bus.</param>
 /// <param name="coordinator">Handles paired alarms.</param>
-/// <param name="relay">Re-renders alarms on trigger/connection/reachability changes.</param>
+/// <param name="relay">Re-renders alarms on trigger/connection/reachability/observed-state changes.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class AlarmsHostedService(
     IEventBus eventBus,
@@ -18,6 +18,7 @@ internal sealed partial class AlarmsHostedService(
     ILogger<AlarmsHostedService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
+    private Task? _observedLoop;
     private Task? _pairedLoop;
     private Task? _reachabilityLoop;
     private Task? _statusLoop;
@@ -33,6 +34,7 @@ internal sealed partial class AlarmsHostedService(
         _triggeredLoop = Task.Run(() => ConsumeTriggeredAsync(_cts.Token), CancellationToken.None);
         _statusLoop = Task.Run(() => ConsumeStatusAsync(_cts.Token), CancellationToken.None);
         _reachabilityLoop = Task.Run(() => ConsumeReachabilityChangedAsync(_cts.Token), CancellationToken.None);
+        _observedLoop = Task.Run(() => ConsumeStateObservedAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
 
@@ -42,7 +44,7 @@ internal sealed partial class AlarmsHostedService(
         await _cts.CancelAsync().ConfigureAwait(false);
         foreach (var loop in new[]
                  {
-                     _pairedLoop, _triggeredLoop, _statusLoop, _reachabilityLoop
+                     _pairedLoop, _triggeredLoop, _statusLoop, _reachabilityLoop, _observedLoop
                  }.Where(t => t is not null))
         {
             try
@@ -146,6 +148,28 @@ internal sealed partial class AlarmsHostedService(
         }
     }
 
+    private async Task ConsumeStateObservedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var evt in eventBus.SubscribeAsync<SmartDeviceStateObservedEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                await relay.HandleStateObservedAsync(evt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogObservedLoopFaulted(logger, ex);
+        }
+    }
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Alarm pairing loop faulted.")]
     private static partial void LogPairedLoopFaulted(ILogger logger, Exception exception);
 
@@ -157,4 +181,7 @@ internal sealed partial class AlarmsHostedService(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Alarm reachability relay loop faulted.")]
     private static partial void LogReachabilityLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Alarm observed-state sync loop faulted.")]
+    private static partial void LogObservedLoopFaulted(ILogger logger, Exception exception);
 }

@@ -40,7 +40,7 @@ public sealed class AlarmRefresherTests
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(_fixedNow);
         var localizer = new ResxLocalizer();
-        var renderer = new AlarmEmbedRenderer(localizer, clock);
+        var renderer = new AlarmEmbedRenderer(localizer);
 
         if (alarm is not null)
         {

@@ -12,13 +12,7 @@ public sealed class AlarmEmbedRendererTests
 {
     private static readonly DateTimeOffset _fixedNow = new(2025, 6, 1, 12, 0, 0, TimeSpan.Zero);
 
-    private static AlarmEmbedRenderer Create(DateTimeOffset? now = null)
-    {
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(now ?? _fixedNow);
-        var localizer = new ResxLocalizer();
-        return new AlarmEmbedRenderer(localizer, clock);
-    }
+    private static AlarmEmbedRenderer Create() => new(new ResxLocalizer());
 
     private static SmartAlarm Sample(
         string name = "Fire Alarm",
@@ -81,33 +75,26 @@ public sealed class AlarmEmbedRendererTests
     }
 
     [Fact]
-    public void RenderAlarm_triggered_recently_shows_last_triggered_ago()
+    public void RenderAlarm_triggered_shows_native_discord_relative_timestamp()
     {
         var triggered = _fixedNow.AddMinutes(-5);
         var (embed, _) = Create().RenderAlarm(Sample(lastTriggeredUtc: triggered), unreachable: false, "en");
 
+        // Discord renders <t:unix:R> as a live-updating "x minutes ago" — the embed never goes stale.
         Assert.Contains("Last triggered", embed.Description ?? string.Empty, StringComparison.Ordinal);
-        Assert.Contains("ago", embed.Description ?? string.Empty, StringComparison.Ordinal);
-        Assert.Contains("5m", embed.Description ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains($"<t:{triggered.ToUnixTimeSeconds()}:R>", embed.Description ?? string.Empty,
+            StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RenderAlarm_triggered_hours_ago_shows_hours_format()
+    public void RenderAlarm_has_refresh_button_with_identity_tail()
     {
-        var triggered = _fixedNow.AddHours(-2).AddMinutes(-10);
-        var (embed, _) = Create().RenderAlarm(Sample(lastTriggeredUtc: triggered), unreachable: false, "en");
+        var alarm = Sample();
+        var (_, components) = Create().RenderAlarm(alarm, unreachable: false, "en");
+        var buttons = Buttons(components);
 
-        Assert.Contains("2h", embed.Description ?? string.Empty, StringComparison.Ordinal);
-        Assert.Contains("10m", embed.Description ?? string.Empty, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void RenderAlarm_triggered_days_ago_shows_days_format()
-    {
-        var triggered = _fixedNow.AddDays(-3);
-        var (embed, _) = Create().RenderAlarm(Sample(lastTriggeredUtc: triggered), unreachable: false, "en");
-
-        Assert.Contains("3d", embed.Description ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains(buttons, b =>
+            b.CustomId == AlarmComponentIds.RefreshPrefix + $"{alarm.ServerId}:{alarm.EntityId}");
     }
 
     // ── Buttons — ping ────────────────────────────────────────────────────────

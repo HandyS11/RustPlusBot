@@ -136,6 +136,39 @@ internal sealed partial class AlarmStateRelay(
     }
 
     /// <summary>
+    /// Handles an observed (prime/sweep/refresh) state reading: if it drifted from the persisted state,
+    /// persists it and re-renders the embed. Never pings or relays — only real triggers notify. The
+    /// last-triggered timestamp is left untouched (an observation cannot tell when the change happened).
+    /// </summary>
+    /// <param name="evt">The observed-state event.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when any drift has been persisted and re-rendered.</returns>
+    public async Task HandleStateObservedAsync(
+        SmartDeviceStateObservedEvent evt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evt);
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
+            var alarm = await store.GetAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                .ConfigureAwait(false);
+            if (alarm is null || alarm.LastIsActive == evt.IsActive)
+            {
+                return; // foreign entity, or no drift — nothing to do (no Discord edit in steady state).
+            }
+
+            await store.UpdateStateAsync(evt.GuildId, evt.ServerId, evt.EntityId, evt.IsActive,
+                    triggeredUtc: null, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await refresher.RefreshAsync(evt.GuildId, evt.ServerId, evt.EntityId, unreachable: false, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Handles a per-device reachability change: if the entity belongs to a managed alarm, persists the new
     /// reachability and triggers a refresh. Foreign entities are silently ignored.
     /// </summary>

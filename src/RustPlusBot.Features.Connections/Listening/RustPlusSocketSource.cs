@@ -51,6 +51,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             Task.FromResult(false);
 
         public Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
+            SmartDeviceKind kind,
             TimeSpan timeout,
             CancellationToken cancellationToken) =>
             Task.FromResult(new DeviceReading(null, DeviceReachability.NoResponse));
@@ -364,6 +365,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         public event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
 
         public async Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
+            SmartDeviceKind kind,
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
@@ -371,13 +373,19 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             timeoutCts.CancelAfter(timeout);
             try
             {
-                // CONFIRMED (2.0.0-beta.3): GetSmartSwitchInfoAsync(ulong, CancellationToken) returns
-                // Task of Response of SmartDeviceInfo; Response.IsSuccess and Response.Data are the accessors and
-                // SmartDeviceInfo.IsActive is a bool. The call also primes the socket's interest in this
+                // CONFIRMED (2.0.0-beta.3): GetSmartSwitchInfoAsync/GetAlarmInfoAsync(ulong, CancellationToken)
+                // return Task of Response of SmartDeviceInfo; Response.IsSuccess and Response.Data are the accessors
+                // and SmartDeviceInfo.IsActive is a bool. The call also primes the socket's interest in this
                 // entity, so OnSmartDeviceTriggered fires for it thereafter.
+                // CONFIRMED: both mappers throw InvalidOperationException when the server-reported entity type
+                // does not match the method (AppEntityInfoToModel type checks), so the paired kind must pick
+                // the matching read — a switch read against an alarm surfaces as NoResponse otherwise.
                 // CONFIRMED: Response.Error is ErrorMessage? (null on success), so response.Error?.Code is correct.
-                var response = await _rustPlus.GetSmartSwitchInfoAsync(entityId, timeoutCts.Token)
-                    .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
+                var response = kind == SmartDeviceKind.Alarm
+                    ? await _rustPlus.GetAlarmInfoAsync(entityId, timeoutCts.Token)
+                        .WaitAsync(timeoutCts.Token).ConfigureAwait(false)
+                    : await _rustPlus.GetSmartSwitchInfoAsync(entityId, timeoutCts.Token)
+                        .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
                 var reachability = ReachabilityMapping.FromResponse(response.IsSuccess, response.Error?.Code);
                 var isActive = response is { IsSuccess: true, Data: { } info } ? info.IsActive : (bool?)null;
                 return new DeviceReading(isActive, reachability);

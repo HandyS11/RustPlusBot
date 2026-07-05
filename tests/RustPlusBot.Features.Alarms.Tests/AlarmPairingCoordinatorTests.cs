@@ -39,7 +39,7 @@ public sealed class AlarmPairingCoordinatorTests
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(new DateTimeOffset(2025, 6, 1, 12, 0, 0, TimeSpan.Zero));
         var localizer = new ResxLocalizer();
-        var renderer = new AlarmEmbedRenderer(localizer, clock);
+        var renderer = new AlarmEmbedRenderer(localizer);
 
         var coordinator = new AlarmPairingCoordinator(scopeFactory, locator, poster, renderer);
         return new Harness(coordinator, store, poster, locator);

@@ -15,6 +15,9 @@ internal static class AlarmComponentIds
     /// <summary>Relay to team chat toggle button; tail "{serverId}:{entityId}".</summary>
     public const string RelayTogglePrefix = "alarm:relay:";
 
+    /// <summary>Refresh button (re-reads live state); tail "{serverId}:{entityId}".</summary>
+    public const string RefreshPrefix = "alarm:refresh:";
+
     /// <summary>Rename button (opens the modal); tail "{serverId}:{entityId}".</summary>
     public const string RenamePrefix = "alarm:rename:";
 

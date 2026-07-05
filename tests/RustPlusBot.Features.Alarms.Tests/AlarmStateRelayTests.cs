@@ -71,6 +71,79 @@ public sealed class AlarmStateRelayTests
     }
 
     // ──────────────────────────────────────────────────────────────────────────
+    // Observed state (prime/sweep/refresh) — silent sync
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>An observed state that drifted persists (without a trigger timestamp) and refreshes — but never notifies.</summary>
+    [Fact]
+    public async Task Observed_drifted_state_persists_and_refreshes_without_notifying()
+    {
+        var serverId = Guid.NewGuid();
+        var alarm = new SmartAlarm
+        {
+            GuildId = 10UL,
+            ServerId = serverId,
+            EntityId = 42UL,
+            Name = "Perimeter",
+            LastIsActive = false,
+            PingEveryone = true,
+            RelayToTeamChat = true,
+        };
+        var h = Create(alarm: alarm);
+
+        await h.Relay.HandleStateObservedAsync(
+            new SmartDeviceStateObservedEvent(10UL, serverId, 42UL, IsActive: true), CancellationToken.None);
+
+        await h.Store.Received(1).UpdateStateAsync(
+            10UL, serverId, 42UL, true, null, Arg.Any<CancellationToken>());
+        await h.Refresher.Received(1)
+            .RefreshAsync(10UL, serverId, 42UL, unreachable: false, Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceive()
+            .SendEveryonePingAsync(Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await h.TeamChatSender.DidNotReceive()
+            .SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>An observed state equal to the persisted one is a no-op (no store write, no Discord edit).</summary>
+    [Fact]
+    public async Task Observed_unchanged_state_does_nothing()
+    {
+        var serverId = Guid.NewGuid();
+        var alarm = new SmartAlarm
+        {
+            GuildId = 10UL,
+            ServerId = serverId,
+            EntityId = 42UL,
+            Name = "Perimeter",
+            LastIsActive = true,
+        };
+        var h = Create(alarm: alarm);
+
+        await h.Relay.HandleStateObservedAsync(
+            new SmartDeviceStateObservedEvent(10UL, serverId, 42UL, IsActive: true), CancellationToken.None);
+
+        await h.Store.DidNotReceive().UpdateStateAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<bool>(), Arg.Any<DateTimeOffset?>(), Arg.Any<CancellationToken>());
+        await h.Refresher.DidNotReceive().RefreshAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>An observed state for an entity that is not a managed alarm is ignored.</summary>
+    [Fact]
+    public async Task Observed_foreign_entity_is_ignored()
+    {
+        var h = Create(alarm: null);
+
+        await h.Relay.HandleStateObservedAsync(
+            new SmartDeviceStateObservedEvent(10UL, Guid.NewGuid(), 99UL, IsActive: true), CancellationToken.None);
+
+        await h.Store.DidNotReceive().UpdateStateAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<bool>(), Arg.Any<DateTimeOffset?>(), Arg.Any<CancellationToken>());
+        await h.Refresher.DidNotReceive().RefreshAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // Triggered → active
     // ──────────────────────────────────────────────────────────────────────────
 
