@@ -17,7 +17,7 @@ namespace RustPlusBot.Features.Events.Relaying;
 internal sealed record EventRelayChannels(
     IEventChannelLocator Locator,
     IEventChannelPoster Poster,
-    ITeamChatSender TeamChatSender);
+    IBotTeamChatSender TeamChatSender);
 
 /// <summary>Posts every live event to #events AND in-game team chat; tracks rig state.</summary>
 /// <param name="classifier">Classifies raw marker deltas into domain events.</param>
