@@ -264,7 +264,7 @@ internal sealed partial class ConnectionSupervisor(
         }
 
         var reading = await live.Connection
-            .GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, cancellationToken)
+            .GetSmartDeviceInfoAsync(entityId, SmartDeviceKind.Switch, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
         return reading.IsActive;
     }
@@ -691,6 +691,15 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
+    /// <summary>
+    /// Reads every managed device's reachability for one sweep cycle. Side effect: reachable storage
+    /// monitors get their just-read contents republished as <see cref="StorageMonitorTriggeredEvent"/>,
+    /// giving embeds a periodic contents refresh independent of broadcasts.
+    /// </summary>
+    /// <param name="key">The (guild, server) routing key.</param>
+    /// <param name="connection">The live connection used to read device state.</param>
+    /// <param name="ct">A cancellation token.</param>
+    /// <returns>The reachability snapshot keyed by entity id.</returns>
     private async Task<Dictionary<ulong, DeviceReachability>> ReadAllReachabilityAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
@@ -707,9 +716,12 @@ internal sealed partial class ConnectionSupervisor(
             var monitors = await scope.ServiceProvider.GetRequiredService<IStorageMonitorStore>()
                 .ListByServerAsync(key.Guild, key.Server, ct).ConfigureAwait(false);
 
-            foreach (var entityId in switches.Select(s => s.EntityId).Concat(alarms.Select(a => a.EntityId)))
+            var devices = switches.Select(s => (s.EntityId, SmartDeviceKind.Switch))
+                .Concat(alarms.Select(a => (a.EntityId, SmartDeviceKind.Alarm)));
+            foreach (var (entityId, kind) in devices)
             {
-                var reading = await connection.GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, ct)
+                var reading = await connection
+                    .GetSmartDeviceInfoAsync(entityId, kind, _options.HeartbeatTimeout, ct)
                     .ConfigureAwait(false);
                 result[entityId] = reading.Reachability;
             }
@@ -722,6 +734,18 @@ internal sealed partial class ConnectionSupervisor(
                     .GetStorageMonitorInfoAsync(monitor.EntityId, _options.HeartbeatTimeout, ct)
                     .ConfigureAwait(false);
                 result[monitor.EntityId] = reading.Reachability;
+
+                // The read already carries the contents — republish them so embeds keep tracking in-game
+                // changes even when no EntityChanged broadcast arrives (broadcasts alone are unreliable
+                // for storage monitors). Storage renders have no ping/relay side effects, so a periodic
+                // republish is safe; device (switch/alarm) triggers must NOT be republished here — an
+                // active alarm would re-ping on every sweep.
+                if (reading is { Reachability: DeviceReachability.Reachable, Contents: { } contents })
+                {
+                    await eventBus.PublishAsync(
+                            new StorageMonitorTriggeredEvent(key.Guild, key.Server, monitor.EntityId, contents), ct)
+                        .ConfigureAwait(false);
+                }
             }
         }
 
@@ -969,7 +993,8 @@ internal sealed partial class ConnectionSupervisor(
         }
 
         await PrimeEntityIdsAsync(key, connection,
-            (IReadOnlyList<ulong>)[.. switches.Select(sw => sw.EntityId)]).ConfigureAwait(false);
+            (IReadOnlyList<ulong>)[.. switches.Select(sw => sw.EntityId)],
+            SmartDeviceKind.Switch).ConfigureAwait(false);
 
         IReadOnlyList<Domain.Alarms.SmartAlarm> alarms;
         try
@@ -994,7 +1019,8 @@ internal sealed partial class ConnectionSupervisor(
         }
 
         await PrimeEntityIdsAsync(key, connection,
-            (IReadOnlyList<ulong>)[.. alarms.Select(a => a.EntityId)]).ConfigureAwait(false);
+            (IReadOnlyList<ulong>)[.. alarms.Select(a => a.EntityId)],
+            SmartDeviceKind.Alarm).ConfigureAwait(false);
 
         IReadOnlyList<Domain.StorageMonitors.SmartStorageMonitor> monitors;
         try
@@ -1042,7 +1068,8 @@ internal sealed partial class ConnectionSupervisor(
     private async Task PrimeEntityIdsAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
-        IReadOnlyList<ulong> entityIds)
+        IReadOnlyList<ulong> entityIds,
+        SmartDeviceKind kind)
     {
 #pragma warning disable S3267 // Not a projection: each iteration awaits with per-entity best-effort error handling.
         foreach (var entityId in entityIds)
@@ -1050,7 +1077,7 @@ internal sealed partial class ConnectionSupervisor(
         {
             try
             {
-                await PublishDevicePrimeAsync(key, connection, entityId).ConfigureAwait(false);
+                await PublishDevicePrimeAsync(key, connection, entityId, kind).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1100,10 +1127,12 @@ internal sealed partial class ConnectionSupervisor(
     /// <param name="key">The (guild, server) routing key.</param>
     /// <param name="connection">The live connection used to read device state.</param>
     /// <param name="entityId">The entity id of the device to prime.</param>
+    /// <param name="kind">The paired device kind used for the type-checked Rust+ read.</param>
     private async Task PublishDevicePrimeAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
-        ulong entityId)
+        ulong entityId,
+        SmartDeviceKind kind)
     {
         if (_disposed)
         {
@@ -1113,7 +1142,7 @@ internal sealed partial class ConnectionSupervisor(
         try
         {
             var reading = await connection
-                .GetSmartDeviceInfoAsync(entityId, _options.HeartbeatTimeout, _shutdown.Token)
+                .GetSmartDeviceInfoAsync(entityId, kind, _options.HeartbeatTimeout, _shutdown.Token)
                 .ConfigureAwait(false);
             await eventBus.PublishAsync(
                     new DeviceReachabilityChangedEvent(key.Guild, key.Server, entityId, reading.Reachability),

@@ -45,10 +45,11 @@ public sealed class StorageMonitorStateRelayTests
         names.Resolve(Arg.Any<int>()).Returns(ci => "Item" + (int)ci[0]);
         var renderer = new StorageMonitorEmbedRenderer(new ResxLocalizer(), names);
 
+        var query = Substitute.For<IRustServerQuery>();
         var relay = new StorageMonitorStateRelay(
-            provider.GetRequiredService<IServiceScopeFactory>(), locator, poster, renderer);
+            provider.GetRequiredService<IServiceScopeFactory>(), locator, poster, renderer, query);
 
-        return new Harness(relay, store, poster, connections);
+        return new Harness(relay, store, poster, connections, query);
     }
 
     [Fact]
@@ -181,9 +182,65 @@ public sealed class StorageMonitorStateRelayTests
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleReachabilityChangedAsync_Reachable_RendersFetchedContents()
+    {
+        var h = Create();
+        h.Store.ExistsAsync(Guild, Server, 42UL, Arg.Any<CancellationToken>()).Returns(true);
+        h.Store.GetAsync(Guild, Server, 42UL, Arg.Any<CancellationToken>())
+            .Returns(new SmartStorageMonitor
+            {
+                GuildId = Guild,
+                ServerId = Server,
+                EntityId = 42UL,
+                Name = "TC",
+                MessageId = 900UL,
+                Reachability = DeviceReachability.Reachable,
+            });
+        h.Query.GetStorageContentsAsync(Guild, Server, 42UL, Arg.Any<CancellationToken>())
+            .Returns(new StorageContentsSnapshot(48, null, null, [new StorageItemSnapshot(100, 5, false)]));
+
+        await h.Relay.HandleReachabilityChangedAsync(
+            new DeviceReachabilityChangedEvent(Guild, Server, 42UL, DeviceReachability.Reachable),
+            CancellationToken.None);
+
+        // A device that became reachable must show its live contents, not the unreachable banner
+        // (a null-contents render here would also disable the Refresh/Rename buttons).
+        await h.Poster.Received(1).EnsureAsync(555UL, 900UL,
+            Arg.Is<global::Discord.Embed>(e => e.Description.Contains("Item100")),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleReachabilityChangedAsync_NotReachable_DoesNotQueryContents()
+    {
+        var h = Create();
+        h.Store.ExistsAsync(Guild, Server, 42UL, Arg.Any<CancellationToken>()).Returns(true);
+        h.Store.GetAsync(Guild, Server, 42UL, Arg.Any<CancellationToken>())
+            .Returns(new SmartStorageMonitor
+            {
+                GuildId = Guild,
+                ServerId = Server,
+                EntityId = 42UL,
+                Name = "TC",
+                MessageId = 900UL,
+                Reachability = DeviceReachability.NoResponse,
+            });
+
+        await h.Relay.HandleReachabilityChangedAsync(
+            new DeviceReachabilityChangedEvent(Guild, Server, 42UL, DeviceReachability.NoResponse),
+            CancellationToken.None);
+
+        await h.Query.DidNotReceive().GetStorageContentsAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(555UL, 900UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
     private sealed record Harness(
         StorageMonitorStateRelay Relay,
         IStorageMonitorStore Store,
         IStorageMonitorChannelPoster Poster,
-        IConnectionStore Connections);
+        IConnectionStore Connections,
+        IRustServerQuery Query);
 }

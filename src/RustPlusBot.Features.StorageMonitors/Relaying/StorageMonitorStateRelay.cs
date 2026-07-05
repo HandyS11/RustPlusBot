@@ -17,11 +17,13 @@ namespace RustPlusBot.Features.StorageMonitors.Relaying;
 /// <param name="locator">Resolves the #storagemonitors channel id.</param>
 /// <param name="poster">Posts/edits storage monitor embeds.</param>
 /// <param name="renderer">Renders storage monitor embeds.</param>
+/// <param name="query">Reads live storage contents when a device becomes reachable.</param>
 internal sealed class StorageMonitorStateRelay(
     IServiceScopeFactory scopeFactory,
     IStorageMonitorChannelLocator locator,
     IStorageMonitorChannelPoster poster,
-    StorageMonitorEmbedRenderer renderer)
+    StorageMonitorEmbedRenderer renderer,
+    IRustServerQuery query)
 {
     /// <summary>Handles a storage monitor trigger: ignore unmanaged ids; else render the event's contents directly.</summary>
     /// <param name="evt">The storage monitor triggered event.</param>
@@ -54,7 +56,9 @@ internal sealed class StorageMonitorStateRelay(
         }
     }
 
-    /// <summary>Handles a per-device reachability change: ignore foreign entities, else persist + re-render.</summary>
+    /// <summary>Handles a per-device reachability change: ignore foreign entities, else persist + re-render.
+    /// A device that (re)became <see cref="DeviceReachability.Reachable"/> is re-read so the embed shows its
+    /// contents instead of a stale unreachable banner (the prime races this handler on a second bus loop).</summary>
     /// <param name="evt">The device-reachability-changed event.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the embed has been re-rendered (or the id was ignored).</returns>
@@ -83,9 +87,13 @@ internal sealed class StorageMonitorStateRelay(
                 return;
             }
 
+            var contents = evt.Reachability == DeviceReachability.Reachable
+                ? await query.GetStorageContentsAsync(evt.GuildId, evt.ServerId, evt.EntityId, cancellationToken)
+                    .ConfigureAwait(false)
+                : null;
             var culture = await GetCultureAsync(scope.ServiceProvider, evt.GuildId, cancellationToken)
                 .ConfigureAwait(false);
-            await RenderAsync(store, monitor, contents: null, evt.GuildId, evt.ServerId, culture, cancellationToken)
+            await RenderAsync(store, monitor, contents, evt.GuildId, evt.ServerId, culture, cancellationToken)
                 .ConfigureAwait(false);
         }
     }

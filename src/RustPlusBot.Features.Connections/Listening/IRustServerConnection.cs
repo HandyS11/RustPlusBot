@@ -51,10 +51,14 @@ internal interface IRustServerConnection : IAsyncDisposable
 
     /// <summary>Reads a smart device's on/off state and reachability. Also primes the socket's interest in the entity (so triggers fire for it thereafter).</summary>
     /// <param name="entityId">The in-game entity id (switch or alarm).</param>
+    /// <param name="kind">The paired device kind; the Rust+ API validates the entity type on reads, so an alarm must be read as an alarm.</param>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A <see cref="DeviceReading"/> with the active state (non-null only when <see cref="DeviceReachability.Reachable"/>) and the reachability outcome.</returns>
-    Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId, TimeSpan timeout, CancellationToken cancellationToken);
+    Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
+        SmartDeviceKind kind,
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
 
     /// <summary>Reads a storage monitor's contents and reachability. Also primes the socket's interest so triggers fire for it thereafter.</summary>
     /// <param name="entityId">The in-game storage-monitor entity id.</param>

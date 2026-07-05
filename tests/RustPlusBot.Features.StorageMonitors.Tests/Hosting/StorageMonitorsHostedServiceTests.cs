@@ -47,7 +47,8 @@ public sealed class StorageMonitorsHostedServiceTests
         var names = Substitute.For<IItemNameResolver>();
         names.Resolve(Arg.Any<int>()).Returns(ci => "Item" + (int)ci[0]);
         var renderer = new StorageMonitorEmbedRenderer(new ResxLocalizer(), names);
-        var relay = new StorageMonitorStateRelay(scopeFactory, relayLocator, relayPoster, renderer);
+        var relay = new StorageMonitorStateRelay(scopeFactory, relayLocator, relayPoster, renderer,
+            Substitute.For<IRustServerQuery>());
 
         // Coordinator collaborators
         var pairingLocator = Substitute.For<IStorageMonitorChannelLocator>();

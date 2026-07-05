@@ -163,6 +163,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The state returned by <see cref="GetSmartDeviceInfoAsync"/> per entity id; absent → null.</summary>
         public Dictionary<ulong, bool?> SwitchStates { get; } = [];
 
+        /// <summary>Records (entityId, kind) for every <see cref="GetSmartDeviceInfoAsync"/> call, in call order.</summary>
+        public List<(ulong EntityId, SmartDeviceKind Kind)> DeviceReadCalls { get; } = [];
+
         /// <summary>The contents returned by <see cref="GetStorageMonitorInfoAsync"/> per entity id; absent → null.</summary>
         public Dictionary<ulong, StorageContentsSnapshot?> StorageContents { get; } = [];
 
@@ -242,9 +245,15 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
         public Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
+            SmartDeviceKind kind,
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
+            lock (DeviceReadCalls)
+            {
+                DeviceReadCalls.Add((entityId, kind));
+            }
+
             var reachability = DeviceReachabilityOverrides.TryGetValue(entityId, out var r)
                 ? r
                 : DeviceReachability.Reachable;
