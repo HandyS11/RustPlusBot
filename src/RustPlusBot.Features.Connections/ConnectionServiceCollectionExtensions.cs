@@ -23,6 +23,7 @@ public static class ConnectionServiceCollectionExtensions
         services.AddSingleton<ConnectionSupervisor>();
         services.AddSingleton<IConnectionSupervisor>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddSingleton<ITeamChatSender>(sp => sp.GetRequiredService<ConnectionSupervisor>());
+        services.AddSingleton<IBotTeamChatSender, BotTeamChatSender>();
         services.AddSingleton<IRustServerQuery>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddSingleton<IAfkState>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddScoped<IServerRemovalService, ServerRemovalService>();
