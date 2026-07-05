@@ -74,4 +74,28 @@ public sealed class TeamChatRelayTests
         await poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<string>(),
             Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task Drops_bot_originated_echo_by_prefix()
+    {
+        var (relay, poster, _, _) = Build();
+        var evt = new TeamMessageReceivedEvent(10UL, Guid.Empty, 555UL, "BotPlayer", "[R+] Cargo Ship entered the map",
+            FromActivePlayer: true);
+
+        await relay.RelayAsync(evt, CancellationToken.None);
+
+        await poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Posts_teammate_message_even_with_prefix()
+    {
+        var (relay, poster, _, _) = Build();
+        var evt = new TeamMessageReceivedEvent(10UL, Guid.Empty, 999UL, "Bob", "[R+] hi", FromActivePlayer: false);
+
+        await relay.RelayAsync(evt, CancellationToken.None);
+
+        await poster.Received(1).PostAsync(777UL, "Bob", "[R+] hi", Arg.Any<CancellationToken>());
+    }
 }

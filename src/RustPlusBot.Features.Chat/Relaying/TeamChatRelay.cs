@@ -1,5 +1,6 @@
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Chat.Webhooks;
+using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 
 namespace RustPlusBot.Features.Chat.Relaying;
@@ -19,6 +20,11 @@ internal sealed class TeamChatRelay(
     /// <returns>A task that completes when the line has been relayed or dropped.</returns>
     public async Task RelayAsync(TeamMessageReceivedEvent evt, CancellationToken cancellationToken)
     {
+        if (evt.FromActivePlayer && evt.Message.StartsWith(BotTeamChat.Prefix, StringComparison.Ordinal))
+        {
+            return; // Bot-originated line echoing back; #teamchat carries only human discussion.
+        }
+
         if (evt.FromActivePlayer && dedup.TryConsume((evt.GuildId, evt.ServerId), evt.Message))
         {
             return; // Our own relayed line echoing back; do not re-post.
