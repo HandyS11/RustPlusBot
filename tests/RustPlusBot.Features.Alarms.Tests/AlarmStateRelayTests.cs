@@ -6,7 +6,6 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
@@ -14,7 +13,6 @@ using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
-using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Alarms.Tests;
@@ -27,13 +25,11 @@ public sealed class AlarmStateRelayTests
     private static Harness Create(SmartAlarm? alarm = null, ulong? channelId = 777UL)
     {
         var store = Substitute.For<IAlarmStore>();
-        var connections = Substitute.For<IConnectionStore>();
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
 
         var services = new ServiceCollection();
         services.AddScoped(_ => store);
-        services.AddScoped(_ => connections);
         services.AddScoped(_ => workspace);
         var provider = services.BuildServiceProvider();
         var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
@@ -67,7 +63,7 @@ public sealed class AlarmStateRelayTests
             clock,
             NullLogger<AlarmStateRelay>.Instance);
 
-        return new Harness(relay, store, refresher, poster, teamChatSender, connections);
+        return new Harness(relay, store, refresher, poster, teamChatSender);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -353,18 +349,12 @@ public sealed class AlarmStateRelayTests
     // Connection status
     // ──────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Non-Connected server marks each alarm's embed as unreachable.</summary>
+    /// <summary>Drop from Connected marks each alarm's embed as unreachable.</summary>
     [Fact]
     public async Task ConnectionStatus_not_connected_refreshes_all_alarms_unreachable()
     {
         var serverId = Guid.NewGuid();
         var h = Create();
-
-        h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Unreachable,
-            });
 
         h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
             .Returns(
@@ -396,18 +386,36 @@ public sealed class AlarmStateRelayTests
         var serverId = Guid.NewGuid();
         var h = Create();
 
-        h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Connected,
-            });
-
         await h.Relay.HandleConnectionStatusAsync(
             new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: true, WasConnected: true),
             CancellationToken.None);
 
         await h.Refresher.DidNotReceive().RefreshAsync(
             Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await h.Refresher.DidNotReceive()
+            .RefreshAsync(Arg.Any<SmartAlarm>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>Boot/reconnect-loop statuses (never Connected in this process) must not sweep — embeds keep their last-run state until the prime republishes.</summary>
+    [Fact]
+    public async Task ConnectionStatus_boot_without_prior_connection_does_not_sweep()
+    {
+        var serverId = Guid.NewGuid();
+        var h = Create();
+
+        h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new SmartAlarm
+                {
+                    GuildId = 10UL, ServerId = serverId, EntityId = 42UL, Name = "A"
+                },
+            ]);
+
+        await h.Relay.HandleConnectionStatusAsync(
+            new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: false),
+            CancellationToken.None);
+
         await h.Refresher.DidNotReceive()
             .RefreshAsync(Arg.Any<SmartAlarm>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
@@ -464,6 +472,5 @@ public sealed class AlarmStateRelayTests
         IAlarmStore Store,
         IAlarmRefresher Refresher,
         IAlarmChannelPoster Poster,
-        IBotTeamChatSender TeamChatSender,
-        IConnectionStore Connections);
+        IBotTeamChatSender TeamChatSender);
 }
