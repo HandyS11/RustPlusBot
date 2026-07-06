@@ -15,6 +15,10 @@
     <PackageVersion Include="Persistord.Core" Version="1.0.0-beta.1" />
     <PackageVersion Include="RustPlusApi" Version="2.0.0-beta.3" />
     <PackageVersion Include="RustPlusApi.Fcm" Version="2.0.0-beta.3" />
+    <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageVersion Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
     <!-- Pinned to override the transitive 2.1.11 pulled by Microsoft.EntityFrameworkCore.Sqlite,
