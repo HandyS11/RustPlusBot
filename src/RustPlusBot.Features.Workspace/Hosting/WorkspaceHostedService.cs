@@ -68,23 +68,43 @@ internal sealed class WorkspaceHostedService(
         }
     }
 
-    private async Task OnReadyAsync()
+    private Task OnReadyAsync()
     {
+        // Ready fires on every gateway (re)connect; only heal once per process. Ready is dispatched
+        // serially on the gateway thread, so no synchronization is needed — set the flag before
+        // offloading so a re-fired Ready can't double-run.
         if (_startupDone)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         _startupDone = true;
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
+
+        // Healing sweeps every provisioned guild's channels over REST; doing it inline blocks the
+        // gateway task and stalls event dispatch, so offload it. Failures must be caught here —
+        // nothing awaits this.
+        _ = Task.Run(HealProvisionedGuildsAsync);
+        return Task.CompletedTask;
+    }
+
+    private async Task HealProvisionedGuildsAsync()
+    {
+        try
         {
-            var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-            foreach (var guildId in await store.GetProvisionedGuildIdsAsync().ConfigureAwait(false))
+            var scope = scopeFactory.CreateAsyncScope();
+            await using (scope.ConfigureAwait(false))
             {
-                await reconciler.HealGuildAsync(guildId).ConfigureAwait(false);
+                var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
+                var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
+                foreach (var guildId in await store.GetProvisionedGuildIdsAsync().ConfigureAwait(false))
+                {
+                    await reconciler.HealGuildAsync(guildId).ConfigureAwait(false);
+                }
             }
+        }
+        catch (Exception ex) // Broad catch is intentional: a faulting startup heal must not crash the host.
+        {
+            logger.LogError(ex, "Startup self-heal failed.");
         }
     }
 

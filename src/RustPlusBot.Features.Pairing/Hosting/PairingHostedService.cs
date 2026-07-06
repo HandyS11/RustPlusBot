@@ -30,17 +30,28 @@ internal sealed partial class PairingHostedService(
         await supervisor.StopAllAsync().ConfigureAwait(false);
     }
 
-    private async Task OnReadyAsync()
+    private Task OnReadyAsync()
     {
         // Ready fires on every (re)connect; only start listeners once per process. Ready is dispatched
         // serially on the gateway thread, so the plain bool guard needs no synchronization (same pattern
-        // as DiscordBotService and WorkspaceHostedService).
+        // as DiscordBotService and WorkspaceHostedService) — set the flag before offloading so a
+        // re-fired Ready can't double-start.
         if (_started)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         _started = true;
+
+        // Starting listeners connects to every active Rust server; doing it inline blocks the gateway
+        // task and stalls event dispatch, so offload it. Failures must be caught here — nothing awaits
+        // this.
+        _ = Task.Run(StartListenersAsync);
+        return Task.CompletedTask;
+    }
+
+    private async Task StartListenersAsync()
+    {
         try
         {
             await supervisor.StartAllActiveAsync().ConfigureAwait(false);
