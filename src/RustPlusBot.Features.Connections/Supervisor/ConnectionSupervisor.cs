@@ -47,7 +47,12 @@ internal sealed partial class ConnectionSupervisor(
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), LiveSocket> _liveSockets = new();
     private readonly ConnectionOptions _options = options.Value;
 
-    /// <summary>Last status published per key IN THIS PROCESS — the store's persisted status survives restarts and would falsely report Connected at boot.</summary>
+    /// <summary>
+    ///     Last status this process REACHED THE PUBLISH STEP WITH per key — the store's persisted status
+    ///     survives restarts and would falsely report Connected at boot. Recorded before bus delivery on
+    ///     purpose: WasConnected must reflect what the supervisor observed, so a failed/cancelled delivery
+    ///     of a Connected event cannot make the next real drop skip its unreachable sweep.
+    /// </summary>
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), ConnectionStatus> _publishedStatuses = new();
 
     private readonly CancellationTokenSource _shutdown = new();

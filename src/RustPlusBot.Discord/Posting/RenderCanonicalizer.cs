@@ -104,6 +104,7 @@ public static class RenderCanonicalizer
                     Append(sb, "option.label", option.Label);
                     Append(sb, "option.value", option.Value);
                     Append(sb, "option.description", option.Description);
+                    Append(sb, "option.emote", option.Emote?.ToString());
                     Append(sb, "option.default", option.IsDefault == true ? "1" : "0");
                 }
 

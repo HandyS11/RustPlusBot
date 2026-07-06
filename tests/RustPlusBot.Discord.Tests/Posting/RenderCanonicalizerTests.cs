@@ -143,6 +143,20 @@ public sealed class RenderCanonicalizerTests
     }
 
     [Fact]
+    public void Select_menu_option_emote_change_changes_the_canonical_string()
+    {
+        static MessageComponent Menu(string emoji) => new ComponentBuilder()
+            .WithSelectMenu("menu:1", [
+                new SelectMenuOptionBuilder().WithLabel("A").WithValue("v1").WithEmote(new Emoji(emoji))
+            ])
+            .Build();
+
+        Assert.NotEqual(
+            RenderCanonicalizer.Canonicalize(embed: null, Menu("🔥")),
+            RenderCanonicalizer.Canonicalize(embed: null, Menu("💧")));
+    }
+
+    [Fact]
     public void Unmodeled_component_kind_differs_from_no_components()
     {
         Assert.NotEqual(
