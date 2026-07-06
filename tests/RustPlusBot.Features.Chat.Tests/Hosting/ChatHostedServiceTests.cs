@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -10,6 +11,7 @@ using RustPlusBot.Features.Chat.Relaying;
 using RustPlusBot.Features.Chat.Webhooks;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Persistence.Commands;
 
 namespace RustPlusBot.Features.Chat.Tests.Hosting;
 
@@ -27,7 +29,16 @@ public sealed class ChatHostedServiceTests
         var locator = Substitute.For<ITeamChatChannelLocator>();
         locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ulong?)555UL);
-        var relay = new TeamChatRelay(locator, poster, dedup);
+        // The relay reads the scoped IMuteStore command prefix per message; stub a scope that provides it.
+        var muteStore = Substitute.For<IMuteStore>();
+        muteStore.GetPrefixAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns("!");
+        var relayScopeFactory = Substitute.For<IServiceScopeFactory>();
+        var relayScope = Substitute.For<IServiceScope>();
+        var relayScopeProvider = Substitute.For<IServiceProvider>();
+        relayScopeProvider.GetService(typeof(IMuteStore)).Returns(muteStore);
+        relayScope.ServiceProvider.Returns(relayScopeProvider);
+        relayScopeFactory.CreateScope().Returns(relayScope);
+        var relay = new TeamChatRelay(locator, poster, dedup, relayScopeFactory);
 
         var inboundLocator = Substitute.For<ITeamChatChannelLocator>();
         var sender = Substitute.For<ITeamChatSender>();

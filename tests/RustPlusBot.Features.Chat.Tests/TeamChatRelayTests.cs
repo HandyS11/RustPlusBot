@@ -1,9 +1,11 @@
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Chat.Relaying;
 using RustPlusBot.Features.Chat.Webhooks;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Persistence.Commands;
 
 namespace RustPlusBot.Features.Chat.Tests;
 
@@ -11,7 +13,7 @@ public sealed class TeamChatRelayTests
 {
     private static (TeamChatRelay Relay, ITeamChatWebhookPoster Poster, RelayDedupBuffer Dedup, ITeamChatChannelLocator
         Locator)
-        Build()
+        Build(string prefix = "!")
     {
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
@@ -20,7 +22,15 @@ public sealed class TeamChatRelayTests
         var locator = Substitute.For<ITeamChatChannelLocator>();
         locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ulong?)777UL);
-        var relay = new TeamChatRelay(locator, poster, dedup);
+        var muteStore = Substitute.For<IMuteStore>();
+        muteStore.GetPrefixAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(prefix);
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
+        var scope = Substitute.For<IServiceScope>();
+        var scopeProvider = Substitute.For<IServiceProvider>();
+        scopeProvider.GetService(typeof(IMuteStore)).Returns(muteStore);
+        scope.ServiceProvider.Returns(scopeProvider);
+        scopeFactory.CreateScope().Returns(scope);
+        var relay = new TeamChatRelay(locator, poster, dedup, scopeFactory);
         return (relay, poster, dedup, locator);
     }
 
@@ -97,5 +107,33 @@ public sealed class TeamChatRelayTests
         await relay.RelayAsync(evt, CancellationToken.None);
 
         await poster.Received(1).PostAsync(777UL, "Bob", "[R+] hi", Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Drops_command_shaped_player_lines(bool fromActivePlayer)
+    {
+        var (relay, poster, _, _) = Build();
+        var evt = new TeamMessageReceivedEvent(10UL, Guid.Empty, 999UL, "Bob", "!pop", fromActivePlayer);
+
+        await relay.RelayAsync(evt, CancellationToken.None);
+
+        await poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Command_drop_honors_custom_prefix()
+    {
+        var (relay, poster, _, _) = Build(prefix: ".");
+        await relay.RelayAsync(new TeamMessageReceivedEvent(10UL, Guid.Empty, 999UL, "Bob", ".pop", false),
+            CancellationToken.None);
+        await relay.RelayAsync(new TeamMessageReceivedEvent(10UL, Guid.Empty, 999UL, "Bob", "!not a command", false),
+            CancellationToken.None);
+
+        await poster.Received(1).PostAsync(777UL, "Bob", "!not a command", Arg.Any<CancellationToken>());
+        await poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<string>(), ".pop",
+            Arg.Any<CancellationToken>());
     }
 }
