@@ -32,7 +32,8 @@ public sealed class WorkspaceConnectionStatusTests
                && !reconciler.ReceivedCalls().Any(c =>
                    c.GetMethodInfo().Name == nameof(IWorkspaceReconciler.ReconcileServerAsync)))
         {
-            await bus.PublishAsync(new ConnectionStatusChangedEvent(10UL, serverId));
+            await bus.PublishAsync(
+                new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: false));
             await Task.Delay(20);
         }
 

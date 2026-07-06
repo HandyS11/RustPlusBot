@@ -33,6 +33,7 @@
     <Project Path="tests/RustPlusBot.Features.StorageMonitors.Tests/RustPlusBot.Features.StorageMonitors.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Switches.Tests/RustPlusBot.Features.Switches.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Workspace.Tests/RustPlusBot.Features.Workspace.Tests.csproj" />
+    <Project Path="tests/RustPlusBot.Discord.Tests/RustPlusBot.Discord.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Alarms.Tests/RustPlusBot.Features.Alarms.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Chat.Tests/RustPlusBot.Features.Chat.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Events.Tests/RustPlusBot.Features.Events.Tests.csproj" />

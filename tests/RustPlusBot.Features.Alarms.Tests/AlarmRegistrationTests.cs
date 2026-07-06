@@ -9,6 +9,7 @@ using RustPlusBot.Features.Alarms.Pairing;
 using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
+using RustPlusBot.Discord.Posting;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
@@ -55,6 +56,8 @@ public sealed class AlarmRegistrationTests
         // Discord
         var discordConfig = new DiscordSocketConfig();
         services.AddSingleton(new DiscordSocketClient(discordConfig));
+        services.AddSingleton<RenderGate>();
+        services.AddSingleton<DiscordChannelMessenger>();
 
         // Scoped stores from Persistence
         services.AddScoped(_ => Substitute.For<IAlarmStore>());

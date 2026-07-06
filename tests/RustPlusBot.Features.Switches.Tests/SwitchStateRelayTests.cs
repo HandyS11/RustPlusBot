@@ -2,14 +2,12 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Features.Switches.Posting;
 using RustPlusBot.Features.Switches.Relaying;
 using RustPlusBot.Features.Switches.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
-using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Switches;
 using RustPlusBot.Persistence.Workspace;
 
@@ -20,13 +18,11 @@ public sealed class SwitchStateRelayTests
     private static Harness Create()
     {
         var store = Substitute.For<ISwitchStore>();
-        var connections = Substitute.For<IConnectionStore>();
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
 
         var services = new ServiceCollection();
         services.AddScoped(_ => store);
-        services.AddScoped(_ => connections);
         services.AddScoped(_ => workspace);
         var provider = services.BuildServiceProvider();
 
@@ -39,7 +35,7 @@ public sealed class SwitchStateRelayTests
 
         var relay = new SwitchStateRelay(provider.GetRequiredService<IServiceScopeFactory>(), locator, poster,
             renderer);
-        return new Harness(relay, store, poster, connections);
+        return new Harness(relay, store, poster);
     }
 
     [Fact]
@@ -70,11 +66,6 @@ public sealed class SwitchStateRelayTests
     {
         var h = Create();
         var serverId = Guid.NewGuid();
-        h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Unreachable
-            });
         h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
             .Returns(
             [
@@ -89,7 +80,8 @@ public sealed class SwitchStateRelayTests
             ]);
 
         await h.Relay.HandleConnectionStatusAsync(
-            new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
+            new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: true),
+            CancellationToken.None);
 
         await h.Poster.Received(1).EnsureAsync(777UL, 900UL, Arg.Any<global::Discord.Embed>(),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
@@ -100,14 +92,38 @@ public sealed class SwitchStateRelayTests
     {
         var h = Create();
         var serverId = Guid.NewGuid();
-        h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Connected
-            });
 
         await h.Relay.HandleConnectionStatusAsync(
-            new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
+            new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: true, WasConnected: true),
+            CancellationToken.None);
+
+        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>Boot/reconnect-loop statuses (never Connected in this process) must not sweep — embeds keep their last-run state until the prime republishes.</summary>
+    [Fact]
+    public async Task ConnectionStatus_boot_without_prior_connection_does_not_sweep()
+    {
+        var h = Create();
+        var serverId = Guid.NewGuid();
+        h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new SmartSwitch
+                {
+                    GuildId = 10UL,
+                    ServerId = serverId,
+                    EntityId = 42UL,
+                    Name = "G",
+                    MessageId = 900UL
+                }
+            ]);
+
+        await h.Relay.HandleConnectionStatusAsync(
+            new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: false),
+            CancellationToken.None);
 
         await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
             Arg.Any<global::Discord.Embed>(),
@@ -203,6 +219,5 @@ public sealed class SwitchStateRelayTests
     private sealed record Harness(
         SwitchStateRelay Relay,
         ISwitchStore Store,
-        ISwitchChannelPoster Poster,
-        IConnectionStore Connections);
+        ISwitchChannelPoster Poster);
 }

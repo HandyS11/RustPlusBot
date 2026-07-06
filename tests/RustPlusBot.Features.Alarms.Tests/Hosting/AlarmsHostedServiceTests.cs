@@ -5,7 +5,6 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Features.Alarms.Hosting;
 using RustPlusBot.Features.Alarms.Pairing;
 using RustPlusBot.Features.Alarms.Posting;
@@ -15,7 +14,6 @@ using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
-using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Alarms.Tests.Hosting;
@@ -27,13 +25,11 @@ public sealed class AlarmsHostedServiceTests
     private static Harness Create()
     {
         var store = Substitute.For<IAlarmStore>();
-        var connections = Substitute.For<IConnectionStore>();
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
 
         var services = new ServiceCollection();
         services.AddScoped(_ => store);
-        services.AddScoped(_ => connections);
         services.AddScoped(_ => workspace);
         var provider = services.BuildServiceProvider();
         var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
@@ -76,7 +72,7 @@ public sealed class AlarmsHostedServiceTests
             relay,
             NullLogger<AlarmsHostedService>.Instance);
 
-        return new Harness(service, bus, store, connections, refresher, relayPoster, pairingLocator, pairingPoster);
+        return new Harness(service, bus, store, refresher, relayPoster, pairingLocator, pairingPoster);
     }
 
     [Fact]
@@ -178,11 +174,6 @@ public sealed class AlarmsHostedServiceTests
         await h.Service.StartAsync(default);
 
         var serverId = Guid.NewGuid();
-        h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Unreachable,
-            });
         h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
             .Returns(
             [
@@ -197,7 +188,8 @@ public sealed class AlarmsHostedServiceTests
                && !h.Refresher.ReceivedCalls().Any(c =>
                    c.GetMethodInfo().Name == nameof(IAlarmRefresher.RefreshAsync)))
         {
-            await h.Bus.PublishAsync(new ConnectionStatusChangedEvent(10UL, serverId));
+            await h.Bus.PublishAsync(
+                new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: true));
             await Task.Delay(20);
         }
 
@@ -263,7 +255,6 @@ public sealed class AlarmsHostedServiceTests
         AlarmsHostedService Service,
         InMemoryEventBus Bus,
         IAlarmStore Store,
-        IConnectionStore Connections,
         IAlarmRefresher Refresher,
         IAlarmChannelPoster Poster,
         IAlarmChannelLocator PairingLocator,

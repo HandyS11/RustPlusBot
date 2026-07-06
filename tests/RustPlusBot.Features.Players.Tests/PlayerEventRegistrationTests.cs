@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Discord.Posting;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Players;
 using RustPlusBot.Features.Players.Hosting;
@@ -28,6 +29,8 @@ public sealed class PlayerEventRegistrationTests
         services.AddLogging();
         services.AddSingleton<IEventBus, InMemoryEventBus>();
         services.AddSingleton(new DiscordSocketClient());
+        services.AddSingleton<RenderGate>();
+        services.AddSingleton<DiscordChannelMessenger>();
         services.AddSingleton<IEventChannelLocator>(Substitute.For<IEventChannelLocator>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddSingleton<IBotTeamChatSender>(Substitute.For<IBotTeamChatSender>());

@@ -1,15 +1,14 @@
 using Discord;
-using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using RustPlusBot.Discord.Posting;
 
 namespace RustPlusBot.Features.Switches.Posting;
 
 /// <summary>Posts/edits switch embeds in #switches by message id. Untested integration shim.</summary>
-/// <param name="client">The Discord socket client.</param>
+/// <param name="messenger">The shared gated channel messenger.</param>
 /// <param name="logger">The logger.</param>
 internal sealed class DiscordSwitchChannelPoster(
-    DiscordSocketClient client,
+    DiscordChannelMessenger messenger,
     ILogger<DiscordSwitchChannelPoster> logger) : ISwitchChannelPoster
 {
     /// <inheritdoc />
@@ -19,6 +18,5 @@ internal sealed class DiscordSwitchChannelPoster(
         Embed embed,
         MessageComponent components,
         CancellationToken cancellationToken)
-        => DiscordChannelMessenger.EnsureAsync(client, channelId, messageId, embed, components, logger,
-            cancellationToken);
+        => messenger.EnsureAsync(channelId, messageId, embed, components, logger, cancellationToken);
 }

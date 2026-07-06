@@ -1,18 +1,15 @@
 using Microsoft.Extensions.DependencyInjection;
-using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Features.Switches.Posting;
 using RustPlusBot.Features.Switches.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
-using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Switches;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Switches.Relaying;
 
-/// <summary>Keeps switch embeds in sync: live state changes re-render; a non-Connected server marks them unreachable.</summary>
+/// <summary>Keeps switch embeds in sync: live state changes re-render; a drop from Connected marks them unreachable.</summary>
 /// <param name="scopeFactory">Opens scopes for the scoped stores.</param>
 /// <param name="locator">Resolves the #switches channel id.</param>
 /// <param name="poster">Posts/edits switch embeds.</param>
@@ -119,7 +116,7 @@ internal sealed class SwitchStateRelay(
         }
     }
 
-    /// <summary>Handles a connection-status change: a non-Connected server marks its switch embeds unreachable.</summary>
+    /// <summary>Handles a connection-status change: a drop from Connected marks its switch embeds unreachable.</summary>
     /// <param name="evt">The connection-status change.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when every affected embed has been re-rendered.</returns>
@@ -128,18 +125,17 @@ internal sealed class SwitchStateRelay(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(evt);
+        if (evt.IsConnected || !evt.WasConnected)
+        {
+            // Connected: the supervisor's prime path republishes real state — nothing to do.
+            // Never-connected in this process (boot, reconnect-loop repeats): keep the last-run
+            // embeds; only a drop from Connected sweeps them to unreachable.
+            return;
+        }
+
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
-            var connections = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
-            var state = await connections.GetStateAsync(evt.GuildId, evt.ServerId, cancellationToken)
-                .ConfigureAwait(false);
-            if (state is { Status: ConnectionStatus.Connected })
-            {
-                // The supervisor's prime path republishes real state on connect; nothing to do here.
-                return;
-            }
-
             var store = scope.ServiceProvider.GetRequiredService<ISwitchStore>();
             var switches = await store.ListByServerAsync(evt.GuildId, evt.ServerId, cancellationToken)
                 .ConfigureAwait(false);

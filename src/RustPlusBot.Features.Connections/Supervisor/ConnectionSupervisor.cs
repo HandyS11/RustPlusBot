@@ -46,6 +46,15 @@ internal sealed partial class ConnectionSupervisor(
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), LiveSocket> _liveSockets = new();
     private readonly ConnectionOptions _options = options.Value;
+
+    /// <summary>
+    ///     Last status this process REACHED THE PUBLISH STEP WITH per key — the store's persisted status
+    ///     survives restarts and would falsely report Connected at boot. Recorded before bus delivery on
+    ///     purpose: WasConnected must reflect what the supervisor observed, so a failed/cancelled delivery
+    ///     of a Connected event cannot make the next real drop skip its unreachable sweep.
+    /// </summary>
+    private readonly ConcurrentDictionary<(ulong Guild, Guid Server), ConnectionStatus> _publishedStatuses = new();
+
     private readonly CancellationTokenSource _shutdown = new();
     private bool _disposed;
 
@@ -953,7 +962,12 @@ internal sealed partial class ConnectionSupervisor(
 
         if (changed)
         {
-            await eventBus.PublishAsync(new ConnectionStatusChangedEvent(key.Guild, key.Server), ct)
+            var wasConnected = _publishedStatuses.TryGetValue(key, out var previous)
+                               && previous == ConnectionStatus.Connected;
+            _publishedStatuses[key] = status;
+            await eventBus.PublishAsync(
+                    new ConnectionStatusChangedEvent(key.Guild, key.Server,
+                        status == ConnectionStatus.Connected, wasConnected), ct)
                 .ConfigureAwait(false);
         }
     }

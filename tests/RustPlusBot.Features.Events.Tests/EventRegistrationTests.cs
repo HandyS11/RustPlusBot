@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Discord.Posting;
 using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Hosting;
@@ -39,6 +40,8 @@ public sealed class EventRegistrationTests
         services.AddSingleton<IClock>(Substitute.For<IClock>());
         services.AddSingleton<IEventBus, InMemoryEventBus>();
         services.AddSingleton(new DiscordSocketClient());
+        services.AddSingleton<RenderGate>();
+        services.AddSingleton<DiscordChannelMessenger>();
         services.AddSingleton<IEventChannelLocator>(Substitute.For<IEventChannelLocator>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IConnectionStore>(_ => Substitute.For<IConnectionStore>());

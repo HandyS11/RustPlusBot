@@ -2,15 +2,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Alarms;
-using RustPlusBot.Persistence.Connections;
-using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Alarms.Relaying;
@@ -26,7 +23,7 @@ internal sealed record AlarmRelayChannels(
 
 /// <summary>
 /// Keeps alarm embeds in sync with live socket events: updates state and re-renders on trigger; marks
-/// alarms unreachable when the server goes non-Connected.
+/// alarms unreachable only on a drop from Connected.
 /// </summary>
 /// <param name="scopeFactory">Opens scopes for the scoped stores.</param>
 /// <param name="refresher">Re-renders a single alarm embed on demand.</param>
@@ -104,27 +101,24 @@ internal sealed partial class AlarmStateRelay(
         }
     }
 
-    /// <summary>
-    /// Handles a connection-status change: if the server is no longer Connected, marks every managed
-    /// alarm's embed as unreachable. Connected → no-op (the supervisor's prime republishes real state).
-    /// </summary>
+    /// <summary>Handles a connection-status change: a drop from Connected marks its alarm embeds unreachable.</summary>
     /// <param name="evt">The connection-status change.</param>
     /// <param name="ct">A cancellation token.</param>
     /// <returns>A task that completes when every affected embed has been re-rendered.</returns>
     public async Task HandleConnectionStatusAsync(ConnectionStatusChangedEvent evt, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(evt);
+        if (evt.IsConnected || !evt.WasConnected)
+        {
+            // Connected: the supervisor's prime path republishes real state — nothing to do.
+            // Never-connected in this process (boot, reconnect-loop repeats): keep the last-run
+            // embeds; only a drop from Connected sweeps them to unreachable.
+            return;
+        }
+
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
-            var connections = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
-            var state = await connections.GetStateAsync(evt.GuildId, evt.ServerId, ct).ConfigureAwait(false);
-            if (state is { Status: ConnectionStatus.Connected })
-            {
-                // The supervisor's prime path republishes real state on connect; nothing to do here.
-                return;
-            }
-
             var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
             var alarms = await store.ListByServerAsync(evt.GuildId, evt.ServerId, ct).ConfigureAwait(false);
             foreach (var alarm in alarms)
