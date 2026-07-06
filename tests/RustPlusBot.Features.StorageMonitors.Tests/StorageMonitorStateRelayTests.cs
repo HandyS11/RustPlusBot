@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.StorageMonitors;
 using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Features.StorageMonitors.Posting;
@@ -24,13 +23,11 @@ public sealed class StorageMonitorStateRelayTests
     private static Harness Create()
     {
         var store = Substitute.For<IStorageMonitorStore>();
-        var connections = Substitute.For<IConnectionStore>();
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
 
         var services = new ServiceCollection();
         services.AddScoped(_ => store);
-        services.AddScoped(_ => connections);
         services.AddScoped(_ => workspace);
         var provider = services.BuildServiceProvider();
 
@@ -49,7 +46,7 @@ public sealed class StorageMonitorStateRelayTests
         var relay = new StorageMonitorStateRelay(
             provider.GetRequiredService<IServiceScopeFactory>(), locator, poster, renderer, query);
 
-        return new Harness(relay, store, poster, connections, query);
+        return new Harness(relay, store, poster, query);
     }
 
     [Fact]
@@ -95,11 +92,6 @@ public sealed class StorageMonitorStateRelayTests
     public async Task HandleConnectionStatusAsync_NotConnected_PostsUnreachable()
     {
         var h = Create();
-        h.Connections.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = Guild, RustServerId = Server, Status = ConnectionStatus.Unreachable,
-            });
         h.Store.ListByServerAsync(Guild, Server, Arg.Any<CancellationToken>())
             .Returns(
             [
@@ -126,14 +118,36 @@ public sealed class StorageMonitorStateRelayTests
     public async Task HandleConnectionStatusAsync_Connected_DoesNothing()
     {
         var h = Create();
-        h.Connections.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = Guild, RustServerId = Server, Status = ConnectionStatus.Connected,
-            });
 
         await h.Relay.HandleConnectionStatusAsync(
             new ConnectionStatusChangedEvent(Guild, Server, IsConnected: true, WasConnected: true),
+            CancellationToken.None);
+
+        await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>Boot/reconnect-loop statuses (never Connected in this process) must not sweep — embeds keep their last-run state until the prime republishes.</summary>
+    [Fact]
+    public async Task HandleConnectionStatusAsync_BootWithoutPriorConnection_DoesNothing()
+    {
+        var h = Create();
+        h.Store.ListByServerAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns(
+            [
+                new SmartStorageMonitor
+                {
+                    GuildId = Guild,
+                    ServerId = Server,
+                    EntityId = 7UL,
+                    Name = "TC",
+                    MessageId = null,
+                },
+            ]);
+
+        await h.Relay.HandleConnectionStatusAsync(
+            new ConnectionStatusChangedEvent(Guild, Server, IsConnected: false, WasConnected: false),
             CancellationToken.None);
 
         await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
@@ -243,6 +257,5 @@ public sealed class StorageMonitorStateRelayTests
         StorageMonitorStateRelay Relay,
         IStorageMonitorStore Store,
         IStorageMonitorChannelPoster Poster,
-        IConnectionStore Connections,
         IRustServerQuery Query);
 }

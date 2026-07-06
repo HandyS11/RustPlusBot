@@ -1,12 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.StorageMonitors;
 using RustPlusBot.Features.StorageMonitors.Posting;
 using RustPlusBot.Features.StorageMonitors.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
-using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.StorageMonitors;
 using RustPlusBot.Persistence.Workspace;
 
@@ -98,7 +96,7 @@ internal sealed class StorageMonitorStateRelay(
         }
     }
 
-    /// <summary>Handles a connection-status change: a non-Connected server marks its storage monitor embeds unreachable.</summary>
+    /// <summary>Handles a connection-status change: a drop from Connected marks its storage embeds unreachable.</summary>
     /// <param name="evt">The connection-status change.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when every affected embed has been re-rendered.</returns>
@@ -107,18 +105,17 @@ internal sealed class StorageMonitorStateRelay(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(evt);
+        if (evt.IsConnected || !evt.WasConnected)
+        {
+            // Connected: the supervisor's prime path republishes real state — nothing to do.
+            // Never-connected in this process (boot, reconnect-loop repeats): keep the last-run
+            // embeds; only a drop from Connected sweeps them to unreachable.
+            return;
+        }
+
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
-            var connections = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
-            var state = await connections.GetStateAsync(evt.GuildId, evt.ServerId, cancellationToken)
-                .ConfigureAwait(false);
-            if (state is { Status: ConnectionStatus.Connected })
-            {
-                // The supervisor's prime path republishes real state on connect; nothing to do here.
-                return;
-            }
-
             var store = scope.ServiceProvider.GetRequiredService<IStorageMonitorStore>();
             var monitors = await store.ListByServerAsync(evt.GuildId, evt.ServerId, cancellationToken)
                 .ConfigureAwait(false);

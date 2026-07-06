@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.StorageMonitors;
 using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Features.StorageMonitors.Hosting;
@@ -13,7 +12,6 @@ using RustPlusBot.Features.StorageMonitors.Relaying;
 using RustPlusBot.Features.StorageMonitors.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
-using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.StorageMonitors;
 using RustPlusBot.Persistence.Workspace;
 
@@ -26,13 +24,11 @@ public sealed class StorageMonitorsHostedServiceTests
     private static Harness Create()
     {
         var store = Substitute.For<IStorageMonitorStore>();
-        var connections = Substitute.For<IConnectionStore>();
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
 
         var services = new ServiceCollection();
         services.AddScoped(_ => store);
-        services.AddScoped(_ => connections);
         services.AddScoped(_ => workspace);
         var provider = services.BuildServiceProvider();
         var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
@@ -66,7 +62,7 @@ public sealed class StorageMonitorsHostedServiceTests
             relay,
             NullLogger<StorageMonitorsHostedService>.Instance);
 
-        return new Harness(service, bus, store, connections, relayPoster, relayLocator, pairingLocator, pairingPoster);
+        return new Harness(service, bus, store, relayPoster, relayLocator, pairingLocator, pairingPoster);
     }
 
     [Fact]
@@ -137,11 +133,6 @@ public sealed class StorageMonitorsHostedServiceTests
         await h.Service.StartAsync(default);
 
         var serverId = Guid.NewGuid();
-        h.Connections.GetStateAsync(Guild, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = Guild, RustServerId = serverId, Status = ConnectionStatus.Unreachable,
-            });
         h.Store.ListByServerAsync(Guild, serverId, Arg.Any<CancellationToken>())
             .Returns(
             [
@@ -242,7 +233,6 @@ public sealed class StorageMonitorsHostedServiceTests
         StorageMonitorsHostedService Service,
         InMemoryEventBus Bus,
         IStorageMonitorStore Store,
-        IConnectionStore Connections,
         IStorageMonitorChannelPoster Poster,
         IStorageMonitorChannelLocator Locator,
         IStorageMonitorChannelLocator PairingLocator,
