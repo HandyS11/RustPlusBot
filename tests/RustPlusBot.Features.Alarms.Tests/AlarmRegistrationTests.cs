@@ -50,7 +50,7 @@ public sealed class AlarmRegistrationTests
         services.AddSingleton(Substitute.For<IClock>());
         services.AddSingleton(Substitute.For<IEventBus>());
         services.AddSingleton(Substitute.For<IAlarmChannelLocator>());
-        services.AddSingleton(Substitute.For<ITeamChatSender>());
+        services.AddSingleton(Substitute.For<IBotTeamChatSender>());
 
         // Discord
         var discordConfig = new DiscordSocketConfig();

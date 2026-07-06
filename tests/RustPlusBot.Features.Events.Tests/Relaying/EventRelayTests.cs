@@ -24,7 +24,7 @@ public sealed class EventRelayTests
     private static readonly Guid Server = Guid.NewGuid();
 
     private static (EventRelay Relay, EventStateStore Store, IEventChannelPoster Poster,
-        ITeamChatSender Sender, RigStateStore RigStore) CreateRelay(ulong? channelId = 999UL)
+        IBotTeamChatSender Sender, RigStateStore RigStore) CreateRelay(ulong? channelId = 999UL)
     {
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(new DateTimeOffset(2026, 6, 17, 12, 0, 0, TimeSpan.Zero));
@@ -43,7 +43,7 @@ public sealed class EventRelayTests
         services.AddScoped<IWorkspaceStore>(_ => workspaceStore);
         var provider = services.BuildServiceProvider();
 
-        var sender = Substitute.For<ITeamChatSender>();
+        var sender = Substitute.For<IBotTeamChatSender>();
         var rigStore = new RigStateStore(clock, Options.Create(new ConnectionOptions()));
         var renderer = new EventEmbedRenderer(new ResxLocalizer());
 

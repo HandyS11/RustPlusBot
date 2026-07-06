@@ -12,12 +12,12 @@ namespace RustPlusBot.Features.Commands.Tests.Dispatching;
 
 public sealed class CommandDispatcherTests
 {
-    private static (CommandDispatcher Sut, ITeamChatSender Sender, StubHandler Handler) Build(
+    private static (CommandDispatcher Sut, IBotTeamChatSender Sender, StubHandler Handler) Build(
         bool muted = false,
         string prefix = "!",
         string handlerName = "pop")
     {
-        var sender = Substitute.For<ITeamChatSender>();
+        var sender = Substitute.For<IBotTeamChatSender>();
         var settings = Substitute.For<IMuteStore>();
         settings.GetMutedAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(muted);
         settings.GetPrefixAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(prefix);
@@ -44,10 +44,19 @@ public sealed class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task Ignores_FromActivePlayer()
+    public async Task Runs_ActivePlayerCommand()
     {
         var (sut, sender, handler) = Build();
         await sut.DispatchAsync(Evt("!pop", fromActive: true), CancellationToken.None);
+        Assert.Equal(1, handler.Calls);
+        await sender.Received(1).SendAsync(1, Arg.Any<Guid>(), "reply", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Ignores_BotPrefixedEcho()
+    {
+        var (sut, sender, handler) = Build();
+        await sut.DispatchAsync(Evt("[R+] anything", fromActive: true), CancellationToken.None);
         Assert.Equal(0, handler.Calls);
         await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
             Arg.Any<CancellationToken>());

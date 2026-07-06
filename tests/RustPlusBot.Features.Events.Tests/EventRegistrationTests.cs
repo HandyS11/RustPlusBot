@@ -42,7 +42,7 @@ public sealed class EventRegistrationTests
         services.AddSingleton<IEventChannelLocator>(Substitute.For<IEventChannelLocator>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IConnectionStore>(_ => Substitute.For<IConnectionStore>());
-        services.AddSingleton<ITeamChatSender>(Substitute.For<ITeamChatSender>());
+        services.AddSingleton<IBotTeamChatSender>(Substitute.For<IBotTeamChatSender>());
         services.AddSingleton(Options.Create(new ConnectionOptions()));
         services.AddEvents();
 
