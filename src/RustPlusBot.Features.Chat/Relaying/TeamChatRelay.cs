@@ -37,17 +37,19 @@ internal sealed class TeamChatRelay(
             return; // Our own relayed line echoing back; do not re-post.
         }
 
-        // A command invocation (e.g. "!pop") gets its reply in game; the bare trigger line is noise in Discord.
-        var prefix = await GetCommandPrefixAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(prefix) &&
-            evt.Message.TrimStart().StartsWith(prefix, StringComparison.Ordinal))
+        // The locator is an in-memory cache, so resolve the channel first: unmapped servers exit
+        // before the per-message prefix query below.
+        var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
+            .ConfigureAwait(false);
+        if (channelId is null)
         {
             return;
         }
 
-        var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
-            .ConfigureAwait(false);
-        if (channelId is null)
+        // A command invocation (e.g. "!pop") gets its reply in game; the bare trigger line is noise in Discord.
+        var prefix = await GetCommandPrefixAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(prefix) &&
+            evt.Message.TrimStart().StartsWith(prefix, StringComparison.Ordinal))
         {
             return;
         }

@@ -56,7 +56,7 @@ internal sealed partial class CommandDispatcher
 
         // Bot-originated lines echo back from the active player carrying the bot prefix; ignoring only
         // those (instead of every active-player line) lets the paired player's own typed commands dispatch.
-        if (evt.Message.StartsWith(BotTeamChat.Prefix, StringComparison.Ordinal))
+        if (evt.FromActivePlayer && evt.Message.StartsWith(BotTeamChat.Prefix, StringComparison.Ordinal))
         {
             return;
         }
