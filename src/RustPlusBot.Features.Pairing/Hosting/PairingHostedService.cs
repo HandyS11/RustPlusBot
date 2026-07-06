@@ -43,7 +43,7 @@ internal sealed partial class PairingHostedService(
 
         _started = true;
 
-        // Starting listeners connects to every active Rust server; doing it inline blocks the gateway
+        // Starting FCM pairing listeners involves network I/O; doing it inline blocks the gateway
         // task and stalls event dispatch, so offload it. Failures must be caught here — nothing awaits
         // this.
         _ = Task.Run(StartListenersAsync);

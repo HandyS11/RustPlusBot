@@ -10,7 +10,7 @@ using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.StorageMonitors.Relaying;
 
-/// <summary>Keeps storage monitor embeds in sync: trigger events re-render with the carried contents; a non-Connected server marks them unreachable.</summary>
+/// <summary>Keeps storage monitor embeds in sync: trigger events re-render with the carried contents; a drop from Connected marks them unreachable.</summary>
 /// <param name="scopeFactory">Opens scopes for the scoped stores.</param>
 /// <param name="locator">Resolves the #storagemonitors channel id.</param>
 /// <param name="poster">Posts/edits storage monitor embeds.</param>
