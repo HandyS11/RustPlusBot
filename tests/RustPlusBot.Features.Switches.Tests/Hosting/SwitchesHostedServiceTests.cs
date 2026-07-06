@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Features.Switches.Hosting;
 using RustPlusBot.Features.Switches.Pairing;
@@ -12,7 +11,6 @@ using RustPlusBot.Features.Switches.Relaying;
 using RustPlusBot.Features.Switches.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
-using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Switches;
 using RustPlusBot.Persistence.Workspace;
 
@@ -23,13 +21,11 @@ public sealed class SwitchesHostedServiceTests
     private static Harness Create()
     {
         var store = Substitute.For<ISwitchStore>();
-        var connections = Substitute.For<IConnectionStore>();
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
 
         var services = new ServiceCollection();
         services.AddScoped(_ => store);
-        services.AddScoped(_ => connections);
         services.AddScoped(_ => workspace);
         var provider = services.BuildServiceProvider();
         var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
@@ -60,7 +56,7 @@ public sealed class SwitchesHostedServiceTests
             relay,
             NullLogger<SwitchesHostedService>.Instance);
 
-        return new Harness(service, bus, store, connections, relayPoster, relayLocator, pairingLocator, pairingPoster);
+        return new Harness(service, bus, store, relayPoster, relayLocator, pairingLocator, pairingPoster);
     }
 
     [Fact]
@@ -129,11 +125,6 @@ public sealed class SwitchesHostedServiceTests
         await h.Service.StartAsync(default);
 
         var serverId = Guid.NewGuid();
-        h.Connections.GetStateAsync(10UL, serverId, Arg.Any<CancellationToken>())
-            .Returns(new ConnectionState
-            {
-                GuildId = 10UL, RustServerId = serverId, Status = ConnectionStatus.Unreachable,
-            });
         h.Store.ListByServerAsync(10UL, serverId, Arg.Any<CancellationToken>())
             .Returns(
             [
@@ -266,7 +257,6 @@ public sealed class SwitchesHostedServiceTests
         SwitchesHostedService Service,
         InMemoryEventBus Bus,
         ISwitchStore Store,
-        IConnectionStore Connections,
         ISwitchChannelPoster Poster,
         ISwitchChannelLocator Locator,
         ISwitchChannelLocator PairingLocator,
