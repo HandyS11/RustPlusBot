@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Discord.Notifications;
+using RustPlusBot.Discord.Posting;
 
 namespace RustPlusBot.Discord;
 
@@ -31,6 +32,8 @@ public static class DiscordServiceCollectionExtensions
                 DefaultRunMode = RunMode.Async
             }));
         services.AddSingleton<IUserDmSender, DiscordUserDmSender>();
+        services.AddSingleton<RenderGate>();
+        services.AddSingleton<DiscordChannelMessenger>();
         services.AddHostedService<DiscordBotService>();
 
         return services;

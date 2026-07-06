@@ -1,19 +1,18 @@
 using Discord;
-using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
 using RustPlusBot.Discord.Posting;
 
 namespace RustPlusBot.Features.Events.Posting;
 
 /// <summary>Posts event embeds to Discord text channels via the gateway client.</summary>
-/// <param name="client">The Discord socket client.</param>
+/// <param name="messenger">The shared gated channel messenger.</param>
 /// <param name="logger">The logger.</param>
 internal sealed class DiscordEventChannelPoster(
-    DiscordSocketClient client,
+    DiscordChannelMessenger messenger,
     ILogger<DiscordEventChannelPoster> logger)
     : IEventChannelPoster
 {
     /// <inheritdoc />
     public Task PostAsync(ulong channelId, Embed embed, CancellationToken cancellationToken)
-        => DiscordChannelMessenger.PostAsync(client, channelId, embed, logger, cancellationToken);
+        => messenger.PostAsync(channelId, embed, logger, cancellationToken);
 }
