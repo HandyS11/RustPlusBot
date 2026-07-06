@@ -22,6 +22,29 @@ public sealed class RenderCanonicalizerTests
             .WithButton(label, "sw:on:42", ButtonStyle.Success, disabled: disabled)
             .Build();
 
+    /// <summary>
+    ///     Neither a button nor a select menu: exercises AppendComponent's default (unmodeled kind)
+    ///     branch for a child nested inside an ActionRow. TextInput is IInteractableComponent, so its
+    ///     custom id should be captured too. ComponentBuilder (V1) rejects text inputs outright, so
+    ///     this goes through ComponentBuilderV2, which is the only public-API path that allows it.
+    /// </summary>
+    /// <param name="customId">The text input's custom id.</param>
+    private static MessageComponent BuildTextInputRow(string customId = "ti:1")
+        => new ComponentBuilderV2()
+            .AddComponent(new ActionRowBuilder().AddComponent(new TextInputBuilder(customId)))
+            .Build();
+
+    /// <summary>
+    ///     A top-level component that is not an ActionRow at all (a Components-V2 layout piece):
+    ///     exercises the AppendComponents walk of non-row top-level components, and AppendComponent's
+    ///     default branch for a kind that has no custom id.
+    /// </summary>
+    /// <param name="content">The text display's content.</param>
+    private static MessageComponent BuildTextDisplay(string content = "hello")
+        => new ComponentBuilderV2()
+            .AddComponent(new TextDisplayBuilder(content))
+            .Build();
+
     [Fact]
     public void Identical_renders_produce_identical_canonical_strings()
     {
@@ -117,5 +140,30 @@ public sealed class RenderCanonicalizerTests
         Assert.NotEqual(
             RenderCanonicalizer.Canonicalize(embed: null, Menu("Alpha")),
             RenderCanonicalizer.Canonicalize(embed: null, Menu("Beta")));
+    }
+
+    [Fact]
+    public void Unmodeled_component_kind_differs_from_no_components()
+    {
+        Assert.NotEqual(
+            RenderCanonicalizer.Canonicalize(embed: null, components: null),
+            RenderCanonicalizer.Canonicalize(embed: null, BuildTextInputRow()));
+    }
+
+    [Fact]
+    public void Unmodeled_component_custom_id_change_changes_the_canonical_string()
+    {
+        var a = RenderCanonicalizer.Canonicalize(embed: null, BuildTextInputRow("ti:1"));
+        var b = RenderCanonicalizer.Canonicalize(embed: null, BuildTextInputRow("ti:2"));
+
+        Assert.NotEqual(a, b);
+    }
+
+    [Fact]
+    public void Top_level_non_action_row_component_is_included()
+    {
+        Assert.NotEqual(
+            RenderCanonicalizer.Canonicalize(embed: null, components: null),
+            RenderCanonicalizer.Canonicalize(embed: null, BuildTextDisplay()));
     }
 }

@@ -9,6 +9,13 @@ namespace RustPlusBot.Discord.Posting;
 ///     re-renders can be detected and skipped before hitting Discord's per-channel PATCH bucket.
 ///     Values are length-prefixed to make adjacent user-controlled strings collision-proof.
 /// </summary>
+/// <remarks>
+///     This repo's renderers only ever emit <see cref="ActionRowComponent" />s of buttons and select
+///     menus, which are canonicalized field-by-field. Any other component kind (e.g. Components-V2
+///     layouts, text inputs) is canonicalized shallowly: only its <see cref="ComponentType" /> and,
+///     when it implements <see cref="IInteractableComponent" />, its custom id are captured. Add a
+///     dedicated case in <c>AppendComponent</c> if this repo ever sends a richer unmodeled kind.
+/// </remarks>
 public static class RenderCanonicalizer
 {
     /// <summary>Builds the canonical string for a render.</summary>
@@ -55,11 +62,20 @@ public static class RenderCanonicalizer
 
     private static void AppendComponents(StringBuilder sb, MessageComponent components)
     {
-        foreach (var row in components.Components.OfType<ActionRowComponent>())
+        foreach (var component in components.Components)
         {
-            Append(sb, "row", null);
-            foreach (var component in row.Components)
+            if (component is ActionRowComponent row)
             {
+                Append(sb, "row", null);
+                foreach (var child in row.Components)
+                {
+                    AppendComponent(sb, child);
+                }
+            }
+            else
+            {
+                // Top-level non-ActionRow component (e.g. a Components-V2 layout piece): fall back
+                // to the same shallow append used for unmodeled component kinds.
                 AppendComponent(sb, component);
             }
         }
@@ -93,8 +109,11 @@ public static class RenderCanonicalizer
 
                 break;
             default:
-                // Unknown component kind: its type keeps the canonical string honest (differs from absence).
-                Append(sb, "component", component.Type.ToString());
+                // Unmodeled component kind: type + custom id (when the component exposes one) keeps
+                // the canonical string honest without building a per-kind serializer for kinds this
+                // repo never sends (see the class remarks for the accepted depth).
+                Append(sb, "component.type", component.Type.ToString());
+                Append(sb, "component.id", (component as IInteractableComponent)?.CustomId);
                 break;
         }
     }
