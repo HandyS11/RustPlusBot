@@ -380,7 +380,8 @@ public sealed class AlarmStateRelayTests
             ]);
 
         await h.Relay.HandleConnectionStatusAsync(
-            new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
+            new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: true),
+            CancellationToken.None);
 
         await h.Refresher.Received(1).RefreshAsync(
             Arg.Is<SmartAlarm>(a => a.EntityId == 42UL), unreachable: true, Arg.Any<CancellationToken>());
@@ -402,7 +403,8 @@ public sealed class AlarmStateRelayTests
             });
 
         await h.Relay.HandleConnectionStatusAsync(
-            new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
+            new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: true, WasConnected: true),
+            CancellationToken.None);
 
         await h.Refresher.DidNotReceive().RefreshAsync(
             Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());

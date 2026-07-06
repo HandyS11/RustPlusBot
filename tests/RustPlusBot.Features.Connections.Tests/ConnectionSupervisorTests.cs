@@ -231,6 +231,72 @@ public sealed class ConnectionSupervisorTests
         Assert.True(source.CreateCount >= 2);
     }
 
+    /// <summary>
+    /// WasConnected must be computed from in-process state (the DB status survives restarts and
+    /// would claim Connected at boot): statuses before the first Connected carry false; the drop
+    /// after a Connected carries true.
+    /// </summary>
+    [Fact]
+    public async Task StatusEvents_CarryWasConnected_OnlyAfterAConnectedDrop()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(2)); // first heartbeat -> Connected
+        source.EnqueueHeartbeat(HeartbeatResult.Unreachable); // next heartbeat -> drop
+        source.EnqueueConnect(SocketConnectOutcome.Connected); // reconnect
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(4));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var events = new List<ConnectionStatusChangedEvent>();
+        _ = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<ConnectionStatusChangedEvent>(cts.Token))
+            {
+                lock (events)
+                {
+                    events.Add(e);
+                }
+            }
+        }, cts.Token);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+        var recovered = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 4);
+        Assert.NotNull(recovered);
+
+        // The bus delivers asynchronously; wait until the collector has seen the drop.
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            lock (events)
+            {
+                if (events.Any(e => !e.IsConnected && e.WasConnected))
+                {
+                    break;
+                }
+            }
+
+            await Task.Delay(15);
+        }
+
+        await cts.CancelAsync();
+        ConnectionStatusChangedEvent[] snapshot;
+        lock (events)
+        {
+            snapshot = [.. events];
+        }
+
+        var firstConnected = Array.FindIndex(snapshot, e => e.IsConnected);
+        Assert.True(firstConnected >= 0, "expected a Connected status event");
+        Assert.All(snapshot.Take(firstConnected), e => Assert.False(e.WasConnected));
+        var drop = Array.FindIndex(
+            snapshot, firstConnected, snapshot.Length - firstConnected, e => !e.IsConnected);
+        Assert.True(drop > firstConnected, "expected a drop event after Connected");
+        Assert.True(snapshot[drop].WasConnected);
+    }
+
     [Fact]
     public async Task StartAll_StartsAConnectionPerConnectableServer()
     {

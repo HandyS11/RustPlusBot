@@ -152,7 +152,8 @@ public sealed class SwitchesHostedServiceTests
                && !h.Poster.ReceivedCalls().Any(c =>
                    c.GetMethodInfo().Name == nameof(ISwitchChannelPoster.EnsureAsync)))
         {
-            await h.Bus.PublishAsync(new ConnectionStatusChangedEvent(10UL, serverId));
+            await h.Bus.PublishAsync(
+                new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: true));
             await Task.Delay(20);
         }
 

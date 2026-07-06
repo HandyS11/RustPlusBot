@@ -197,7 +197,8 @@ public sealed class AlarmsHostedServiceTests
                && !h.Refresher.ReceivedCalls().Any(c =>
                    c.GetMethodInfo().Name == nameof(IAlarmRefresher.RefreshAsync)))
         {
-            await h.Bus.PublishAsync(new ConnectionStatusChangedEvent(10UL, serverId));
+            await h.Bus.PublishAsync(
+                new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: true));
             await Task.Delay(20);
         }
 

@@ -160,7 +160,8 @@ public sealed class StorageMonitorsHostedServiceTests
                && !h.Poster.ReceivedCalls().Any(c =>
                    c.GetMethodInfo().Name == nameof(IStorageMonitorChannelPoster.EnsureAsync)))
         {
-            await h.Bus.PublishAsync(new ConnectionStatusChangedEvent(Guild, serverId));
+            await h.Bus.PublishAsync(
+                new ConnectionStatusChangedEvent(Guild, serverId, IsConnected: false, WasConnected: true));
             await Task.Delay(20);
         }
 

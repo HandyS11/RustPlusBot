@@ -114,7 +114,8 @@ public sealed class StorageMonitorStateRelayTests
             ]);
 
         await h.Relay.HandleConnectionStatusAsync(
-            new ConnectionStatusChangedEvent(Guild, Server), CancellationToken.None);
+            new ConnectionStatusChangedEvent(Guild, Server, IsConnected: false, WasConnected: true),
+            CancellationToken.None);
 
         await h.Poster.Received(1).EnsureAsync(555UL, Arg.Any<ulong?>(),
             Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),
@@ -132,7 +133,8 @@ public sealed class StorageMonitorStateRelayTests
             });
 
         await h.Relay.HandleConnectionStatusAsync(
-            new ConnectionStatusChangedEvent(Guild, Server), CancellationToken.None);
+            new ConnectionStatusChangedEvent(Guild, Server, IsConnected: true, WasConnected: true),
+            CancellationToken.None);
 
         await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
             Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),

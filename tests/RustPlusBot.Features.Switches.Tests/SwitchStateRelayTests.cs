@@ -89,7 +89,8 @@ public sealed class SwitchStateRelayTests
             ]);
 
         await h.Relay.HandleConnectionStatusAsync(
-            new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
+            new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: false, WasConnected: true),
+            CancellationToken.None);
 
         await h.Poster.Received(1).EnsureAsync(777UL, 900UL, Arg.Any<global::Discord.Embed>(),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
@@ -107,7 +108,8 @@ public sealed class SwitchStateRelayTests
             });
 
         await h.Relay.HandleConnectionStatusAsync(
-            new ConnectionStatusChangedEvent(10UL, serverId), CancellationToken.None);
+            new ConnectionStatusChangedEvent(10UL, serverId, IsConnected: true, WasConnected: true),
+            CancellationToken.None);
 
         await h.Poster.DidNotReceive().EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
             Arg.Any<global::Discord.Embed>(),
