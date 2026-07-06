@@ -59,29 +59,48 @@ public sealed class DiscordBotService(
         await client.StopAsync().ConfigureAwait(false);
     }
 
-    private async Task OnReadyAsync()
+    private Task OnReadyAsync()
     {
         // Ready fires on every gateway (re)connect; only register commands once per process.
-        // Ready is dispatched serially on the gateway thread, so no synchronization is needed.
+        // Ready is dispatched serially on the gateway thread, so no synchronization is needed —
+        // set the flag before offloading so a re-fired Ready can't double-register.
         if (_hasRegisteredCommands)
         {
-            return;
-        }
-
-        if (_options.ResetCommandsOnStartup)
-        {
-            await client.Rest.DeleteAllGlobalCommandsAsync().ConfigureAwait(false);
-            logger.LogWarning(
-                "ResetCommandsOnStartup is enabled: deleted all global application commands before registration.");
-        }
-
-        foreach (var guild in client.Guilds)
-        {
-            await interactions.RegisterCommandsToGuildAsync(guild.Id).ConfigureAwait(false);
+            return Task.CompletedTask;
         }
 
         _hasRegisteredCommands = true;
-        logger.LogInformation("Registered commands to {GuildCount} guild(s).", client.Guilds.Count);
+
+        // Registration is REST work (one call per guild); doing it inline blocks the gateway task
+        // and stalls event dispatch, so offload it. Failures must be caught here — nothing awaits this.
+        _ = Task.Run(RegisterCommandsAsync);
+        return Task.CompletedTask;
+    }
+
+    private async Task RegisterCommandsAsync()
+    {
+        try
+        {
+            if (_options.ResetCommandsOnStartup)
+            {
+                await client.Rest.DeleteAllGlobalCommandsAsync().ConfigureAwait(false);
+                logger.LogWarning(
+                    "ResetCommandsOnStartup is enabled: deleted all global application commands before registration.");
+            }
+
+            foreach (var guild in client.Guilds)
+            {
+                await interactions.RegisterCommandsToGuildAsync(guild.Id).ConfigureAwait(false);
+            }
+
+            logger.LogInformation("Registered commands to {GuildCount} guild(s).", client.Guilds.Count);
+        }
+#pragma warning disable CA1031 // Broad catch: fire-and-forget — an unobserved exception would vanish; log it instead.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            logger.LogError(ex, "Registering slash commands failed.");
+        }
     }
 
     [SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance",
