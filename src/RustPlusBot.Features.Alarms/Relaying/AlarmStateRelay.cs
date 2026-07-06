@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Alarms.Posting;
-using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;

@@ -1,5 +1,3 @@
-using RustPlusBot.Features.Connections;
-
 namespace RustPlusBot.Features.Connections.Tests;
 
 /// <summary>Unit tests for <see cref="ConnectionOptions"/> default values.</summary>

@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Globalization;
 using System.Resources;
-using RustPlusBot.Localization;
 
 namespace RustPlusBot.Localization.Tests;
 

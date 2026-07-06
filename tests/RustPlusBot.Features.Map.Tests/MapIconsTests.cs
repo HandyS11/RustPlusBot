@@ -1,7 +1,6 @@
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Map.Assets;
-using Xunit;
 
 namespace RustPlusBot.Features.Map.Tests;
 

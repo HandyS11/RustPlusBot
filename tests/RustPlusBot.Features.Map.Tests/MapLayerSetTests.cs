@@ -1,5 +1,4 @@
 using RustPlusBot.Features.Map.Rendering;
-using Xunit;
 
 namespace RustPlusBot.Features.Map.Tests;
 

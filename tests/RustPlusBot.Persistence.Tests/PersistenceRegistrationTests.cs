@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Credentials;
-using RustPlusBot.Persistence;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Credentials;
 using RustPlusBot.Persistence.Servers;

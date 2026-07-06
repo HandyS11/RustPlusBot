@@ -1,5 +1,3 @@
-using RustPlusBot.Features.ItemData;
-
 namespace RustPlusBot.Features.ItemData.Tests;
 
 public sealed class CctvBundleTests

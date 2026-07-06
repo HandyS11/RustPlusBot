@@ -5,7 +5,6 @@ using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord.Notifications;
-using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Connections.Removal;
 using RustPlusBot.Features.Connections.Supervisor;

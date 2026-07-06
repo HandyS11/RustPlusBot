@@ -5,7 +5,6 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Features.Commands.Leader;
 using RustPlusBot.Localization;
-using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Commands.Modules;

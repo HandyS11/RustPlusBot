@@ -1,4 +1,3 @@
-using RustPlusBot.Features.ItemData.Data;
 using RustPlusBot.ItemData.Generator.Sources;
 
 namespace RustPlusBot.ItemData.Generator.Tests;

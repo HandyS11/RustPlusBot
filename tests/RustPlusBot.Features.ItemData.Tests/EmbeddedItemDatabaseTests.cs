@@ -1,5 +1,4 @@
 using System.Text;
-using RustPlusBot.Features.ItemData;
 using RustPlusBot.Features.ItemData.Data;
 using RustPlusBot.Features.ItemData.Lookup;
 

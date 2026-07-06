@@ -1,6 +1,5 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using RustPlusBot.Persistence;
 
 namespace RustPlusBot.Persistence.Tests;
 

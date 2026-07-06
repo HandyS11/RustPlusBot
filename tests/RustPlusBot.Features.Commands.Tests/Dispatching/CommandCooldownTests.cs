@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Options;
 using RustPlusBot.Abstractions.Time;
-using RustPlusBot.Features.Commands;
 using RustPlusBot.Features.Commands.Dispatching;
 
 namespace RustPlusBot.Features.Commands.Tests.Dispatching;

@@ -9,7 +9,6 @@ using RustPlusBot.Features.StorageMonitors.Relaying;
 using RustPlusBot.Features.StorageMonitors.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
-using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.StorageMonitors;
 using RustPlusBot.Persistence.Workspace;
 

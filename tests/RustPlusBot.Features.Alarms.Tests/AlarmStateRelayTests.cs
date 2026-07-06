@@ -8,7 +8,6 @@ using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Relaying;
-using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;

@@ -1,5 +1,3 @@
-using RustPlusBot.Features.Commands;
-
 namespace RustPlusBot.Features.Commands.Tests;
 
 public sealed class CommandOptionsTests

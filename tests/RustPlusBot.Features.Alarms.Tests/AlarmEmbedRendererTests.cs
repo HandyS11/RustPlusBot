@@ -1,7 +1,5 @@
 using Discord;
-using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Features.Alarms.Rendering;
 using RustPlusBot.Localization;

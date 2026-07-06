@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using RustPlusBot.Domain.Servers;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Registry;

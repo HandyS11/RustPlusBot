@@ -1,6 +1,5 @@
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Map.Hosting;
-using Xunit;
 
 namespace RustPlusBot.Features.Map.Tests;
 

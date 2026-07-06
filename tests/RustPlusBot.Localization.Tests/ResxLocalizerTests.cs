@@ -1,5 +1,3 @@
-using RustPlusBot.Localization;
-
 namespace RustPlusBot.Localization.Tests;
 
 public sealed class ResxLocalizerTests

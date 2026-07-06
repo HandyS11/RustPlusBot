@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using RustPlusBot.Features.Switches;
 using RustPlusBot.Features.Switches.Pairing;
 using RustPlusBot.Features.Switches.Relaying;
 using RustPlusBot.Features.Switches.Rendering;

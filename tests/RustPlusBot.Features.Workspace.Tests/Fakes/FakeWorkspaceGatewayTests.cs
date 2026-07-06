@@ -1,5 +1,4 @@
 using RustPlusBot.Features.Workspace.Registry;
-using RustPlusBot.Features.Workspace.Tests.Fakes;
 
 namespace RustPlusBot.Features.Workspace.Tests.Fakes;
 

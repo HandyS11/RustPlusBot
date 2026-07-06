@@ -8,7 +8,6 @@ using RustPlusBot.Features.Map.Rendering;
 using RustPlusBot.Persistence.Map;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using Xunit;
 
 namespace RustPlusBot.Features.Map.Tests;
 

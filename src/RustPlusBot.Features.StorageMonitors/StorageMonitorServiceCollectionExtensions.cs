@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Discord;
-using RustPlusBot.Features.StorageMonitors.Hosting;
 using RustPlusBot.Features.ItemData;
+using RustPlusBot.Features.StorageMonitors.Hosting;
 using RustPlusBot.Features.StorageMonitors.Pairing;
 using RustPlusBot.Features.StorageMonitors.Posting;
 using RustPlusBot.Features.StorageMonitors.Relaying;

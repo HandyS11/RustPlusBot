@@ -1,5 +1,4 @@
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Connections;

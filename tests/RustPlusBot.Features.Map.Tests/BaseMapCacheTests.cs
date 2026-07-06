@@ -1,7 +1,6 @@
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Composing;
-using Xunit;
 
 namespace RustPlusBot.Features.Map.Tests;
 

@@ -1,15 +1,14 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Discord.Posting;
 using RustPlusBot.Features.Alarms.Pairing;
 using RustPlusBot.Features.Alarms.Posting;
 using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
-using RustPlusBot.Discord.Posting;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;

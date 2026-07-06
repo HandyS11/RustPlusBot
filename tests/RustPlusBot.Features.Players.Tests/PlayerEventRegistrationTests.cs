@@ -5,7 +5,6 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Discord.Posting;
 using RustPlusBot.Features.Connections.Listening;
-using RustPlusBot.Features.Players;
 using RustPlusBot.Features.Players.Hosting;
 using RustPlusBot.Features.Players.Relaying;
 using RustPlusBot.Features.Workspace.Locating;

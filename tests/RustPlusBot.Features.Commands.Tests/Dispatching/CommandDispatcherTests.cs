@@ -2,7 +2,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
-using RustPlusBot.Features.Commands;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Persistence.Commands;
