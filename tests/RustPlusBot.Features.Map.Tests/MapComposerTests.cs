@@ -15,7 +15,7 @@ public sealed class MapComposerTests
 {
     private const ulong Guild = 1UL;
     private static readonly Guid Server = Guid.NewGuid();
-    private static readonly MapDimensions Dims = new(4000, 4000, 500, 4000);
+    private static readonly MapDimensions Dims = new(2000, 2000, 100, 4000);
 
     private static byte[] BaseJpeg()
     {

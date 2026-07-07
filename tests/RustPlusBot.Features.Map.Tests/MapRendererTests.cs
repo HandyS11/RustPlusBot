@@ -8,7 +8,9 @@ namespace RustPlusBot.Features.Map.Tests;
 
 public sealed class MapRendererTests
 {
-    private static readonly MapDimensions Dims = new(Width: 4000, Height: 4000, OceanMargin: 500, WorldSize: 4000);
+    private static readonly MapProjection Projection =
+        new(WorldSize: 4000, ImageWidth: 4000, ImageHeight: 4000, OceanMarginPx: 500,
+            OutputSize: MapRenderer.OutputSize);
 
     /// <summary>A 64x64 solid-green JPEG, generated once in-test so the renderer has a real base image to decode.</summary>
     private static byte[] BaseJpeg()
@@ -19,12 +21,42 @@ public sealed class MapRendererTests
         return ms.ToArray();
     }
 
+    private static byte[] SolidJpeg(int size)
+    {
+        using var img = new Image<Rgba32>(size, size, new Rgba32(40, 90, 120));
+        using var ms = new MemoryStream();
+        img.SaveAsJpeg(ms);
+        return ms.ToArray();
+    }
+
+    private static Rectangle ChangedPixelBounds(byte[] a, byte[] b)
+    {
+        using var ia = Image.Load<Rgba32>(a);
+        using var ib = Image.Load<Rgba32>(b);
+        int minX = int.MaxValue, minY = int.MaxValue, maxX = -1, maxY = -1;
+        for (var y = 0; y < ia.Height; y++)
+        {
+            for (var x = 0; x < ia.Width; x++)
+            {
+                if (ia[x, y] != ib[x, y])
+                {
+                    minX = Math.Min(minX, x);
+                    minY = Math.Min(minY, y);
+                    maxX = Math.Max(maxX, x);
+                    maxY = Math.Max(maxY, y);
+                }
+            }
+        }
+
+        return maxX < 0 ? Rectangle.Empty : new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+    }
+
     [Fact]
     public void Render_produces_a_png_of_the_output_size()
     {
         var renderer = new MapRenderer();
 
-        var bytes = renderer.Render(BaseJpeg(), Dims, markers: [], monuments: [], players: [], rigs: [],
+        var bytes = renderer.Render(BaseJpeg(), Projection, markers: [], monuments: [], players: [], rigs: [],
             MapLayerSet.AllOn);
 
         using var result = Image.Load<Rgba32>(bytes);
@@ -38,9 +70,9 @@ public sealed class MapRendererTests
         var renderer = new MapRenderer();
         var jpeg = BaseJpeg();
 
-        var without = renderer.Render(jpeg, Dims, markers: [], monuments: [], players: [], rigs: [],
+        var without = renderer.Render(jpeg, Projection, markers: [], monuments: [], players: [], rigs: [],
             new MapLayerSet(false, true, false, false, false, false));
-        var with = renderer.Render(jpeg, Dims,
+        var with = renderer.Render(jpeg, Projection,
             markers: [new MarkerPlacement(MarkerKind.CargoShip, 512f, 512f)],
             monuments: [], players: [], rigs: [],
             new MapLayerSet(false, true, false, false, false, false));
@@ -69,9 +101,29 @@ public sealed class MapRendererTests
             new RigPlacement(RigKind.Large, 400, 400, Active: true)
         };
 
-        var png = renderer.Render(BaseJpeg(), Dims, markers, monuments, players, rigs, MapLayerSet.AllOn);
+        var png = renderer.Render(BaseJpeg(), Projection, markers, monuments, players, rigs, MapLayerSet.AllOn);
 
         using var img = Image.Load(png); // throws if not a valid image
         Assert.Equal(MapRenderer.OutputSize, img.Width);
+    }
+
+    [Fact]
+    public void Monument_icon_is_drawn_scaled_not_native()
+    {
+        var renderer = new MapRenderer();
+        var projection = new MapProjection(4000, 2000, 2000, 100, MapRenderer.OutputSize);
+        var baseJpeg = SolidJpeg(2000);
+        var (px, py) = projection.ToPixel(2000f, 2000f);
+
+        var without = renderer.Render(baseJpeg, projection, [], [], [], [],
+            new MapLayerSet(false, false, false, false, false, false));
+        var with = renderer.Render(baseJpeg, projection, [],
+            [new MonumentPlacement("oilrig_1", px, py)], [], [],
+            new MapLayerSet(false, false, true, false, false, false));
+
+        var bounds = ChangedPixelBounds(without, with);
+        Assert.True(bounds.Width <= MapRenderStyle.MonumentIconSize + 2,
+            $"changed area {bounds.Width}px wide — icon not scaled");
+        Assert.True(bounds.Height <= MapRenderStyle.MonumentIconSize + 2);
     }
 }

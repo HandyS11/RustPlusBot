@@ -54,16 +54,21 @@ public sealed class MapComposer(
         // Dimensions come from the map itself (not from a marker), so the grid renders even when no
         // markers are present — e.g. on a freshly-connected or low-activity server.
         var dims = await query.GetMapDimensionsAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-        if (dims is null)
+        if (dims is null || dims.WorldSize == 0)
         {
             // Dimensions unavailable: render the base tile only (every overlay needs world→pixel).
-            return renderer.Render(baseImage, new MapDimensions(0, 0, 0, 0), markers: [], monuments: [], players: [],
-                rigs: [],
+            return renderer.Render(baseImage, new MapProjection(0, 1, 1, 0, MapRenderer.OutputSize),
+                markers: [], monuments: [], players: [], rigs: [],
                 new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false,
                     Rigs: false));
         }
 
-        var markers = GatherMarkers(guildId, serverId, dims, layers);
+        // NOTE — Task 9 follow-up: image pixel dims come from MapDimensions for now, which is correct
+        // for the Rust+ JPEG. The base-map source chain will replace this with the fetched image's own dims.
+        var projection = new MapProjection(dims.WorldSize, (int)dims.Width, (int)dims.Height, dims.OceanMargin,
+            MapRenderer.OutputSize);
+
+        var markers = GatherMarkers(guildId, serverId, projection, layers);
 
         // Monuments feed both the monuments layer and the rig-styling layer; fetch them once when either is on.
         IReadOnlyList<MonumentSnapshot> serverMonuments = [];
@@ -72,15 +77,19 @@ public sealed class MapComposer(
             serverMonuments = await query.GetMonumentsAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         }
 
-        var monuments = GatherMonuments(serverMonuments, dims, layers);
-        var players = await GatherPlayersAsync(guildId, serverId, dims, layers, cancellationToken)
+        var monuments = GatherMonuments(serverMonuments, projection, layers);
+        var players = await GatherPlayersAsync(guildId, serverId, projection, layers, cancellationToken)
             .ConfigureAwait(false);
-        var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, dims, layers);
+        var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, projection, layers);
 
-        return renderer.Render(baseImage, dims, markers, monuments, players, rigPlacements, layers);
+        return renderer.Render(baseImage, projection, markers, monuments, players, rigPlacements, layers);
     }
 
-    private List<MarkerPlacement> GatherMarkers(ulong guildId, Guid serverId, MapDimensions dims, MapLayerSet layers)
+    private List<MarkerPlacement> GatherMarkers(
+        ulong guildId,
+        Guid serverId,
+        MapProjection projection,
+        MapLayerSet layers)
     {
         var markers = new List<MarkerPlacement>();
         if (layers.Markers)
@@ -89,7 +98,7 @@ public sealed class MapComposer(
             {
                 foreach (var m in events.GetActiveMarkers(guildId, serverId, kind))
                 {
-                    var (px, py) = WorldToPixel.ToPixel(m.X, m.Y, dims, MapRenderer.OutputSize);
+                    var (px, py) = projection.ToPixel(m.X, m.Y);
                     markers.Add(new MarkerPlacement(kind, px, py));
                 }
             }
@@ -99,7 +108,7 @@ public sealed class MapComposer(
         {
             foreach (var m in events.GetActiveMarkers(guildId, serverId, MarkerKind.TravellingVendor))
             {
-                var (px, py) = WorldToPixel.ToPixel(m.X, m.Y, dims, MapRenderer.OutputSize);
+                var (px, py) = projection.ToPixel(m.X, m.Y);
                 markers.Add(new MarkerPlacement(MarkerKind.TravellingVendor, px, py));
             }
         }
@@ -109,7 +118,7 @@ public sealed class MapComposer(
 
     private static List<MonumentPlacement> GatherMonuments(
         IReadOnlyList<MonumentSnapshot> serverMonuments,
-        MapDimensions dims,
+        MapProjection projection,
         MapLayerSet layers)
     {
         var monuments = new List<MonumentPlacement>();
@@ -117,7 +126,7 @@ public sealed class MapComposer(
         {
             foreach (var mon in serverMonuments)
             {
-                var (px, py) = WorldToPixel.ToPixel(mon.X, mon.Y, dims, MapRenderer.OutputSize);
+                var (px, py) = projection.ToPixel(mon.X, mon.Y);
                 monuments.Add(new MonumentPlacement(mon.Token, px, py));
             }
         }
@@ -128,7 +137,7 @@ public sealed class MapComposer(
     private async Task<List<PlayerPlacement>> GatherPlayersAsync(
         ulong guildId,
         Guid serverId,
-        MapDimensions dims,
+        MapProjection projection,
         MapLayerSet layers,
         CancellationToken cancellationToken)
     {
@@ -138,7 +147,7 @@ public sealed class MapComposer(
             var team = await query.GetTeamInfoAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
             foreach (var member in team?.Members ?? [])
             {
-                var (px, py) = WorldToPixel.ToPixel(member.X, member.Y, dims, MapRenderer.OutputSize);
+                var (px, py) = projection.ToPixel(member.X, member.Y);
                 players.Add(new PlayerPlacement(member.Name, px, py, member.IsAlive, member.IsOnline));
             }
         }
@@ -150,7 +159,7 @@ public sealed class MapComposer(
         ulong guildId,
         Guid serverId,
         IReadOnlyList<MonumentSnapshot> serverMonuments,
-        MapDimensions dims,
+        MapProjection projection,
         MapLayerSet layers)
     {
         var rigPlacements = new List<RigPlacement>();
@@ -168,7 +177,7 @@ public sealed class MapComposer(
                 if (kind is { } k)
                 {
                     var state = rigs.Get(guildId, serverId, k);
-                    var (px, py) = WorldToPixel.ToPixel(mon.X, mon.Y, dims, MapRenderer.OutputSize);
+                    var (px, py) = projection.ToPixel(mon.X, mon.Y);
                     rigPlacements.Add(new RigPlacement(k, px, py, state.Status == RigStatus.Active));
                 }
             }
