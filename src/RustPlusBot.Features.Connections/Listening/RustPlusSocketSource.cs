@@ -81,6 +81,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             CancellationToken cancellationToken = default) =>
             Task.FromResult<MapDimensions?>(null);
 
+        public Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            Task.FromResult<WorldSnapshot?>(null);
+
         public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<MonumentSnapshot>>([]);
@@ -545,7 +548,42 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                     return null;
                 }
 
-                return new MapDimensions(width, height, margin);
+                var infoResponse = await _rustPlus.GetInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                if (!infoResponse.IsSuccess || infoResponse.Data?.MapSize is not { } worldSize)
+                {
+                    return null;
+                }
+
+                return new MapDimensions(width, height, margin, worldSize);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: any map-query failure maps to null; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return null;
+            }
+        }
+
+        public async Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                var response = await _rustPlus.GetInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                if (!response.IsSuccess || response.Data is not { MapSize: { } size, Seed: { } seed })
+                {
+                    return null;
+                }
+
+                return new WorldSnapshot(size, seed);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {

@@ -5,7 +5,7 @@ namespace RustPlusBot.Features.Map.Tests;
 
 public sealed class WorldToPixelTests
 {
-    private static readonly MapDimensions Dims = new(Width: 4000, Height: 4000, OceanMargin: 500);
+    private static readonly MapDimensions Dims = new(Width: 4000, Height: 4000, OceanMargin: 500, WorldSize: 4000);
 
     [Fact]
     public void Origin_world_maps_to_bottom_left_inside_margin()

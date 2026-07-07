@@ -19,7 +19,7 @@ public sealed class MapMarkerSnapshotTests
     [Fact]
     public void Dimensions_carry_size_and_margin()
     {
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
 
         Assert.Equal(4000u, dims.Width);
         Assert.Equal(500, dims.OceanMargin);

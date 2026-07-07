@@ -9,7 +9,7 @@ public sealed class GridReferenceTests
     public void Origin_is_top_left_cell()
     {
         // x near 0, y near top => column A, top row.
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
         var grid = GridReference.From(10f, 3990f, dims);
 
         Assert.StartsWith("A", grid, StringComparison.Ordinal);
@@ -28,7 +28,7 @@ public sealed class GridReferenceTests
     [InlineData(150f, 4000f, "B")]
     public void Column_letter_advances_every_cell(float x, float y, string expectedColumnPrefix)
     {
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
         var grid = GridReference.From(x, y, dims);
         Assert.StartsWith(expectedColumnPrefix, grid, StringComparison.Ordinal);
     }

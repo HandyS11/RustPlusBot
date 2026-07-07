@@ -11,7 +11,7 @@ public sealed class PlayerEventEndToEndTests
     public void All_transition_kinds_render_without_throwing()
     {
         var renderer = new PlayerEventRenderer(new ResxLocalizer());
-        var dims = new MapDimensions(3000, 3000, 0);
+        var dims = new MapDimensions(3000, 3000, 0, WorldSize: 3000);
         foreach (var kind in Enum.GetValues<PlayerTransitionKind>())
         {
             var loc = kind is PlayerTransitionKind.Death or PlayerTransitionKind.Respawn

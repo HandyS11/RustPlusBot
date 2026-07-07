@@ -8,7 +8,7 @@ namespace RustPlusBot.Features.Map.Tests;
 
 public sealed class MapRendererTests
 {
-    private static readonly MapDimensions Dims = new(Width: 4000, Height: 4000, OceanMargin: 500);
+    private static readonly MapDimensions Dims = new(Width: 4000, Height: 4000, OceanMargin: 500, WorldSize: 4000);
 
     /// <summary>A 64x64 solid-green JPEG, generated once in-test so the renderer has a real base image to decode.</summary>
     private static byte[] BaseJpeg()

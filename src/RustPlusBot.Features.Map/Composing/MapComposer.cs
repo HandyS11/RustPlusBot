@@ -57,7 +57,7 @@ public sealed class MapComposer(
         if (dims is null)
         {
             // Dimensions unavailable: render the base tile only (every overlay needs world→pixel).
-            return renderer.Render(baseImage, new MapDimensions(0, 0, 0), markers: [], monuments: [], players: [],
+            return renderer.Render(baseImage, new MapDimensions(0, 0, 0, 0), markers: [], monuments: [], players: [],
                 rigs: [],
                 new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false,
                     Rigs: false));

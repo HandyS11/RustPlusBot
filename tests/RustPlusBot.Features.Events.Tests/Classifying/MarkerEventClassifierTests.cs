@@ -21,7 +21,7 @@ public sealed class MarkerEventClassifierTests
     private static MapMarkersChangedEvent Evt(
         IReadOnlyList<MapMarkerSnapshot> added,
         IReadOnlyList<MapMarkerSnapshot> removed) =>
-        new(1UL, Server, new MapDimensions(4000u, 4000u, 500), added, removed);
+        new(1UL, Server, new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u), added, removed);
 
     [Fact]
     public void Cargo_added_is_CargoEntered()

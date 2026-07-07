@@ -217,7 +217,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public bool MarkersThrow { get; set; }
 
         /// <summary>The dimensions returned by <see cref="GetMapDimensionsAsync"/>. Defaults to a non-null snapshot.</summary>
-        public MapDimensions? DimensionsResult { get; set; } = new(4000u, 4000u, 500);
+        public MapDimensions? DimensionsResult { get; set; } = new(4000u, 4000u, 500, 4000u);
+
+        /// <summary>The snapshot returned by <see cref="GetWorldAsync"/>. Defaults to null.</summary>
+        public WorldSnapshot? World { get; set; }
 
         /// <summary>The monuments returned by <see cref="GetMonumentsAsync"/>. Defaults to empty.</summary>
         public IReadOnlyList<MonumentSnapshot> MonumentsResult { get; set; } = [];
@@ -341,6 +344,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(DimensionsResult);
+
+        public Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            Task.FromResult(World);
 
         public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>

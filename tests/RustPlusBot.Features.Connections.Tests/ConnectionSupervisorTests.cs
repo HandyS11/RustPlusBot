@@ -402,8 +402,8 @@ public sealed class ConnectionSupervisorTests
             }
         }, CancellationToken.None);
 
-        // FakeConnection default DimensionsResult is new(4000u, 4000u, 500); assert those exact values.
-        var expectedDims = new MapDimensions(4000u, 4000u, 500);
+        // FakeConnection default DimensionsResult is new(4000u, 4000u, 500, 4000u); assert those exact values.
+        var expectedDims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
 
         // Script polls before EnsureConnectionAsync so the marker script is in the connection before
         // the poll loop can start — eliminates any setup race.

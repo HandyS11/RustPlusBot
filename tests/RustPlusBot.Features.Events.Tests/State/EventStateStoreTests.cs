@@ -35,7 +35,7 @@ public sealed class EventStateStoreTests
     public void Added_marker_becomes_active_and_carries_dimensions()
     {
         var store = Build();
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
         store.Apply(
             DeltaWithDims([new MapMarkerSnapshot(1, MarkerKind.CargoShip, 10f, 20f, null)], [], dims),
             [new RustMapEvent(MapEventKind.CargoEntered, 10f, 20f, dims, Now)]);

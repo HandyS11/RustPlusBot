@@ -61,7 +61,7 @@ public sealed class PlayersHostedServiceTests
         {
             await h.Bus.PublishAsync(new PlayerStateChangedEvent(
                 10UL, serverId,
-                new MapDimensions(3000, 3000, 0),
+                new MapDimensions(3000, 3000, 0, WorldSize: 3000),
                 [new PlayerTransition(PlayerTransitionKind.Connect, 1UL, "Alice", null)]));
             await Task.Delay(20);
         }
@@ -101,7 +101,7 @@ public sealed class PlayersHostedServiceTests
         {
             await h.Bus.PublishAsync(new PlayerStateChangedEvent(
                 10UL, Guid.NewGuid(),
-                new MapDimensions(3000, 3000, 0),
+                new MapDimensions(3000, 3000, 0, WorldSize: 3000),
                 [new PlayerTransition(PlayerTransitionKind.Connect, 1UL, "Bob", null)]));
             await Task.Delay(20);
         }

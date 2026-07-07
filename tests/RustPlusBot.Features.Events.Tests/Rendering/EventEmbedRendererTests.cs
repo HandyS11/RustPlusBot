@@ -15,7 +15,7 @@ public sealed class EventEmbedRendererTests
     [Fact]
     public void Cargo_entered_renders_english_with_grid()
     {
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
         var embed = Build().Render(new RustMapEvent(MapEventKind.CargoEntered, 10f, 3990f, dims, Now), "en");
 
         Assert.NotNull(embed.Description);

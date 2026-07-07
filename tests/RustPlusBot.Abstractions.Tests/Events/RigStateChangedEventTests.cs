@@ -9,7 +9,7 @@ public sealed class RigStateChangedEventTests
     public void Carries_rig_kind_event_kind_position_and_dimensions()
     {
         var server = Guid.NewGuid();
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
 
         var evt = new RigStateChangedEvent(7UL, server, RigKind.Large, RigEventKind.CrateLootable, 1f, 2f, dims);
 

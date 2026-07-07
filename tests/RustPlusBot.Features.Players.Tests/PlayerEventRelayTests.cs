@@ -36,7 +36,7 @@ public sealed class PlayerEventRelayTests
     }
 
     private static PlayerStateChangedEvent Evt(params PlayerTransition[] ts)
-        => new(1UL, Guid.NewGuid(), new MapDimensions(3000, 3000, 0), ts);
+        => new(1UL, Guid.NewGuid(), new MapDimensions(3000, 3000, 0, WorldSize: 3000), ts);
 
     [Fact]
     public async Task Sends_ingame_line_for_each_transition()
