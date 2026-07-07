@@ -23,13 +23,13 @@ public sealed class EventStateStoreTests
     private static MapMarkersChangedEvent Delta(
         IReadOnlyList<MapMarkerSnapshot> added,
         IReadOnlyList<MapMarkerSnapshot> removed) =>
-        new(Guild, Server, null, added, removed);
+        new(Guild, Server, null, added, removed, []);
 
     private static MapMarkersChangedEvent DeltaWithDims(
         IReadOnlyList<MapMarkerSnapshot> added,
         IReadOnlyList<MapMarkerSnapshot> removed,
         MapDimensions? dims) =>
-        new(Guild, Server, dims, added, removed);
+        new(Guild, Server, dims, added, removed, []);
 
     [Fact]
     public void Added_marker_becomes_active_and_carries_dimensions()

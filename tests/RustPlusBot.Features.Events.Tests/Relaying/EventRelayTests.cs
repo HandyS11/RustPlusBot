@@ -66,7 +66,7 @@ public sealed class EventRelayTests
         await relay.RelayAsync(
             new MapMarkersChangedEvent(Guild, Server, null,
                 [new MapMarkerSnapshot(1, MarkerKind.CargoShip, 0f, 0f, null)],
-                []),
+                [], []),
             CancellationToken.None);
 
         await poster.Received(1).PostAsync(999UL, Arg.Any<Embed>(), Arg.Any<CancellationToken>());
@@ -81,7 +81,7 @@ public sealed class EventRelayTests
         await relay.RelayAsync(
             new MapMarkersChangedEvent(Guild, Server, null,
                 [new MapMarkerSnapshot(1, MarkerKind.CargoShip, 0f, 0f, null)],
-                []),
+                [], []),
             CancellationToken.None);
 
         await poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<Embed>(), Arg.Any<CancellationToken>());
@@ -98,7 +98,7 @@ public sealed class EventRelayTests
         await relay.RelayAsync(
             new MapMarkersChangedEvent(Guild, Server, null,
                 [new MapMarkerSnapshot(2, MarkerKind.Other, 0f, 0f, null)],
-                []),
+                [], []),
             CancellationToken.None);
 
         await poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<Embed>(), Arg.Any<CancellationToken>());
@@ -112,7 +112,7 @@ public sealed class EventRelayTests
         await relay.RelayAsync(
             new MapMarkersChangedEvent(Guild, Server, null,
                 [new MapMarkerSnapshot(1, MarkerKind.CargoShip, 0f, 0f, null)],
-                []),
+                [], []),
             CancellationToken.None);
 
         await poster.Received(1).PostAsync(999UL, Arg.Any<Embed>(), Arg.Any<CancellationToken>());

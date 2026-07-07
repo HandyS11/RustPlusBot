@@ -709,6 +709,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                     continue;
                 }
 
+                // Rotation: RustPlusApi 2.0.0-beta.3 does not map AppMarker.rotation; wire it here once
+                // 2.0.0-beta.4 ships (see RustPlusApi docs/development/beta4-map-marker-rotation.md).
                 into.Add(new MapMarkerSnapshot(id, kind, x, y, Name: null));
             }
         }
