@@ -13,7 +13,7 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
     <PackageVersion Include="Persistord.Core" Version="1.0.0-beta.1" />
-    <PackageVersion Include="RustMapsApi" Version="1.0.0-beta.1" />
+    <PackageVersion Include="RustMapsApi" Version="1.0.0-beta.2" />
     <PackageVersion Include="RustPlusApi" Version="2.0.0-beta.4" />
     <PackageVersion Include="RustPlusApi.Fcm" Version="2.0.0-beta.4" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
