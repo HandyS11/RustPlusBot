@@ -45,6 +45,23 @@ public sealed class BaseMapCacheTests
         Assert.Equal(2, source.Calls);
     }
 
+    [Fact]
+    public async Task Clear_evicts_so_next_get_refetches()
+    {
+        var source = new FakeSource(new BaseMapImage([1], 100, 100, 0));
+        var cache = new BaseMapCache([source]);
+        const ulong guild = 1UL;
+        var server = Guid.NewGuid();
+
+        await cache.GetAsync(guild, server, CancellationToken.None);
+        Assert.Equal(1, source.Calls);
+
+        cache.Clear(guild, server);
+        await cache.GetAsync(guild, server, CancellationToken.None);
+
+        Assert.Equal(2, source.Calls);
+    }
+
     private sealed class FakeSource(BaseMapImage? result) : IBaseMapSource
     {
         public int Calls { get; private set; }
