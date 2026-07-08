@@ -517,10 +517,13 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
             var data = response.Data;
             var markers = new List<MapMarkerSnapshot>();
-            AddMarkers(markers, data.CargoShipMarkers, MarkerKind.CargoShip);
-            AddMarkers(markers, data.PatrolHelicopterMarkers, MarkerKind.PatrolHelicopter);
-            AddMarkers(markers, data.Ch47Markers, MarkerKind.Chinook);
-            AddMarkers(markers, data.TravellingVendorMarkers, MarkerKind.TravellingVendor);
+            // RustPlusApi 2.0.0-beta.4 declares Rotation independently on each concrete marker record
+            // (CargoShipMarker/PatrolHelicopterMarker/Ch47Marker/TravellingVendorMarker) rather than on
+            // the shared base Marker, so the selector is resolved per call site via type inference.
+            AddMarkers(markers, data.CargoShipMarkers, MarkerKind.CargoShip, m => m.Rotation);
+            AddMarkers(markers, data.PatrolHelicopterMarkers, MarkerKind.PatrolHelicopter, m => m.Rotation);
+            AddMarkers(markers, data.Ch47Markers, MarkerKind.Chinook, m => m.Rotation);
+            AddMarkers(markers, data.TravellingVendorMarkers, MarkerKind.TravellingVendor, m => m.Rotation);
             return markers;
         }
 
@@ -697,7 +700,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         private static void AddMarkers<TMarker>(
             List<MapMarkerSnapshot> into,
             IReadOnlyDictionary<ulong, TMarker> source,
-            MarkerKind kind)
+            MarkerKind kind,
+            Func<TMarker, float?> rotationSelector)
             where TMarker : RustPlusApi.Data.Markers.Marker
         {
             foreach (var (id, marker) in source)
@@ -709,9 +713,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                     continue;
                 }
 
-                // Rotation: RustPlusApi 2.0.0-beta.3 does not map AppMarker.rotation; wire it here once
-                // 2.0.0-beta.4 ships (see RustPlusApi docs/development/beta4-map-marker-rotation.md).
-                into.Add(new MapMarkerSnapshot(id, kind, x, y, Name: null));
+                into.Add(new MapMarkerSnapshot(id, kind, x, y, Name: null, Rotation: rotationSelector(marker)));
             }
         }
 
