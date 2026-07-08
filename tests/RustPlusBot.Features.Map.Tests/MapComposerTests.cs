@@ -84,7 +84,8 @@ public sealed class MapComposerTests
     [Fact]
     public async Task Renders_a_png_when_base_map_available()
     {
-        var marker = new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow);
+        var marker = new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow,
+            [new TrailPoint(2000f, 2000f)], null);
         var composer = Build(BaseJpeg(), Dims, NewQuery(), NewEvents(marker), NewRigs(),
             NewSettings(MapLayerSettings.AllOn));
 
@@ -99,7 +100,8 @@ public sealed class MapComposerTests
     public async Task Renders_base_only_when_dimensions_unavailable()
     {
         var composer = Build(BaseJpeg(), dims: null, NewQuery(),
-            NewEvents(new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow)),
+            NewEvents(new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow,
+                [new TrailPoint(2000f, 2000f)], null)),
             NewRigs(), NewSettings(MapLayerSettings.AllOn));
 
         var png = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
@@ -117,7 +119,8 @@ public sealed class MapComposerTests
         var team = new TeamInfoSnapshot(0,
             [new TeamMemberSnapshot(1, "Ada", 2000f, 2000f, true, true, default, default)]);
         query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(team);
-        var events = NewEvents(new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow));
+        var events = NewEvents(new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow,
+            [new TrailPoint(2000f, 2000f)], null));
         var settings = NewSettings(new MapLayerSettings(
             Grid: true, Markers: true, Monuments: false, Vendor: true, Players: true, Rigs: false));
 
@@ -142,7 +145,8 @@ public sealed class MapComposerTests
         query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>())
             .Returns(new TeamInfoSnapshot(0,
                 [new TeamMemberSnapshot(1, "Ada", 2000f, 2000f, true, true, default, default)]));
-        var events = NewEvents(new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow));
+        var events = NewEvents(new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow,
+            [new TrailPoint(2000f, 2000f)], null));
 
         var composer = Build(BaseJpeg(), Dims, query, events, NewRigs(), NewSettings(MapLayerSettings.AllOn));
 

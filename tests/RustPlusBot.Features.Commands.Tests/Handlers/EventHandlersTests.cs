@@ -31,7 +31,10 @@ public sealed class EventHandlersTests
         var state = Substitute.For<IEventState>();
         var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
         state.GetActiveMarkers(Guild, Server, MarkerKind.CargoShip).Returns(
-            [new ActiveMarker(1, MarkerKind.CargoShip, 10f, 3990f, dims, Now.AddMinutes(-5))]);
+        [
+            new ActiveMarker(1, MarkerKind.CargoShip, 10f, 3990f, dims, Now.AddMinutes(-5),
+                [new TrailPoint(10f, 3990f)], null)
+        ]);
         var reply = await new CargoCommandHandler(state, loc, clock).ExecuteAsync(Ctx(), CancellationToken.None);
 
         Assert.NotNull(reply);
@@ -60,8 +63,10 @@ public sealed class EventHandlersTests
             await new EventsCommandHandler(state, loc).ExecuteAsync(Ctx(), CancellationToken.None));
 
         state.GetRecentEvents(Guild, Server).Returns(
-            [new RustMapEvent(MapEventKind.CargoEntered, 10f, 3990f,
-                new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u), Now)]);
+        [
+            new RustMapEvent(MapEventKind.CargoEntered, 10f, 3990f,
+                new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u), Now)
+        ]);
         var reply = await new EventsCommandHandler(state, loc).ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.Contains("Recent:", reply, StringComparison.Ordinal);
     }
