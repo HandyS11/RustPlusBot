@@ -184,6 +184,35 @@ public sealed class MapComposerTests
         Assert.False(pngOn!.SequenceEqual(pngOff!), "Grid-on and grid-off renders must differ.");
     }
 
+    [Fact]
+    public async Task ComposeAsync_forwards_vendor_marker_history_into_rendered_trail()
+    {
+        // Regression guard for the Task-8 ProjectTrail refactor: GatherMarkers's Vendor branch must
+        // forward each marker's History ring through to the rendered trail, not just the current point.
+        var jpeg = BaseJpeg();
+        var vendorWithTrail = new ActiveMarker(1, MarkerKind.TravellingVendor, 2000f, 2000f, Dims,
+            DateTimeOffset.UtcNow, [new TrailPoint(1200f, 1200f), new TrailPoint(2000f, 2000f)], null);
+        var vendorNoTrail = new ActiveMarker(1, MarkerKind.TravellingVendor, 2000f, 2000f, Dims,
+            DateTimeOffset.UtcNow, [new TrailPoint(2000f, 2000f)], null);
+        var layers = new MapLayerSettings(
+            Grid: false, Markers: false, Monuments: false, Vendor: true, Players: false, Rigs: false);
+
+        var composerWithTrail =
+            Build(jpeg, Dims, NewQuery(), NewEvents(vendorWithTrail), NewRigs(), NewSettings(layers));
+        var composerNoTrail =
+            Build(jpeg, Dims, NewQuery(), NewEvents(vendorNoTrail), NewRigs(), NewSettings(layers));
+
+        var pngWithTrail = await composerWithTrail.ComposeAsync(Guild, Server, CancellationToken.None);
+        var pngNoTrail = await composerNoTrail.ComposeAsync(Guild, Server, CancellationToken.None);
+
+        Assert.NotNull(pngWithTrail);
+        Assert.NotNull(pngNoTrail);
+        // MapRenderer.DrawTrails only paints when Trail.Count >= 2, so a 2-point History must render
+        // differently from a 1-point History — proving the history ring made it through to the trail.
+        Assert.False(pngWithTrail!.SequenceEqual(pngNoTrail!),
+            "Vendor trail with 2-point history must render differently than a 1-point history.");
+    }
+
     private sealed class FakeSource(BaseMapImage? result) : IBaseMapSource
     {
         public Task<BaseMapImage?> GetAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken) =>

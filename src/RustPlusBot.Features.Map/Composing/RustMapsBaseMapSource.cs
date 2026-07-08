@@ -50,7 +50,7 @@ public sealed partial class RustMapsBaseMapSource(
             // VERIFY on the first live fetch via tools/RustPlusBot.MapParity; adjust here if wrong.
             return new BaseMapImage(bytes, info.Width, info.Height, OceanMarginPx: 0);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }

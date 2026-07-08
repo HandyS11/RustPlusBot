@@ -74,6 +74,45 @@ public sealed class RustMapsBaseMapSourceTests
         await client.DidNotReceiveWithAnyArgs().GetMapBySeedAndSizeAsync(0, 0, false, CancellationToken.None);
     }
 
+    [Fact]
+    public async Task Http_self_timeout_falls_through_to_null_when_caller_did_not_cancel()
+    {
+        var client = Substitute.For<IRustMapsClient>();
+        client.GetMapBySeedAndSizeAsync(3500, 1234, false, Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Success(new MapInfo
+            {
+                RawImageUrl = "https://img.example/raw.png"
+            }, 200));
+        var source = new RustMapsBaseMapSource(client, QueryWithWorld(new WorldSnapshot(3500, 1234)),
+            new StubFactory(new ThrowingHandler(new TaskCanceledException("HTTP client self-timeout"))),
+            NullLogger<RustMapsBaseMapSource>.Instance);
+
+        // The caller's own token is NOT cancelled: this is HttpClient's own timeout firing
+        // (TaskCanceledException is a subclass of OperationCanceledException), which must fall
+        // through like any other failure — not propagate and kill the marker-refresh loop.
+        var result = await source.GetAsync(Guild, Server, CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task Genuine_caller_cancellation_still_propagates()
+    {
+        var client = Substitute.For<IRustMapsClient>();
+        client.GetMapBySeedAndSizeAsync(3500, 1234, false, Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Success(new MapInfo
+            {
+                RawImageUrl = "https://img.example/raw.png"
+            }, 200));
+        var source = new RustMapsBaseMapSource(client, QueryWithWorld(new WorldSnapshot(3500, 1234)),
+            new StubFactory(new StubHandler(HttpStatusCode.OK, Png(16))), NullLogger<RustMapsBaseMapSource>.Instance);
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => source.GetAsync(Guild, Server, cts.Token));
+    }
+
     private sealed class StubHandler(HttpStatusCode status, byte[] body) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
@@ -82,6 +121,15 @@ public sealed class RustMapsBaseMapSourceTests
             {
                 Content = new ByteArrayContent(body)
             });
+    }
+
+    /// <summary>Simulates the HTTP client's own timeout: throws regardless of the caller's token state.</summary>
+    /// <param name="exception">The exception every send throws.</param>
+    private sealed class ThrowingHandler(Exception exception) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            Task.FromException<HttpResponseMessage>(exception);
     }
 
     private sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
