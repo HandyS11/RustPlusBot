@@ -9,7 +9,8 @@ public sealed class MapProjectionTests
     {
         // 4000-unit world on a 2000px image with 100px margin, output 1000px.
         // Playable spans [100, 1900]px on the image -> world(0,0) at image (100, 1900) -> output (50, 950).
-        var p = new MapProjection(WorldSize: 4000, ImageWidth: 2000, ImageHeight: 2000, OceanMarginPx: 100, OutputSize: 1000);
+        var p = new MapProjection(WorldSize: 4000, ImageWidth: 2000, ImageHeight: 2000, OceanMarginPx: 100,
+            OutputSize: 1000);
 
         var (x, y) = p.ToPixel(0f, 0f);
 

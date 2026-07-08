@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
@@ -13,7 +14,7 @@ public sealed class MapRegistrationTests
     [Fact]
     public void AddMap_registers_renderer_cache_and_composer_as_singletons()
     {
-        using var provider = BuildProvider();
+        using var provider = BuildProvider(EmptyConfiguration());
 
         var renderer = provider.GetRequiredService<MapRenderer>();
         Assert.NotNull(renderer);
@@ -33,7 +34,36 @@ public sealed class MapRegistrationTests
         Assert.Same(composer, provider.GetRequiredService<MapComposer>());
     }
 
-    private static ServiceProvider BuildProvider()
+    [Fact]
+    public void AddMap_with_RustMaps_key_registers_RustMaps_source_first()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection([new KeyValuePair<string, string?>("Map:RustMaps:ApiKey", "test-key")])
+            .Build();
+        using var provider = BuildProvider(configuration);
+
+        var sources = provider.GetServices<IBaseMapSource>().ToList();
+
+        Assert.Equal(2, sources.Count);
+        Assert.IsType<RustMapsBaseMapSource>(sources[0]);
+        Assert.IsType<RustPlusBaseMapSource>(sources[1]);
+    }
+
+    [Fact]
+    public void AddMap_without_RustMaps_key_registers_only_the_RustPlus_source()
+    {
+        using var provider = BuildProvider(EmptyConfiguration());
+
+        var sources = provider.GetServices<IBaseMapSource>().ToList();
+
+        var source = Assert.Single(sources);
+        Assert.IsType<RustPlusBaseMapSource>(source);
+    }
+
+    private static IConfiguration EmptyConfiguration() =>
+        new ConfigurationBuilder().Build();
+
+    private static ServiceProvider BuildProvider(IConfiguration configuration)
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -41,7 +71,7 @@ public sealed class MapRegistrationTests
         services.AddSingleton(Substitute.For<IEventState>());
         services.AddSingleton(Substitute.For<IRigState>());
         services.AddScoped(_ => Substitute.For<IMapSettingsStore>());
-        services.AddMap();
+        services.AddMap(configuration);
 
         return services.BuildServiceProvider(validateScopes: true);
     }
