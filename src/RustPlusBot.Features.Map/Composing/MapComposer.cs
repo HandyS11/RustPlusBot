@@ -4,6 +4,7 @@ using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Map.Rendering;
 using RustPlusBot.Persistence.Map;
+using SixLabors.ImageSharp;
 
 namespace RustPlusBot.Features.Map.Composing;
 
@@ -99,7 +100,8 @@ public sealed class MapComposer(
                 foreach (var m in events.GetActiveMarkers(guildId, serverId, kind))
                 {
                     var (px, py) = projection.ToPixel(m.X, m.Y);
-                    markers.Add(new MarkerPlacement(kind, px, py));
+                    var trail = ProjectTrail(m.History, projection);
+                    markers.Add(new MarkerPlacement(kind, px, py, m.Rotation, trail));
                 }
             }
         }
@@ -109,11 +111,24 @@ public sealed class MapComposer(
             foreach (var m in events.GetActiveMarkers(guildId, serverId, MarkerKind.TravellingVendor))
             {
                 var (px, py) = projection.ToPixel(m.X, m.Y);
-                markers.Add(new MarkerPlacement(MarkerKind.TravellingVendor, px, py));
+                var trail = ProjectTrail(m.History, projection);
+                markers.Add(new MarkerPlacement(MarkerKind.TravellingVendor, px, py, m.Rotation, trail));
             }
         }
 
         return markers;
+    }
+
+    private static List<PointF> ProjectTrail(IReadOnlyList<TrailPoint> history, MapProjection projection)
+    {
+        var trail = new List<PointF>(history.Count);
+        foreach (var h in history)
+        {
+            var (tx, ty) = projection.ToPixel(h.X, h.Y);
+            trail.Add(new PointF(tx, ty));
+        }
+
+        return trail;
     }
 
     private static List<MonumentPlacement> GatherMonuments(

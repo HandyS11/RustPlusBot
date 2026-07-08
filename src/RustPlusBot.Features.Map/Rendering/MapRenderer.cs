@@ -78,6 +78,11 @@ public sealed class MapRenderer
             DrawMonuments(image, monuments);
         }
 
+        if (layers.Markers || layers.Vendor)
+        {
+            DrawTrails(image, markers);
+        }
+
         if (layers.Markers)
         {
             DrawMarkers(image, markers);
@@ -142,6 +147,29 @@ public sealed class MapRenderer
         });
     }
 
+    private static void DrawTrails(Image<Rgba32> image, IReadOnlyList<MarkerPlacement> markers)
+    {
+        image.Mutate(ctx =>
+        {
+            foreach (var marker in markers)
+            {
+                if (marker.Trail.Count < 2)
+                {
+                    continue;
+                }
+
+                var baseColor = MapRenderStyle.TrailColor(marker.Kind);
+                for (var i = 1; i < marker.Trail.Count; i++)
+                {
+                    // Fade from faint (oldest) to strong (newest) so travel direction reads instantly.
+                    var alpha = 0.15f + (0.45f * i / (marker.Trail.Count - 1));
+                    ctx.DrawLine(baseColor.WithAlpha(alpha), MapRenderStyle.TrailWidth,
+                        marker.Trail[i - 1], marker.Trail[i]);
+                }
+            }
+        });
+    }
+
     private static void DrawMarkers(Image<Rgba32> image, IReadOnlyList<MarkerPlacement> markers)
     {
         // One Mutate for the whole layer: each Mutate builds and runs a fresh processing pipeline,
@@ -151,7 +179,17 @@ public sealed class MapRenderer
             foreach (var marker in markers)
             {
                 var icon = MapIcons.Marker(marker.Kind, MapRenderStyle.MarkerIconSize(marker.Kind));
-                if (icon is not null)
+                if (icon is null)
+                {
+                    continue;
+                }
+
+                if (marker.Rotation is { } rotation && Math.Abs(rotation) > 0.01f)
+                {
+                    using var rotated = icon.Clone(c => c.Rotate(-rotation));
+                    ctx.DrawImage(rotated, CenterAt(marker.PixelX, marker.PixelY, rotated), 1f);
+                }
+                else
                 {
                     ctx.DrawImage(icon, CenterAt(marker.PixelX, marker.PixelY, icon), 1f);
                 }

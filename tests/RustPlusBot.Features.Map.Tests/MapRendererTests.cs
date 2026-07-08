@@ -73,7 +73,7 @@ public sealed class MapRendererTests
         var without = renderer.Render(jpeg, Projection, markers: [], monuments: [], players: [], rigs: [],
             new MapLayerSet(false, true, false, false, false, false));
         var with = renderer.Render(jpeg, Projection,
-            markers: [new MarkerPlacement(MarkerKind.CargoShip, 512f, 512f)],
+            markers: [new MarkerPlacement(MarkerKind.CargoShip, 512f, 512f, null, [])],
             monuments: [], players: [], rigs: [],
             new MapLayerSet(false, true, false, false, false, false));
 
@@ -86,7 +86,7 @@ public sealed class MapRendererTests
         var renderer = new MapRenderer();
         var markers = new[]
         {
-            new MarkerPlacement(MarkerKind.CargoShip, 100, 100)
+            new MarkerPlacement(MarkerKind.CargoShip, 100, 100, null, [])
         };
         var monuments = new[]
         {
@@ -125,5 +125,45 @@ public sealed class MapRendererTests
         Assert.True(bounds.Width <= MapRenderStyle.MonumentIconSize + 2,
             $"changed area {bounds.Width}px wide — icon not scaled");
         Assert.True(bounds.Height <= MapRenderStyle.MonumentIconSize + 2);
+    }
+
+    [Fact]
+    public void Trail_draws_pixels_between_history_points()
+    {
+        var renderer = new MapRenderer();
+        var projection = new MapProjection(4000, 2000, 2000, 100, MapRenderer.OutputSize);
+        var baseJpeg = SolidJpeg(2000);
+        var (ax, ay) = projection.ToPixel(1000f, 2000f);
+        var (bx, by) = projection.ToPixel(2000f, 2000f);
+        var layers = new MapLayerSet(false, true, false, false, false, false);
+
+        var without = renderer.Render(baseJpeg, projection,
+            [new MarkerPlacement(MarkerKind.CargoShip, bx, by, null, [])], [], [], [], layers);
+        var with = renderer.Render(baseJpeg, projection,
+        [
+            new MarkerPlacement(MarkerKind.CargoShip, bx, by, null,
+                [new PointF(ax, ay), new PointF(bx, by)])
+        ], [], [], [], layers);
+
+        var bounds = ChangedPixelBounds(without, with);
+        // The trail spans from A to B — far wider than the icon alone.
+        Assert.True(bounds.Width > MapRenderStyle.CargoIconSize * 2, $"no trail drawn (width {bounds.Width}px)");
+    }
+
+    [Fact]
+    public void Rotation_changes_the_rendered_icon()
+    {
+        var renderer = new MapRenderer();
+        var projection = new MapProjection(4000, 2000, 2000, 100, MapRenderer.OutputSize);
+        var baseJpeg = SolidJpeg(2000);
+        var (px, py) = projection.ToPixel(2000f, 2000f);
+        var layers = new MapLayerSet(false, true, false, false, false, false);
+
+        var unrotated = renderer.Render(baseJpeg, projection,
+            [new MarkerPlacement(MarkerKind.CargoShip, px, py, null, [])], [], [], [], layers);
+        var rotated = renderer.Render(baseJpeg, projection,
+            [new MarkerPlacement(MarkerKind.CargoShip, px, py, 45f, [])], [], [], [], layers);
+
+        Assert.False(unrotated.AsSpan().SequenceEqual(rotated));
     }
 }
