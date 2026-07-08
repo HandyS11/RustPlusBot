@@ -18,6 +18,9 @@ public sealed class MapRegistrationTests
         var renderer = provider.GetRequiredService<MapRenderer>();
         Assert.NotNull(renderer);
 
+        var source = provider.GetRequiredService<IBaseMapSource>();
+        Assert.NotNull(source);
+
         var cache = provider.GetRequiredService<BaseMapCache>();
         Assert.NotNull(cache);
 

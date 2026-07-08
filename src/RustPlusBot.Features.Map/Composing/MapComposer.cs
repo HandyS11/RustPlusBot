@@ -58,16 +58,14 @@ public sealed class MapComposer(
         if (dims is null || dims.WorldSize == 0)
         {
             // Dimensions unavailable: render the base tile only (every overlay needs world→pixel).
-            return renderer.Render(baseImage, new MapProjection(0, 1, 1, 0, MapRenderer.OutputSize),
+            return renderer.Render(baseImage.Bytes, new MapProjection(0, 1, 1, 0, MapRenderer.OutputSize),
                 markers: [], monuments: [], players: [], rigs: [],
                 new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false,
                     Rigs: false));
         }
 
-        // NOTE — Task 9 follow-up: image pixel dims come from MapDimensions for now, which is correct
-        // for the Rust+ JPEG. The base-map source chain will replace this with the fetched image's own dims.
-        var projection = new MapProjection(dims.WorldSize, (int)dims.Width, (int)dims.Height, dims.OceanMargin,
-            MapRenderer.OutputSize);
+        var projection = new MapProjection(dims.WorldSize, baseImage.PixelWidth, baseImage.PixelHeight,
+            baseImage.OceanMarginPx, MapRenderer.OutputSize);
 
         var markers = GatherMarkers(guildId, serverId, projection, layers);
 
@@ -83,7 +81,7 @@ public sealed class MapComposer(
             .ConfigureAwait(false);
         var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, projection, layers);
 
-        return renderer.Render(baseImage, projection, markers, monuments, players, rigPlacements, layers);
+        return renderer.Render(baseImage.Bytes, projection, markers, monuments, players, rigPlacements, layers);
     }
 
     private List<MarkerPlacement> GatherMarkers(

@@ -39,9 +39,12 @@ public sealed class MapComposerTests
         IRigState rigs,
         IMapSettingsStore settingsStore)
     {
-        query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(baseImage);
         query.GetMapDimensionsAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(dims);
-        return new MapComposer(new BaseMapCache(query), events, rigs, query, new MapRenderer(),
+        var source = new FakeSource(
+            baseImage is null
+                ? null
+                : new BaseMapImage(baseImage, (int)Dims.Width, (int)Dims.Height, Dims.OceanMargin));
+        return new MapComposer(new BaseMapCache([source]), events, rigs, query, new MapRenderer(),
             ScopeFactory(settingsStore));
     }
 
@@ -179,5 +182,11 @@ public sealed class MapComposerTests
         Assert.NotNull(pngOff);
         // The grid layer must have painted at least one pixel differently.
         Assert.False(pngOn!.SequenceEqual(pngOff!), "Grid-on and grid-off renders must differ.");
+    }
+
+    private sealed class FakeSource(BaseMapImage? result) : IBaseMapSource
+    {
+        public Task<BaseMapImage?> GetAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken) =>
+            Task.FromResult(result);
     }
 }

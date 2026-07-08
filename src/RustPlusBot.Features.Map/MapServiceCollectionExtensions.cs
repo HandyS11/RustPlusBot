@@ -17,6 +17,7 @@ public static class MapServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<MapRenderer>();
+        services.AddSingleton<IBaseMapSource, RustPlusBaseMapSource>();
         services.AddSingleton<BaseMapCache>();
         services.AddSingleton<MapComposer>();
         services.AddSingleton<IMapChannelPoster, DiscordMapChannelPoster>();
