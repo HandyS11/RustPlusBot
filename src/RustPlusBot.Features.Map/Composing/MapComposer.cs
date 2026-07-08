@@ -26,19 +26,18 @@ public sealed class MapComposer(
     private static readonly MarkerKind[] LiveMarkerKinds =
         [MarkerKind.CargoShip, MarkerKind.PatrolHelicopter, MarkerKind.Chinook];
 
-    /// <summary>Composes the map PNG for a server, or null when no base map is available yet.</summary>
+    /// <summary>The static #info layer set: terrain base + grid + monuments only (no dynamic overlays).</summary>
+    private static readonly MapLayerSet StaticLayers =
+        new(Grid: true, Markers: false, Monuments: true, Vendor: false, Players: false, Rigs: false);
+
+    /// <summary>Composes the map PNG for a server using its saved layer toggles, or null when no base map
+    /// is available yet.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The target server id.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>PNG bytes, or null.</returns>
     public async Task<byte[]?> ComposeAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
     {
-        var baseImage = await cache.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-        if (baseImage is null)
-        {
-            return null;
-        }
-
         // The settings store is scoped (EF context); this composer is a singleton, so we open a scope per
         // call to resolve it (mirroring MapHostedService.OnConnectionStatusAsync) — avoids a captive dependency.
         MapLayerSettings settings;
@@ -51,6 +50,28 @@ public sealed class MapComposer(
 
         var layers = new MapLayerSet(settings.Grid, settings.Markers, settings.Monuments,
             settings.Vendor, settings.Players, settings.Rigs);
+        return await ComposeWithLayersAsync(guildId, serverId, layers, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Composes a static #info map: terrain base + grid + monuments only, ignoring saved toggles.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>PNG bytes, or null when no base map is available.</returns>
+    public Task<byte[]?> ComposeStaticAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken) =>
+        ComposeWithLayersAsync(guildId, serverId, StaticLayers, cancellationToken);
+
+    private async Task<byte[]?> ComposeWithLayersAsync(
+        ulong guildId,
+        Guid serverId,
+        MapLayerSet layers,
+        CancellationToken cancellationToken)
+    {
+        var baseImage = await cache.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        if (baseImage is null)
+        {
+            return null;
+        }
 
         // Dimensions come from the map itself (not from a marker), so the grid renders even when no
         // markers are present — e.g. on a freshly-connected or low-activity server.

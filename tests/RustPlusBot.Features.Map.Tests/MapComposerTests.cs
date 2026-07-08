@@ -73,6 +73,32 @@ public sealed class MapComposerTests
         return store;
     }
 
+    /// <summary>Builds a composer wired for the static #info path: a valid base map + dimensions, with
+    /// caller-controlled dynamic state (events/team) and monument list. The settings store is AllOn but
+    /// irrelevant — ComposeStaticAsync never reads it.</summary>
+    /// <param name="events">Live marker state; defaults to an empty stub.</param>
+    /// <param name="team">Team snapshot returned by the query seam; null when no team.</param>
+    /// <param name="monuments">Monuments returned by the query seam; defaults to empty.</param>
+    private static MapComposer BuildComposer(
+        IEventState? events = null,
+        TeamInfoSnapshot? team = null,
+        IReadOnlyList<MonumentSnapshot>? monuments = null)
+    {
+        var query = NewQuery();
+        query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(team);
+        query.GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(monuments ?? []);
+        return Build(BaseJpeg(), Dims, query, events ?? NewEvents(), NewRigs(), NewSettings(MapLayerSettings.AllOn));
+    }
+
+    private static IEventState EventsWithCargo() =>
+        NewEvents(new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow,
+            [new TrailPoint(2000f, 2000f)], null));
+
+    private static IEventState EmptyEvents() => NewEvents();
+
+    private static TeamInfoSnapshot TeamWithPlayer() =>
+        new(0, [new TeamMemberSnapshot(1, "Ada", 2000f, 2000f, true, true, default, default)]);
+
     [Fact]
     public async Task ComposeAsync_returns_null_when_no_base_map()
     {
@@ -211,6 +237,36 @@ public sealed class MapComposerTests
         // differently from a 1-point History — proving the history ring made it through to the trail.
         Assert.False(pngWithTrail!.SequenceEqual(pngNoTrail!),
             "Vendor trail with 2-point history must render differently than a 1-point history.");
+    }
+
+    [Fact]
+    public async Task ComposeStaticAsync_ignores_markers_and_players()
+    {
+        // Static compose must be invariant to live marker/player state (dynamic layers are OFF),
+        // so the bytes are identical whether or not the stores hold markers/players.
+        var withDynamic = BuildComposer(events: EventsWithCargo(), team: TeamWithPlayer());
+        var withoutDynamic = BuildComposer(events: EmptyEvents(), team: null);
+
+        var a = await withDynamic.ComposeStaticAsync(Guild, Server, CancellationToken.None);
+        var b = await withoutDynamic.ComposeStaticAsync(Guild, Server, CancellationToken.None);
+
+        Assert.NotNull(a);
+        Assert.NotNull(b);
+        Assert.True(a!.AsSpan().SequenceEqual(b));
+    }
+
+    [Fact]
+    public async Task ComposeStaticAsync_draws_monuments_over_the_base()
+    {
+        var composer = BuildComposer(monuments: [new MonumentSnapshot("launchsite", 2000f, 2000f)]);
+        var withMonument = await composer.ComposeStaticAsync(Guild, Server, CancellationToken.None);
+
+        var bare = BuildComposer(monuments: []);
+        var withoutMonument = await bare.ComposeStaticAsync(Guild, Server, CancellationToken.None);
+
+        Assert.NotNull(withMonument);
+        Assert.NotNull(withoutMonument);
+        Assert.False(withMonument!.AsSpan().SequenceEqual(withoutMonument!)); // monument icon changed pixels
     }
 
     private sealed class FakeSource(BaseMapImage? result) : IBaseMapSource
