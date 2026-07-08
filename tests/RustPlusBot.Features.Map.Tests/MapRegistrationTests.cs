@@ -35,28 +35,21 @@ public sealed class MapRegistrationTests
     }
 
     [Fact]
-    public void AddMap_with_RustMaps_key_registers_RustMaps_source_first()
+    public void AddMap_registers_only_the_RustPlus_base_source_without_key()
+    {
+        using var provider = BuildProvider(EmptyConfiguration());
+        var source = Assert.Single(provider.GetServices<IBaseMapSource>());
+        Assert.IsType<RustPlusBaseMapSource>(source);
+    }
+
+    [Fact]
+    public void AddMap_with_RustMaps_key_still_uses_only_the_RustPlus_base_source()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection([new KeyValuePair<string, string?>("Map:RustMaps:ApiKey", "test-key")])
             .Build();
         using var provider = BuildProvider(configuration);
-
-        var sources = provider.GetServices<IBaseMapSource>().ToList();
-
-        Assert.Equal(2, sources.Count);
-        Assert.IsType<RustMapsBaseMapSource>(sources[0]);
-        Assert.IsType<RustPlusBaseMapSource>(sources[1]);
-    }
-
-    [Fact]
-    public void AddMap_without_RustMaps_key_registers_only_the_RustPlus_source()
-    {
-        using var provider = BuildProvider(EmptyConfiguration());
-
-        var sources = provider.GetServices<IBaseMapSource>().ToList();
-
-        var source = Assert.Single(sources);
+        var source = Assert.Single(provider.GetServices<IBaseMapSource>());
         Assert.IsType<RustPlusBaseMapSource>(source);
     }
 

@@ -21,13 +21,12 @@ public static class MapServiceCollectionExtensions
 
         services.AddSingleton<MapRenderer>();
 
-        // Source order defines priority: RustMaps first (when a key is configured), Rust+ JPEG fallback.
+        // RustMaps is NOT a base-map source (the #map render draws its own layers on the Rust+ tile).
+        // The client is kept for the #info static-map surface (Task 7 wires the coordinator/service/poster).
         var rustMapsKey = configuration["Map:RustMaps:ApiKey"];
         if (!string.IsNullOrWhiteSpace(rustMapsKey))
         {
             services.AddRustMapsClientV4(o => o.ApiKey = rustMapsKey);
-            services.AddHttpClient(RustMapsBaseMapSource.HttpClientName);
-            services.AddSingleton<IBaseMapSource, RustMapsBaseMapSource>();
         }
 
         services.AddSingleton<IBaseMapSource, RustPlusBaseMapSource>();
