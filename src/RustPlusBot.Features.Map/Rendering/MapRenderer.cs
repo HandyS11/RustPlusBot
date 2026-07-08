@@ -23,6 +23,15 @@ public sealed class MapRenderer
     private const float ActiveRingWidth = 3f;
     private const float PlayerLabelOffset = 12f;
 
+    /// <summary>
+    /// A row's north (top) edge sits exactly on a <see cref="MapGrid.LabelFor"/> bin boundary now that
+    /// the grid extent is snapped to a whole multiple of <see cref="MapGrid.CellSize"/>; floor()-based
+    /// binning assigns that exact boundary to the row above. Nudging the probe south by this many game
+    /// units (a fraction of a pixel at map scale) keeps it inside the intended row so the label agrees
+    /// with <see cref="MapGrid.LabelFor"/>.
+    /// </summary>
+    private const float LabelRowEpsilon = 1f;
+
     private static readonly FontFamily Family = LoadFamily();
     private static readonly Font Font = Family.CreateFont(12f);
     private static readonly Font GridLabelFont = Family.CreateFont(MapRenderStyle.GridLabelFontSize);
@@ -112,16 +121,18 @@ public sealed class MapRenderer
 
         var lineColor = Color.FromRgba(255, 255, 255, 80);
         var labelColor = Color.FromRgba(255, 255, 255, 140);
+        var correctedSize = MapGrid.CorrectedWorldSize(projection.WorldSize);
         var cells = MapGrid.CellCount(projection.WorldSize);
-        var worldSize = (float)projection.WorldSize;
-        var (left, top) = projection.ToPixel(0f, worldSize);
-        var (right, bottom) = projection.ToPixel(worldSize, 0f);
+        var (left, top) = projection.ToPixel(0f, correctedSize);
+        var (right, bottom) = projection.ToPixel(correctedSize, 0f);
 
         image.Mutate(ctx =>
         {
             for (var i = 0; i <= cells; i++)
             {
-                var boundary = Math.Min(i * MapGrid.CellSize, worldSize);
+                // correctedSize is an exact multiple of MapGrid.CellSize, so i * CellSize reaches the
+                // edge exactly at i == cells — no clamp needed, and no partial final cell.
+                var boundary = i * MapGrid.CellSize;
                 var (vx, _) = projection.ToPixel(boundary, 0f);
                 ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(vx, top), new PointF(vx, bottom));
                 var (_, hy) = projection.ToPixel(0f, boundary);
@@ -134,7 +145,7 @@ public sealed class MapRenderer
                 {
                     // Label sits just inside each cell's top-left corner (official-app placement).
                     var worldX = col * MapGrid.CellSize;
-                    var worldY = worldSize - (row * MapGrid.CellSize);
+                    var worldY = correctedSize - (row * MapGrid.CellSize) - LabelRowEpsilon;
                     var (lx, ly) = projection.ToPixel(worldX, worldY);
                     var label = MapGrid.ColumnLetters(col) + row.ToString(CultureInfo.InvariantCulture);
                     ctx.DrawText(new RichTextOptions(GridLabelFont)
