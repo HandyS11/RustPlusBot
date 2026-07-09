@@ -61,9 +61,9 @@ public sealed partial class RustMapsGenerationDriver(
     {
         var get = await client.GetMapBySeedAndSizeAsync(key.Size, key.Seed, staging: false, cancellationToken)
             .ConfigureAwait(false);
-        if (get.IsSuccess && get.Data?.ImageUrl is not null)
+        if (IsReady(get))
         {
-            await SetReadyAsync(key, get.Data, cancellationToken).ConfigureAwait(false);
+            await SetReadyAsync(key, get.Data!, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -112,9 +112,9 @@ public sealed partial class RustMapsGenerationDriver(
             ? await client.GetMapByIdAsync(id, cancellationToken).ConfigureAwait(false)
             : await client.GetMapBySeedAndSizeAsync(key.Size, key.Seed, staging: false, cancellationToken)
                 .ConfigureAwait(false);
-        if (get is { IsSuccess: true, Data.ImageUrl: not null })
+        if (IsReady(get))
         {
-            await SetReadyAsync(key, get.Data, cancellationToken).ConfigureAwait(false);
+            await SetReadyAsync(key, get.Data!, cancellationToken).ConfigureAwait(false);
         }
         // else: still generating (or a transient poll miss) — leave Generating, poll again next tick.
     }
@@ -127,6 +127,8 @@ public sealed partial class RustMapsGenerationDriver(
     }
 
     private static bool IsExhausted(MapGenerationStat? stat) => stat is { } s && s.Current >= s.Allowed;
+
+    private static bool IsReady(Result<MapInfo>? get) => get is { IsSuccess: true, Data.ImageUrl: not null };
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "RustMaps advance failed for size {Size} seed {Seed}.")]
     private static partial void LogAdvanceFailed(ILogger logger, Exception exception, int size, int seed);

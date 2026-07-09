@@ -129,6 +129,21 @@ public sealed class RustMapsGenerationDriverTests
         Assert.Equal([7, 7, 7], coord.Snapshot(Key).Ready!.ImageBytes);
     }
 
+    [Fact]
+    public async Task Poll_still_generating_stays_generating_without_spending()
+    {
+        var (driver, client, coord) = Build();
+        coord.Register(Key, 1UL, Server);
+        coord.TrySetGenerating(Key, "map-1");
+        client.GetMapByIdAsync("map-1", Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Failure(Error(RustMapsErrorKind.Queued), 409));
+
+        await driver.AdvanceAsync(Key, CancellationToken.None);
+
+        Assert.Equal(RustMapsGenerationState.Generating, coord.Snapshot(Key).State);
+        await client.DidNotReceiveWithAnyArgs().CreateMapAsync(default!, default);
+    }
+
     private sealed class StubHandler(HttpStatusCode status, byte[] body) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(
