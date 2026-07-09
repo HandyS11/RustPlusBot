@@ -20,7 +20,10 @@ internal sealed partial class DiscordInfoMapPoster(
         ArgumentNullException.ThrowIfNull(pngBytes);
         try
         {
-            var options = new RequestOptions { CancelToken = cancellationToken };
+            var options = new RequestOptions
+            {
+                CancelToken = cancellationToken
+            };
             if (await client.GetChannelAsync(channelId, options).ConfigureAwait(false) is not ITextChannel channel)
             {
                 return;

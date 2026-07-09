@@ -4,7 +4,10 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Map.Composing;
+using RustPlusBot.Features.Map.Hosting;
+using RustPlusBot.Features.Map.Posting;
 using RustPlusBot.Features.Map.Rendering;
+using RustPlusBot.Features.Map.RustMaps;
 using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Map.Tests;
@@ -51,6 +54,36 @@ public sealed class MapRegistrationTests
         using var provider = BuildProvider(configuration);
         var source = Assert.Single(provider.GetServices<IBaseMapSource>());
         Assert.IsType<RustPlusBaseMapSource>(source);
+    }
+
+    [Fact]
+    public void AddMap_with_RustMaps_key_registers_the_generation_components()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(Substitute.For<IRustServerQuery>());
+        services.AddSingleton(Substitute.For<IEventState>());
+        services.AddSingleton(Substitute.For<IRigState>());
+        services.AddScoped(_ => Substitute.For<IMapSettingsStore>());
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection([new KeyValuePair<string, string?>("Map:RustMaps:ApiKey", "test-key")])
+            .Build();
+        services.AddMap(configuration);
+
+        using var provider = services.BuildServiceProvider(validateScopes: true);
+        Assert.NotNull(provider.GetService<IRustMapsMapCoordinator>());
+        Assert.NotNull(provider.GetService<RustMapsGenerationDriver>());
+        // Discord-dependent — assert registration without constructing DiscordSocketClient.
+        Assert.Contains(services, d => d.ServiceType == typeof(IInfoMapPoster));
+        Assert.Contains(services, d => d.ImplementationType == typeof(InfoMapHostedService));
+    }
+
+    [Fact]
+    public void AddMap_without_RustMaps_key_registers_no_generation_components()
+    {
+        using var provider = BuildProvider(EmptyConfiguration());
+        Assert.Null(provider.GetService<IRustMapsMapCoordinator>());
+        Assert.Null(provider.GetService<IInfoMapPoster>());
     }
 
     private static IConfiguration EmptyConfiguration() =>
