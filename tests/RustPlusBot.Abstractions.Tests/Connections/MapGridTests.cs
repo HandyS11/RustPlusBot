@@ -5,18 +5,13 @@ namespace RustPlusBot.Abstractions.Tests.Connections;
 public sealed class MapGridTests
 {
     [Theory]
-    [InlineData(3000u, 20)] // remainder 3000 % 146.25 = 75 < 120 -> round down to 2925 = 20 * 146.25
-    [InlineData(3500u, 24)] // remainder 3500 % 146.25 = 136.25 >= 120 -> round up to 3510 = 24 * 146.25
-    [InlineData(4250u, 29)] // remainder 4250 % 146.25 = 8.75 < 120 -> round down to 4241.25 = 29 * 146.25
-    [InlineData(4500u, 30)] // remainder 4500 % 146.25 = 112.5 < 120 -> round down to 4387.5 = 30 * 146.25
-    public void CellCount_snaps_to_whole_cells(uint worldSize, int expected) =>
+    [InlineData(1500u, 11)] // 1500 / 146.25 = 10.26 -> 10 whole + 1 partial edge cell = 11 (A-K, rows 0-10)
+    [InlineData(3000u, 21)] // 3000 / 146.25 = 20.51 -> 20 whole + 1 partial = 21
+    [InlineData(3500u, 24)] // 3500 / 146.25 = 23.93 -> 23 whole + 1 partial = 24
+    [InlineData(4250u, 30)] // 4250 / 146.25 = 29.06 -> 29 whole + 1 partial = 30
+    [InlineData(4500u, 31)] // 4500 / 146.25 = 30.77 -> 30 whole + 1 partial = 31
+    public void CellCount_covers_the_world_including_the_partial_edge_cell(uint worldSize, int expected) =>
         Assert.Equal(expected, MapGrid.CellCount(worldSize));
-
-    [Theory]
-    [InlineData(3000u, 2925f)] // round-down case: remainder 75 < 120
-    [InlineData(3500u, 3510f)] // round-up case: remainder 136.25 >= 120
-    public void CorrectedWorldSize_snaps_to_a_whole_multiple_of_cell_size(uint worldSize, float expected) =>
-        Assert.Equal(expected, MapGrid.CorrectedWorldSize(worldSize));
 
     [Theory]
     [InlineData(0, "A")]
@@ -29,9 +24,9 @@ public sealed class MapGridTests
     [Fact]
     public void LabelFor_origin_is_bottom_left_last_row()
     {
-        // 4000 world: remainder 4000 % 146.25 = 51.25 < 120 -> corrected 3948.75 -> 27 cells.
-        // World (0,0) = SW corner = column A, bottom row (cells - 1 = 26).
-        Assert.Equal("A26", MapGrid.LabelFor(0f, 0f, 4000u));
+        // 4000 world: 4000 / 146.25 = 27.35 -> 27 whole + 1 partial = 28 cells.
+        // World (0,0) = SW corner = column A, bottom row (cells - 1 = 27).
+        Assert.Equal("A27", MapGrid.LabelFor(0f, 0f, 4000u));
     }
 
     [Fact]
@@ -44,7 +39,7 @@ public sealed class MapGridTests
     public void LabelFor_beyond_world_size_clamps_to_last_cell()
     {
         // Regression for the old GridReference bug: clamping against IMAGE pixels, not world units.
-        // 4000 world -> 27 cells (see LabelFor_origin_is_bottom_left_last_row); last column index 26 = "AA".
-        Assert.Equal("AA26", MapGrid.LabelFor(4500f, 0f, 4000u));
+        // 4000 world -> 28 cells (see LabelFor_origin_is_bottom_left_last_row); last column index 27 = "AB".
+        Assert.Equal("AB27", MapGrid.LabelFor(4500f, 0f, 4000u));
     }
 }

@@ -23,15 +23,6 @@ public sealed class MapRenderer
     private const float ActiveRingWidth = 3f;
     private const float PlayerLabelOffset = 12f;
 
-    /// <summary>
-    /// A row's north (top) edge sits exactly on a <see cref="MapGrid.LabelFor"/> bin boundary now that
-    /// the grid extent is snapped to a whole multiple of <see cref="MapGrid.CellSize"/>; floor()-based
-    /// binning assigns that exact boundary to the row above. Nudging the probe south by this many game
-    /// units (a fraction of a pixel at map scale) keeps it inside the intended row so the label agrees
-    /// with <see cref="MapGrid.LabelFor"/>.
-    /// </summary>
-    private const float LabelRowEpsilon = 1f;
-
     private static readonly FontFamily Family = LoadFamily();
     private static readonly Font Font = Family.CreateFont(12f);
     private static readonly Font GridLabelFont = Family.CreateFont(MapRenderStyle.GridLabelFontSize);
@@ -121,18 +112,19 @@ public sealed class MapRenderer
 
         var lineColor = Color.FromRgba(255, 255, 255, 80);
         var labelColor = Color.FromRgba(255, 255, 255, 140);
-        var correctedSize = MapGrid.CorrectedWorldSize(projection.WorldSize);
-        var cells = MapGrid.CellCount(projection.WorldSize);
-        var (left, top) = projection.ToPixel(0f, correctedSize);
-        var (right, bottom) = projection.ToPixel(correctedSize, 0f);
+        var worldSize = projection.WorldSize;
+        var cells = MapGrid.CellCount(worldSize);
+        var (left, top) = projection.ToPixel(0f, worldSize);
+        var (right, bottom) = projection.ToPixel(worldSize, 0f);
 
         image.Mutate(ctx =>
         {
             for (var i = 0; i <= cells; i++)
             {
-                // correctedSize is an exact multiple of MapGrid.CellSize, so i * CellSize reaches the
-                // edge exactly at i == cells — no clamp needed, and no partial final cell.
-                var boundary = i * MapGrid.CellSize;
+                // Cover the whole world including the partial edge cell: the final boundary is clamped to
+                // worldSize (Rust / RustMaps behaviour), so the last cell is narrower when the world size
+                // is not a whole multiple of MapGrid.CellSize.
+                var boundary = MathF.Min(i * MapGrid.CellSize, worldSize);
                 var (vx, _) = projection.ToPixel(boundary, 0f);
                 ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(vx, top), new PointF(vx, bottom));
                 var (_, hy) = projection.ToPixel(0f, boundary);
@@ -143,9 +135,10 @@ public sealed class MapRenderer
             {
                 for (var row = 0; row < cells; row++)
                 {
-                    // Label sits just inside each cell's top-left corner (official-app placement).
+                    // Label sits just inside each cell's top-left corner (companion-app placement). Row 0 is
+                    // the northernmost cell, so its top edge is the world's north edge (worldSize).
                     var worldX = col * MapGrid.CellSize;
-                    var worldY = correctedSize - (row * MapGrid.CellSize) - LabelRowEpsilon;
+                    var worldY = MathF.Min((cells - row) * MapGrid.CellSize, worldSize);
                     var (lx, ly) = projection.ToPixel(worldX, worldY);
                     var label = MapGrid.ColumnLetters(col) + row.ToString(CultureInfo.InvariantCulture);
                     ctx.DrawText(new RichTextOptions(GridLabelFont)
