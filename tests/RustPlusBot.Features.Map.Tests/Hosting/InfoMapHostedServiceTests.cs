@@ -93,6 +93,69 @@ public sealed class InfoMapHostedServiceTests
     }
 
     [Fact]
+    public async Task Tick_registers_and_generates_connected_servers_without_any_connect_event()
+    {
+        // The ConnectionStatusChangedEvent is live-only and can be missed on startup (the connection may
+        // publish it before this service subscribes). Registration must therefore come from the connection
+        // store each tick, so a connected server still generates even if the event was never seen.
+        var coordinator = new RustMapsMapCoordinator();
+        var serverId = Guid.NewGuid();
+
+        var client = Substitute.For<IRustMapsClient>();
+        client.GetMapBySeedAndSizeAsync(Key.Size, Key.Seed, false, Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Success(
+                new MapInfo
+                {
+                    ImageUrl = "https://img/plain.png",
+                    ImageIconUrl = "https://img/icons.png",
+                    Url = "https://rustmaps/x"
+                }, 200));
+        var driver = new RustMapsGenerationDriver(client, coordinator, NullLogger<RustMapsGenerationDriver>.Instance);
+
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetWorldAsync(GuildA, serverId, Arg.Any<CancellationToken>())
+            .Returns(new WorldSnapshot((uint)Key.Size, (uint)Key.Seed));
+
+        var store = Substitute.For<IConnectionStore>();
+        IReadOnlyList<(ulong GuildId, Guid ServerId)> connectable = [(GuildA, serverId)];
+        store.ListConnectableServersAsync(Arg.Any<CancellationToken>()).Returns(connectable);
+
+        var bus = new InMemoryEventBus();
+        var received = new List<InfoMapReadyEvent>();
+        using var collectCts = new CancellationTokenSource();
+        _ = Task.Run(async () =>
+        {
+            await foreach (var evt in bus.SubscribeAsync<InfoMapReadyEvent>(collectCts.Token))
+            {
+                received.Add(evt);
+            }
+        });
+
+        var service = new InfoMapHostedService(
+            bus, coordinator, driver, query, ShortPollOptions(),
+            ScopeFactory(store), NullLogger<InfoMapHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+            while (DateTimeOffset.UtcNow < deadline && received.Count < 1)
+            {
+                await Task.Delay(20);
+            }
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+            await collectCts.CancelAsync();
+        }
+
+        // No ConnectionStatusChangedEvent was ever published — registration came from the store tick.
+        Assert.Contains(received, e => e.GuildId == GuildA && e.ServerId == serverId);
+        Assert.Equal(RustMapsGenerationState.Ready, coordinator.Snapshot(Key).State);
+    }
+
+    [Fact]
     public async Task Connect_registers_the_servers_world_key_with_the_coordinator()
     {
         // No tick should be needed for registration — the connection-status path resolves the world and

@@ -88,6 +88,12 @@ internal sealed partial class InfoMapHostedService(
             {
                 await Task.Delay(options.Value.RustMaps.GenerationPollInterval, cancellationToken)
                     .ConfigureAwait(false);
+
+                // Register from the source of truth every tick, not only from the live-only
+                // ConnectionStatusChangedEvent (which the connection may publish before this service has
+                // subscribed on startup, so it is missed and the server would otherwise never generate).
+                await RegisterConnectedServersAsync(cancellationToken).ConfigureAwait(false);
+
                 var pending = coordinator.PendingKeys();
                 foreach (var key in pending)
                 {
@@ -106,6 +112,32 @@ internal sealed partial class InfoMapHostedService(
 #pragma warning restore CA1031
         {
             LogTickFaulted(logger, ex);
+        }
+    }
+
+    /// <summary>
+    /// Registers every currently-connected server's (size, seed) key with the coordinator. Idempotent, and
+    /// independent of the connection-status event — <see cref="IRustServerQuery.GetWorldAsync"/> returns null
+    /// for a server that is not connected/queryable, so only live servers are registered.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    private async Task RegisterConnectedServersAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<(ulong Guild, Guid Server)> servers;
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
+            servers = await store.ListConnectableServersAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (var (guild, server) in servers)
+        {
+            var world = await query.GetWorldAsync(guild, server, cancellationToken).ConfigureAwait(false);
+            if (world is not null)
+            {
+                coordinator.Register(new RustMapsMapKey((int)world.WorldSize, (int)world.Seed), guild, server);
+            }
         }
     }
 
