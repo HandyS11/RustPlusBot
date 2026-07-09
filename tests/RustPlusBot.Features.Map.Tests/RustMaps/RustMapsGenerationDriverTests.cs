@@ -75,6 +75,21 @@ public sealed class RustMapsGenerationDriverTests
     }
 
     [Fact]
+    public async Task Transient_get_error_that_is_not_NotFound_never_spends_a_credit()
+    {
+        var (driver, client, coord) = Build();
+        coord.Register(Key, 1UL, Server);
+        client.GetMapBySeedAndSizeAsync(4000, 12345, false, Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Failure(Error(RustMapsErrorKind.Transport), 503));
+
+        await driver.AdvanceAsync(Key, CancellationToken.None);
+
+        Assert.Equal(RustMapsGenerationState.Idle, coord.Snapshot(Key).State);
+        await client.DidNotReceiveWithAnyArgs().GetLimitsAsync(default, default);
+        await client.DidNotReceiveWithAnyArgs().CreateMapAsync(default!, default);
+    }
+
+    [Fact]
     public async Task Limit_reached_never_generates()
     {
         var (driver, client, coord) = Build();

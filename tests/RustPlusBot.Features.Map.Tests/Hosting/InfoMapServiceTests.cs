@@ -130,6 +130,18 @@ public sealed class InfoMapServiceTests
     }
 
     [Fact]
+    public async Task No_info_channel_never_registers_the_key_with_the_coordinator()
+    {
+        var (service, coordinator, poster, _) = Build(channelId: null);
+
+        await service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
+
+        Assert.Empty(coordinator.PendingKeys());
+        Assert.Empty(coordinator.Requesters(Key));
+        await poster.DidNotReceiveWithAnyArgs().PostAsync(default, default!, default!, default);
+    }
+
+    [Fact]
     public async Task World_unavailable_never_posts()
     {
         var (service, _, poster, query) = Build();

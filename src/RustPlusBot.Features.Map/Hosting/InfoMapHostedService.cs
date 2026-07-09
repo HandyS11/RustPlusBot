@@ -100,14 +100,14 @@ internal sealed partial class InfoMapHostedService(
             return;
         }
 
-        var key = new RustMapsMapKey((int)world.WorldSize, (int)world.Seed);
-        coordinator.Register(key, guildId, serverId);
-
         var channelId = await locator.GetChannelIdAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (channelId is not { } id)
         {
             return;
         }
+
+        var key = new RustMapsMapKey((int)world.WorldSize, (int)world.Seed);
+        coordinator.Register(key, guildId, serverId);
 
         var snapshot = coordinator.Snapshot(key);
         var mapKey = (guildId, serverId);

@@ -74,6 +74,13 @@ public sealed partial class RustMapsGenerationDriver(
             return;
         }
 
+        if (get.Error?.Kind != RustMapsErrorKind.NotFound)
+        {
+            // Transient/other GET error (or an unexpected non-ready success): do NOT spend a credit.
+            // Leave the key Idle so the free GET simply retries on the next tick.
+            return;
+        }
+
         // Genuine miss → pre-check limits (fail closed) before spending a credit.
         var limits = await client.GetLimitsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!limits.IsSuccess || limits.Data is null)
