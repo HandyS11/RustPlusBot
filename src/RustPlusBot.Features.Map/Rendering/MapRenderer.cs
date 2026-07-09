@@ -23,6 +23,15 @@ public sealed class MapRenderer
     private const float ActiveRingWidth = 3f;
     private const float PlayerLabelOffset = 12f;
 
+    /// <summary>
+    /// A row's north (top) edge sits exactly on a <see cref="MapGrid.LabelFor"/> bin boundary now that
+    /// the grid extent is snapped to a whole multiple of <see cref="MapGrid.CellSize"/>; floor()-based
+    /// binning assigns that exact boundary to the row above. Nudging the probe south by this many game
+    /// units (a fraction of a pixel at map scale) keeps it inside the intended row so the label agrees
+    /// with <see cref="MapGrid.LabelFor"/>.
+    /// </summary>
+    private const float LabelRowEpsilon = 1f;
+
     private static readonly FontFamily Family = LoadFamily();
     private static readonly Font Font = Family.CreateFont(12f);
     private static readonly Font GridLabelFont = Family.CreateFont(MapRenderStyle.GridLabelFontSize);
@@ -134,18 +143,14 @@ public sealed class MapRenderer
             {
                 for (var row = 0; row < cells; row++)
                 {
-                    // Label sits in the cell's centre (in-game map placement): probe the middle of the cell
-                    // and centre the text on it, both axes. Anchoring at the top-left corner instead reads
-                    // as "half a row too high" because the text hugs the cell's top edge.
-                    var worldX = (col + 0.5f) * MapGrid.CellSize;
-                    var worldY = correctedSize - ((row + 0.5f) * MapGrid.CellSize);
+                    // Label sits just inside each cell's top-left corner (official-app placement).
+                    var worldX = col * MapGrid.CellSize;
+                    var worldY = correctedSize - (row * MapGrid.CellSize) - LabelRowEpsilon;
                     var (lx, ly) = projection.ToPixel(worldX, worldY);
                     var label = MapGrid.ColumnLetters(col) + row.ToString(CultureInfo.InvariantCulture);
                     ctx.DrawText(new RichTextOptions(GridLabelFont)
                         {
-                            Origin = new PointF(lx, ly),
-                            HorizontalAlignment = HorizontalAlignment.Center,
-                            VerticalAlignment = VerticalAlignment.Center,
+                            Origin = new PointF(lx + 2f, ly + 2f)
                         },
                         label, labelColor);
                 }
