@@ -17,8 +17,9 @@ public sealed class RustMapsParityTests
     [SkippableFact]
     public void Monument_world_coords_project_into_consistent_grid_cells()
     {
+        // Order the enumeration so the selected fixture is deterministic across machines/filesystems.
         var fixture = Directory.Exists(FixtureDir)
-            ? Directory.EnumerateFiles(FixtureDir, "rustmaps-*.json").FirstOrDefault()
+            ? Directory.EnumerateFiles(FixtureDir, "rustmaps-*.json").Order(StringComparer.Ordinal).FirstOrDefault()
             : null;
         Skip.If(fixture is null, "No RustMaps fixture committed yet (run tools/RustPlusBot.MapParity).");
 

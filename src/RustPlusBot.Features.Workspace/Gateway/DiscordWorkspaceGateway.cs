@@ -153,7 +153,11 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
 
         try
         {
-            await channel.DeleteMessageAsync(messageId).ConfigureAwait(false);
+            await channel.DeleteMessageAsync(messageId, new RequestOptions
+                {
+                    CancelToken = cancellationToken
+                })
+                .ConfigureAwait(false);
         }
         catch (HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.NotFound)
         {

@@ -8,14 +8,14 @@ using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-if (args.Length < 4)
+if (args.Length < 4
+    || !int.TryParse(args[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var size)
+    || !int.TryParse(args[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var seed))
 {
     await Console.Error.WriteLineAsync("Usage: map-parity <worldSize> <seed> <apiKey> <outDir>").ConfigureAwait(false);
     return 1;
 }
 
-var size = int.Parse(args[0], CultureInfo.InvariantCulture);
-var seed = int.Parse(args[1], CultureInfo.InvariantCulture);
 var apiKey = args[2];
 var outDir = Directory.CreateDirectory(args[3]).FullName;
 
