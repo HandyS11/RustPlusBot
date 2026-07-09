@@ -58,4 +58,27 @@ public sealed class MapGridTests
         // 4000 world -> 28 cells (see LabelFor_origin_is_bottom_left_last_row); last column index 27 = "AB".
         Assert.Equal("AB27", MapGrid.LabelFor(4500f, 0f, 4000u));
     }
+
+    [Fact]
+    public void LabelFor_rustplus_style_shifts_rows_100_units_south()
+    {
+        // Rust+/RustMaps rows start 100 units below the north edge (measured from RustMaps' own grid
+        // tiles). y = 830 on a 1500 world: in-game row = floor((1500-830)/146.25) = 4; Rust+ row =
+        // floor((1400-830)/146.25) = 3. Columns are identical in both styles.
+        Assert.Equal("A4", MapGrid.LabelFor(0f, 830f, 1500u));
+        Assert.Equal("A3", MapGrid.LabelFor(0f, 830f, 1500u, MapGridStyle.RustPlus));
+    }
+
+    [Fact]
+    public void LabelFor_rustplus_style_clamps_the_top_strip_to_row_0()
+    {
+        // The 100 units above the Rust+ row anchor still read as row 0 (best effort).
+        Assert.Equal("A0", MapGrid.LabelFor(0f, 1450f, 1500u, MapGridStyle.RustPlus));
+    }
+
+    [Theory]
+    [InlineData(MapGridStyle.InGame, 0f)]
+    [InlineData(MapGridStyle.RustPlus, 100f)]
+    public void RowInset_is_zero_in_game_and_100_for_rustplus(MapGridStyle style, float expected) =>
+        Assert.Equal(expected, MapGrid.RowInset(style));
 }

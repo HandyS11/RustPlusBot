@@ -1,9 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Players.Posting;
 using RustPlusBot.Features.Players.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Players.Relaying;
@@ -32,31 +34,37 @@ internal sealed class PlayerEventRelay(
             return;
         }
 
-        var culture = await GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
+        var (culture, gridStyle) = await GetRenderSettingsAsync(evt.GuildId, evt.ServerId, cancellationToken)
+            .ConfigureAwait(false);
         var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
             .ConfigureAwait(false);
 
         foreach (var t in evt.Transitions)
         {
             await teamChatSender
-                .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderLine(t, evt.Dimensions, culture),
+                .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderLine(t, evt.Dimensions, culture, gridStyle),
                     cancellationToken)
                 .ConfigureAwait(false);
             if (channelId is { } id)
             {
-                await poster.PostAsync(id, renderer.Render(t, evt.Dimensions, culture), cancellationToken)
+                await poster.PostAsync(id, renderer.Render(t, evt.Dimensions, culture, gridStyle), cancellationToken)
                     .ConfigureAwait(false);
             }
         }
     }
 
-    private async Task<string> GetCultureAsync(ulong guildId, CancellationToken cancellationToken)
+    private async Task<(string Culture, MapGridStyle GridStyle)> GetRenderSettingsAsync(ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
     {
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
             var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            return await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
+            var culture = await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
+            var mapSettings = scope.ServiceProvider.GetRequiredService<IMapSettingsStore>();
+            var settings = await mapSettings.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+            return (culture, settings.GridStyle);
         }
     }
 }

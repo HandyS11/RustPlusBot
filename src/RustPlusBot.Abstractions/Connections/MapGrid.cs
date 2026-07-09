@@ -16,6 +16,19 @@ public static class MapGrid
     public const float CellSize = 146.25f;
 
     /// <summary>
+    /// How far south of the world's north edge the Rust+/RustMaps grid rows start, in game units.
+    /// Measured exactly (100.0) from RustMaps' own pre-rendered grid tiles across map sizes
+    /// 1500–4500; the in-game (F1) map uses no inset. Columns have no inset in either style.
+    /// </summary>
+    public const float RustPlusRowInset = 100f;
+
+    /// <summary>Gets the row inset (south of the world's north edge) for a grid style.</summary>
+    /// <param name="style">The grid style.</param>
+    /// <returns>The inset in game units.</returns>
+    public static float RowInset(MapGridStyle style) =>
+        style == MapGridStyle.RustPlus ? RustPlusRowInset : 0f;
+
+    /// <summary>
     /// Number of grid cells per axis, covering the whole world size — <c>ceil(worldSize / CellSize)</c>.
     /// The last cell (east-most column / south-most row) is a partial edge cell whenever the world size
     /// is not a whole multiple of <see cref="CellSize"/>; it is still a labelled cell, matching how Rust,
@@ -50,14 +63,15 @@ public static class MapGrid
     /// <param name="x">World X (west→east).</param>
     /// <param name="y">World Y (south→north).</param>
     /// <param name="worldSize">The world size in game units.</param>
+    /// <param name="style">Which grid convention to bin against (defaults to the in-game map).</param>
     /// <returns>The grid label, rows numbered from the top; out-of-world coordinates clamp to the edge cell.</returns>
-    public static string LabelFor(float x, float y, uint worldSize)
+    public static string LabelFor(float x, float y, uint worldSize, MapGridStyle style = MapGridStyle.InGame)
     {
-        // Rows bin from the NORTH edge (the grid anchor), not the south — with a partial edge cell the
-        // two disagree, and the north anchoring is what the in-game map, the app and RustMaps use.
+        // Rows bin from the style's row anchor (north edge in-game; 100 units south of it for
+        // Rust+/RustMaps), not the south — with a partial edge cell the two directions disagree.
         var cells = CellCount(worldSize);
         var col = Math.Clamp((int)MathF.Floor(x / CellSize), 0, cells - 1);
-        var row = Math.Clamp((int)MathF.Floor((worldSize - y) / CellSize), 0, cells - 1);
+        var row = Math.Clamp((int)MathF.Floor((worldSize - RowInset(style) - y) / CellSize), 0, cells - 1);
         return string.Create(CultureInfo.InvariantCulture, $"{ColumnLetters(col)}{row}");
     }
 }

@@ -11,6 +11,7 @@ using RustPlusBot.Features.Players.Relaying;
 using RustPlusBot.Features.Players.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Players.Tests.Hosting;
@@ -21,8 +22,12 @@ public sealed class PlayersHostedServiceTests
     {
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
+        var mapSettings = Substitute.For<IMapSettingsStore>();
+        mapSettings.GetAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(MapLayerSettings.AllOn);
         var services = new ServiceCollection();
         services.AddScoped(_ => workspace);
+        services.AddScoped(_ => mapSettings);
         var provider = services.BuildServiceProvider();
         var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
 

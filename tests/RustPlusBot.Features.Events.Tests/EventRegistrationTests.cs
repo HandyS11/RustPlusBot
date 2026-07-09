@@ -13,6 +13,7 @@ using RustPlusBot.Features.Events.Relaying;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Persistence.Connections;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Events.Tests;
@@ -44,6 +45,7 @@ public sealed class EventRegistrationTests
         services.AddSingleton<DiscordChannelMessenger>();
         services.AddSingleton<IEventChannelLocator>(Substitute.For<IEventChannelLocator>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
+        services.AddScoped<IMapSettingsStore>(_ => Substitute.For<IMapSettingsStore>());
         services.AddScoped<IConnectionStore>(_ => Substitute.For<IConnectionStore>());
         services.AddSingleton<IBotTeamChatSender>(Substitute.For<IBotTeamChatSender>());
         services.AddSingleton(Options.Create(new ConnectionOptions()));

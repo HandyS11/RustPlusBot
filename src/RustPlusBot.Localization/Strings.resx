@@ -540,6 +540,15 @@
   <data name="map.control.header" xml:space="preserve">
     <value>Map layers — toggle to show/hide:</value>
   </data>
+  <data name="map.gridstyle.help" xml:space="preserve">
+    <value>Grid style: In-game matches the F1 map (event callouts read like in-game grid refs); Rust+/RustMaps matches the companion app and rustmaps.com (rows sit slightly lower).</value>
+  </data>
+  <data name="map.gridstyle.ingame" xml:space="preserve">
+    <value>Grid: In-game</value>
+  </data>
+  <data name="map.gridstyle.rustplus" xml:space="preserve">
+    <value>Grid: Rust+/RustMaps</value>
+  </data>
   <data name="map.info.seed" xml:space="preserve">
     <value>Seed</value>
   </data>

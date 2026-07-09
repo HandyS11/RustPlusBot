@@ -151,6 +151,23 @@ public sealed class MapRendererTests
     }
 
     [Fact]
+    public void Grid_style_shifts_the_rendered_rows()
+    {
+        // Rust+/RustMaps rows sit 100 world-units south of the in-game rows, so the two styles must
+        // produce different grid pixels on the same base image.
+        var renderer = new MapRenderer();
+        var projection = new MapProjection(1500, 2000, 2000, 100, MapRenderer.OutputSize);
+        var baseJpeg = SolidJpeg(2000);
+        var layers = new MapLayerSet(Grid: true, Markers: false, Monuments: false, Vendor: false,
+            Players: false, Rigs: false);
+
+        var inGame = renderer.Render(baseJpeg, projection, [], [], [], [], layers);
+        var rustPlus = renderer.Render(baseJpeg, projection, [], [], [], [], layers, MapGridStyle.RustPlus);
+
+        Assert.False(inGame.AsSpan().SequenceEqual(rustPlus));
+    }
+
+    [Fact]
     public void Rotation_changes_the_rendered_icon()
     {
         var renderer = new MapRenderer();

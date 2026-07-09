@@ -45,6 +45,7 @@ public sealed class MapRenderer
     /// <param name="players">Player placements already projected to pixel coordinates.</param>
     /// <param name="rigs">Oil-rig placements already projected to pixel coordinates.</param>
     /// <param name="layers">Which overlay layers to draw.</param>
+    /// <param name="gridStyle">Which grid convention to draw (in-game F1 map, or Rust+/RustMaps).</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
     /// <remarks>Kept as an instance method so the class can be registered as a DI singleton.</remarks>
 #pragma warning disable CA1822, S2325 // Kept as instance method for DI singleton registration
@@ -54,7 +55,8 @@ public sealed class MapRenderer
         IReadOnlyList<MonumentPlacement> monuments,
         IReadOnlyList<PlayerPlacement> players,
         IReadOnlyList<RigPlacement> rigs,
-        MapLayerSet layers)
+        MapLayerSet layers,
+        MapGridStyle gridStyle = MapGridStyle.InGame)
 #pragma warning restore CA1822, S2325
     {
         ArgumentNullException.ThrowIfNull(baseJpeg);
@@ -70,7 +72,7 @@ public sealed class MapRenderer
 
         if (layers.Grid)
         {
-            DrawGrid(image, projection);
+            DrawGrid(image, projection, gridStyle);
         }
 
         if (layers.Monuments)
@@ -103,7 +105,7 @@ public sealed class MapRenderer
         return ms.ToArray();
     }
 
-    private static void DrawGrid(Image<Rgba32> image, MapProjection projection)
+    private static void DrawGrid(Image<Rgba32> image, MapProjection projection, MapGridStyle gridStyle)
     {
         if (projection.WorldSize == 0)
         {
@@ -114,12 +116,14 @@ public sealed class MapRenderer
         var labelColor = Color.FromRgba(255, 255, 255, 140);
         var cells = MapGrid.CellCount(projection.WorldSize);
 
-        // The lattice is anchored at the world's NORTH-WEST corner and spans the whole image, ocean
-        // margin included — exactly how the in-game map, the companion app and RustMaps draw it. The
-        // partial edge cell (world size not a whole multiple of the cell size) sits at the south/east
-        // and simply bleeds past the world edge, so every rendered cell looks full-size.
-        var (anchorX, anchorY) = projection.ToPixel(0f, projection.WorldSize);
-        var (cellEndX, cellEndY) = projection.ToPixel(MapGrid.CellSize, projection.WorldSize - MapGrid.CellSize);
+        // The lattice is anchored at the west edge and at the style's row anchor (the world's north
+        // edge for the in-game style; 100 game-units south of it for Rust+/RustMaps), and spans the
+        // whole image, ocean margin included — exactly how those maps draw it. The partial edge cell
+        // sits at the south/east and simply bleeds past the world edge, so every rendered cell looks
+        // full-size.
+        var anchorWorldY = projection.WorldSize - MapGrid.RowInset(gridStyle);
+        var (anchorX, anchorY) = projection.ToPixel(0f, anchorWorldY);
+        var (cellEndX, cellEndY) = projection.ToPixel(MapGrid.CellSize, anchorWorldY - MapGrid.CellSize);
         var stepX = cellEndX - anchorX;
         var stepY = cellEndY - anchorY;
         if (stepX <= 0f || stepY <= 0f)

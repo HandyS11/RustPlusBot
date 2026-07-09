@@ -3,6 +3,7 @@ using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Localization;
+using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
@@ -10,17 +11,24 @@ namespace RustPlusBot.Features.Commands.Handlers;
 /// <param name="state">The live event state.</param>
 /// <param name="localizer">The reply localizer.</param>
 /// <param name="clock">For "how long ago".</param>
-internal sealed class HeliCommandHandler(IEventState state, ILocalizer localizer, IClock clock)
+/// <param name="mapSettings">Supplies the server's grid style.</param>
+internal sealed class HeliCommandHandler(
+    IEventState state,
+    ILocalizer localizer,
+    IClock clock,
+    IMapSettingsStore mapSettings)
     : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "heli";
 
     /// <inheritdoc />
-    public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    public async Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return Task.FromResult<string?>(
-            MarkerReply.For(state, context, MarkerKind.PatrolHelicopter, "command.heli", localizer, clock));
+        return await MarkerReply
+            .ForAsync(state, context, MarkerKind.PatrolHelicopter, "command.heli", localizer, clock, mapSettings,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 }

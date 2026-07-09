@@ -8,6 +8,7 @@ using RustPlusBot.Features.Players.Relaying;
 using RustPlusBot.Features.Players.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Players.Tests;
@@ -30,8 +31,12 @@ public sealed class PlayerEventRelayTests
 
     private static IServiceScopeFactory BuildScopeFactory(IWorkspaceStore workspace)
     {
+        var mapSettings = Substitute.For<IMapSettingsStore>();
+        mapSettings.GetAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(MapLayerSettings.AllOn);
         var services = new ServiceCollection();
         services.AddScoped(_ => workspace);
+        services.AddScoped(_ => mapSettings);
         return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 

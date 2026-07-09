@@ -20,4 +20,7 @@ public static class WorkspaceComponentIds
 
     /// <summary>Prefix for a #map layer toggle button; "{layer}:{serverId}" is appended. Handled by Workspace.</summary>
     public const string MapTogglePrefix = "workspace:map:toggle:";
+
+    /// <summary>Prefix for a #map grid-style button; "{style}:{serverId}" is appended. Handled by Workspace.</summary>
+    public const string MapGridStylePrefix = "workspace:map:gridstyle:";
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Map;
 
 namespace RustPlusBot.Persistence.Map;
@@ -18,7 +19,7 @@ public sealed class MapSettingsStore(BotDbContext context) : IMapSettingsStore
         return row is null
             ? MapLayerSettings.AllOn
             : new MapLayerSettings(row.ShowGrid, row.ShowMarkers, row.ShowMonuments, row.ShowVendor,
-                row.ShowPlayers, row.ShowRigs);
+                row.ShowPlayers, row.ShowRigs, row.GridStyle);
     }
 
     /// <inheritdoc />
@@ -60,6 +61,29 @@ public sealed class MapSettingsStore(BotDbContext context) : IMapSettingsStore
                 throw new ArgumentOutOfRangeException(nameof(layer), layer, "Unknown map layer.");
         }
 
+        if (existing is null)
+        {
+            context.ServerMapSettings.Add(row);
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task SetGridStyleAsync(ulong guildId,
+        Guid serverId,
+        MapGridStyle style,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await context.ServerMapSettings
+            .SingleOrDefaultAsync(s => s.GuildId == guildId && s.ServerId == serverId, cancellationToken)
+            .ConfigureAwait(false);
+
+        var row = existing ?? new ServerMapSettings
+        {
+            GuildId = guildId, ServerId = serverId
+        };
+        row.GridStyle = style;
         if (existing is null)
         {
             context.ServerMapSettings.Add(row);

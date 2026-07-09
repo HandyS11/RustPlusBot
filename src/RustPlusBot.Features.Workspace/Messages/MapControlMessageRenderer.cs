@@ -1,4 +1,5 @@
 using Discord;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Localization;
@@ -6,7 +7,8 @@ using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Workspace.Messages;
 
-/// <summary>Renders the per-server #map control message: six ManageGuild layer-toggle buttons.</summary>
+/// <summary>Renders the per-server #map control message: six ManageGuild layer-toggle buttons plus the
+/// grid-style picker (in-game vs Rust+/RustMaps grid convention).</summary>
 /// <param name="mapSettings">Per-(guild, server) layer toggles.</param>
 /// <param name="localizer">String resolution.</param>
 internal sealed class MapControlMessageRenderer(
@@ -37,8 +39,13 @@ internal sealed class MapControlMessageRenderer(
         AddToggle(builder, MapLayer.Vendor, "map.layer.vendor", settings.Vendor, serverId, context.Culture, row: 1);
         AddToggle(builder, MapLayer.Players, "map.layer.players", settings.Players, serverId, context.Culture, row: 1);
         AddToggle(builder, MapLayer.Rigs, "map.layer.rigs", settings.Rigs, serverId, context.Culture, row: 1);
+        AddGridStyle(builder, MapGridStyle.InGame, "map.gridstyle.ingame", settings.GridStyle, serverId,
+            context.Culture);
+        AddGridStyle(builder, MapGridStyle.RustPlus, "map.gridstyle.rustplus", settings.GridStyle, serverId,
+            context.Culture);
 
-        var header = localizer.Get("map.control.header", context.Culture);
+        var header = localizer.Get("map.control.header", context.Culture)
+                     + "\n-# " + localizer.Get("map.gridstyle.help", context.Culture);
         return new MessagePayload(header, null, builder.Build());
     }
 
@@ -54,4 +61,16 @@ internal sealed class MapControlMessageRenderer(
             $"{WorkspaceComponentIds.MapTogglePrefix}{layer}:{serverId}",
             enabled ? ButtonStyle.Success : ButtonStyle.Secondary,
             row: row);
+
+    private void AddGridStyle(ComponentBuilder builder,
+        MapGridStyle style,
+        string labelKey,
+        MapGridStyle current,
+        Guid serverId,
+        string culture) =>
+        builder.WithButton(
+            localizer.Get(labelKey, culture),
+            $"{WorkspaceComponentIds.MapGridStylePrefix}{style}:{serverId}",
+            style == current ? ButtonStyle.Primary : ButtonStyle.Secondary,
+            row: 2);
 }

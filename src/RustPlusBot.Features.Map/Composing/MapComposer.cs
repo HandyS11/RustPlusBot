@@ -46,13 +46,15 @@ public sealed class MapComposer(
 
         var layers = new MapLayerSet(settings.Grid, settings.Markers, settings.Monuments,
             settings.Vendor, settings.Players, settings.Rigs);
-        return await ComposeWithLayersAsync(guildId, serverId, layers, cancellationToken).ConfigureAwait(false);
+        return await ComposeWithLayersAsync(guildId, serverId, layers, settings.GridStyle, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<byte[]?> ComposeWithLayersAsync(
         ulong guildId,
         Guid serverId,
         MapLayerSet layers,
+        MapGridStyle gridStyle,
         CancellationToken cancellationToken)
     {
         var baseImage = await cache.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
@@ -90,7 +92,8 @@ public sealed class MapComposer(
             .ConfigureAwait(false);
         var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, projection, layers);
 
-        return renderer.Render(baseImage.Bytes, projection, markers, monuments, players, rigPlacements, layers);
+        return renderer.Render(baseImage.Bytes, projection, markers, monuments, players, rigPlacements, layers,
+            gridStyle);
     }
 
     private List<MarkerPlacement> GatherMarkers(

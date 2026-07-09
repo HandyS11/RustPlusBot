@@ -10,8 +10,9 @@ public static class GridReference
     /// <param name="x">World X coordinate.</param>
     /// <param name="y">World Y coordinate.</param>
     /// <param name="dims">Map dimensions, or null when unavailable.</param>
+    /// <param name="style">Which grid convention to bin against (defaults to the in-game map).</param>
     /// <returns>A grid reference like "D7", or "(x, y)" when dimensions are unavailable.</returns>
-    public static string From(float x, float y, MapDimensions? dims)
+    public static string From(float x, float y, MapDimensions? dims, MapGridStyle style = MapGridStyle.InGame)
     {
         if (dims is null || dims.WorldSize == 0)
         {
@@ -20,6 +21,6 @@ public static class GridReference
                 $"({Math.Round(x)}, {Math.Round(y)})");
         }
 
-        return MapGrid.LabelFor(x, y, dims.WorldSize);
+        return MapGrid.LabelFor(x, y, dims.WorldSize, style);
     }
 }

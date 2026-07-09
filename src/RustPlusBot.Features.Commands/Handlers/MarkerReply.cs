@@ -5,6 +5,7 @@ using RustPlusBot.Features.Commands.Formatting;
 using RustPlusBot.Features.Events.Formatting;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Localization;
+using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
@@ -18,14 +19,18 @@ internal static class MarkerReply
     /// <param name="prefix">The localization key prefix ("command.cargo" / "command.heli" / "command.chinook").</param>
     /// <param name="localizer">The reply localizer.</param>
     /// <param name="clock">For the "how long ago" suffix.</param>
+    /// <param name="mapSettings">Supplies the server's grid style for the reference.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The localized reply.</returns>
-    public static string For(
+    public static async Task<string> ForAsync(
         IEventState state,
         CommandContext context,
         MarkerKind kind,
         string prefix,
         ILocalizer localizer,
-        IClock clock)
+        IClock clock,
+        IMapSettingsStore mapSettings,
+        CancellationToken cancellationToken)
     {
         var markers = state.GetActiveMarkers(context.GuildId, context.ServerId, kind);
         if (markers.Count == 0)
@@ -33,8 +38,10 @@ internal static class MarkerReply
             return localizer.Get($"{prefix}.none", context.Culture);
         }
 
+        var settings = await mapSettings.GetAsync(context.GuildId, context.ServerId, cancellationToken)
+            .ConfigureAwait(false);
         var m = markers[0];
-        var grid = GridReference.From(m.X, m.Y, m.Dimensions);
+        var grid = GridReference.From(m.X, m.Y, m.Dimensions, settings.GridStyle);
         var ago = DurationFormat.Compact(clock.UtcNow - m.SeenAtUtc);
         return localizer.Get($"{prefix}.ok", context.Culture, grid, ago);
     }
