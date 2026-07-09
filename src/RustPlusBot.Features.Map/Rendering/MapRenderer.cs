@@ -112,38 +112,45 @@ public sealed class MapRenderer
 
         var lineColor = Color.FromRgba(255, 255, 255, 80);
         var labelColor = Color.FromRgba(255, 255, 255, 140);
-        var worldSize = projection.WorldSize;
-        var cells = MapGrid.CellCount(worldSize);
-        var (left, top) = projection.ToPixel(0f, worldSize);
-        var (right, bottom) = projection.ToPixel(worldSize, 0f);
+        var cells = MapGrid.CellCount(projection.WorldSize);
+
+        // The lattice is anchored at the world's NORTH-WEST corner and spans the whole image, ocean
+        // margin included — exactly how the in-game map, the companion app and RustMaps draw it. The
+        // partial edge cell (world size not a whole multiple of the cell size) sits at the south/east
+        // and simply bleeds past the world edge, so every rendered cell looks full-size.
+        var (anchorX, anchorY) = projection.ToPixel(0f, projection.WorldSize);
+        var (cellEndX, cellEndY) = projection.ToPixel(MapGrid.CellSize, projection.WorldSize - MapGrid.CellSize);
+        var stepX = cellEndX - anchorX;
+        var stepY = cellEndY - anchorY;
+        if (stepX <= 0f || stepY <= 0f)
+        {
+            return; // Degenerate projection (no drawable world area).
+        }
 
         image.Mutate(ctx =>
         {
-            for (var i = 0; i <= cells; i++)
+            for (var k = (int)MathF.Ceiling(-anchorX / stepX); anchorX + (k * stepX) <= image.Width; k++)
             {
-                // Cover the whole world including the partial edge cell: the final boundary is clamped to
-                // worldSize (Rust / RustMaps behaviour), so the last cell is narrower when the world size
-                // is not a whole multiple of MapGrid.CellSize.
-                var boundary = MathF.Min(i * MapGrid.CellSize, worldSize);
-                var (vx, _) = projection.ToPixel(boundary, 0f);
-                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(vx, top), new PointF(vx, bottom));
-                var (_, hy) = projection.ToPixel(0f, boundary);
-                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(left, hy), new PointF(right, hy));
+                var x = anchorX + (k * stepX);
+                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(x, 0f), new PointF(x, image.Height));
             }
 
+            for (var k = (int)MathF.Ceiling(-anchorY / stepY); anchorY + (k * stepY) <= image.Height; k++)
+            {
+                var y = anchorY + (k * stepY);
+                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(0f, y), new PointF(image.Width, y));
+            }
+
+            // Only the world's cells carry labels (A0 in the north-west corner), each just inside its
+            // cell's top-left corner (companion-app placement).
             for (var col = 0; col < cells; col++)
             {
                 for (var row = 0; row < cells; row++)
                 {
-                    // Label sits just inside each cell's top-left corner (companion-app placement). Row 0 is
-                    // the northernmost cell, so its top edge is the world's north edge (worldSize).
-                    var worldX = col * MapGrid.CellSize;
-                    var worldY = MathF.Min((cells - row) * MapGrid.CellSize, worldSize);
-                    var (lx, ly) = projection.ToPixel(worldX, worldY);
                     var label = MapGrid.ColumnLetters(col) + row.ToString(CultureInfo.InvariantCulture);
                     ctx.DrawText(new RichTextOptions(GridLabelFont)
                         {
-                            Origin = new PointF(lx + 2f, ly + 2f)
+                            Origin = new PointF(anchorX + (col * stepX) + 2f, anchorY + (row * stepY) + 2f)
                         },
                         label, labelColor);
                 }

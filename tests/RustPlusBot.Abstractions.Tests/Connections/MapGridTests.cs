@@ -36,6 +36,22 @@ public sealed class MapGridTests
     }
 
     [Fact]
+    public void LabelFor_rows_bin_from_the_north_edge()
+    {
+        // 1500 world -> 11 cells with a 37.5-unit partial edge cell. y = 1360 is 140 units below the
+        // north edge: row 0 with north-anchored rows (in-game / app / RustMaps behaviour); binning from
+        // the south would put it in row 1. Locks in the anchoring.
+        Assert.Equal("A0", MapGrid.LabelFor(0f, 1360f, 1500u));
+    }
+
+    [Fact]
+    public void LabelFor_south_edge_falls_in_the_partial_row()
+    {
+        // 1500 world: the southernmost 37.5 units are the partial row 10.
+        Assert.Equal("A10", MapGrid.LabelFor(0f, 10f, 1500u));
+    }
+
+    [Fact]
     public void LabelFor_beyond_world_size_clamps_to_last_cell()
     {
         // Regression for the old GridReference bug: clamping against IMAGE pixels, not world units.
