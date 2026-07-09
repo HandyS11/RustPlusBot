@@ -41,7 +41,7 @@ public sealed class InfoMapServiceTests
             .GetRequiredService<IServiceScopeFactory>();
 
     private static (InfoMapHostedService Service, RustMapsMapCoordinator Coordinator, IInfoMapPoster Poster,
-        IRustServerQuery Query) Build(ulong? channelId = 123UL)
+        IRustServerQuery Query) Build(ulong? channelId = 123UL, IInfoMapPoster? poster = null)
     {
         var coordinator = new RustMapsMapCoordinator();
 
@@ -55,7 +55,7 @@ public sealed class InfoMapServiceTests
         var locator = Substitute.For<IInfoChannelLocator>();
         locator.GetChannelIdAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(channelId);
 
-        var poster = Substitute.For<IInfoMapPoster>();
+        poster ??= Substitute.For<IInfoMapPoster>();
 
         var workspaceStore = Substitute.For<IWorkspaceStore>();
         workspaceStore.GetCultureAsync(Guild, Arg.Any<CancellationToken>()).Returns("en");
@@ -150,6 +150,44 @@ public sealed class InfoMapServiceTests
         await service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
 
         await poster.DidNotReceiveWithAnyArgs().PostAsync(default, default!, default!, default);
+    }
+
+    [Fact]
+    public async Task Concurrent_calls_for_the_same_server_are_serialized_and_post_once()
+    {
+        // The connection-status loop and the tick loop both call EnsureInfoMapAsync for the same
+        // server. Without per-server serialization their delete-then-repost interleaves and leaves
+        // TWO #info messages (the fallback and the RustMaps render each survive the other's delete
+        // scan). Serialized, the second caller sees the first's posted state and is a no-op.
+        var poster = new GatedPoster();
+        var (service, coordinator, _, _) = Build(poster: poster);
+        coordinator.SetReady(Key, new RustMapsReadyMap([9, 9, 9], "https://rustmaps/x"));
+
+        var first = service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
+        var second = service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
+
+        await poster.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); // first call is inside PostAsync
+        await Task.Delay(100); // give the second call ample time to (try to) enter PostAsync
+        Assert.Equal(1, poster.Calls); // serialized: the second call is blocked, not inside PostAsync
+
+        poster.Release.SetResult();
+        await Task.WhenAll(first, second);
+        Assert.Equal(1, poster.Calls); // the second call saw the Ready state already posted → no-op
+    }
+
+    private sealed class GatedPoster : IInfoMapPoster
+    {
+        private int _calls;
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int Calls => Volatile.Read(ref _calls);
+
+        public async Task PostAsync(ulong channelId, Embed embed, byte[] pngBytes, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _calls);
+            Entered.TrySetResult();
+            await Release.Task.ConfigureAwait(false);
+        }
     }
 
     private sealed class FakeBaseMapSource(BaseMapImage image) : IBaseMapSource

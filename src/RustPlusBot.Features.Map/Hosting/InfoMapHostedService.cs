@@ -50,6 +50,12 @@ internal sealed partial class InfoMapHostedService(
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), byte> _connected = new();
     private readonly CancellationTokenSource _cts = new();
 
+    /// <summary>
+    /// Serializes the two callers (connection-status loop + tick loop) per server so their
+    /// delete-then-repost cannot interleave and leave two #info map messages.
+    /// </summary>
+    private readonly ConcurrentDictionary<(ulong Guild, Guid Server), SemaphoreSlim> _gates = new();
+
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Posted> _posted = new();
     private Task? _statusLoop;
     private Task? _tickLoop;
@@ -93,6 +99,24 @@ internal sealed partial class InfoMapHostedService(
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the check (and any post) is done.</returns>
     public async Task EnsureInfoMapAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    {
+        // Both the connection-status loop and the periodic tick loop call this for the same server.
+        // Serialize per server: otherwise the fallback post and the RustMaps-ready post run their
+        // delete-prior-image scans concurrently, each misses the other's not-yet-committed message,
+        // and both survive — leaving two #info map messages.
+        var gate = _gates.GetOrAdd((guildId, serverId), static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await EnsureInfoMapCoreAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task EnsureInfoMapCoreAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
     {
         var world = await query.GetWorldAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         if (world is null)
