@@ -540,9 +540,6 @@
   <data name="map.control.header" xml:space="preserve">
     <value>Calques de la carte — activer/désactiver :</value>
   </data>
-  <data name="map.info.generating" xml:space="preserve">
-    <value>Rendu RustMaps haute qualité en cours de génération…</value>
-  </data>
   <data name="map.info.seed" xml:space="preserve">
     <value>Seed</value>
   </data>

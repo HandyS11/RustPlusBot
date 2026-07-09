@@ -64,24 +64,27 @@ public sealed class ServerInfoMapMessageRendererTests
     }
 
     [Fact]
-    public async Task No_readModel_configured_still_returns_a_non_empty_embed_with_the_generating_footer()
+    public async Task No_readModel_configured_renders_empty_payload()
     {
-        // IInfoMapReadModel is only registered when a RustMaps API key is configured — the renderer must
-        // still be usable (and non-empty, so the reconciler doesn't skip it) with the optional dependency unset.
+        // IInfoMapReadModel is only registered when a RustMaps API key is configured. With no render source
+        // there is nothing to show, so the renderer returns an empty payload and the reconciler leaves the
+        // channel untouched (rather than overwriting an existing map message with a placeholder).
         var serverId = Guid.NewGuid();
         var query = QueryWithWorld(1, serverId);
         var renderer = new ServerInfoMapMessageRenderer(query, Loc);
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
-        Assert.NotNull(payload.Embed);
-        Assert.Null(payload.Embed!.Image);
-        Assert.Equal(Loc.Get("map.info.generating", "en"), payload.Embed.Footer!.Value.Text);
+        Assert.Null(payload.Text);
+        Assert.Null(payload.Embed);
+        Assert.Null(payload.Components);
     }
 
     [Fact]
-    public async Task Not_ready_yet_shows_the_generating_footer()
+    public async Task Not_ready_yet_renders_empty_payload()
     {
+        // Until the RustMaps render is ready the renderer returns nothing, so the reconciler preserves any
+        // existing map message (with its last image) instead of flickering to a placeholder on every boot.
         var serverId = Guid.NewGuid();
         var query = QueryWithWorld(1, serverId);
         var readModel = Substitute.For<IInfoMapReadModel>();
@@ -90,15 +93,15 @@ public sealed class ServerInfoMapMessageRendererTests
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
-        Assert.NotNull(payload.Embed);
-        Assert.Equal(Loc.Get("map.info.generating", "en"), payload.Embed!.Footer!.Value.Text);
+        Assert.Null(payload.Text);
+        Assert.Null(payload.Embed);
+        Assert.Null(payload.Components);
     }
 
     [Fact]
-    public async Task No_world_yet_still_returns_a_non_empty_embed_so_the_reconciler_does_not_skip_it()
+    public async Task No_world_yet_renders_empty_payload()
     {
-        // Ordering caveat: the reconciler skips an empty payload, which would let ServerInfo claim the
-        // top slot. This message must be non-empty even before the world snapshot is available.
+        // No world snapshot means the map key is unknown and nothing can be ready — empty payload, no post.
         var serverId = Guid.NewGuid();
         var query = Substitute.For<IRustServerQuery>();
         query.GetWorldAsync(1, serverId, Arg.Any<CancellationToken>()).Returns((WorldSnapshot?)null);
@@ -106,16 +109,19 @@ public sealed class ServerInfoMapMessageRendererTests
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
-        Assert.NotNull(payload.Embed);
-        Assert.Empty(payload.Embed!.Fields);
+        Assert.Null(payload.Text);
+        Assert.Null(payload.Embed);
+        Assert.Null(payload.Components);
     }
 
     [Fact]
-    public async Task World_present_shows_size_and_seed_fields()
+    public async Task Ready_view_shows_size_and_seed_fields()
     {
         var serverId = Guid.NewGuid();
         var query = QueryWithWorld(1, serverId);
-        var renderer = new ServerInfoMapMessageRenderer(query, Loc);
+        var readModel = Substitute.For<IInfoMapReadModel>();
+        readModel.GetReady(4000, 12345).Returns(new InfoMapView("https://img/icons.png", null));
+        var renderer = new ServerInfoMapMessageRenderer(query, Loc, readModel);
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
