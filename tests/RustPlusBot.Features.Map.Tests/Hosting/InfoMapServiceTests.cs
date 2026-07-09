@@ -102,7 +102,7 @@ public sealed class InfoMapServiceTests
         await service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
         await service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
 
-        await poster.Received(1).PostAsync(123UL, Arg.Any<Embed>(),
+        await poster.Received(1).UpsertAsync(123UL, Arg.Any<ulong?>(), Arg.Any<Embed>(),
             Arg.Is<byte[]>(b => b.SequenceEqual(readyBytes)), Arg.Any<CancellationToken>());
     }
 
@@ -116,7 +116,8 @@ public sealed class InfoMapServiceTests
 
         // Idle for the whole test — no generation was ever advanced.
         Assert.Equal(RustMapsGenerationState.Idle, coordinator.Snapshot(Key).State);
-        await poster.Received(1).PostAsync(123UL, Arg.Any<Embed>(), Arg.Any<byte[]>(), Arg.Any<CancellationToken>());
+        await poster.Received(1)
+            .UpsertAsync(123UL, Arg.Any<ulong?>(), Arg.Any<Embed>(), Arg.Any<byte[]>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -126,7 +127,7 @@ public sealed class InfoMapServiceTests
 
         await service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
 
-        await poster.DidNotReceiveWithAnyArgs().PostAsync(default, default!, default!, default);
+        await poster.DidNotReceiveWithAnyArgs().UpsertAsync(default, default, default!, default!, default);
     }
 
     [Fact]
@@ -138,7 +139,7 @@ public sealed class InfoMapServiceTests
 
         Assert.Empty(coordinator.PendingKeys());
         Assert.Empty(coordinator.Requesters(Key));
-        await poster.DidNotReceiveWithAnyArgs().PostAsync(default, default!, default!, default);
+        await poster.DidNotReceiveWithAnyArgs().UpsertAsync(default, default, default!, default!, default);
     }
 
     [Fact]
@@ -149,7 +150,7 @@ public sealed class InfoMapServiceTests
 
         await service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
 
-        await poster.DidNotReceiveWithAnyArgs().PostAsync(default, default!, default!, default);
+        await poster.DidNotReceiveWithAnyArgs().UpsertAsync(default, default, default!, default!, default);
     }
 
     [Fact]
@@ -166,9 +167,9 @@ public sealed class InfoMapServiceTests
         var first = service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
         var second = service.EnsureInfoMapAsync(Guild, Server, CancellationToken.None);
 
-        await poster.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); // first call is inside PostAsync
-        await Task.Delay(100); // give the second call ample time to (try to) enter PostAsync
-        Assert.Equal(1, poster.Calls); // serialized: the second call is blocked, not inside PostAsync
+        await poster.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); // first call is inside UpsertAsync
+        await Task.Delay(100); // give the second call ample time to (try to) enter UpsertAsync
+        Assert.Equal(1, poster.Calls); // serialized: the second call is blocked, not inside UpsertAsync
 
         poster.Release.SetResult();
         await Task.WhenAll(first, second);
@@ -182,11 +183,16 @@ public sealed class InfoMapServiceTests
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int Calls => Volatile.Read(ref _calls);
 
-        public async Task PostAsync(ulong channelId, Embed embed, byte[] pngBytes, CancellationToken cancellationToken)
+        public async Task<ulong?> UpsertAsync(ulong channelId,
+            ulong? existingMessageId,
+            Embed embed,
+            byte[] pngBytes,
+            CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref _calls);
             Entered.TrySetResult();
             await Release.Task.ConfigureAwait(false);
+            return 555UL;
         }
     }
 

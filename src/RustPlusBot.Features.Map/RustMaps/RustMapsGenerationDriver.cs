@@ -129,7 +129,10 @@ public sealed partial class RustMapsGenerationDriver(
     private async Task SetReadyAsync(RustMapsMapKey key, MapInfo info, CancellationToken cancellationToken)
     {
         var http = httpClientFactory.CreateClient(HttpClientName);
-        var bytes = await http.GetByteArrayAsync(new Uri(info.ImageUrl!), cancellationToken).ConfigureAwait(false);
+        // ImageIconUrl (map_icons.png) is the render WITH monument icon markers; ImageUrl
+        // (map_raw_normalized.png) is plain terrain with no markers. Prefer the iconned one.
+        var imageUrl = info.ImageIconUrl ?? info.ImageUrl;
+        var bytes = await http.GetByteArrayAsync(new Uri(imageUrl!), cancellationToken).ConfigureAwait(false);
         coordinator.SetReady(key, new RustMapsReadyMap(bytes, info.Url));
     }
 

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace RustPlusBot.Features.Map.Posting;
 
-/// <summary>Posts the static map image to #info by deleting the bot's prior image post and reposting. Untested integration shim.</summary>
+/// <summary>Maintains the single #info map message, editing it in place so the channel never shows two. Untested integration shim.</summary>
 /// <param name="client">The Discord socket client.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class DiscordInfoMapPoster(
@@ -14,21 +14,34 @@ internal sealed partial class DiscordInfoMapPoster(
     private const int RecentMessageScan = 10;
 
     /// <inheritdoc />
-    public async Task PostAsync(ulong channelId, Embed embed, byte[] pngBytes, CancellationToken cancellationToken)
+    public async Task<ulong?> UpsertAsync(ulong channelId,
+        ulong? existingMessageId,
+        Embed embed,
+        byte[] pngBytes,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(embed);
         ArgumentNullException.ThrowIfNull(pngBytes);
+        var options = new RequestOptions
+        {
+            CancelToken = cancellationToken
+        };
         try
         {
-            var options = new RequestOptions
-            {
-                CancelToken = cancellationToken
-            };
             if (await client.GetChannelAsync(channelId, options).ConfigureAwait(false) is not ITextChannel channel)
             {
-                return;
+                return existingMessageId;
             }
 
+            // Edit the one existing message in place — no delete+repost, so the channel never flashes two.
+            if (existingMessageId is { } id
+                && await TryEditAsync(channel, id, embed, pngBytes, options).ConfigureAwait(false))
+            {
+                return id;
+            }
+
+            // No live message to edit (first post, or it was deleted, or the edit failed): sweep any stray
+            // prior map posts, then post a single fresh message and track its id.
             try
             {
                 await DeletePriorBotMessagesAsync(channel, options).ConfigureAwait(false);
@@ -47,8 +60,9 @@ internal sealed partial class DiscordInfoMapPoster(
             var stream = new MemoryStream(pngBytes);
             await using (stream.ConfigureAwait(false))
             {
-                await channel.SendFileAsync(stream, "map.png", embed: embed, options: options,
+                var posted = await channel.SendFileAsync(stream, "map.png", embed: embed, options: options,
                     allowedMentions: AllowedMentions.None).ConfigureAwait(false);
+                return posted.Id;
             }
         }
         catch (OperationCanceledException)
@@ -60,6 +74,50 @@ internal sealed partial class DiscordInfoMapPoster(
 #pragma warning restore CA1031
         {
             LogPostFailed(logger, ex, channelId);
+            return existingMessageId;
+        }
+    }
+
+    private async Task<bool> TryEditAsync(ITextChannel channel,
+        ulong messageId,
+        Embed embed,
+        byte[] pngBytes,
+        RequestOptions options)
+    {
+        try
+        {
+            if (await channel.GetMessageAsync(messageId, options: options).ConfigureAwait(false)
+                    is not IUserMessage existing
+                || existing.Author.Id != client.CurrentUser.Id)
+            {
+                return false; // gone or not ours — fall back to a fresh post.
+            }
+
+            var stream = new MemoryStream(pngBytes);
+            await using (stream.ConfigureAwait(false))
+            {
+                await existing.ModifyAsync(m =>
+                {
+                    m.Embed = embed;
+                    m.Attachments = new[]
+                    {
+                        new FileAttachment(stream, "map.png")
+                    };
+                }, options).ConfigureAwait(false);
+            }
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: an edit failure falls back to a fresh post below.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogEditFailed(logger, ex, channel.Id);
+            return false;
         }
     }
 
@@ -77,6 +135,10 @@ internal sealed partial class DiscordInfoMapPoster(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Posting the #info map image to channel {ChannelId} failed.")]
     private static partial void LogPostFailed(ILogger logger, Exception exception, ulong channelId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Editing the #info map message in channel {ChannelId} failed; reposting instead.")]
+    private static partial void LogEditFailed(ILogger logger, Exception exception, ulong channelId);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Deleting prior #info map messages in channel {ChannelId} failed; reposting anyway.")]

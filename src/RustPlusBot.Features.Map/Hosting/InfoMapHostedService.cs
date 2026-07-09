@@ -56,6 +56,9 @@ internal sealed partial class InfoMapHostedService(
     /// </summary>
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), SemaphoreSlim> _gates = new();
 
+    /// <summary>The id of each server's single #info map message, so it is edited in place, never duplicated.</summary>
+    private readonly ConcurrentDictionary<(ulong Guild, Guid Server), ulong> _messageIds = new();
+
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Posted> _posted = new();
     private Task? _statusLoop;
     private Task? _tickLoop;
@@ -144,8 +147,8 @@ internal sealed partial class InfoMapHostedService(
             }
 
             var culture = await GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
-            await poster.PostAsync(id, BuildEmbed(key, ready.RustMapsUrl, culture), ready.ImageBytes, cancellationToken)
-                .ConfigureAwait(false);
+            await UpsertAsync(mapKey, id, BuildEmbed(key, ready.RustMapsUrl, culture), ready.ImageBytes,
+                cancellationToken).ConfigureAwait(false);
             _posted[mapKey] = Posted.Ready;
             return;
         }
@@ -162,9 +165,24 @@ internal sealed partial class InfoMapHostedService(
         }
 
         var fallbackCulture = await GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
-        await poster.PostAsync(id, BuildEmbed(key, rustMapsUrl: null, fallbackCulture), png, cancellationToken)
+        await UpsertAsync(mapKey, id, BuildEmbed(key, rustMapsUrl: null, fallbackCulture), png, cancellationToken)
             .ConfigureAwait(false);
         _posted[mapKey] = Posted.Fallback;
+    }
+
+    private async Task UpsertAsync((ulong Guild, Guid Server) mapKey,
+        ulong channelId,
+        Embed embed,
+        byte[] pngBytes,
+        CancellationToken cancellationToken)
+    {
+        var existing = _messageIds.TryGetValue(mapKey, out var tracked) ? tracked : (ulong?)null;
+        var messageId = await poster.UpsertAsync(channelId, existing, embed, pngBytes, cancellationToken)
+            .ConfigureAwait(false);
+        if (messageId is { } id)
+        {
+            _messageIds[mapKey] = id;
+        }
     }
 
     private Embed BuildEmbed(RustMapsMapKey key, string? rustMapsUrl, string culture)

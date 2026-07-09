@@ -47,6 +47,31 @@ public sealed class RustMapsGenerationDriverTests
     }
 
     [Fact]
+    public async Task Ready_downloads_the_icon_render_not_the_plain_terrain_one()
+    {
+        // ImageIconUrl (map_icons.png) carries the monument markers; ImageUrl (map_raw_normalized.png)
+        // is plain terrain. The driver must download the iconned render.
+        var capture = new CapturingHandler();
+        var client = Substitute.For<IRustMapsClient>();
+        var coord = new RustMapsMapCoordinator();
+        var driver = new RustMapsGenerationDriver(client, coord, new StubFactory(capture),
+            NullLogger<RustMapsGenerationDriver>.Instance);
+        coord.Register(Key, 1UL, Server);
+        client.GetMapBySeedAndSizeAsync(4000, 12345, false, Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Success(
+                new MapInfo
+                {
+                    ImageUrl = "https://img/plain.png",
+                    ImageIconUrl = "https://img/icons.png",
+                    Url = "https://rustmaps/x"
+                }, 200));
+
+        await driver.AdvanceAsync(Key, CancellationToken.None);
+
+        Assert.Equal("https://img/icons.png", capture.LastUri?.ToString());
+    }
+
+    [Fact]
     public async Task NotFound_with_budget_generates_exactly_once_across_ticks()
     {
         var (driver, client, coord) = Build();
@@ -173,5 +198,21 @@ public sealed class RustMapsGenerationDriverTests
     private sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        public Uri? LastUri { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            LastUri = request.RequestUri;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent([7, 7, 7])
+            });
+        }
     }
 }
