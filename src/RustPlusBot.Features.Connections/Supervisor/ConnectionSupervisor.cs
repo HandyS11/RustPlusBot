@@ -875,7 +875,7 @@ internal sealed partial class ConnectionSupervisor(
             {
                 RigKind? kind = m.Token switch
                 {
-                    "oilrig_1" => RigKind.Small,
+                    "oil_rig_small" => RigKind.Small,
                     "large_oil_rig" => RigKind.Large,
                     _ => null,
                 };

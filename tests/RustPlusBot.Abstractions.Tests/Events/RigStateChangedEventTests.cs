@@ -25,8 +25,8 @@ public sealed class RigStateChangedEventTests
     [Fact]
     public void Monument_snapshot_carries_token_and_position()
     {
-        var m = new MonumentSnapshot("oilrig_1", 10f, 20f);
-        Assert.Equal("oilrig_1", m.Token);
+        var m = new MonumentSnapshot("oil_rig_small", 10f, 20f);
+        Assert.Equal("oil_rig_small", m.Token);
         Assert.Equal(10f, m.X);
         Assert.Equal(20f, m.Y);
     }

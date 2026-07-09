@@ -19,7 +19,7 @@ public static class MonumentIconMap
         ["harbor_2_display_name"] = "harbour2",
         ["junkyard_display_name"] = "junkyard",
         ["large_oil_rig"] = "largeoilrig",
-        ["oilrig_1"] = "oilrig",
+        ["oil_rig_small"] = "oilrig",
         ["launchsite"] = "launchsite",
         ["lighthouse_display_name"] = "lighthouse",
         ["military_tunnels_display_name"] = "militarytunnel",

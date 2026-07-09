@@ -608,7 +608,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
             // CONFIRMED (2.0.0-beta.1): GetMapAsync returns Task<Response<RustPlusApi.Data.ServerMap>>.
-            // ServerMap.Monuments is List<ServerMapMonument> with Name (= protobuf token, e.g. "oilrig_1"),
+            // ServerMap.Monuments is List<ServerMapMonument> with Name (= protobuf token, e.g. "oil_rig_small"),
             // Nullable<float> X/Y. We surface (token, x, y) and skip monuments with incomplete coordinates.
             var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
                 .ConfigureAwait(false);

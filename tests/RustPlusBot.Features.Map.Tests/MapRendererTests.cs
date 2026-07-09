@@ -118,7 +118,7 @@ public sealed class MapRendererTests
         var without = renderer.Render(baseJpeg, projection, [], [], [], [],
             new MapLayerSet(false, false, false, false, false, false));
         var with = renderer.Render(baseJpeg, projection, [],
-            [new MonumentPlacement("oilrig_1", px, py)], [], [],
+            [new MonumentPlacement("oil_rig_small", px, py)], [], [],
             new MapLayerSet(false, false, true, false, false, false));
 
         var bounds = ChangedPixelBounds(without, with);

@@ -192,7 +192,7 @@ public sealed class MapComposer(
             {
                 RigKind? kind = mon.Token switch
                 {
-                    "oilrig_1" => RigKind.Small,
+                    "oil_rig_small" => RigKind.Small,
                     "large_oil_rig" => RigKind.Large,
                     _ => null,
                 };

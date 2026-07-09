@@ -557,7 +557,7 @@ public sealed class ConnectionSupervisorTests
         var source = new FakeRustSocketSource();
         source.EnqueueConnect(SocketConnectOutcome.Connected);
         source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
-        source.SetMonuments([new MonumentSnapshot("oilrig_1", 1000f, 1000f)]);
+        source.SetMonuments([new MonumentSnapshot("oil_rig_small", 1000f, 1000f)]);
         source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 0f, 0f, null)]); // poll 1: far
         source.EnqueueMarkers([
             new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 1010f, 1010f, null)
@@ -613,7 +613,7 @@ public sealed class ConnectionSupervisorTests
         var source = new FakeRustSocketSource();
         source.EnqueueConnect(SocketConnectOutcome.Connected);
         source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
-        source.SetMonuments([new MonumentSnapshot("oilrig_1", 1000f, 1000f)]);
+        source.SetMonuments([new MonumentSnapshot("oil_rig_small", 1000f, 1000f)]);
         source.EnqueueMarkers([]); // poll 1: baseline
         source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 0f, 0f, null)]); // poll 2: CH47 far
         source.EnqueueMarkers([]); // poll 3: gone

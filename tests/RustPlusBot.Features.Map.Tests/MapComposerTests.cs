@@ -144,7 +144,7 @@ public sealed class MapComposerTests
         // A store with no row returns AllOn (its documented default) -> every gather path runs.
         var query = NewQuery();
         query.GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns([new MonumentSnapshot("oilrig_1", 2000f, 2000f)]);
+            .Returns([new MonumentSnapshot("oil_rig_small", 2000f, 2000f)]);
         query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>())
             .Returns(new TeamInfoSnapshot(0,
                 [new TeamMemberSnapshot(1, "Ada", 2000f, 2000f, true, true, default, default)]));

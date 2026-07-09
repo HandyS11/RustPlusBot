@@ -24,7 +24,7 @@ public sealed class MapIconsTests
     [Fact]
     public void MonumentIconMap_maps_rig_tokens_to_icons()
     {
-        Assert.Equal("oilrig", MonumentIconMap.IconKeyFor("oilrig_1"));
+        Assert.Equal("oilrig", MonumentIconMap.IconKeyFor("oil_rig_small"));
         Assert.Equal("largeoilrig", MonumentIconMap.IconKeyFor("large_oil_rig"));
     }
 
@@ -51,8 +51,8 @@ public sealed class MapIconsTests
     [Fact]
     public void Sized_monument_icon_is_scaled_down_from_native()
     {
-        var native = MapIcons.Monument("oilrig_1"); // 875x875 native
-        var sized = MapIcons.Monument("oilrig_1", 30);
+        var native = MapIcons.Monument("oil_rig_small"); // 875x875 native
+        var sized = MapIcons.Monument("oil_rig_small", 30);
 
         Assert.NotNull(native);
         Assert.NotNull(sized);
