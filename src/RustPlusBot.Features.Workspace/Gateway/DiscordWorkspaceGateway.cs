@@ -1,4 +1,5 @@
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 using RustPlusBot.Features.Workspace.Registry;
 
@@ -136,6 +137,28 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
             props.Embed = payload.Embed;
             props.Components = payload.Components;
         }).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteMessageAsync(ulong guildId,
+        ulong channelId,
+        ulong messageId,
+        CancellationToken cancellationToken)
+    {
+        var channel = client.GetGuild(guildId)?.GetTextChannel(channelId);
+        if (channel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await channel.DeleteMessageAsync(messageId).ConfigureAwait(false);
+        }
+        catch (HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // Already gone: best-effort delete succeeds trivially.
+        }
     }
 
     /// <inheritdoc />

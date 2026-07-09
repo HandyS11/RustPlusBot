@@ -9,7 +9,9 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
 {
     private readonly ConcurrentDictionary<ulong, Category> _categories = new();
     private readonly ConcurrentDictionary<ulong, Channel> _channels = new();
+    private readonly List<ulong> _deletedMessageIds = [];
     private readonly ConcurrentDictionary<ulong, Message> _messages = new();
+    private readonly List<MessagePayload> _postedPayloads = [];
     private ulong _nextId = 1000;
 
     public IReadOnlyList<string> MissingPermissions { get; set; } = [];
@@ -19,6 +21,12 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     public int EditedMessages { get; private set; }
     public IReadOnlyCollection<ulong> ChannelIds => [.. _channels.Keys];
     public IReadOnlyCollection<ulong> CategoryIds => [.. _categories.Keys];
+
+    /// <summary>Snowflakes deleted via <see cref="DeleteMessageAsync"/>, in call order.</summary>
+    public IReadOnlyList<ulong> DeletedMessageIds => _deletedMessageIds;
+
+    /// <summary>Payloads posted via <see cref="PostMessageAsync"/>, in call order.</summary>
+    public IReadOnlyList<MessagePayload> PostedPayloads => _postedPayloads;
 
     public bool CategoryExists(ulong guildId, ulong categoryId) => _categories.ContainsKey(categoryId);
 
@@ -86,6 +94,7 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         var id = NextId();
         _messages[id] = new Message(id, channelId, payload);
         PostedMessages++;
+        _postedPayloads.Add(payload);
         return Task.FromResult(id);
     }
 
@@ -97,6 +106,13 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     {
         _messages[messageId] = new Message(messageId, channelId, payload);
         EditedMessages++;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteMessageAsync(ulong guildId, ulong channelId, ulong messageId, CancellationToken cancellationToken)
+    {
+        _messages.TryRemove(messageId, out _);
+        _deletedMessageIds.Add(messageId);
         return Task.CompletedTask;
     }
 

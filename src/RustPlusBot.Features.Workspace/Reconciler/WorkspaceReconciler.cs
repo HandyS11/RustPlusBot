@@ -235,60 +235,93 @@ internal sealed class WorkspaceReconciler(
         WorkspaceScope scope,
         CancellationToken cancellationToken)
     {
-        foreach (var spec in backends.Registry.GetMessageSpecs(scope))
+        var specsByChannel = backends.Registry.GetMessageSpecs(scope)
+            .Where(s => channelIds.ContainsKey(s.ChannelKey) && _renderers.ContainsKey(s.Key))
+            .GroupBy(s => s.ChannelKey, StringComparer.Ordinal);
+
+        foreach (var group in specsByChannel)
         {
-            if (!channelIds.TryGetValue(spec.ChannelKey, out var channelId) ||
-                !_renderers.TryGetValue(spec.Key, out var renderer))
+            var channelId = channelIds[group.Key];
+            var items = new List<MessageItem>();
+
+            foreach (var spec in group)
             {
-                continue;
-            }
-
-            var payload = await renderer
-                .RenderAsync(new MessageRenderContext(guildId, serverId, culture), cancellationToken)
-                .ConfigureAwait(false);
-
-            // A renderer with nothing to show (e.g. the source entity vanished mid-reconcile) returns an
-            // empty payload; Discord rejects a message with no content/embed/components, so skip it.
-            if (payload.Text is null && payload.Embed is null && payload.Components is null)
-            {
-                continue;
-            }
-
-            var record = await backends.Store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken)
-                .ConfigureAwait(false);
-
-            var canEditInPlace = record is not null
-                                 && record.DiscordChannelId == channelId
-                                 && await backends.Gateway
-                                     .MessageExistsAsync(guildId, channelId, record.DiscordMessageId, cancellationToken)
-                                     .ConfigureAwait(false);
-
-            if (canEditInPlace)
-            {
-                await backends.Gateway.EditMessageAsync(guildId, channelId, record!.DiscordMessageId, payload,
-                        cancellationToken)
+                var payload = await _renderers[spec.Key]
+                    .RenderAsync(new MessageRenderContext(guildId, serverId, culture), cancellationToken)
                     .ConfigureAwait(false);
+
+                // A renderer with nothing to show (e.g. the source entity vanished mid-reconcile) returns an
+                // empty payload; Discord rejects a message with no content/embed/components, so skip it.
+                var isEmpty = payload.Text is null && payload.Embed is null && payload.Components is null;
+
+                ulong? liveId = null;
+                if (!isEmpty)
+                {
+                    var record = await backends.Store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (record is not null
+                        && record.DiscordChannelId == channelId
+                        && await backends.Gateway
+                            .MessageExistsAsync(guildId, channelId, record.DiscordMessageId, cancellationToken)
+                            .ConfigureAwait(false))
+                    {
+                        liveId = record.DiscordMessageId;
+                    }
+                }
+
+                items.Add(new MessageItem(spec, payload, isEmpty, liveId));
+            }
+
+            // Discord orders messages by creation time. If an earlier-declared message still needs to be
+            // posted while a later-declared one is already live, the channel would render out of spec
+            // order. Delete the live messages after that first to-post one so they re-post fresh, below
+            // it, in declaration order. Live messages before it already sit in their correct earlier
+            // position and are left untouched.
+            var firstToPost = items.FindIndex(i => !i.IsEmpty && i.LiveId is null);
+            if (firstToPost >= 0)
+            {
+                for (var k = firstToPost + 1; k < items.Count; k++)
+                {
+                    if (items[k].LiveId is { } staleId)
+                    {
+                        await backends.Gateway.DeleteMessageAsync(guildId, channelId, staleId, cancellationToken)
+                            .ConfigureAwait(false);
+                        items[k] = items[k] with
+                        {
+                            LiveId = null
+                        };
+                    }
+                }
+            }
+
+            foreach (var item in items)
+            {
+                if (item.IsEmpty)
+                {
+                    continue;
+                }
+
+                ulong messageId;
+                if (item.LiveId is { } liveId)
+                {
+                    await backends.Gateway
+                        .EditMessageAsync(guildId, channelId, liveId, item.Payload, cancellationToken)
+                        .ConfigureAwait(false);
+                    messageId = liveId;
+                }
+                else
+                {
+                    messageId = await backends.Gateway
+                        .PostMessageAsync(guildId, channelId, item.Payload, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
                 await backends.Store.SaveMessageAsync(
                     new ProvisionedMessage
                     {
                         GuildId = guildId,
                         RustServerId = serverId,
-                        MessageKey = spec.Key,
-                        DiscordChannelId = channelId,
-                        DiscordMessageId = record.DiscordMessageId
-                    },
-                    cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                var messageId = await backends.Gateway.PostMessageAsync(guildId, channelId, payload, cancellationToken)
-                    .ConfigureAwait(false);
-                await backends.Store.SaveMessageAsync(
-                    new ProvisionedMessage
-                    {
-                        GuildId = guildId,
-                        RustServerId = serverId,
-                        MessageKey = spec.Key,
+                        MessageKey = item.Spec.Key,
                         DiscordChannelId = channelId,
                         DiscordMessageId = messageId
                     },
@@ -296,4 +329,11 @@ internal sealed class WorkspaceReconciler(
             }
         }
     }
+
+    /// <summary>A rendered message spec paired with its current live materialization, if any.</summary>
+    /// <param name="Spec">The declared message spec.</param>
+    /// <param name="Payload">The freshly rendered content.</param>
+    /// <param name="IsEmpty">True if the renderer had nothing to show (skipped entirely).</param>
+    /// <param name="LiveId">The snowflake of the currently-live message, or null if it must be posted.</param>
+    private sealed record MessageItem(MessageSpec Spec, MessagePayload Payload, bool IsEmpty, ulong? LiveId);
 }

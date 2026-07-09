@@ -77,6 +77,13 @@ internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
         return this;
     }
 
+    public ReconcilerBuilderReusing WithMessage(WorkspaceScope scope, string key, string channelKey, string text)
+    {
+        _messageProviders.Add(new ListMessageProvider([new MessageSpec(scope, key, channelKey)]));
+        _renderers.Add(new ListMessageRenderer(key, text));
+        return this;
+    }
+
     public WorkspaceReconciler Build() => new(
         new WorkspaceBackends(new WorkspaceRegistry(_channelProviders, _messageProviders), source.Gateway,
             source.Store),
@@ -87,5 +94,19 @@ internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
     private sealed class ListChannelProvider(IEnumerable<ChannelSpec> specs) : IChannelSpecProvider
     {
         public IEnumerable<ChannelSpec> GetChannelSpecs() => specs;
+    }
+
+    private sealed class ListMessageProvider(IEnumerable<MessageSpec> specs) : IMessageSpecProvider
+    {
+        public IEnumerable<MessageSpec> GetMessageSpecs() => specs;
+    }
+
+    private sealed class ListMessageRenderer(string key, string text) : IMessageRenderer
+    {
+        public string MessageKey { get; } = key;
+
+        public ValueTask<MessagePayload>
+            RenderAsync(MessageRenderContext context, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new MessagePayload(text, null, null));
     }
 }
