@@ -117,10 +117,10 @@ public sealed class MapRenderer
         var cells = MapGrid.CellCount(projection.WorldSize);
 
         // The lattice is anchored at the west edge and at the style's row anchor (the world's north
-        // edge for the in-game style; 100 game-units south of it for Rust+/RustMaps), and spans the
-        // whole image, ocean margin included — exactly how those maps draw it. The partial edge cell
-        // sits at the south/east and simply bleeds past the world edge, so every rendered cell looks
-        // full-size.
+        // edge for the in-game style; 100 game-units south of it for Rust+/RustMaps), and is clipped
+        // to the LABELLED cell block only (A0 … the last ceil-count cell) — no lines out over the
+        // ocean margin. The partial edge cell sits at the south/east and simply bleeds past the world
+        // edge, so every rendered cell looks full-size.
         var anchorWorldY = projection.WorldSize - MapGrid.RowInset(gridStyle);
         var (anchorX, anchorY) = projection.ToPixel(0f, anchorWorldY);
         var (cellEndX, cellEndY) = projection.ToPixel(MapGrid.CellSize, anchorWorldY - MapGrid.CellSize);
@@ -131,22 +131,21 @@ public sealed class MapRenderer
             return; // Degenerate projection (no drawable world area).
         }
 
+        var right = anchorX + (cells * stepX);
+        var bottom = anchorY + (cells * stepY);
+
         image.Mutate(ctx =>
         {
-            for (var k = (int)MathF.Ceiling(-anchorX / stepX); anchorX + (k * stepX) <= image.Width; k++)
+            for (var k = 0; k <= cells; k++)
             {
                 var x = anchorX + (k * stepX);
-                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(x, 0f), new PointF(x, image.Height));
-            }
-
-            for (var k = (int)MathF.Ceiling(-anchorY / stepY); anchorY + (k * stepY) <= image.Height; k++)
-            {
+                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(x, anchorY), new PointF(x, bottom));
                 var y = anchorY + (k * stepY);
-                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(0f, y), new PointF(image.Width, y));
+                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(anchorX, y), new PointF(right, y));
             }
 
-            // Only the world's cells carry labels (A0 in the north-west corner), each just inside its
-            // cell's top-left corner (companion-app placement).
+            // Every labelled cell (A0 in the north-west corner), each label just inside its cell's
+            // top-left corner (companion-app placement).
             for (var col = 0; col < cells; col++)
             {
                 for (var row = 0; row < cells; row++)
