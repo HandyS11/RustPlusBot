@@ -1,11 +1,21 @@
 using System.Collections.Concurrent;
+using RustPlusBot.Abstractions.Map;
 
 namespace RustPlusBot.Features.Map.RustMaps;
 
-/// <inheritdoc />
-public sealed class RustMapsMapCoordinator : IRustMapsMapCoordinator
+/// <inheritdoc cref="IRustMapsMapCoordinator" />
+public sealed class RustMapsMapCoordinator : IRustMapsMapCoordinator, IInfoMapReadModel
 {
     private readonly ConcurrentDictionary<RustMapsMapKey, Entry> _byKey = new();
+
+    /// <inheritdoc />
+    public InfoMapView? GetReady(int size, int seed)
+    {
+        var snap = Snapshot(new RustMapsMapKey(size, seed));
+        return snap is { State: RustMapsGenerationState.Ready, Ready: { } r }
+            ? new InfoMapView(r.ImageUrl, r.RustMapsUrl)
+            : null;
+    }
 
     /// <inheritdoc />
     public void Register(RustMapsMapKey key, ulong guildId, Guid serverId)

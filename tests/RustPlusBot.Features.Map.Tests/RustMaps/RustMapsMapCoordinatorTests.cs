@@ -36,10 +36,10 @@ public sealed class RustMapsMapCoordinatorTests
         Assert.Equal(RustMapsGenerationState.Generating, c.Snapshot(Key).State);
         Assert.Equal("map-1", c.Snapshot(Key).MapId);
 
-        c.SetReady(Key, new RustMapsReadyMap([1, 2, 3], "https://rustmaps/x"));
+        c.SetReady(Key, new RustMapsReadyMap("https://img/x.png", "https://rustmaps/x"));
         var snap = c.Snapshot(Key);
         Assert.Equal(RustMapsGenerationState.Ready, snap.State);
-        Assert.Equal([1, 2, 3], snap.Ready!.ImageBytes);
+        Assert.Equal("https://img/x.png", snap.Ready!.ImageUrl);
         Assert.Equal("https://rustmaps/x", snap.Ready.RustMapsUrl);
     }
 
@@ -53,5 +53,37 @@ public sealed class RustMapsMapCoordinatorTests
 
         Assert.Equal(RustMapsGenerationState.Failed, c.Snapshot(Key).State);
         Assert.DoesNotContain(Key, c.PendingKeys());
+    }
+
+    [Fact]
+    public void GetReady_returns_the_view_when_ready()
+    {
+        var c = new RustMapsMapCoordinator();
+        c.Register(Key, 1UL, Server);
+        c.SetReady(Key, new RustMapsReadyMap("https://img/x.png", "https://rustmaps/x"));
+
+        var view = c.GetReady(Key.Size, Key.Seed);
+
+        Assert.NotNull(view);
+        Assert.Equal("https://img/x.png", view!.ImageUrl);
+        Assert.Equal("https://rustmaps/x", view.RustMapsPageUrl);
+    }
+
+    [Fact]
+    public void GetReady_returns_null_when_not_ready()
+    {
+        var c = new RustMapsMapCoordinator();
+        c.Register(Key, 1UL, Server);
+        c.TrySetGenerating(Key, "map-1");
+
+        Assert.Null(c.GetReady(Key.Size, Key.Seed));
+    }
+
+    [Fact]
+    public void GetReady_returns_null_for_an_unseen_key()
+    {
+        var c = new RustMapsMapCoordinator();
+
+        Assert.Null(c.GetReady(Key.Size, Key.Seed));
     }
 }

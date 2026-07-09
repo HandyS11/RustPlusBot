@@ -21,6 +21,7 @@ internal sealed class WorkspaceHostedService(
 {
     private readonly CancellationTokenSource _cts = new();
     private Task? _connectionStatusLoop;
+    private Task? _infoMapReadyLoop;
     private Task? _serverCredentialsLoop;
     private Task? _serverRegisteredLoop;
     private bool _startupDone;
@@ -36,6 +37,7 @@ internal sealed class WorkspaceHostedService(
         _serverRegisteredLoop = Task.Run(() => ConsumeServerRegisteredAsync(_cts.Token), CancellationToken.None);
         _connectionStatusLoop = Task.Run(() => ConsumeConnectionStatusAsync(_cts.Token), CancellationToken.None);
         _serverCredentialsLoop = Task.Run(() => ConsumeServerCredentialsAsync(_cts.Token), CancellationToken.None);
+        _infoMapReadyLoop = Task.Run(() => ConsumeInfoMapReadyAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
 
@@ -47,7 +49,7 @@ internal sealed class WorkspaceHostedService(
         await _cts.CancelAsync().ConfigureAwait(false);
         foreach (var loop in new[]
                  {
-                     _serverRegisteredLoop, _connectionStatusLoop, _serverCredentialsLoop
+                     _serverRegisteredLoop, _connectionStatusLoop, _serverCredentialsLoop, _infoMapReadyLoop
                  })
         {
             if (loop is null)
@@ -181,6 +183,34 @@ internal sealed class WorkspaceHostedService(
         catch (Exception ex) // Broad catch is intentional: a faulting consumer must not crash the host.
         {
             logger.LogError(ex, "ServerCredentialsChanged consumer faulted.");
+        }
+    }
+
+    private async Task ConsumeInfoMapReadyAsync(CancellationToken cancellationToken)
+    {
+        // If this loop faults (broad catch), the consumer exits permanently and the #info map message stops
+        // updating until the host restarts. Acceptable: the reconciler is idempotent and a restart heals.
+        try
+        {
+            await foreach (var ready in eventBus.SubscribeAsync<InfoMapReadyEvent>(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                var scope = scopeFactory.CreateAsyncScope();
+                await using (scope.ConfigureAwait(false))
+                {
+                    var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
+                    await reconciler.ReconcileServerAsync(ready.GuildId, ready.ServerId, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+        catch (Exception ex) // Broad catch is intentional: a faulting consumer must not crash the host.
+        {
+            logger.LogError(ex, "InfoMapReady consumer faulted.");
         }
     }
 

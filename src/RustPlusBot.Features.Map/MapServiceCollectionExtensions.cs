@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Map;
 using RustPlusBot.Features.Map.Composing;
 using RustPlusBot.Features.Map.Hosting;
 using RustPlusBot.Features.Map.Posting;
@@ -12,9 +13,10 @@ namespace RustPlusBot.Features.Map;
 public static class MapServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the renderer, base-map source chain, composer, poster, pipeline bundle, and hosted service.
+    /// Registers the renderer, base-map source chain, composer, pipeline bundle, and hosted service.
     /// When a RustMaps API key is configured, also registers the credit-safe generation coordinator/driver
-    /// and the #info poster + hosted service that auto-generates and posts the static RustMaps render.
+    /// and the hosted service that drives generation and publishes <see cref="InfoMapReadyEvent"/> so the
+    /// reconciled #info map message (in Features.Workspace) shows the RustMaps render.
     /// </summary>
     /// <param name="services">The service collection to add to.</param>
     /// <param name="configuration">The host configuration (reads Map:RustMaps:ApiKey).</param>
@@ -27,15 +29,17 @@ public static class MapServiceCollectionExtensions
         services.AddSingleton<MapRenderer>();
 
         // RustMaps is NOT a base-map source (the #map render draws its own layers on the Rust+ tile).
-        // The client drives the #info static-map surface: credit-safe generation + auto-post.
+        // The client drives the #info static-map surface: credit-safe generation, no posting here.
         var rustMapsKey = configuration["Map:RustMaps:ApiKey"];
         if (!string.IsNullOrWhiteSpace(rustMapsKey))
         {
             services.AddRustMapsClientV4(o => o.ApiKey = rustMapsKey);
-            services.AddHttpClient(RustMapsGenerationDriver.HttpClientName);
-            services.AddSingleton<IRustMapsMapCoordinator, RustMapsMapCoordinator>();
+            services.AddSingleton<RustMapsMapCoordinator>();
+            // IRustMapsMapCoordinator and IInfoMapReadModel resolve to the SAME singleton instance, so the
+            // driver's writes are visible to the Workspace renderer's reads.
+            services.AddSingleton<IRustMapsMapCoordinator>(sp => sp.GetRequiredService<RustMapsMapCoordinator>());
+            services.AddSingleton<IInfoMapReadModel>(sp => sp.GetRequiredService<RustMapsMapCoordinator>());
             services.AddSingleton<RustMapsGenerationDriver>();
-            services.AddSingleton<IInfoMapPoster, DiscordInfoMapPoster>();
             services.AddHostedService<InfoMapHostedService>();
         }
 

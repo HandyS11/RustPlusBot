@@ -46,6 +46,9 @@ internal static class WorkspaceMessageKeys
     /// <summary>Key for the main settings message.</summary>
     public const string SettingsMain = "settings.main";
 
+    /// <summary>Key for the per-server #info map message (reconciled RustMaps monument-icon render).</summary>
+    public const string ServerInfoMap = "server.info.map";
+
     /// <summary>Key for the per-server info message.</summary>
     public const string ServerInfo = "server.info";
 

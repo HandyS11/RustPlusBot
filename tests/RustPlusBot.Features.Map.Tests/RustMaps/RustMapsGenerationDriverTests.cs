@@ -1,4 +1,3 @@
-using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RustMapsApi.Results;
@@ -16,14 +15,11 @@ public sealed class RustMapsGenerationDriverTests
 
     private static RustMapsError Error(RustMapsErrorKind kind) => new(kind, null, null, null);
 
-    private static (RustMapsGenerationDriver Driver, IRustMapsClient Client, RustMapsMapCoordinator Coord) Build(
-        HttpStatusCode imageStatus = HttpStatusCode.OK)
+    private static (RustMapsGenerationDriver Driver, IRustMapsClient Client, RustMapsMapCoordinator Coord) Build()
     {
         var client = Substitute.For<IRustMapsClient>();
         var coord = new RustMapsMapCoordinator();
-        var factory = new StubFactory(new StubHandler(imageStatus, [7, 7, 7]));
-        var driver = new RustMapsGenerationDriver(client, coord, factory,
-            NullLogger<RustMapsGenerationDriver>.Instance);
+        var driver = new RustMapsGenerationDriver(client, coord, NullLogger<RustMapsGenerationDriver>.Instance);
         return (driver, client, coord);
     }
 
@@ -42,20 +38,16 @@ public sealed class RustMapsGenerationDriverTests
         await driver.AdvanceAsync(Key, CancellationToken.None);
 
         Assert.Equal(RustMapsGenerationState.Ready, coord.Snapshot(Key).State);
-        Assert.Equal([7, 7, 7], coord.Snapshot(Key).Ready!.ImageBytes);
+        Assert.Equal("https://img/x.png", coord.Snapshot(Key).Ready!.ImageUrl);
         await client.DidNotReceiveWithAnyArgs().CreateMapAsync(default!, default);
     }
 
     [Fact]
-    public async Task Ready_downloads_the_icon_render_not_the_plain_terrain_one()
+    public async Task Ready_prefers_the_icon_render_url_over_the_plain_terrain_one()
     {
         // ImageIconUrl (map_icons.png) carries the monument markers; ImageUrl (map_raw_normalized.png)
-        // is plain terrain. The driver must download the iconned render.
-        var capture = new CapturingHandler();
-        var client = Substitute.For<IRustMapsClient>();
-        var coord = new RustMapsMapCoordinator();
-        var driver = new RustMapsGenerationDriver(client, coord, new StubFactory(capture),
-            NullLogger<RustMapsGenerationDriver>.Instance);
+        // is plain terrain. The driver must store the iconned render's URL.
+        var (driver, client, coord) = Build();
         coord.Register(Key, 1UL, Server);
         client.GetMapBySeedAndSizeAsync(4000, 12345, false, Arg.Any<CancellationToken>())
             .Returns(Result<MapInfo>.Success(
@@ -68,7 +60,7 @@ public sealed class RustMapsGenerationDriverTests
 
         await driver.AdvanceAsync(Key, CancellationToken.None);
 
-        Assert.Equal("https://img/icons.png", capture.LastUri?.ToString());
+        Assert.Equal("https://img/icons.png", coord.Snapshot(Key).Ready!.ImageUrl);
     }
 
     [Fact]
@@ -151,7 +143,7 @@ public sealed class RustMapsGenerationDriverTests
     }
 
     [Fact]
-    public async Task Poll_reaches_ready_and_downloads_the_image()
+    public async Task Poll_reaches_ready_and_stores_the_image_url()
     {
         var (driver, client, coord) = Build();
         coord.Register(Key, 1UL, Server);
@@ -166,7 +158,7 @@ public sealed class RustMapsGenerationDriverTests
         await driver.AdvanceAsync(Key, CancellationToken.None);
 
         Assert.Equal(RustMapsGenerationState.Ready, coord.Snapshot(Key).State);
-        Assert.Equal([7, 7, 7], coord.Snapshot(Key).Ready!.ImageBytes);
+        Assert.Equal("https://img/x.png", coord.Snapshot(Key).Ready!.ImageUrl);
     }
 
     [Fact]
@@ -182,37 +174,5 @@ public sealed class RustMapsGenerationDriverTests
 
         Assert.Equal(RustMapsGenerationState.Generating, coord.Snapshot(Key).State);
         await client.DidNotReceiveWithAnyArgs().CreateMapAsync(default!, default);
-    }
-
-    private sealed class StubHandler(HttpStatusCode status, byte[] body) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(status)
-            {
-                Content = new ByteArrayContent(body)
-            });
-    }
-
-    private sealed class StubFactory(HttpMessageHandler handler) : IHttpClientFactory
-    {
-        public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
-    }
-
-    private sealed class CapturingHandler : HttpMessageHandler
-    {
-        public Uri? LastUri { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            LastUri = request.RequestUri;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new ByteArrayContent([7, 7, 7])
-            });
-        }
     }
 }

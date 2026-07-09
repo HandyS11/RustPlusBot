@@ -2,10 +2,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Abstractions.Map;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Map.Composing;
 using RustPlusBot.Features.Map.Hosting;
-using RustPlusBot.Features.Map.Posting;
 using RustPlusBot.Features.Map.Rendering;
 using RustPlusBot.Features.Map.RustMaps;
 using RustPlusBot.Persistence.Map;
@@ -71,10 +71,15 @@ public sealed class MapRegistrationTests
         services.AddMap(configuration);
 
         using var provider = services.BuildServiceProvider(validateScopes: true);
-        Assert.NotNull(provider.GetService<IRustMapsMapCoordinator>());
+        var coordinator = provider.GetService<IRustMapsMapCoordinator>();
+        var readModel = provider.GetService<IInfoMapReadModel>();
+        Assert.NotNull(coordinator);
+        Assert.NotNull(readModel);
+        // IRustMapsMapCoordinator and IInfoMapReadModel must resolve to the SAME singleton so the driver's
+        // writes are visible to the Workspace renderer's reads.
+        Assert.Same(coordinator, readModel);
         Assert.NotNull(provider.GetService<RustMapsGenerationDriver>());
         // Discord-dependent — assert registration without constructing DiscordSocketClient.
-        Assert.Contains(services, d => d.ServiceType == typeof(IInfoMapPoster));
         Assert.Contains(services, d => d.ImplementationType == typeof(InfoMapHostedService));
     }
 
@@ -83,7 +88,7 @@ public sealed class MapRegistrationTests
     {
         using var provider = BuildProvider(EmptyConfiguration());
         Assert.Null(provider.GetService<IRustMapsMapCoordinator>());
-        Assert.Null(provider.GetService<IInfoMapPoster>());
+        Assert.Null(provider.GetService<IInfoMapReadModel>());
     }
 
     private static IConfiguration EmptyConfiguration() =>

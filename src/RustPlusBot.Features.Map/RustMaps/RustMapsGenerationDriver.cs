@@ -7,22 +7,18 @@ using RustMapsApi.V4.Requests;
 namespace RustPlusBot.Features.Map.RustMaps;
 
 /// <summary>
-/// Advances one RustMaps map key's generation one step: GET → (limits-gated) CreateMap → poll → download.
-/// Credit-safe: CreateMap only on a genuine NotFound with confirmed budget, once per key, no retry.
+/// Advances one RustMaps map key's generation one step: GET → (limits-gated) CreateMap → poll. Stores the
+/// RustMaps-hosted image URL directly — no download. Credit-safe: CreateMap only on a genuine NotFound with
+/// confirmed budget, once per key, no retry.
 /// </summary>
 /// <param name="client">The RustMaps API client.</param>
 /// <param name="coordinator">The shared generation state.</param>
-/// <param name="httpClientFactory">Creates the image-download client.</param>
 /// <param name="logger">The logger.</param>
 public sealed partial class RustMapsGenerationDriver(
     IRustMapsClient client,
     IRustMapsMapCoordinator coordinator,
-    IHttpClientFactory httpClientFactory,
     ILogger<RustMapsGenerationDriver> logger)
 {
-    /// <summary>Named HTTP client used to download the RustMaps render.</summary>
-    public const string HttpClientName = "RustMapsImages";
-
     /// <summary>Advances the key one step based on its current state.</summary>
     /// <param name="key">The map key.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
@@ -63,7 +59,7 @@ public sealed partial class RustMapsGenerationDriver(
             .ConfigureAwait(false);
         if (IsReady(get))
         {
-            await SetReadyAsync(key, get.Data!, cancellationToken).ConfigureAwait(false);
+            SetReady(key, get.Data!);
             return;
         }
 
@@ -121,20 +117,19 @@ public sealed partial class RustMapsGenerationDriver(
                 .ConfigureAwait(false);
         if (IsReady(get))
         {
-            await SetReadyAsync(key, get.Data!, cancellationToken).ConfigureAwait(false);
+            SetReady(key, get.Data!);
         }
         // else: still generating (or a transient poll miss) — leave Generating, poll again next tick.
     }
 
-    private async Task SetReadyAsync(RustMapsMapKey key, MapInfo info, CancellationToken cancellationToken)
-    {
-        var http = httpClientFactory.CreateClient(HttpClientName);
-        // ImageIconUrl (map_icons.png) is the render WITH monument icon markers; ImageUrl
-        // (map_raw_normalized.png) is plain terrain with no markers. Prefer the iconned one.
-        var imageUrl = info.ImageIconUrl ?? info.ImageUrl;
-        var bytes = await http.GetByteArrayAsync(new Uri(imageUrl!), cancellationToken).ConfigureAwait(false);
-        coordinator.SetReady(key, new RustMapsReadyMap(bytes, info.Url));
-    }
+    /// <summary>
+    /// Stores the ready render's URL. ImageIconUrl (map_icons.png) is the render WITH monument icon
+    /// markers; ImageUrl (map_raw_normalized.png) is plain terrain with no markers. Prefer the iconned one.
+    /// </summary>
+    /// <param name="key">The map key.</param>
+    /// <param name="info">The RustMaps map info.</param>
+    private void SetReady(RustMapsMapKey key, MapInfo info) =>
+        coordinator.SetReady(key, new RustMapsReadyMap(info.ImageIconUrl ?? info.ImageUrl!, info.Url));
 
     private static bool IsExhausted(MapGenerationStat? stat) => stat is { } s && s.Current >= s.Allowed;
 
