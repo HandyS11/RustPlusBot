@@ -246,6 +246,18 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<WorldSnapshot?> GetWorldAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return null;
+        }
+
+        return await live.Connection.GetWorldAsync(_options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(
         ulong guildId,
         Guid serverId,
@@ -659,12 +671,28 @@ internal sealed partial class ConnectionSupervisor(
         IReadOnlyList<MapMarkerSnapshot> current,
         CancellationToken ct)
     {
-        var added = current.Where(c => previous.All(p => p.Id != c.Id)).ToList();
+        var previousById = previous.ToDictionary(p => p.Id);
+        var added = new List<MapMarkerSnapshot>();
+        var moved = new List<MapMarkerSnapshot>();
+        foreach (var c in current)
+        {
+            if (!previousById.TryGetValue(c.Id, out var p))
+            {
+                added.Add(c);
+            }
+#pragma warning disable S1244 // Exact float compare is intentional: a stationary marker round-trips identical floats.
+            else if (c.X != p.X || c.Y != p.Y || !Nullable.Equals(c.Rotation, p.Rotation))
+#pragma warning restore S1244
+            {
+                moved.Add(c);
+            }
+        }
+
         var removed = previous.Where(p => current.All(c => c.Id != p.Id)).ToList();
-        if (added.Count > 0 || removed.Count > 0)
+        if (added.Count > 0 || removed.Count > 0 || moved.Count > 0)
         {
             await eventBus.PublishAsync(
-                    new MapMarkersChangedEvent(key.Guild, key.Server, dims, added, removed), ct)
+                    new MapMarkersChangedEvent(key.Guild, key.Server, dims, added, removed, moved), ct)
                 .ConfigureAwait(false);
         }
     }
@@ -847,7 +875,7 @@ internal sealed partial class ConnectionSupervisor(
             {
                 RigKind? kind = m.Token switch
                 {
-                    "oilrig_1" => RigKind.Small,
+                    "oil_rig_small" => RigKind.Small,
                     "large_oil_rig" => RigKind.Large,
                     _ => null,
                 };

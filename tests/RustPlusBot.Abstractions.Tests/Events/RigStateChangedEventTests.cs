@@ -9,7 +9,7 @@ public sealed class RigStateChangedEventTests
     public void Carries_rig_kind_event_kind_position_and_dimensions()
     {
         var server = Guid.NewGuid();
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
 
         var evt = new RigStateChangedEvent(7UL, server, RigKind.Large, RigEventKind.CrateLootable, 1f, 2f, dims);
 
@@ -25,8 +25,8 @@ public sealed class RigStateChangedEventTests
     [Fact]
     public void Monument_snapshot_carries_token_and_position()
     {
-        var m = new MonumentSnapshot("oilrig_1", 10f, 20f);
-        Assert.Equal("oilrig_1", m.Token);
+        var m = new MonumentSnapshot("oil_rig_small", 10f, 20f);
+        Assert.Equal("oil_rig_small", m.Token);
         Assert.Equal(10f, m.X);
         Assert.Equal(20f, m.Y);
     }

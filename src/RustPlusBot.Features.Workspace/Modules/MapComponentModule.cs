@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Persistence.Map;
@@ -8,7 +9,7 @@ using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Workspace.Modules;
 
-/// <summary>Handles the #map layer-toggle buttons (ManageGuild).</summary>
+/// <summary>Handles the #map layer-toggle and grid-style buttons (ManageGuild).</summary>
 /// <param name="scopeFactory">Creates a short-lived DI scope per interaction.</param>
 /// <param name="eventBus">Publishes a settings-changed event to trigger an immediate repaint.</param>
 public sealed class MapComponentModule(IServiceScopeFactory scopeFactory, IEventBus eventBus)
@@ -58,6 +59,50 @@ public sealed class MapComponentModule(IServiceScopeFactory scopeFactory, IEvent
 
         await eventBus.PublishAsync(new MapSettingsChangedEvent(Context.Guild.Id, serverId)).ConfigureAwait(false);
         await FollowupAsync("Updated map layers.", ephemeral: true).ConfigureAwait(false);
+    }
+
+    /// <summary>Sets the grid style, re-renders the control message, and triggers a map repaint.</summary>
+    /// <param name="tail">The "{style}:{serverId}" tail captured from the custom id.</param>
+    [ComponentInteraction(WorkspaceComponentIds.MapGridStylePrefix + "*")]
+    [RequireUserPermission(GuildPermission.ManageGuild)]
+    public async Task SetGridStyleAsync(string tail)
+    {
+        ArgumentNullException.ThrowIfNull(tail);
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        var parts = tail.Split(':');
+        if (parts.Length != 2
+            || !Enum.TryParse<MapGridStyle>(parts[0], ignoreCase: false, out var style)
+            || !Guid.TryParse(parts[1], out var serverId))
+        {
+            await RespondAsync("That control wasn't valid.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var servers = scope.ServiceProvider.GetRequiredService<IServerService>();
+            if (await servers.GetAsync(Context.Guild.Id, serverId).ConfigureAwait(false) is null)
+            {
+                await FollowupAsync("That server isn't available.", ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
+            var store = scope.ServiceProvider.GetRequiredService<IMapSettingsStore>();
+            await store.SetGridStyleAsync(Context.Guild.Id, serverId, style).ConfigureAwait(false);
+
+            var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
+            await reconciler.ReconcileServerAsync(Context.Guild.Id, serverId).ConfigureAwait(false);
+        }
+
+        await eventBus.PublishAsync(new MapSettingsChangedEvent(Context.Guild.Id, serverId)).ConfigureAwait(false);
+        await FollowupAsync("Updated map grid style.", ephemeral: true).ConfigureAwait(false);
     }
 
     private static bool IsEnabled(MapLayerSettings settings, MapLayer layer) => layer switch

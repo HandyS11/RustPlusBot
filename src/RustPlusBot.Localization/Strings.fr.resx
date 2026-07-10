@@ -540,6 +540,24 @@
   <data name="map.control.header" xml:space="preserve">
     <value>Calques de la carte — activer/désactiver :</value>
   </data>
+  <data name="map.gridstyle.help" xml:space="preserve">
+    <value>Style de grille : En jeu correspond à la carte F1 (les positions des événements se lisent comme en jeu) ; Rust+/RustMaps correspond à l'application mobile et à rustmaps.com (lignes légèrement plus basses).</value>
+  </data>
+  <data name="map.gridstyle.ingame" xml:space="preserve">
+    <value>Grille : En jeu</value>
+  </data>
+  <data name="map.gridstyle.rustplus" xml:space="preserve">
+    <value>Grille : Rust+/RustMaps</value>
+  </data>
+  <data name="map.info.seed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="map.info.size" xml:space="preserve">
+    <value>Taille</value>
+  </data>
+  <data name="map.info.title" xml:space="preserve">
+    <value>Carte du serveur</value>
+  </data>
   <data name="map.layer.grid" xml:space="preserve">
     <value>Grille</value>
   </data>

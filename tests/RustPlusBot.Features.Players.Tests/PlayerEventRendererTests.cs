@@ -8,7 +8,7 @@ namespace RustPlusBot.Features.Players.Tests;
 public sealed class PlayerEventRendererTests
 {
     private static readonly PlayerEventRenderer Renderer = new(new ResxLocalizer());
-    private static readonly MapDimensions Dims = new(3000, 3000, 0);
+    private static readonly MapDimensions Dims = new(3000, 3000, 0, 3000);
 
     [Fact]
     public void Connect_line_names_member_without_location()

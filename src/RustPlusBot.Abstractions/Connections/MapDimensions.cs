@@ -1,7 +1,8 @@
 namespace RustPlusBot.Abstractions.Connections;
 
-/// <summary>The static-per-wipe map size needed to convert world coordinates to a grid reference.</summary>
-/// <param name="Width">Map image width.</param>
-/// <param name="Height">Map image height.</param>
-/// <param name="OceanMargin">The ocean margin around the playable area.</param>
-public sealed record MapDimensions(uint Width, uint Height, int OceanMargin);
+/// <summary>Dimensions of the server-rendered map tile plus the world size.</summary>
+/// <param name="Width">Width of the base map image, in pixels.</param>
+/// <param name="Height">Height of the base map image, in pixels.</param>
+/// <param name="OceanMargin">Ocean border baked into the base map image, in pixels.</param>
+/// <param name="WorldSize">Size of the playable world, in game units (from server info).</param>
+public sealed record MapDimensions(uint Width, uint Height, int OceanMargin, uint WorldSize);

@@ -106,6 +106,12 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <returns>The map dimensions, or null on failure/timeout.</returns>
     Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
 
+    /// <summary>Gets the world size and seed from server info, or null when unavailable.</summary>
+    /// <param name="timeout">The per-call timeout.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The world snapshot, or null.</returns>
+    Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
+
     /// <summary>Gets the map monuments (for locating oil rigs). Throws on failure.</summary>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>

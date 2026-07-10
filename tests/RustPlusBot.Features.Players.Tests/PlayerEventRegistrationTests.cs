@@ -8,6 +8,7 @@ using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Players.Hosting;
 using RustPlusBot.Features.Players.Relaying;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Players.Tests;
@@ -32,6 +33,7 @@ public sealed class PlayerEventRegistrationTests
         services.AddSingleton<DiscordChannelMessenger>();
         services.AddSingleton<IEventChannelLocator>(Substitute.For<IEventChannelLocator>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
+        services.AddScoped<IMapSettingsStore>(_ => Substitute.For<IMapSettingsStore>());
         services.AddSingleton<IBotTeamChatSender>(Substitute.For<IBotTeamChatSender>());
         services.AddPlayers();
         return services.BuildServiceProvider(validateScopes: true);

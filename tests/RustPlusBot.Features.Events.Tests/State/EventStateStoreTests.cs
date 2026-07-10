@@ -23,19 +23,22 @@ public sealed class EventStateStoreTests
     private static MapMarkersChangedEvent Delta(
         IReadOnlyList<MapMarkerSnapshot> added,
         IReadOnlyList<MapMarkerSnapshot> removed) =>
-        new(Guild, Server, null, added, removed);
+        new(Guild, Server, null, added, removed, []);
 
     private static MapMarkersChangedEvent DeltaWithDims(
         IReadOnlyList<MapMarkerSnapshot> added,
         IReadOnlyList<MapMarkerSnapshot> removed,
         MapDimensions? dims) =>
-        new(Guild, Server, dims, added, removed);
+        new(Guild, Server, dims, added, removed, []);
+
+    private static MapMarkersChangedEvent DeltaMoved(IReadOnlyList<MapMarkerSnapshot> moved) =>
+        new(Guild, Server, null, [], [], moved);
 
     [Fact]
     public void Added_marker_becomes_active_and_carries_dimensions()
     {
         var store = Build();
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
         store.Apply(
             DeltaWithDims([new MapMarkerSnapshot(1, MarkerKind.CargoShip, 10f, 20f, null)], [], dims),
             [new RustMapEvent(MapEventKind.CargoEntered, 10f, 20f, dims, Now)]);
@@ -87,5 +90,46 @@ public sealed class EventStateStoreTests
 
         Assert.Empty(store.GetActiveMarkers(Guild, Server, MarkerKind.CargoShip));
         Assert.Empty(store.GetRecentEvents(Guild, Server));
+    }
+
+    [Fact]
+    public void Moved_marker_updates_position_and_rotation()
+    {
+        var store = Build();
+        store.Apply(Delta([new MapMarkerSnapshot(1, MarkerKind.CargoShip, 10f, 20f, null)], []), []);
+
+        store.Apply(DeltaMoved([new MapMarkerSnapshot(1, MarkerKind.CargoShip, 30f, 40f, null, Rotation: 90f)]), []);
+
+        var active = Assert.Single(store.GetActiveMarkers(Guild, Server, MarkerKind.CargoShip));
+        Assert.Equal(30f, active.X);
+        Assert.Equal(40f, active.Y);
+        Assert.Equal(90f, active.Rotation);
+    }
+
+    [Fact]
+    public void History_ring_appends_and_caps_at_six()
+    {
+        var store = Build();
+        store.Apply(Delta([new MapMarkerSnapshot(1, MarkerKind.CargoShip, 0f, 0f, null)], []), []);
+
+        for (var i = 1; i <= 8; i++)
+        {
+            store.Apply(DeltaMoved([new MapMarkerSnapshot(1, MarkerKind.CargoShip, i * 10f, 0f, null)]), []);
+        }
+
+        var active = Assert.Single(store.GetActiveMarkers(Guild, Server, MarkerKind.CargoShip));
+        Assert.Equal(6, active.History.Count);
+        Assert.Equal(80f, active.History[^1].X); // newest last = current position
+        Assert.Equal(30f, active.History[0].X); // oldest surviving point
+    }
+
+    [Fact]
+    public void Moved_for_unknown_id_is_ignored()
+    {
+        var store = Build();
+
+        store.Apply(DeltaMoved([new MapMarkerSnapshot(99, MarkerKind.CargoShip, 1f, 2f, null)]), []);
+
+        Assert.Empty(store.GetActiveMarkers(Guild, Server, MarkerKind.CargoShip));
     }
 }

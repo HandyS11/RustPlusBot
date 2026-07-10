@@ -19,47 +19,48 @@ public sealed class MapRenderer
     /// <summary>The square output edge length in pixels.</summary>
     public const int OutputSize = 1024;
 
-    private const float GridDiameter = 146.25f;
-    private const float PlayerRadius = 6f;
     private const float OutlinePenWidth = 1f;
     private const float ActiveRingWidth = 3f;
     private const float PlayerLabelOffset = 12f;
 
-    private static readonly Font Font = LoadFont();
+    private static readonly FontFamily Family = LoadFamily();
+    private static readonly Font Font = Family.CreateFont(12f);
+    private static readonly Font GridLabelFont = Family.CreateFont(MapRenderStyle.GridLabelFontSize);
 
-    private static Font LoadFont()
+    private static FontFamily LoadFamily()
     {
         var asm = typeof(MapRenderer).Assembly;
         using var stream = asm.GetManifestResourceStream("RustPlusBot.Features.Map.Assets.LiberationSans-Regular.ttf")
                            ?? throw new InvalidOperationException(
                                "Embedded map font 'RustPlusBot.Features.Map.Assets.LiberationSans-Regular.ttf' not found.");
         var collection = new FontCollection();
-        var family = collection.Add(stream, CultureInfo.InvariantCulture);
-        return family.CreateFont(12f);
+        return collection.Add(stream, CultureInfo.InvariantCulture);
     }
 
     /// <summary>Renders the map tile plus the requested overlay layers to PNG bytes.</summary>
     /// <param name="baseJpeg">The raw base-map JPEG bytes.</param>
-    /// <param name="dims">The map dimensions (world size + ocean margin).</param>
+    /// <param name="projection">The world-to-pixel projection (world size, base image dims, ocean margin).</param>
     /// <param name="markers">Marker placements already projected to pixel coordinates.</param>
     /// <param name="monuments">Monument placements already projected to pixel coordinates.</param>
     /// <param name="players">Player placements already projected to pixel coordinates.</param>
     /// <param name="rigs">Oil-rig placements already projected to pixel coordinates.</param>
     /// <param name="layers">Which overlay layers to draw.</param>
+    /// <param name="gridStyle">Which grid convention to draw (in-game F1 map, or Rust+/RustMaps).</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
     /// <remarks>Kept as an instance method so the class can be registered as a DI singleton.</remarks>
 #pragma warning disable CA1822, S2325 // Kept as instance method for DI singleton registration
     public byte[] Render(byte[] baseJpeg,
-        MapDimensions dims,
+        MapProjection projection,
         IReadOnlyList<MarkerPlacement> markers,
         IReadOnlyList<MonumentPlacement> monuments,
         IReadOnlyList<PlayerPlacement> players,
         IReadOnlyList<RigPlacement> rigs,
-        MapLayerSet layers)
+        MapLayerSet layers,
+        MapGridStyle gridStyle = MapGridStyle.InGame)
 #pragma warning restore CA1822, S2325
     {
         ArgumentNullException.ThrowIfNull(baseJpeg);
-        ArgumentNullException.ThrowIfNull(dims);
+        ArgumentNullException.ThrowIfNull(projection);
         ArgumentNullException.ThrowIfNull(markers);
         ArgumentNullException.ThrowIfNull(monuments);
         ArgumentNullException.ThrowIfNull(players);
@@ -71,12 +72,17 @@ public sealed class MapRenderer
 
         if (layers.Grid)
         {
-            DrawGrid(image, dims);
+            DrawGrid(image, projection, gridStyle);
         }
 
         if (layers.Monuments)
         {
             DrawMonuments(image, monuments);
+        }
+
+        if (layers.Markers || layers.Vendor)
+        {
+            DrawTrails(image, markers);
         }
 
         if (layers.Markers)
@@ -99,25 +105,81 @@ public sealed class MapRenderer
         return ms.ToArray();
     }
 
-    private static void DrawGrid(Image<Rgba32> image, MapDimensions dims)
+    private static void DrawGrid(Image<Rgba32> image, MapProjection projection, MapGridStyle gridStyle)
     {
-        var gridColor = Color.FromRgba(255, 255, 255, 80);
+        if (projection.WorldSize == 0)
+        {
+            return;
+        }
+
+        var lineColor = Color.FromRgba(255, 255, 255, 80);
+        var labelColor = Color.FromRgba(255, 255, 255, 140);
+        var cells = MapGrid.CellCount(projection.WorldSize);
+
+        // The lattice is anchored at the west edge and at the style's row anchor (the world's north
+        // edge for the in-game style; 100 game-units south of it for Rust+/RustMaps), and is clipped
+        // to the LABELLED cell block only (A0 … the last ceil-count cell) — no lines out over the
+        // ocean margin. The partial edge cell sits at the south/east and simply bleeds past the world
+        // edge, so every rendered cell looks full-size.
+        var anchorWorldY = projection.WorldSize - MapGrid.RowInset(gridStyle);
+        var (anchorX, anchorY) = projection.ToPixel(0f, anchorWorldY);
+        var (cellEndX, cellEndY) = projection.ToPixel(MapGrid.CellSize, anchorWorldY - MapGrid.CellSize);
+        var stepX = cellEndX - anchorX;
+        var stepY = cellEndY - anchorY;
+        if (stepX <= 0f || stepY <= 0f)
+        {
+            return; // Degenerate projection (no drawable world area).
+        }
+
+        var right = anchorX + (cells * stepX);
+        var bottom = anchorY + (cells * stepY);
 
         image.Mutate(ctx =>
         {
-            // Vertical lines step across the X axis (width); horizontal lines step across the Y axis
-            // (height). Driving each axis from its own dimension keeps the grid correct on a
-            // non-square map (Rust maps are square today, so Width == Height in practice).
-            for (var worldX = 0f; worldX <= dims.Width; worldX += GridDiameter)
+            for (var k = 0; k <= cells; k++)
             {
-                var (vx, _) = WorldToPixel.ToPixel(worldX, 0f, dims, OutputSize);
-                ctx.DrawLine(gridColor, OutlinePenWidth, new PointF(vx, 0), new PointF(vx, OutputSize));
+                var x = anchorX + (k * stepX);
+                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(x, anchorY), new PointF(x, bottom));
+                var y = anchorY + (k * stepY);
+                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(anchorX, y), new PointF(right, y));
             }
 
-            for (var worldY = 0f; worldY <= dims.Height; worldY += GridDiameter)
+            // Every labelled cell (A0 in the north-west corner), each label just inside its cell's
+            // top-left corner (companion-app placement).
+            for (var col = 0; col < cells; col++)
             {
-                var (_, hy) = WorldToPixel.ToPixel(0f, worldY, dims, OutputSize);
-                ctx.DrawLine(gridColor, OutlinePenWidth, new PointF(0, hy), new PointF(OutputSize, hy));
+                for (var row = 0; row < cells; row++)
+                {
+                    var label = MapGrid.ColumnLetters(col) + row.ToString(CultureInfo.InvariantCulture);
+                    ctx.DrawText(new RichTextOptions(GridLabelFont)
+                        {
+                            Origin = new PointF(anchorX + (col * stepX) + 2f, anchorY + (row * stepY) + 2f)
+                        },
+                        label, labelColor);
+                }
+            }
+        });
+    }
+
+    private static void DrawTrails(Image<Rgba32> image, IReadOnlyList<MarkerPlacement> markers)
+    {
+        image.Mutate(ctx =>
+        {
+            foreach (var marker in markers)
+            {
+                if (marker.Trail.Count < 2)
+                {
+                    continue;
+                }
+
+                var baseColor = MapRenderStyle.TrailColor(marker.Kind);
+                for (var i = 1; i < marker.Trail.Count; i++)
+                {
+                    // Fade from faint (oldest) to strong (newest) so travel direction reads instantly.
+                    var alpha = 0.15f + (0.45f * i / (marker.Trail.Count - 1));
+                    ctx.DrawLine(baseColor.WithAlpha(alpha), MapRenderStyle.TrailWidth,
+                        marker.Trail[i - 1], marker.Trail[i]);
+                }
             }
         });
     }
@@ -130,8 +192,18 @@ public sealed class MapRenderer
         {
             foreach (var marker in markers)
             {
-                var icon = MapIcons.Marker(marker.Kind);
-                if (icon is not null)
+                var icon = MapIcons.Marker(marker.Kind, MapRenderStyle.MarkerIconSize(marker.Kind));
+                if (icon is null)
+                {
+                    continue;
+                }
+
+                if (marker.Rotation is { } rotation && Math.Abs(rotation) > 0.01f)
+                {
+                    using var rotated = icon.Clone(c => c.Rotate(-rotation));
+                    ctx.DrawImage(rotated, CenterAt(marker.PixelX, marker.PixelY, rotated), 1f);
+                }
+                else
                 {
                     ctx.DrawImage(icon, CenterAt(marker.PixelX, marker.PixelY, icon), 1f);
                 }
@@ -147,7 +219,7 @@ public sealed class MapRenderer
         {
             foreach (var monument in monuments)
             {
-                var icon = MapIcons.Monument(monument.Token);
+                var icon = MapIcons.Monument(monument.Token, MapRenderStyle.MonumentIconSize);
                 if (icon is not null)
                 {
                     ctx.DrawImage(icon, CenterAt(monument.PixelX, monument.PixelY, icon), 1f);
@@ -162,7 +234,7 @@ public sealed class MapRenderer
         {
             foreach (var rig in rigs)
             {
-                var icon = MapIcons.Rig(rig.Kind, rig.Active);
+                var icon = MapIcons.Rig(rig.Kind, rig.Active, MapRenderStyle.MonumentIconSize);
                 if (icon is null)
                 {
                     continue;
@@ -183,7 +255,7 @@ public sealed class MapRenderer
 
     private static void DrawPlayers(Image<Rgba32> image, IReadOnlyList<PlayerPlacement> players)
     {
-        var icon = MapIcons.Player();
+        var icon = MapIcons.Player(MapRenderStyle.PlayerIconSize);
 
         image.Mutate(ctx =>
         {
@@ -197,17 +269,14 @@ public sealed class MapRenderer
 
     private static void DrawPlayerIcon(IImageProcessingContext ctx, PlayerPlacement player, Image<Rgba32>? icon)
     {
-        if (icon is not null)
+        if (icon is null)
         {
-            ctx.DrawImage(icon, CenterAt(player.PixelX, player.PixelY, icon), 1f);
             return;
         }
 
         var isActive = player is { IsAlive: true, IsOnline: true };
-        var dotColor = isActive ? Color.LimeGreen : Color.Gray;
-        var dot = new EllipsePolygon(player.PixelX, player.PixelY, PlayerRadius);
-        ctx.Fill(dotColor, dot);
-        ctx.Draw(Color.Black, OutlinePenWidth, dot);
+        // Dead/offline teammates render dimmed so status reads at a glance (label adds the suffix).
+        ctx.DrawImage(icon, CenterAt(player.PixelX, player.PixelY, icon), isActive ? 1f : 0.45f);
     }
 
     private static void DrawPlayerLabel(IImageProcessingContext ctx, PlayerPlacement player)

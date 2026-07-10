@@ -11,6 +11,7 @@ namespace RustPlusBot.Features.Events.State;
 internal sealed class EventStateStore(IClock clock) : IEventState
 {
     private const int RecentCapacity = 10;
+    private const int HistoryCapacity = 6;
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), ServerState> _byServer = new();
 
     /// <inheritdoc />
@@ -59,12 +60,35 @@ internal sealed class EventStateStore(IClock clock) : IEventState
         {
             foreach (var m in delta.Added)
             {
-                state.Active[m.Id] = new ActiveMarker(m.Id, m.Kind, m.X, m.Y, delta.Dimensions, now);
+                state.Active[m.Id] = new ActiveMarker(m.Id, m.Kind, m.X, m.Y, delta.Dimensions, now,
+                    [new TrailPoint(m.X, m.Y)], m.Rotation);
             }
 
             foreach (var m in delta.Removed)
             {
                 state.Active.Remove(m.Id);
+            }
+
+            foreach (var m in delta.Moved)
+            {
+                if (!state.Active.TryGetValue(m.Id, out var existing))
+                {
+                    continue; // moved-before-added can only happen after a Clear race; drop it
+                }
+
+                var history = new List<TrailPoint>(existing.History)
+                {
+                    new(m.X, m.Y)
+                };
+                if (history.Count > HistoryCapacity)
+                {
+                    history.RemoveAt(0);
+                }
+
+                state.Active[m.Id] = existing with
+                {
+                    X = m.X, Y = m.Y, Rotation = m.Rotation, History = history
+                };
             }
 
             foreach (var e in events)

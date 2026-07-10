@@ -1,5 +1,7 @@
 using Discord;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Messages;
 using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Localization;
@@ -10,6 +12,12 @@ namespace RustPlusBot.Features.Workspace.Tests.Messages;
 public sealed class MapControlMessageRendererTests
 {
     private static readonly ResxLocalizer Loc = new();
+
+    private static List<ButtonComponent> Buttons(MessagePayload payload) =>
+    [
+        .. payload.Components!.Components.OfType<ActionRowComponent>()
+            .SelectMany(r => r.Components).OfType<ButtonComponent>(),
+    ];
 
     [Fact]
     public async Task Renders_six_toggle_buttons_reflecting_settings()
@@ -24,22 +32,45 @@ public sealed class MapControlMessageRendererTests
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
         Assert.NotNull(payload.Components);
-        var buttons = payload.Components!.Components.OfType<ActionRowComponent>()
-            .SelectMany(r => r.Components).OfType<ButtonComponent>().ToList();
-        Assert.Equal(6, buttons.Count);
+        var toggles = Buttons(payload)
+            .Where(b => b.CustomId!.StartsWith(WorkspaceComponentIds.MapTogglePrefix, StringComparison.Ordinal))
+            .ToList();
+        Assert.Equal(6, toggles.Count);
 
-        var monuments = buttons.Single(b =>
+        var monuments = toggles.Single(b =>
             b.CustomId == $"workspace:map:toggle:{MapLayer.Monuments}:{serverId}");
         Assert.Equal(ButtonStyle.Secondary, monuments.Style);
 
-        foreach (var other in buttons.Where(b => b.CustomId != monuments.CustomId))
+        foreach (var other in toggles.Where(b => b.CustomId != monuments.CustomId))
         {
             Assert.Equal(ButtonStyle.Success, other.Style);
         }
     }
 
     [Fact]
-    public async Task Renders_a_header_text()
+    public async Task Renders_grid_style_buttons_marking_the_active_style()
+    {
+        var serverId = Guid.NewGuid();
+        var settings = Substitute.For<IMapSettingsStore>();
+        settings.GetAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(MapLayerSettings.AllOn with
+            {
+                GridStyle = MapGridStyle.RustPlus
+            });
+        var renderer = new MapControlMessageRenderer(settings, Loc);
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
+
+        var inGame = Buttons(payload).Single(b =>
+            b.CustomId == $"workspace:map:gridstyle:{MapGridStyle.InGame}:{serverId}");
+        var rustPlus = Buttons(payload).Single(b =>
+            b.CustomId == $"workspace:map:gridstyle:{MapGridStyle.RustPlus}:{serverId}");
+        Assert.Equal(ButtonStyle.Primary, rustPlus.Style);
+        Assert.Equal(ButtonStyle.Secondary, inGame.Style);
+    }
+
+    [Fact]
+    public async Task Renders_a_header_text_with_the_grid_style_help()
     {
         var serverId = Guid.NewGuid();
         var settings = Substitute.For<IMapSettingsStore>();
@@ -49,7 +80,8 @@ public sealed class MapControlMessageRendererTests
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
-        Assert.Equal(Loc.Get("map.control.header", "en"), payload.Text);
+        Assert.StartsWith(Loc.Get("map.control.header", "en"), payload.Text, StringComparison.Ordinal);
+        Assert.Contains(Loc.Get("map.gridstyle.help", "en"), payload.Text, StringComparison.Ordinal);
     }
 
     [Fact]

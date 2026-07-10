@@ -14,12 +14,16 @@ internal sealed class PlayerEventRenderer(ILocalizer localizer)
     /// <param name="transition">The player transition to render.</param>
     /// <param name="dims">The map dimensions, or null if unavailable.</param>
     /// <param name="culture">The BCP-47 culture tag.</param>
-    public Embed Render(PlayerTransition transition, MapDimensions? dims, string culture)
+    /// <param name="gridStyle">Which grid convention the reference uses.</param>
+    public Embed Render(PlayerTransition transition,
+        MapDimensions? dims,
+        string culture,
+        MapGridStyle gridStyle = MapGridStyle.InGame)
     {
         ArgumentNullException.ThrowIfNull(transition);
         return new EmbedBuilder()
             .WithAuthor(localizer.Get("player.title", culture))
-            .WithDescription(Describe(transition, dims, culture, suffix: string.Empty))
+            .WithDescription(Describe(transition, dims, culture, gridStyle, suffix: string.Empty))
             .WithCurrentTimestamp()
             .Build();
     }
@@ -28,28 +32,34 @@ internal sealed class PlayerEventRenderer(ILocalizer localizer)
     /// <param name="transition">The player transition to render.</param>
     /// <param name="dims">The map dimensions, or null if unavailable.</param>
     /// <param name="culture">The BCP-47 culture tag.</param>
-    public string RenderLine(PlayerTransition transition, MapDimensions? dims, string culture)
+    /// <param name="gridStyle">Which grid convention the reference uses.</param>
+    public string RenderLine(PlayerTransition transition,
+        MapDimensions? dims,
+        string culture,
+        MapGridStyle gridStyle = MapGridStyle.InGame)
     {
         ArgumentNullException.ThrowIfNull(transition);
-        return Describe(transition, dims, culture, suffix: ".line");
+        return Describe(transition, dims, culture, gridStyle, suffix: ".line");
     }
 
-    private string Describe(PlayerTransition t, MapDimensions? dims, string culture, string suffix)
+    private string Describe(PlayerTransition t, MapDimensions? dims, string culture, MapGridStyle style, string suffix)
     {
         return t.Kind switch
         {
             PlayerTransitionKind.Connect => localizer.Get("player.connect" + suffix, culture, t.Name),
             PlayerTransitionKind.Disconnect => localizer.Get("player.disconnect" + suffix, culture, t.Name),
-            PlayerTransitionKind.Respawn => localizer.Get("player.respawn" + suffix, culture, t.Name, Grid(t, dims)),
+            PlayerTransitionKind.Respawn => localizer.Get("player.respawn" + suffix, culture, t.Name,
+                Grid(t, dims, style)),
             PlayerTransitionKind.ReturnedFromAfk => localizer.Get("player.afk.back" + suffix, culture, t.Name),
-            PlayerTransitionKind.BecameAfk => localizer.Get("player.afk" + suffix, culture, t.Name, Grid(t, dims)),
+            PlayerTransitionKind.BecameAfk => localizer.Get("player.afk" + suffix, culture, t.Name,
+                Grid(t, dims, style)),
             PlayerTransitionKind.Death => t.Location is null
                 ? localizer.Get("player.death.unknown" + suffix, culture, t.Name)
-                : localizer.Get("player.death" + suffix, culture, t.Name, Grid(t, dims)),
+                : localizer.Get("player.death" + suffix, culture, t.Name, Grid(t, dims, style)),
             _ => throw new ArgumentOutOfRangeException(nameof(t), t.Kind, "Unsupported transition kind."),
         };
     }
 
-    private static string Grid(PlayerTransition t, MapDimensions? dims)
-        => t.Location is { } loc ? GridReference.From(loc.X, loc.Y, dims) : string.Empty;
+    private static string Grid(PlayerTransition t, MapDimensions? dims, MapGridStyle style)
+        => t.Location is { } loc ? GridReference.From(loc.X, loc.Y, dims, style) : string.Empty;
 }

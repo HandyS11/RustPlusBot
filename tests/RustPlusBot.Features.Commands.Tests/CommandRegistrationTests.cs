@@ -13,6 +13,7 @@ using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.ItemData;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Commands;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.Workspace;
 
@@ -34,6 +35,7 @@ public sealed class CommandRegistrationTests
         services.AddSingleton<IAfkState>(_ => Substitute.For<IAfkState>());
         services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
+        services.AddScoped<IMapSettingsStore>(_ => Substitute.For<IMapSettingsStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
         services.AddOptions<CommandOptions>();
         services.AddItemData();
@@ -92,6 +94,7 @@ public sealed class CommandRegistrationTests
         services.AddSingleton<IAfkState>(_ => Substitute.For<IAfkState>());
         services.AddScoped<IMuteStore>(_ => Substitute.For<IMuteStore>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
+        services.AddScoped<IMapSettingsStore>(_ => Substitute.For<IMapSettingsStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
         services.AddOptions<CommandOptions>();
         services.AddItemData();

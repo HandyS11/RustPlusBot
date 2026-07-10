@@ -1,3 +1,5 @@
+using RustPlusBot.Abstractions.Connections;
+
 namespace RustPlusBot.Domain.Map;
 
 /// <summary>Per-(guild, server) rendered-map layer settings; one row per server. Layers default on.</summary>
@@ -26,4 +28,7 @@ public sealed class ServerMapSettings
 
     /// <summary>Whether oil rigs are styled by activation state.</summary>
     public bool ShowRigs { get; set; } = true;
+
+    /// <summary>Which grid convention the rendered map and event grid references use.</summary>
+    public MapGridStyle GridStyle { get; set; } = MapGridStyle.InGame;
 }

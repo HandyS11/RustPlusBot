@@ -14,6 +14,7 @@ using RustPlusBot.Features.Events.Rendering;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Events.Tests.Relaying;
@@ -39,8 +40,12 @@ public sealed class EventRelayTests
         var workspaceStore = Substitute.For<IWorkspaceStore>();
         workspaceStore.GetCultureAsync(Guild, Arg.Any<CancellationToken>()).Returns("en");
 
+        var mapSettings = Substitute.For<IMapSettingsStore>();
+        mapSettings.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(MapLayerSettings.AllOn);
+
         var services = new ServiceCollection();
         services.AddScoped<IWorkspaceStore>(_ => workspaceStore);
+        services.AddScoped<IMapSettingsStore>(_ => mapSettings);
         var provider = services.BuildServiceProvider();
 
         var sender = Substitute.For<IBotTeamChatSender>();
@@ -66,7 +71,7 @@ public sealed class EventRelayTests
         await relay.RelayAsync(
             new MapMarkersChangedEvent(Guild, Server, null,
                 [new MapMarkerSnapshot(1, MarkerKind.CargoShip, 0f, 0f, null)],
-                []),
+                [], []),
             CancellationToken.None);
 
         await poster.Received(1).PostAsync(999UL, Arg.Any<Embed>(), Arg.Any<CancellationToken>());
@@ -81,7 +86,7 @@ public sealed class EventRelayTests
         await relay.RelayAsync(
             new MapMarkersChangedEvent(Guild, Server, null,
                 [new MapMarkerSnapshot(1, MarkerKind.CargoShip, 0f, 0f, null)],
-                []),
+                [], []),
             CancellationToken.None);
 
         await poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<Embed>(), Arg.Any<CancellationToken>());
@@ -98,7 +103,7 @@ public sealed class EventRelayTests
         await relay.RelayAsync(
             new MapMarkersChangedEvent(Guild, Server, null,
                 [new MapMarkerSnapshot(2, MarkerKind.Other, 0f, 0f, null)],
-                []),
+                [], []),
             CancellationToken.None);
 
         await poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<Embed>(), Arg.Any<CancellationToken>());
@@ -112,7 +117,7 @@ public sealed class EventRelayTests
         await relay.RelayAsync(
             new MapMarkersChangedEvent(Guild, Server, null,
                 [new MapMarkerSnapshot(1, MarkerKind.CargoShip, 0f, 0f, null)],
-                []),
+                [], []),
             CancellationToken.None);
 
         await poster.Received(1).PostAsync(999UL, Arg.Any<Embed>(), Arg.Any<CancellationToken>());

@@ -1,3 +1,5 @@
+using RustPlusBot.Abstractions.Connections;
+
 namespace RustPlusBot.Persistence.Map;
 
 /// <summary>A single toggleable map render layer.</summary>
@@ -29,13 +31,15 @@ public enum MapLayer
 /// <param name="Vendor">Travelling vendor.</param>
 /// <param name="Players">Teammate positions.</param>
 /// <param name="Rigs">Oil-rig activation styling.</param>
+/// <param name="GridStyle">Which grid convention the render and event grid references use.</param>
 public sealed record MapLayerSettings(
     bool Grid,
     bool Markers,
     bool Monuments,
     bool Vendor,
     bool Players,
-    bool Rigs)
+    bool Rigs,
+    MapGridStyle GridStyle = MapGridStyle.InGame)
 {
     /// <summary>All layers enabled — the default when no settings row exists.</summary>
     public static MapLayerSettings AllOn { get; } = new(true, true, true, true, true, true);

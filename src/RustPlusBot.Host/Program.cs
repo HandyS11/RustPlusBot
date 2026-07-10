@@ -80,8 +80,10 @@ builder.Services.AddPlayers();
 builder.Services.AddOptions<MapOptions>()
     .Bind(builder.Configuration.GetSection("Map"))
     .Validate(static o => o.MapRefreshInterval > TimeSpan.Zero, "Map:MapRefreshInterval must be positive.")
+    .Validate(static o => o.RustMaps.GenerationPollInterval > TimeSpan.Zero,
+        "Map:RustMaps:GenerationPollInterval must be positive.")
     .ValidateOnStart();
-builder.Services.AddMap();
+builder.Services.AddMap(builder.Configuration);
 builder.Services.AddSwitches();
 builder.Services.AddAlarms();
 builder.Services.AddStorageMonitors();

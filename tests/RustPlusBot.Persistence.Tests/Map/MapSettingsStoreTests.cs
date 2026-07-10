@@ -1,3 +1,4 @@
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Map;
 
@@ -61,5 +62,50 @@ public sealed class MapSettingsStoreTests
         var result = await store.GetAsync(1UL, server.Id);
 
         Assert.True(result.Players);
+    }
+
+    [Fact]
+    public async Task GridStyle_defaults_to_in_game()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+
+        var result = await new MapSettingsStore(context).GetAsync(1UL, Guid.NewGuid());
+
+        Assert.Equal(MapGridStyle.InGame, result.GridStyle);
+    }
+
+    [Fact]
+    public async Task SetGridStyleAsync_creates_row_and_round_trips()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var server = SeedServer(context);
+        var store = new MapSettingsStore(context);
+
+        await store.SetGridStyleAsync(1UL, server.Id, MapGridStyle.RustPlus);
+        var result = await store.GetAsync(1UL, server.Id);
+
+        Assert.Equal(MapGridStyle.RustPlus, result.GridStyle);
+        Assert.True(result.Grid); // Layers stay at their all-on defaults.
+    }
+
+    [Fact]
+    public async Task SetGridStyleAsync_keeps_existing_layer_toggles()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var server = SeedServer(context);
+        var store = new MapSettingsStore(context);
+
+        await store.SetLayerAsync(1UL, server.Id, MapLayer.Monuments, enabled: false);
+        await store.SetGridStyleAsync(1UL, server.Id, MapGridStyle.RustPlus);
+        var result = await store.GetAsync(1UL, server.Id);
+
+        Assert.False(result.Monuments);
+        Assert.Equal(MapGridStyle.RustPlus, result.GridStyle);
     }
 }

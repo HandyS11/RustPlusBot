@@ -8,6 +8,7 @@ using RustPlusBot.Features.Players.Relaying;
 using RustPlusBot.Features.Players.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Players.Tests;
@@ -30,13 +31,17 @@ public sealed class PlayerEventRelayTests
 
     private static IServiceScopeFactory BuildScopeFactory(IWorkspaceStore workspace)
     {
+        var mapSettings = Substitute.For<IMapSettingsStore>();
+        mapSettings.GetAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(MapLayerSettings.AllOn);
         var services = new ServiceCollection();
         services.AddScoped(_ => workspace);
+        services.AddScoped(_ => mapSettings);
         return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 
     private static PlayerStateChangedEvent Evt(params PlayerTransition[] ts)
-        => new(1UL, Guid.NewGuid(), new MapDimensions(3000, 3000, 0), ts);
+        => new(1UL, Guid.NewGuid(), new MapDimensions(3000, 3000, 0, WorldSize: 3000), ts);
 
     [Fact]
     public async Task Sends_ingame_line_for_each_transition()

@@ -42,6 +42,10 @@ public static class WorkspaceServiceCollectionExtensions
         // ServerInfoMessageRenderer requires IRustServerQuery, which is registered by AddConnections —
         // the host must compose both AddWorkspace and AddConnections.
         services.AddScoped<IMessageRenderer, ServerInfoMessageRenderer>();
+        // ServerInfoMapMessageRenderer takes IInfoMapReadModel as an OPTIONAL dependency: it only resolves
+        // when Features.Map registered it (RustMaps API key present); otherwise the renderer returns an
+        // empty payload and the reconciler never posts a map message.
+        services.AddScoped<IMessageRenderer, ServerInfoMapMessageRenderer>();
         services.AddScoped<IMessageRenderer, MapControlMessageRenderer>();
 
         // Reconciler + teardown (scoped). Register the teardown service once and expose both interfaces

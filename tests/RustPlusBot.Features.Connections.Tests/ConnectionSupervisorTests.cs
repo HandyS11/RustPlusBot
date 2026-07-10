@@ -402,8 +402,8 @@ public sealed class ConnectionSupervisorTests
             }
         }, CancellationToken.None);
 
-        // FakeConnection default DimensionsResult is new(4000u, 4000u, 500); assert those exact values.
-        var expectedDims = new MapDimensions(4000u, 4000u, 500);
+        // FakeConnection default DimensionsResult is new(4000u, 4000u, 500, 4000u); assert those exact values.
+        var expectedDims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
 
         // Script polls before EnsureConnectionAsync so the marker script is in the connection before
         // the poll loop can start — eliminates any setup race.
@@ -422,6 +422,59 @@ public sealed class ConnectionSupervisorTests
         Assert.Equal(MarkerKind.CargoShip, evt.Added[0].Kind);
         Assert.Empty(evt.Removed);
         Assert.Equal(expectedDims, evt.Dimensions);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try
+        {
+            await subTask;
+        }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task Marker_position_change_publishes_moved_bucket()
+    {
+        // Contract: a marker present in consecutive polls whose position changed lands in Moved
+        // (not Added/Removed), so the map can track cargo/heli movement.
+        //
+        // Script:
+        //   Poll 1 → [Cargo id 7 @ (100, 100)]  (baseline — no event)
+        //   Poll 2 → [Cargo id 7 @ (150, 130)]  (moved → one event)
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<MapMarkersChangedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<MapMarkersChangedEvent>(cts.Token))
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        source.EnqueueMarkers([new MapMarkerSnapshot(7UL, MarkerKind.CargoShip, 100f, 100f, "Cargo A")]);
+        source.EnqueueMarkers([new MapMarkerSnapshot(7UL, MarkerKind.CargoShip, 150f, 130f, "Cargo A")]);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
+
+        Assert.Single(captured);
+        Assert.True(captured.TryPeek(out var evt));
+        Assert.NotNull(evt);
+        Assert.Empty(evt!.Added);
+        Assert.Empty(evt.Removed);
+        var moved = Assert.Single(evt.Moved);
+        Assert.Equal(7UL, moved.Id);
+        Assert.Equal(150f, moved.X);
+        Assert.Equal(130f, moved.Y);
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
@@ -504,7 +557,7 @@ public sealed class ConnectionSupervisorTests
         var source = new FakeRustSocketSource();
         source.EnqueueConnect(SocketConnectOutcome.Connected);
         source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
-        source.SetMonuments([new MonumentSnapshot("oilrig_1", 1000f, 1000f)]);
+        source.SetMonuments([new MonumentSnapshot("oil_rig_small", 1000f, 1000f)]);
         source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 0f, 0f, null)]); // poll 1: far
         source.EnqueueMarkers([
             new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 1010f, 1010f, null)
@@ -560,7 +613,7 @@ public sealed class ConnectionSupervisorTests
         var source = new FakeRustSocketSource();
         source.EnqueueConnect(SocketConnectOutcome.Connected);
         source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
-        source.SetMonuments([new MonumentSnapshot("oilrig_1", 1000f, 1000f)]);
+        source.SetMonuments([new MonumentSnapshot("oil_rig_small", 1000f, 1000f)]);
         source.EnqueueMarkers([]); // poll 1: baseline
         source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.Chinook, 0f, 0f, null)]); // poll 2: CH47 far
         source.EnqueueMarkers([]); // poll 3: gone

@@ -363,6 +363,9 @@ namespace RustPlusBot.Persistence.Migrations
                     b.Property<Guid>("ServerId")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("GridStyle")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("GuildId")
                         .HasColumnType("INTEGER");
 

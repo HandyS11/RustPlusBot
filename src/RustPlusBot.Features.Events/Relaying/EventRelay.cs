@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Classifying;
@@ -6,6 +7,7 @@ using RustPlusBot.Features.Events.Posting;
 using RustPlusBot.Features.Events.Rendering;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Workspace.Locating;
+using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Events.Relaying;
@@ -48,18 +50,19 @@ internal sealed class EventRelay(
             return;
         }
 
-        var culture = await GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
+        var (culture, gridStyle) = await GetRenderSettingsAsync(evt.GuildId, evt.ServerId, cancellationToken)
+            .ConfigureAwait(false);
         var channelId = await channels.Locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
             .ConfigureAwait(false);
 
         foreach (var e in events)
         {
             await channels.TeamChatSender
-                .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderLine(e, culture), cancellationToken)
+                .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderLine(e, culture, gridStyle), cancellationToken)
                 .ConfigureAwait(false);
             if (channelId is { } id)
             {
-                await channels.Poster.PostAsync(id, renderer.Render(e, culture), cancellationToken)
+                await channels.Poster.PostAsync(id, renderer.Render(e, culture, gridStyle), cancellationToken)
                     .ConfigureAwait(false);
             }
         }
@@ -77,27 +80,33 @@ internal sealed class EventRelay(
             rigStore.Apply(evt);
         }
 
-        var culture = await GetCultureAsync(evt.GuildId, cancellationToken).ConfigureAwait(false);
+        var (culture, gridStyle) = await GetRenderSettingsAsync(evt.GuildId, evt.ServerId, cancellationToken)
+            .ConfigureAwait(false);
         await channels.TeamChatSender
-            .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderRigLine(evt, culture), cancellationToken)
+            .SendAsync(evt.GuildId, evt.ServerId, renderer.RenderRigLine(evt, culture, gridStyle), cancellationToken)
             .ConfigureAwait(false);
 
         var channelId = await channels.Locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
             .ConfigureAwait(false);
         if (channelId is { } id)
         {
-            await channels.Poster.PostAsync(id, renderer.RenderRig(evt, culture), cancellationToken)
+            await channels.Poster.PostAsync(id, renderer.RenderRig(evt, culture, gridStyle), cancellationToken)
                 .ConfigureAwait(false);
         }
     }
 
-    private async Task<string> GetCultureAsync(ulong guildId, CancellationToken cancellationToken)
+    private async Task<(string Culture, MapGridStyle GridStyle)> GetRenderSettingsAsync(ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
     {
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
             var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
-            return await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
+            var culture = await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
+            var mapSettings = scope.ServiceProvider.GetRequiredService<IMapSettingsStore>();
+            var settings = await mapSettings.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+            return (culture, settings.GridStyle);
         }
     }
 }

@@ -1,4 +1,5 @@
 using Discord;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.Formatting;
@@ -13,12 +14,13 @@ internal sealed class EventEmbedRenderer(ILocalizer localizer)
     /// <summary>Renders the event for a guild culture.</summary>
     /// <param name="evt">The event to render.</param>
     /// <param name="culture">The guild culture ("en"/"fr").</param>
+    /// <param name="gridStyle">Which grid convention the reference uses.</param>
     /// <returns>The built embed.</returns>
     /// <exception cref="ArgumentOutOfRangeException">The event kind is not a supported <see cref="MapEventKind"/>.</exception>
-    public Embed Render(RustMapEvent evt, string culture)
+    public Embed Render(RustMapEvent evt, string culture, MapGridStyle gridStyle = MapGridStyle.InGame)
     {
         ArgumentNullException.ThrowIfNull(evt);
-        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions);
+        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions, gridStyle);
         var key = evt.Kind switch
         {
             MapEventKind.CargoEntered => "event.cargo.entered",
@@ -39,11 +41,12 @@ internal sealed class EventEmbedRenderer(ILocalizer localizer)
     /// <summary>Renders a rig boundary event as a Discord embed.</summary>
     /// <param name="evt">The rig event.</param>
     /// <param name="culture">The guild culture.</param>
+    /// <param name="gridStyle">Which grid convention the reference uses.</param>
     /// <returns>The built embed.</returns>
-    public Embed RenderRig(RigStateChangedEvent evt, string culture)
+    public Embed RenderRig(RigStateChangedEvent evt, string culture, MapGridStyle gridStyle = MapGridStyle.InGame)
     {
         ArgumentNullException.ThrowIfNull(evt);
-        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions);
+        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions, gridStyle);
         return new EmbedBuilder()
             .WithAuthor(localizer.Get("event.title", culture))
             .WithDescription(localizer.Get(RigKey(evt), culture, grid))
@@ -53,23 +56,27 @@ internal sealed class EventEmbedRenderer(ILocalizer localizer)
     /// <summary>Renders the in-game team-chat line for a rig boundary event.</summary>
     /// <param name="evt">The rig event.</param>
     /// <param name="culture">The guild culture.</param>
+    /// <param name="gridStyle">Which grid convention the reference uses.</param>
     /// <returns>The line text.</returns>
-    public string RenderRigLine(RigStateChangedEvent evt, string culture)
+    public string RenderRigLine(RigStateChangedEvent evt,
+        string culture,
+        MapGridStyle gridStyle = MapGridStyle.InGame)
     {
         ArgumentNullException.ThrowIfNull(evt);
-        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions);
+        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions, gridStyle);
         return localizer.Get(RigKey(evt) + ".line", culture, grid);
     }
 
     /// <summary>Renders the in-game team-chat line for a cargo/heli/chinook event.</summary>
     /// <param name="evt">The map event.</param>
     /// <param name="culture">The guild culture.</param>
+    /// <param name="gridStyle">Which grid convention the reference uses.</param>
     /// <returns>The line text.</returns>
     /// <exception cref="ArgumentOutOfRangeException">The event kind is not a supported <see cref="MapEventKind"/>.</exception>
-    public string RenderLine(RustMapEvent evt, string culture)
+    public string RenderLine(RustMapEvent evt, string culture, MapGridStyle gridStyle = MapGridStyle.InGame)
     {
         ArgumentNullException.ThrowIfNull(evt);
-        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions);
+        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions, gridStyle);
         var key = evt.Kind switch
         {
             MapEventKind.CargoEntered => "event.cargo.entered.line",

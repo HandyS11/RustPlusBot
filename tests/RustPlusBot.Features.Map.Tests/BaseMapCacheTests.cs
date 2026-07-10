@@ -1,69 +1,75 @@
-using NSubstitute;
-using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Composing;
 
 namespace RustPlusBot.Features.Map.Tests;
 
 public sealed class BaseMapCacheTests
 {
-    private const ulong Guild = 1UL;
-    private static readonly Guid Server = Guid.NewGuid();
-
     [Fact]
-    public async Task GetAsync_fetches_once_then_serves_from_cache()
+    public async Task First_source_wins_and_is_cached()
     {
-        var query = Substitute.For<IRustServerQuery>();
-        query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns(
-            [
-                9
-            ]);
-        var cache = new BaseMapCache(query);
+        var preferred = new FakeSource(new BaseMapImage([1, 2], 100, 100, 0));
+        var fallback = new FakeSource(new BaseMapImage([9, 9], 200, 200, 50));
+        var cache = new BaseMapCache([preferred, fallback]);
+        var server = Guid.NewGuid();
 
-        var first = await cache.GetAsync(Guild, Server, CancellationToken.None);
-        var second = await cache.GetAsync(Guild, Server, CancellationToken.None);
+        var first = await cache.GetAsync(1, server, CancellationToken.None);
+        var second = await cache.GetAsync(1, server, CancellationToken.None);
 
-        Assert.Equal("\t"u8.ToArray(), first);
-        Assert.Equal("\t"u8.ToArray(), second);
-        await query.Received(1).GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>());
+        Assert.Equal(100, first!.PixelWidth);
+        Assert.Same(first, second);
+        Assert.Equal(1, preferred.Calls); // cached after the first hit
+        Assert.Equal(0, fallback.Calls);
     }
 
     [Fact]
-    public async Task GetAsync_does_not_cache_null_and_retries()
+    public async Task Falls_through_to_next_source_when_first_returns_null()
     {
-        var query = Substitute.For<IRustServerQuery>();
-        query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns((byte[]?)null,
-            [
-                7
-            ]);
-        var cache = new BaseMapCache(query);
+        var preferred = new FakeSource(null);
+        var fallback = new FakeSource(new BaseMapImage([9], 200, 200, 50));
+        var cache = new BaseMapCache([preferred, fallback]);
 
-        var first = await cache.GetAsync(Guild, Server, CancellationToken.None);
-        var second = await cache.GetAsync(Guild, Server, CancellationToken.None);
+        var result = await cache.GetAsync(1, Guid.NewGuid(), CancellationToken.None);
 
-        Assert.Null(first);
-        Assert.Equal(new byte[]
-        {
-            7
-        }, second);
-        await query.Received(2).GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>());
+        Assert.Equal(200, result!.PixelWidth);
+    }
+
+    [Fact]
+    public async Task All_null_is_not_cached_and_retries()
+    {
+        var source = new FakeSource(null);
+        var cache = new BaseMapCache([source]);
+        var server = Guid.NewGuid();
+
+        Assert.Null(await cache.GetAsync(1, server, CancellationToken.None));
+        Assert.Null(await cache.GetAsync(1, server, CancellationToken.None));
+        Assert.Equal(2, source.Calls);
     }
 
     [Fact]
     public async Task Clear_evicts_so_next_get_refetches()
     {
-        var query = Substitute.For<IRustServerQuery>();
-        query.GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(
-        [
-            1
-        ]);
-        var cache = new BaseMapCache(query);
+        var source = new FakeSource(new BaseMapImage([1], 100, 100, 0));
+        var cache = new BaseMapCache([source]);
+        const ulong guild = 1UL;
+        var server = Guid.NewGuid();
 
-        await cache.GetAsync(Guild, Server, CancellationToken.None);
-        cache.Clear(Guild, Server);
-        await cache.GetAsync(Guild, Server, CancellationToken.None);
+        await cache.GetAsync(guild, server, CancellationToken.None);
+        Assert.Equal(1, source.Calls);
 
-        await query.Received(2).GetMapImageAsync(Guild, Server, Arg.Any<CancellationToken>());
+        cache.Clear(guild, server);
+        await cache.GetAsync(guild, server, CancellationToken.None);
+
+        Assert.Equal(2, source.Calls);
+    }
+
+    private sealed class FakeSource(BaseMapImage? result) : IBaseMapSource
+    {
+        public int Calls { get; private set; }
+
+        public Task<BaseMapImage?> GetAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(result);
+        }
     }
 }

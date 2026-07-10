@@ -27,6 +27,8 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
     /// <inheritdoc />
     public IEnumerable<MessageSpec> GetMessageSpecs() =>
     [
+        // Declared FIRST so it posts above the status embed (within-channel order = declaration order).
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerInfoMap, WorkspaceChannelKeys.ServerInfo),
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerInfo, WorkspaceChannelKeys.ServerInfo),
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerMap, WorkspaceChannelKeys.ServerMap),
     ];

@@ -21,6 +21,7 @@
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/RustPlusBot.ItemData.Generator/RustPlusBot.ItemData.Generator.csproj" />
+    <Project Path="tools/RustPlusBot.MapParity/RustPlusBot.MapParity.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RustPlusBot.Abstractions.Tests/RustPlusBot.Abstractions.Tests.csproj" />

@@ -25,9 +25,10 @@ internal sealed record MapPipeline(
     IMapChannelPoster Poster);
 
 /// <summary>
-/// Keeps the #map image current: re-renders on marker changes, on a steady interval (so moving
-/// markers track even though their ids are stable), and on connect; clears the base-map cache on
-/// disconnect. All refreshes pass through a per-server throttle so the surfaces never double-post.
+/// Keeps the #map image current: re-renders on marker changes (including moved markers), on a
+/// steady interval (a backstop in case a delta is missed), and on connect; clears the base-map
+/// cache on disconnect. All refreshes pass through a per-server throttle so the surfaces never
+/// double-post.
 /// </summary>
 /// <param name="eventBus">The in-process event bus.</param>
 /// <param name="pipeline">Bundles the rendering-pipeline collaborators.</param>
@@ -146,9 +147,9 @@ internal sealed partial class MapHostedService(
     }
 
     /// <summary>
-    /// Repaints every connected server's #map on a steady interval. Marker ids are stable, so a moving
-    /// cargo ship / heli / chinook fires no <see cref="MapMarkersChangedEvent"/>; this tick is what keeps
-    /// their positions current and posts the first image after connect.
+    /// Repaints every connected server's #map on a steady interval. A moving cargo ship / heli / chinook
+    /// now fires a <see cref="MapMarkersChangedEvent"/> "Moved" delta that drives its own refresh; this
+    /// tick is a backstop for any missed delta and posts the first image after connect.
     /// </summary>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the loop stops.</returns>

@@ -6,6 +6,7 @@ using RustPlusBot.Features.Commands.Handlers;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Localization;
+using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Commands.Tests.Handlers;
 
@@ -22,6 +23,14 @@ public sealed class EventHandlersTests
         return (clock, new ResxLocalizer());
     }
 
+    /// <summary>A settings store returning the all-on defaults (in-game grid style).</summary>
+    private static IMapSettingsStore Settings()
+    {
+        var store = Substitute.For<IMapSettingsStore>();
+        store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(MapLayerSettings.AllOn);
+        return store;
+    }
+
     private static CommandContext Ctx() => new(Guild, Server, "en", 0UL, string.Empty, []);
 
     [Fact]
@@ -29,10 +38,14 @@ public sealed class EventHandlersTests
     {
         var (clock, loc) = Deps();
         var state = Substitute.For<IEventState>();
-        var dims = new MapDimensions(4000u, 4000u, 500);
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
         state.GetActiveMarkers(Guild, Server, MarkerKind.CargoShip).Returns(
-            [new ActiveMarker(1, MarkerKind.CargoShip, 10f, 3990f, dims, Now.AddMinutes(-5))]);
-        var reply = await new CargoCommandHandler(state, loc, clock).ExecuteAsync(Ctx(), CancellationToken.None);
+        [
+            new ActiveMarker(1, MarkerKind.CargoShip, 10f, 3990f, dims, Now.AddMinutes(-5),
+                [new TrailPoint(10f, 3990f)], null)
+        ]);
+        var reply = await new CargoCommandHandler(state, loc, clock, Settings()).ExecuteAsync(Ctx(),
+            CancellationToken.None);
 
         Assert.NotNull(reply);
         Assert.Contains("Cargo Ship at", reply, StringComparison.Ordinal);
@@ -46,7 +59,8 @@ public sealed class EventHandlersTests
         var (clock, loc) = Deps();
         var state = Substitute.For<IEventState>();
         state.GetActiveMarkers(Guild, Server, MarkerKind.CargoShip).Returns([]);
-        var reply = await new CargoCommandHandler(state, loc, clock).ExecuteAsync(Ctx(), CancellationToken.None);
+        var reply = await new CargoCommandHandler(state, loc, clock, Settings()).ExecuteAsync(Ctx(),
+            CancellationToken.None);
         Assert.Equal("No cargo ship on the map.", reply);
     }
 
@@ -57,11 +71,14 @@ public sealed class EventHandlersTests
         var state = Substitute.For<IEventState>();
         state.GetRecentEvents(Guild, Server).Returns([]);
         Assert.Equal("No recent events.",
-            await new EventsCommandHandler(state, loc).ExecuteAsync(Ctx(), CancellationToken.None));
+            await new EventsCommandHandler(state, loc, Settings()).ExecuteAsync(Ctx(), CancellationToken.None));
 
         state.GetRecentEvents(Guild, Server).Returns(
-            [new RustMapEvent(MapEventKind.CargoEntered, 10f, 3990f, new MapDimensions(4000u, 4000u, 500), Now)]);
-        var reply = await new EventsCommandHandler(state, loc).ExecuteAsync(Ctx(), CancellationToken.None);
+        [
+            new RustMapEvent(MapEventKind.CargoEntered, 10f, 3990f,
+                new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u), Now)
+        ]);
+        var reply = await new EventsCommandHandler(state, loc, Settings()).ExecuteAsync(Ctx(), CancellationToken.None);
         Assert.Contains("Recent:", reply, StringComparison.Ordinal);
     }
 
@@ -70,9 +87,9 @@ public sealed class EventHandlersTests
     {
         var (clock, loc) = Deps();
         var state = Substitute.For<IEventState>();
-        Assert.Equal("cargo", new CargoCommandHandler(state, loc, clock).Name);
-        Assert.Equal("heli", new HeliCommandHandler(state, loc, clock).Name);
-        Assert.Equal("chinook", new ChinookCommandHandler(state, loc, clock).Name);
-        Assert.Equal("events", new EventsCommandHandler(state, loc).Name);
+        Assert.Equal("cargo", new CargoCommandHandler(state, loc, clock, Settings()).Name);
+        Assert.Equal("heli", new HeliCommandHandler(state, loc, clock, Settings()).Name);
+        Assert.Equal("chinook", new ChinookCommandHandler(state, loc, clock, Settings()).Name);
+        Assert.Equal("events", new EventsCommandHandler(state, loc, Settings()).Name);
     }
 }

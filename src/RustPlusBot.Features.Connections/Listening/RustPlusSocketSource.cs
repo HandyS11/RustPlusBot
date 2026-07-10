@@ -81,6 +81,9 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             CancellationToken cancellationToken = default) =>
             Task.FromResult<MapDimensions?>(null);
 
+        public Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
+            Task.FromResult<WorldSnapshot?>(null);
+
         public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<MonumentSnapshot>>([]);
@@ -514,10 +517,13 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
             var data = response.Data;
             var markers = new List<MapMarkerSnapshot>();
-            AddMarkers(markers, data.CargoShipMarkers, MarkerKind.CargoShip);
-            AddMarkers(markers, data.PatrolHelicopterMarkers, MarkerKind.PatrolHelicopter);
-            AddMarkers(markers, data.Ch47Markers, MarkerKind.Chinook);
-            AddMarkers(markers, data.TravellingVendorMarkers, MarkerKind.TravellingVendor);
+            // RustPlusApi 2.0.0-beta.4 declares Rotation independently on each concrete marker record
+            // (CargoShipMarker/PatrolHelicopterMarker/Ch47Marker/TravellingVendorMarker) rather than on
+            // the shared base Marker, so the selector is resolved per call site via type inference.
+            AddMarkers(markers, data.CargoShipMarkers, MarkerKind.CargoShip, m => m.Rotation);
+            AddMarkers(markers, data.PatrolHelicopterMarkers, MarkerKind.PatrolHelicopter, m => m.Rotation);
+            AddMarkers(markers, data.Ch47Markers, MarkerKind.Chinook, m => m.Rotation);
+            AddMarkers(markers, data.TravellingVendorMarkers, MarkerKind.TravellingVendor, m => m.Rotation);
             return markers;
         }
 
@@ -545,7 +551,42 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                     return null;
                 }
 
-                return new MapDimensions(width, height, margin);
+                var infoResponse = await _rustPlus.GetInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                if (!infoResponse.IsSuccess || infoResponse.Data?.MapSize is not { } worldSize)
+                {
+                    return null;
+                }
+
+                return new MapDimensions(width, height, margin, worldSize);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+#pragma warning disable CA1031 // Broad catch: any map-query failure maps to null; never surface a token/secret.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return null;
+            }
+        }
+
+        public async Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                var response = await _rustPlus.GetInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                    .ConfigureAwait(false);
+                if (!response.IsSuccess || response.Data is not { MapSize: { } size, Seed: { } seed })
+                {
+                    return null;
+                }
+
+                return new WorldSnapshot(size, seed);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
@@ -567,7 +608,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
             // CONFIRMED (2.0.0-beta.1): GetMapAsync returns Task<Response<RustPlusApi.Data.ServerMap>>.
-            // ServerMap.Monuments is List<ServerMapMonument> with Name (= protobuf token, e.g. "oilrig_1"),
+            // ServerMap.Monuments is List<ServerMapMonument> with Name (= protobuf token, e.g. "oil_rig_small"),
             // Nullable<float> X/Y. We surface (token, x, y) and skip monuments with incomplete coordinates.
             var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
                 .ConfigureAwait(false);
@@ -659,7 +700,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         private static void AddMarkers<TMarker>(
             List<MapMarkerSnapshot> into,
             IReadOnlyDictionary<ulong, TMarker> source,
-            MarkerKind kind)
+            MarkerKind kind,
+            Func<TMarker, float?> rotationSelector)
             where TMarker : RustPlusApi.Data.Markers.Marker
         {
             foreach (var (id, marker) in source)
@@ -671,7 +713,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                     continue;
                 }
 
-                into.Add(new MapMarkerSnapshot(id, kind, x, y, Name: null));
+                into.Add(new MapMarkerSnapshot(id, kind, x, y, Name: null, Rotation: rotationSelector(marker)));
             }
         }
 

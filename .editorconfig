@@ -392,6 +392,7 @@ roslynator_compiler_diagnostic_fixes.enabled = true
 dotnet_diagnostic.CA1002.severity = none # Do not expose generic lists — API uses List<T> intentionally for protobuf collections
 dotnet_diagnostic.CA1008.severity = none # Enums should have zero value
 dotnet_diagnostic.CA1031.severity = none # Do not catch general exception types (intentional for fail-safe CLI resilience)
+dotnet_diagnostic.CA1054.severity = none # Uri parameters should not be strings — same call as CA1056 below; RustMaps URLs travel as plain strings end to end
 dotnet_diagnostic.CA1056.severity = none # Uri properties should not be strings
 dotnet_diagnostic.CA1303.severity = none # Do not pass literals as localized parameters (literal strings in console output — CLI tool not localized)
 dotnet_diagnostic.CA1308.severity = none # Normalize strings to uppercase

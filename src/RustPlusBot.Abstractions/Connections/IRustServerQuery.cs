@@ -46,6 +46,13 @@ public interface IRustServerQuery
     /// <returns>The map dimensions, or null when there is no live socket.</returns>
     Task<MapDimensions?> GetMapDimensionsAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
 
+    /// <summary>Gets the world size and seed of a connected server, or null when unavailable.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The world snapshot, or null.</returns>
+    Task<WorldSnapshot?> GetWorldAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
+
     /// <summary>Gets the server's monuments, or an empty list when there is no live socket.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The target server id.</param>
