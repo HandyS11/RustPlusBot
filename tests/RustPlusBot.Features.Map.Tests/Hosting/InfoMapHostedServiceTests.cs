@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -36,6 +37,17 @@ public sealed class InfoMapHostedServiceTests
         }
     });
 
+    /// <summary>
+    /// A fake bus that records every published <see cref="InfoMapReadyEvent"/>. Deterministic, unlike
+    /// subscribing to the real <see cref="InMemoryEventBus"/> from a background task: that bus drops
+    /// events published before the subscriber is active, which races the service's first tick.
+    /// </summary>
+    private static (IEventBus Bus, ConcurrentQueue<InfoMapReadyEvent> Received) CapturingBus()
+    {
+        var bus = new CapturingEventBus();
+        return (bus, bus.Received);
+    }
+
     [Fact]
     public async Task Ready_key_publishes_InfoMapReadyEvent_once_per_requester()
     {
@@ -55,16 +67,10 @@ public sealed class InfoMapHostedServiceTests
         var driver = new RustMapsGenerationDriver(client, coordinator, NullLogger<RustMapsGenerationDriver>.Instance);
 
         var query = Substitute.For<IRustServerQuery>();
-        var bus = new InMemoryEventBus();
-        var received = new List<InfoMapReadyEvent>();
-        using var collectCts = new CancellationTokenSource();
-        _ = Task.Run(async () =>
-        {
-            await foreach (var evt in bus.SubscribeAsync<InfoMapReadyEvent>(collectCts.Token))
-            {
-                received.Add(evt);
-            }
-        });
+        // Capture publishes off a substituted bus: the real InMemoryEventBus drops events published
+        // before a subscriber is active, so collecting via a background subscription races the
+        // service's first tick and flakes on slow CI runners.
+        var (bus, received) = CapturingBus();
 
         var service = new InfoMapHostedService(
             bus, coordinator, driver, query, ShortPollOptions(),
@@ -82,7 +88,6 @@ public sealed class InfoMapHostedServiceTests
         finally
         {
             await service.StopAsync(CancellationToken.None);
-            await collectCts.CancelAsync();
         }
 
         Assert.Equal(2, received.Count);
@@ -120,16 +125,7 @@ public sealed class InfoMapHostedServiceTests
         IReadOnlyList<(ulong GuildId, Guid ServerId)> connectable = [(GuildA, serverId)];
         store.ListConnectableServersAsync(Arg.Any<CancellationToken>()).Returns(connectable);
 
-        var bus = new InMemoryEventBus();
-        var received = new List<InfoMapReadyEvent>();
-        using var collectCts = new CancellationTokenSource();
-        _ = Task.Run(async () =>
-        {
-            await foreach (var evt in bus.SubscribeAsync<InfoMapReadyEvent>(collectCts.Token))
-            {
-                received.Add(evt);
-            }
-        });
+        var (bus, received) = CapturingBus();
 
         var service = new InfoMapHostedService(
             bus, coordinator, driver, query, ShortPollOptions(),
@@ -139,7 +135,7 @@ public sealed class InfoMapHostedServiceTests
         try
         {
             var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
-            while (DateTimeOffset.UtcNow < deadline && received.Count < 1)
+            while (DateTimeOffset.UtcNow < deadline && received.IsEmpty)
             {
                 await Task.Delay(20);
             }
@@ -147,7 +143,6 @@ public sealed class InfoMapHostedServiceTests
         finally
         {
             await service.StopAsync(CancellationToken.None);
-            await collectCts.CancelAsync();
         }
 
         // No ConnectionStatusChangedEvent was ever published — registration came from the store tick.
@@ -205,5 +200,25 @@ public sealed class InfoMapHostedServiceTests
 
         Assert.Contains(Key, coordinator.PendingKeys());
         Assert.Contains((GuildA, serverId), coordinator.Requesters(Key));
+    }
+
+    private sealed class CapturingEventBus : IEventBus
+    {
+        public ConcurrentQueue<InfoMapReadyEvent> Received { get; } = new();
+
+        public ValueTask PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
+            where TEvent : notnull
+        {
+            if (@event is InfoMapReadyEvent ready)
+            {
+                Received.Enqueue(ready);
+            }
+
+            return ValueTask.CompletedTask;
+        }
+
+        public IAsyncEnumerable<TEvent> SubscribeAsync<TEvent>(CancellationToken cancellationToken = default)
+            where TEvent : notnull =>
+            AsyncEnumerable.Empty<TEvent>(); // No live subscriptions needed: assertions read Received.
     }
 }
