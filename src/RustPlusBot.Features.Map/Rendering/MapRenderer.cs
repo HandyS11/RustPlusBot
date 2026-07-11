@@ -22,10 +22,8 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
 
     private const float OutlinePenWidth = 1f;
     private const float ActiveRingWidth = 3f;
-    private const float PlayerLabelOffset = 12f;
 
     private static readonly FontFamily Family = LoadFamily();
-    private static readonly Font Font = Family.CreateFont(12f);
     private static readonly Font GridLabelFont = Family.CreateFont(MapRenderStyle.GridLabelFontSize);
 
     private static FontFamily LoadFamily()
@@ -47,6 +45,7 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
     /// <param name="rigs">Oil-rig placements already projected to pixel coordinates.</param>
     /// <param name="layers">Which overlay layers to draw.</param>
     /// <param name="gridStyle">Which grid convention to draw (in-game F1 map, or Rust+/RustMaps).</param>
+    /// <param name="tunnels">Train-tunnel placements already projected to pixel coordinates.</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
     public byte[] Render(byte[] baseJpeg,
         MapProjection projection,
@@ -55,7 +54,8 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
         IReadOnlyList<PlayerPlacement> players,
         IReadOnlyList<RigPlacement> rigs,
         MapLayerSet layers,
-        MapGridStyle gridStyle = MapGridStyle.InGame)
+        MapGridStyle gridStyle = MapGridStyle.InGame,
+        IReadOnlyList<MonumentPlacement>? tunnels = null)
     {
         ArgumentNullException.ThrowIfNull(baseJpeg);
         ArgumentNullException.ThrowIfNull(projection);
@@ -76,6 +76,11 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
         if (layers.Monuments)
         {
             DrawMonuments(image, monuments);
+        }
+
+        if (layers.Tunnels && tunnels is { Count: > 0 })
+        {
+            DrawMonuments(image, tunnels);
         }
 
         if (layers.Markers || layers.Vendor)
@@ -173,10 +178,12 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
                 var baseColor = MapRenderStyle.TrailColor(marker.Kind);
                 for (var i = 1; i < marker.Trail.Count; i++)
                 {
-                    // Fade from faint (oldest) to strong (newest) so travel direction reads instantly.
-                    var alpha = 0.15f + (0.45f * i / (marker.Trail.Count - 1));
-                    ctx.DrawLine(baseColor.WithAlpha(alpha), MapRenderStyle.TrailWidth,
-                        marker.Trail[i - 1], marker.Trail[i]);
+                    // Fade from faint (oldest) to the alpha ceiling (newest) so direction still reads,
+                    // but stays subtle. A dashed pen keeps it from looking like a solid smear.
+                    var alpha = MapRenderStyle.TrailMaxAlpha * i / (marker.Trail.Count - 1);
+                    var pen = new PatternPen(baseColor.WithAlpha(alpha), MapRenderStyle.TrailWidth,
+                        MapRenderStyle.TrailDash);
+                    ctx.DrawLine(pen, marker.Trail[i - 1], marker.Trail[i]);
                 }
             }
         });
@@ -253,43 +260,36 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
 
     private static void DrawPlayers(Image<Rgba32> image, IReadOnlyList<PlayerPlacement> players)
     {
-        var icon = MapIcons.Player(MapRenderStyle.PlayerIconSize);
-
         image.Mutate(ctx =>
         {
             foreach (var player in players)
             {
-                DrawPlayerIcon(ctx, player, icon);
-                DrawPlayerLabel(ctx, player);
+                DrawPlayerCross(ctx, player);
             }
         });
     }
 
-    private static void DrawPlayerIcon(IImageProcessingContext ctx, PlayerPlacement player, Image<Rgba32>? icon)
+    private static void DrawPlayerCross(IImageProcessingContext ctx, PlayerPlacement player)
     {
-        if (icon is null)
-        {
-            return;
-        }
+        const float arm = MapRenderStyle.PlayerCrossArm;
+        var alpha = player.IsOnline ? 1f : MapRenderStyle.PlayerOfflineAlpha;
+        var color = player.CrossColor.WithAlpha(alpha);
+        var halo = Color.FromRgba(0, 0, 0, (byte)(180 * alpha));
 
-        var isActive = player is { IsAlive: true, IsOnline: true };
-        // Dead/offline teammates render dimmed so status reads at a glance (label adds the suffix).
-        ctx.DrawImage(icon, CenterAt(player.PixelX, player.PixelY, icon), isActive ? 1f : 0.45f);
-    }
+        // Alive = '+', dead = 'x'.
+        var (a1, a2, b1, b2) = player.IsAlive
+            ? (new PointF(player.PixelX - arm, player.PixelY), new PointF(player.PixelX + arm, player.PixelY),
+                new PointF(player.PixelX, player.PixelY - arm), new PointF(player.PixelX, player.PixelY + arm))
+            : (new PointF(player.PixelX - arm, player.PixelY - arm),
+                new PointF(player.PixelX + arm, player.PixelY + arm),
+                new PointF(player.PixelX - arm, player.PixelY + arm),
+                new PointF(player.PixelX + arm, player.PixelY - arm));
 
-    private static void DrawPlayerLabel(IImageProcessingContext ctx, PlayerPlacement player)
-    {
-        var isActive = player is { IsAlive: true, IsOnline: true };
-        var suffix = player.IsAlive ? " (offline)" : " (dead)";
-        var label = isActive ? player.Name : player.Name + suffix;
-        var labelColor = isActive ? Color.White : Color.Gray;
-        var textOptions = new RichTextOptions(Font)
-        {
-            Origin = new PointF(player.PixelX, player.PixelY + PlayerLabelOffset),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Top,
-        };
-        ctx.DrawText(textOptions, label, labelColor);
+        // Halo first (wider, dark), then the colored strokes on top.
+        ctx.DrawLine(halo, MapRenderStyle.PlayerCrossHaloWidth, a1, a2);
+        ctx.DrawLine(halo, MapRenderStyle.PlayerCrossHaloWidth, b1, b2);
+        ctx.DrawLine(color, MapRenderStyle.PlayerCrossWidth, a1, a2);
+        ctx.DrawLine(color, MapRenderStyle.PlayerCrossWidth, b1, b2);
     }
 
     private static Point CenterAt(float x, float y, Image<Rgba32> icon) =>

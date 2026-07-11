@@ -65,6 +65,21 @@ public sealed class MapSettingsStoreTests
     }
 
     [Fact]
+    public async Task SetLayerAsync_can_disable_tunnels_only()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var server = SeedServer(context);
+
+        await new MapSettingsStore(context).SetLayerAsync(1UL, server.Id, MapLayer.Tunnels, enabled: false);
+        var result = await new MapSettingsStore(context).GetAsync(1UL, server.Id);
+
+        Assert.False(result.Tunnels);
+        Assert.True(result.Monuments); // other layers untouched
+    }
+
+    [Fact]
     public async Task GridStyle_defaults_to_in_game()
     {
         var (context, connection) = SqliteContextFixture.Create();

@@ -7,8 +7,16 @@ namespace RustPlusBot.Features.Map.Rendering;
 /// <param name="Vendor">Draw the travelling-vendor marker.</param>
 /// <param name="Players">Draw teammate position markers.</param>
 /// <param name="Rigs">Style oil rigs by activation state.</param>
-public sealed record MapLayerSet(bool Grid, bool Markers, bool Monuments, bool Vendor, bool Players, bool Rigs)
+/// <param name="Tunnels">Draw train-tunnel entrance icons.</param>
+public sealed record MapLayerSet(
+    bool Grid,
+    bool Markers,
+    bool Monuments,
+    bool Vendor,
+    bool Players,
+    bool Rigs,
+    bool Tunnels = false)
 {
     /// <summary>All layers enabled — the defaults-on render.</summary>
-    public static MapLayerSet AllOn { get; } = new(true, true, true, true, true, true);
+    public static MapLayerSet AllOn { get; } = new(true, true, true, true, true, true, true);
 }

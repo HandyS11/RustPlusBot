@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.Logging;
+using RustPlusBot.Features.Map.Composing;
 
 namespace RustPlusBot.Features.Map.Posting;
 
@@ -15,7 +16,10 @@ internal sealed partial class DiscordMapChannelPoster(
     private const int RecentMessageScan = 10;
 
     /// <inheritdoc />
-    public async Task PostAsync(ulong channelId, byte[] pngBytes, CancellationToken cancellationToken)
+    public async Task PostAsync(ulong channelId,
+        byte[] pngBytes,
+        MapLegend? legend,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pngBytes);
         try
@@ -47,8 +51,8 @@ internal sealed partial class DiscordMapChannelPoster(
             var stream = new MemoryStream(pngBytes);
             await using (stream.ConfigureAwait(false))
             {
-                await channel.SendFileAsync(stream, "map.png", options: options, allowedMentions: AllowedMentions.None)
-                    .ConfigureAwait(false);
+                await channel.SendFileAsync(stream, "map.png", embed: MapLegendEmbed.Build(legend),
+                    options: options, allowedMentions: AllowedMentions.None).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)

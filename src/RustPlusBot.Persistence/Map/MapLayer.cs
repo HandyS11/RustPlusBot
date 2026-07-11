@@ -22,6 +22,9 @@ public enum MapLayer
 
     /// <summary>The oil-rig activation-styling layer.</summary>
     Rigs = 5,
+
+    /// <summary>The train-tunnel entrance layer.</summary>
+    Tunnels = 6,
 }
 
 /// <summary>The resolved per-server layer toggles (all-on when no row is stored).</summary>
@@ -31,6 +34,7 @@ public enum MapLayer
 /// <param name="Vendor">Travelling vendor.</param>
 /// <param name="Players">Teammate positions.</param>
 /// <param name="Rigs">Oil-rig activation styling.</param>
+/// <param name="Tunnels">Train-tunnel entrance icons.</param>
 /// <param name="GridStyle">Which grid convention the render and event grid references use.</param>
 public sealed record MapLayerSettings(
     bool Grid,
@@ -39,6 +43,7 @@ public sealed record MapLayerSettings(
     bool Vendor,
     bool Players,
     bool Rigs,
+    bool Tunnels = true,
     MapGridStyle GridStyle = MapGridStyle.InGame)
 {
     /// <summary>All layers enabled — the default when no settings row exists.</summary>

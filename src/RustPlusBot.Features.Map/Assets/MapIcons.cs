@@ -27,7 +27,7 @@ public static class MapIcons
     public static Image<Rgba32>? Marker(MarkerKind kind)
     {
         var key = KeyFor(kind);
-        return key is null ? null : Load(key);
+        return key is null ? null : Native(key);
     }
 
     /// <summary>Gets the marker icon scaled to fit a square box, or null when the kind has no icon.</summary>
@@ -38,16 +38,7 @@ public static class MapIcons
 
     /// <summary>Gets the travelling vendor icon.</summary>
     /// <returns>The cached vendor icon image, or null.</returns>
-    public static Image<Rgba32>? Vendor() => Load("vendor");
-
-    /// <summary>Gets the player position icon, or null when the asset is missing.</summary>
-    /// <returns>The player icon, or null.</returns>
-    public static Image<Rgba32>? Player() => Load("player");
-
-    /// <summary>Gets the player icon scaled to fit a square box, or null when the asset is missing.</summary>
-    /// <param name="size">The box edge length in pixels.</param>
-    /// <returns>The cached scaled icon, or null.</returns>
-    public static Image<Rgba32>? Player(int size) => Scaled("player", size);
+    public static Image<Rgba32>? Vendor() => Native("vendor");
 
     private static string? KeyFor(MarkerKind kind) => kind switch
     {
@@ -58,18 +49,27 @@ public static class MapIcons
         _ => null,
     };
 
-    private static Image<Rgba32>? Load(string key) => Cache.GetOrAdd(key, static k =>
+    private static Image<Rgba32>? Native(string? key) => key is null
+        ? null
+        : Cache.GetOrAdd(key, static k => k switch
+        {
+            "patrol" => MarkerIconComposer.Heli(),
+            "ch47" => MarkerIconComposer.Chinook(),
+            _ => LoadPng(k),
+        });
+
+    private static Image<Rgba32>? LoadPng(string key)
     {
         var asm = typeof(MapIcons).Assembly;
-        using var stream = asm.GetManifestResourceStream(ResourcePrefix + k + ".png");
+        using var stream = asm.GetManifestResourceStream(ResourcePrefix + key + ".png");
         return stream is null ? null : Image.Load<Rgba32>(stream);
-    });
+    }
 
     private static Image<Rgba32>? Scaled(string? key, int size) => key is null
         ? null
         : Cache.GetOrAdd($"{key}@{size}", _ =>
         {
-            var native = Load(key);
+            var native = Native(key);
             return native?.Clone(ctx => ctx.Resize(new ResizeOptions
             {
                 Mode = ResizeMode.Max, Size = new Size(size, size),

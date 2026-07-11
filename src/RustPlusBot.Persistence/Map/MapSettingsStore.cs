@@ -19,7 +19,7 @@ public sealed class MapSettingsStore(BotDbContext context) : IMapSettingsStore
         return row is null
             ? MapLayerSettings.AllOn
             : new MapLayerSettings(row.ShowGrid, row.ShowMarkers, row.ShowMonuments, row.ShowVendor,
-                row.ShowPlayers, row.ShowRigs, row.GridStyle);
+                row.ShowPlayers, row.ShowRigs, row.ShowTunnels, row.GridStyle);
     }
 
     /// <inheritdoc />
@@ -56,6 +56,9 @@ public sealed class MapSettingsStore(BotDbContext context) : IMapSettingsStore
                 break;
             case MapLayer.Rigs:
                 row.ShowRigs = enabled;
+                break;
+            case MapLayer.Tunnels:
+                row.ShowTunnels = enabled;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(layer), layer, "Unknown map layer.");

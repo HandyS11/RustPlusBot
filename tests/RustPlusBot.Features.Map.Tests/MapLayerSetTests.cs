@@ -15,5 +15,6 @@ public sealed class MapLayerSetTests
         Assert.True(set.Vendor);
         Assert.True(set.Players);
         Assert.True(set.Rigs);
+        Assert.True(set.Tunnels);
     }
 }

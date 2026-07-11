@@ -20,7 +20,7 @@ public sealed class MapControlMessageRendererTests
     ];
 
     [Fact]
-    public async Task Renders_six_toggle_buttons_reflecting_settings()
+    public async Task Renders_seven_toggle_buttons_reflecting_settings()
     {
         var serverId = Guid.NewGuid();
         var settings = Substitute.For<IMapSettingsStore>();
@@ -35,7 +35,7 @@ public sealed class MapControlMessageRendererTests
         var toggles = Buttons(payload)
             .Where(b => b.CustomId!.StartsWith(WorkspaceComponentIds.MapTogglePrefix, StringComparison.Ordinal))
             .ToList();
-        Assert.Equal(6, toggles.Count);
+        Assert.Equal(7, toggles.Count);
 
         var monuments = toggles.Single(b =>
             b.CustomId == $"workspace:map:toggle:{MapLayer.Monuments}:{serverId}");

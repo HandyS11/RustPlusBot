@@ -7,7 +7,7 @@ using RustPlusBot.Persistence.Map;
 
 namespace RustPlusBot.Features.Workspace.Messages;
 
-/// <summary>Renders the per-server #map control message: six ManageGuild layer-toggle buttons plus the
+/// <summary>Renders the per-server #map control message: seven ManageGuild layer-toggle buttons plus the
 /// grid-style picker (in-game vs Rust+/RustMaps grid convention).</summary>
 /// <param name="mapSettings">Per-(guild, server) layer toggles.</param>
 /// <param name="localizer">String resolution.</param>
@@ -31,7 +31,7 @@ internal sealed class MapControlMessageRenderer(
         var settings = await mapSettings.GetAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
 
         var builder = new ComponentBuilder();
-        // Discord caps an action row at five buttons, so split the six toggles across two rows.
+        // Discord caps an action row at five buttons, so split the seven toggles across two rows.
         AddToggle(builder, MapLayer.Grid, "map.layer.grid", settings.Grid, serverId, context.Culture, row: 0);
         AddToggle(builder, MapLayer.Markers, "map.layer.markers", settings.Markers, serverId, context.Culture, row: 0);
         AddToggle(builder, MapLayer.Monuments, "map.layer.monuments", settings.Monuments, serverId, context.Culture,
@@ -39,6 +39,8 @@ internal sealed class MapControlMessageRenderer(
         AddToggle(builder, MapLayer.Vendor, "map.layer.vendor", settings.Vendor, serverId, context.Culture, row: 1);
         AddToggle(builder, MapLayer.Players, "map.layer.players", settings.Players, serverId, context.Culture, row: 1);
         AddToggle(builder, MapLayer.Rigs, "map.layer.rigs", settings.Rigs, serverId, context.Culture, row: 1);
+        AddToggle(builder, MapLayer.Tunnels, "map.layer.tunnels", settings.Tunnels, serverId, context.Culture,
+            row: 1);
         AddGridStyle(builder, MapGridStyle.InGame, "map.gridstyle.ingame", settings.GridStyle, serverId,
             context.Culture);
         AddGridStyle(builder, MapGridStyle.RustPlus, "map.gridstyle.rustplus", settings.GridStyle, serverId,

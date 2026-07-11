@@ -573,6 +573,9 @@
   <data name="map.layer.rigs" xml:space="preserve">
     <value>Rigs</value>
   </data>
+  <data name="map.layer.tunnels" xml:space="preserve">
+    <value>Tunnels</value>
+  </data>
   <data name="map.layer.vendor" xml:space="preserve">
     <value>Vendor</value>
   </data>
