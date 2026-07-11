@@ -22,8 +22,12 @@
 
   <ItemGroup>
     <PackageReference Include="RustMapsApi" />
+    <PackageReference Include="RustMapsApi.Assets" />
     <PackageReference Include="SixLabors.ImageSharp" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="Svg.Skia" />
   </ItemGroup>
 
 </Project>
