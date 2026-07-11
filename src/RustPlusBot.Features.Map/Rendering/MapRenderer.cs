@@ -12,9 +12,10 @@ namespace RustPlusBot.Features.Map.Rendering;
 
 /// <summary>
 /// Renders the base map tile plus overlay layers to PNG bytes.
-/// Stateless; safe to register and use as a singleton.
+/// Stateless per render; safe to register and use as a singleton.
 /// </summary>
-public sealed class MapRenderer
+/// <param name="monumentIcons">Serves monument and rig icons from the RustMaps asset package.</param>
+public sealed class MapRenderer(MonumentIconSource monumentIcons)
 {
     /// <summary>The square output edge length in pixels.</summary>
     public const int OutputSize = 1024;
@@ -47,8 +48,6 @@ public sealed class MapRenderer
     /// <param name="layers">Which overlay layers to draw.</param>
     /// <param name="gridStyle">Which grid convention to draw (in-game F1 map, or Rust+/RustMaps).</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
-    /// <remarks>Kept as an instance method so the class can be registered as a DI singleton.</remarks>
-#pragma warning disable CA1822, S2325 // Kept as instance method for DI singleton registration
     public byte[] Render(byte[] baseJpeg,
         MapProjection projection,
         IReadOnlyList<MarkerPlacement> markers,
@@ -57,7 +56,6 @@ public sealed class MapRenderer
         IReadOnlyList<RigPlacement> rigs,
         MapLayerSet layers,
         MapGridStyle gridStyle = MapGridStyle.InGame)
-#pragma warning restore CA1822, S2325
     {
         ArgumentNullException.ThrowIfNull(baseJpeg);
         ArgumentNullException.ThrowIfNull(projection);
@@ -211,7 +209,7 @@ public sealed class MapRenderer
         });
     }
 
-    private static void DrawMonuments(Image<Rgba32> image, IReadOnlyList<MonumentPlacement> monuments)
+    private void DrawMonuments(Image<Rgba32> image, IReadOnlyList<MonumentPlacement> monuments)
     {
         // One Mutate for the whole layer (see DrawMarkers): monuments can be numerous, so a single
         // pipeline beats one Mutate per monument.
@@ -219,7 +217,7 @@ public sealed class MapRenderer
         {
             foreach (var monument in monuments)
             {
-                var icon = MapIcons.Monument(monument.Token, MapRenderStyle.MonumentIconSize);
+                var icon = monumentIcons.Monument(monument.Token, MapRenderStyle.MonumentIconSize);
                 if (icon is not null)
                 {
                     ctx.DrawImage(icon, CenterAt(monument.PixelX, monument.PixelY, icon), 1f);
@@ -228,13 +226,13 @@ public sealed class MapRenderer
         });
     }
 
-    private static void DrawRigs(Image<Rgba32> image, IReadOnlyList<RigPlacement> rigs)
+    private void DrawRigs(Image<Rgba32> image, IReadOnlyList<RigPlacement> rigs)
     {
         image.Mutate(ctx =>
         {
             foreach (var rig in rigs)
             {
-                var icon = MapIcons.Rig(rig.Kind, rig.Active, MapRenderStyle.MonumentIconSize);
+                var icon = monumentIcons.Rig(rig.Kind, MapRenderStyle.MonumentIconSize);
                 if (icon is null)
                 {
                     continue;

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Map;
+using RustPlusBot.Features.Map.Assets;
 using RustPlusBot.Features.Map.Composing;
 using RustPlusBot.Features.Map.Hosting;
 using RustPlusBot.Features.Map.Posting;
@@ -26,6 +27,8 @@ public static class MapServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        services.AddRustMapsAssets();
+        services.AddSingleton<MonumentIconSource>();
         services.AddSingleton<MapRenderer>();
 
         // RustMaps is NOT a base-map source (the #map render draws its own layers on the Rust+ tile).
