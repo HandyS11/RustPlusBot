@@ -113,6 +113,7 @@ public sealed class MapComponentModule(IServiceScopeFactory scopeFactory, IEvent
         MapLayer.Vendor => settings.Vendor,
         MapLayer.Players => settings.Players,
         MapLayer.Rigs => settings.Rigs,
+        MapLayer.Tunnels => settings.Tunnels,
         _ => true,
     };
 }

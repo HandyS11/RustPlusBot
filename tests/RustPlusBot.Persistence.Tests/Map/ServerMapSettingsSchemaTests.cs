@@ -33,6 +33,7 @@ public sealed class ServerMapSettingsSchemaTests
         Assert.True(read.ShowVendor);
         Assert.True(read.ShowPlayers);
         Assert.True(read.ShowRigs);
+        Assert.True(read.ShowTunnels);
     }
 
     [Fact]
