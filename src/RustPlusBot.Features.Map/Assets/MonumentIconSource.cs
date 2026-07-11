@@ -12,15 +12,16 @@ namespace RustPlusBot.Features.Map.Assets;
 
 /// <summary>
 /// Serves monument icons from the RustMaps asset package: resolves a Rust+ token to a
-/// <see cref="MonumentType"/>, rasterizes the SVG at the requested size, and caches the result.
-/// Cached images are immutable inputs the renderer draws from; never mutate them.
+/// <see cref="MonumentType"/>, rasterizes the SVG at the requested size, and caches the result
+/// (including null misses). Rasterization runs exactly once per (type, size), even when concurrent
+/// first requests race. Cached images are immutable inputs the renderer draws from; never mutate them.
 /// Register as a singleton.
 /// </summary>
 /// <param name="assets">The RustMaps monument asset source.</param>
 /// <param name="logger">Logs tokens that resolve to no icon, once per token per process.</param>
 public sealed partial class MonumentIconSource(IMonumentAssetSource assets, ILogger<MonumentIconSource> logger)
 {
-    private readonly ConcurrentDictionary<(MonumentType Type, int Size), Image<Rgba32>?> _cache = new();
+    private readonly ConcurrentDictionary<(MonumentType Type, int Size), Lazy<Image<Rgba32>?>> _cache = new();
     private readonly ConcurrentDictionary<string, byte> _reported = new(StringComparer.Ordinal);
 
     /// <summary>Gets the icon for a monument token scaled to a square box, or null when no icon exists.</summary>
@@ -52,7 +53,12 @@ public sealed partial class MonumentIconSource(IMonumentAssetSource assets, ILog
 
     private Image<Rgba32>? For(MonumentType type, string token, int size)
     {
-        var image = _cache.GetOrAdd((type, size), key => Rasterize(key.Type, key.Size));
+        // GetOrAdd's value factory may run more than once under a first-request race; the Lazy wrapper
+        // (ExecutionAndPublication) guarantees Rasterize itself runs exactly once per key, so no losing
+        // image is leaked and the rasterization-failure Warning fires at most once per (type, size).
+        var image = _cache
+            .GetOrAdd((type, size), key => new Lazy<Image<Rgba32>?>(() => Rasterize(key.Type, key.Size)))
+            .Value;
         if (image is null)
         {
             ReportOnce(token, type);
