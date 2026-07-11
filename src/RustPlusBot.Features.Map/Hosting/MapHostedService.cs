@@ -197,7 +197,7 @@ internal sealed partial class MapHostedService(
             return;
         }
 
-        await _poster.PostAsync(id, composition.Png, cancellationToken).ConfigureAwait(false);
+        await _poster.PostAsync(id, composition.Png, composition.Legend, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ConsumeConnectionStatusEventsAsync(CancellationToken cancellationToken)
