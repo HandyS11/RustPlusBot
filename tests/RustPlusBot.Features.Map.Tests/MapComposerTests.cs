@@ -83,9 +83,9 @@ public sealed class MapComposerTests
         var composer = Build(baseImage: null, Dims, NewQuery(), NewEvents(), NewRigs(),
             NewSettings(MapLayerSettings.AllOn));
 
-        var png = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
+        var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
-        Assert.Null(png);
+        Assert.Null(result);
     }
 
     [Fact]
@@ -96,11 +96,11 @@ public sealed class MapComposerTests
         var composer = Build(BaseJpeg(), Dims, NewQuery(), NewEvents(marker), NewRigs(),
             NewSettings(MapLayerSettings.AllOn));
 
-        var png = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
+        var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
-        Assert.NotNull(png);
-        using var result = Image.Load<Rgba32>(png!);
-        Assert.Equal(MapRenderer.OutputSize, result.Width);
+        Assert.NotNull(result);
+        using var image = Image.Load<Rgba32>(result!.Png);
+        Assert.Equal(MapRenderer.OutputSize, image.Width);
     }
 
     [Fact]
@@ -111,11 +111,11 @@ public sealed class MapComposerTests
                 [new TrailPoint(2000f, 2000f)], null)),
             NewRigs(), NewSettings(MapLayerSettings.AllOn));
 
-        var png = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
+        var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
-        Assert.NotNull(png);
-        using var result = Image.Load<Rgba32>(png!);
-        Assert.Equal(MapRenderer.OutputSize, result.Width);
+        Assert.NotNull(result);
+        using var image = Image.Load<Rgba32>(result!.Png);
+        Assert.Equal(MapRenderer.OutputSize, image.Width);
     }
 
     [Fact]
@@ -133,9 +133,9 @@ public sealed class MapComposerTests
 
         var composer = Build(BaseJpeg(), Dims, query, events, NewRigs(), settings);
 
-        var png = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
+        var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
-        Assert.NotNull(png);
+        Assert.NotNull(result);
         // Monuments + Rigs both disabled -> no monument round-trip at all.
         await query.DidNotReceive().GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>());
         // Players enabled -> the team seam was consulted.
@@ -150,20 +150,21 @@ public sealed class MapComposerTests
         // - baseOnly: Monuments off, Tunnels off        -> tunnel token never drawn (bare base render)
         // - monumentsOnly: Monuments on, Tunnels off     -> tunnel token EXCLUDED from the monuments pass
         // - tunnelsOnly: Monuments off, Tunnels on       -> tunnel token drawn via the tunnels pass
-        var basePng = await ComposeTunnelScenarioAsync(monuments: false, tunnels: false);
-        var monPng = await ComposeTunnelScenarioAsync(monuments: true, tunnels: false);
-        var tunPng = await ComposeTunnelScenarioAsync(monuments: false, tunnels: true);
+        var baseResult = await ComposeTunnelScenarioAsync(monuments: false, tunnels: false);
+        var monResult = await ComposeTunnelScenarioAsync(monuments: true, tunnels: false);
+        var tunResult = await ComposeTunnelScenarioAsync(monuments: false, tunnels: true);
 
-        Assert.NotNull(basePng);
-        Assert.NotNull(monPng);
-        Assert.NotNull(tunPng);
+        Assert.NotNull(baseResult);
+        Assert.NotNull(monResult);
+        Assert.NotNull(tunResult);
         // Monuments layer must NOT draw the tunnel token -> identical to the bare base render.
-        Assert.True(monPng!.SequenceEqual(basePng!), "tunnel token must be excluded from the Monuments pass");
+        Assert.True(monResult!.Png.SequenceEqual(baseResult!.Png),
+            "tunnel token must be excluded from the Monuments pass");
         // Tunnels layer MUST draw the tunnel token -> differs from the bare base render.
-        Assert.False(tunPng!.SequenceEqual(basePng!), "tunnel token must render under the Tunnels layer");
+        Assert.False(tunResult!.Png.SequenceEqual(baseResult!.Png), "tunnel token must render under the Tunnels layer");
     }
 
-    private static async Task<byte[]?> ComposeTunnelScenarioAsync(bool monuments, bool tunnels)
+    private static async Task<MapComposition?> ComposeTunnelScenarioAsync(bool monuments, bool tunnels)
     {
         var query = NewQuery();
         query.GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>())
@@ -190,9 +191,9 @@ public sealed class MapComposerTests
 
         var composer = Build(BaseJpeg(), Dims, query, events, NewRigs(), NewSettings(MapLayerSettings.AllOn));
 
-        var png = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
+        var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
-        Assert.NotNull(png);
+        Assert.NotNull(result);
         await query.Received().GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>());
         await query.Received().GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>());
     }
@@ -212,13 +213,13 @@ public sealed class MapComposerTests
             NewSettings(new MapLayerSettings(
                 Grid: false, Markers: true, Monuments: false, Vendor: false, Players: false, Rigs: false)));
 
-        var pngOn = await composerOn.ComposeAsync(Guild, Server, CancellationToken.None);
-        var pngOff = await composerOff.ComposeAsync(Guild, Server, CancellationToken.None);
+        var resultOn = await composerOn.ComposeAsync(Guild, Server, CancellationToken.None);
+        var resultOff = await composerOff.ComposeAsync(Guild, Server, CancellationToken.None);
 
-        Assert.NotNull(pngOn);
-        Assert.NotNull(pngOff);
+        Assert.NotNull(resultOn);
+        Assert.NotNull(resultOff);
         // The grid layer must have painted at least one pixel differently.
-        Assert.False(pngOn!.SequenceEqual(pngOff!), "Grid-on and grid-off renders must differ.");
+        Assert.False(resultOn!.Png.SequenceEqual(resultOff!.Png), "Grid-on and grid-off renders must differ.");
     }
 
     [Fact]
@@ -239,15 +240,49 @@ public sealed class MapComposerTests
         var composerNoTrail =
             Build(jpeg, Dims, NewQuery(), NewEvents(vendorNoTrail), NewRigs(), NewSettings(layers));
 
-        var pngWithTrail = await composerWithTrail.ComposeAsync(Guild, Server, CancellationToken.None);
-        var pngNoTrail = await composerNoTrail.ComposeAsync(Guild, Server, CancellationToken.None);
+        var resultWithTrail = await composerWithTrail.ComposeAsync(Guild, Server, CancellationToken.None);
+        var resultNoTrail = await composerNoTrail.ComposeAsync(Guild, Server, CancellationToken.None);
 
-        Assert.NotNull(pngWithTrail);
-        Assert.NotNull(pngNoTrail);
+        Assert.NotNull(resultWithTrail);
+        Assert.NotNull(resultNoTrail);
         // MapRenderer.DrawTrails only paints when Trail.Count >= 2, so a 2-point History must render
         // differently from a 1-point History — proving the history ring made it through to the trail.
-        Assert.False(pngWithTrail!.SequenceEqual(pngNoTrail!),
+        Assert.False(resultWithTrail!.Png.SequenceEqual(resultNoTrail!.Png),
             "Vendor trail with 2-point history must render differently than a 1-point history.");
+    }
+
+    [Fact]
+    public async Task ComposeAsync_builds_a_legend_entry_per_player()
+    {
+        var query = NewQuery();
+        query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns(new TeamInfoSnapshot(0,
+            [
+                new TeamMemberSnapshot(20, "Bob", 2000f, 2000f, IsOnline: false, IsAlive: false, default, default),
+                new TeamMemberSnapshot(10, "Ada", 2000f, 2000f, IsOnline: true, IsAlive: true, default, default),
+            ]));
+        var composer = Build(BaseJpeg(), Dims, query, NewEvents(), NewRigs(),
+            NewSettings(MapLayerSettings.AllOn));
+
+        var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.NotNull(result!.Legend);
+        // Ordered by SteamId: Ada (10) first, Bob (20) second.
+        Assert.Collection(result.Legend!.Entries,
+            e =>
+            {
+                Assert.Equal("Ada", e.Name);
+                Assert.Equal("online", e.Status);
+            },
+            e =>
+            {
+                Assert.Equal("Bob", e.Name);
+                Assert.Equal("offline, dead", e.Status);
+            });
+        // Ada gets palette[0], Bob palette[1].
+        Assert.Equal(PlayerPalette.For(0).Emoji, result.Legend.Entries[0].Emoji);
+        Assert.Equal(PlayerPalette.For(1).Emoji, result.Legend.Entries[1].Emoji);
     }
 
     private sealed class FakeSource(BaseMapImage? result) : IBaseMapSource

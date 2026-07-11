@@ -191,13 +191,13 @@ internal sealed partial class MapHostedService(
             return;
         }
 
-        var png = await _composer.ComposeAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-        if (png is null)
+        var composition = await _composer.ComposeAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        if (composition is null)
         {
             return;
         }
 
-        await _poster.PostAsync(id, png, cancellationToken).ConfigureAwait(false);
+        await _poster.PostAsync(id, composition.Png, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ConsumeConnectionStatusEventsAsync(CancellationToken cancellationToken)

@@ -32,8 +32,8 @@ public sealed class MapComposer(
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The target server id.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>PNG bytes, or null.</returns>
-    public async Task<byte[]?> ComposeAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    /// <returns>The rendered composition, or null when no base map is available yet.</returns>
+    public async Task<MapComposition?> ComposeAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
     {
         // The settings store is scoped (EF context); this composer is a singleton, so we open a scope per
         // call to resolve it (mirroring MapHostedService.OnConnectionStatusAsync) — avoids a captive dependency.
@@ -51,7 +51,7 @@ public sealed class MapComposer(
             .ConfigureAwait(false);
     }
 
-    private async Task<byte[]?> ComposeWithLayersAsync(
+    private async Task<MapComposition?> ComposeWithLayersAsync(
         ulong guildId,
         Guid serverId,
         MapLayerSet layers,
@@ -70,10 +70,12 @@ public sealed class MapComposer(
         if (dims is null || dims.WorldSize == 0)
         {
             // Dimensions unavailable: render the base tile only (every overlay needs world→pixel).
-            return renderer.Render(baseImage.Bytes, new MapProjection(0, 1, 1, 0, MapRenderer.OutputSize),
-                markers: [], monuments: [], players: [], rigs: [],
-                new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false,
-                    Rigs: false));
+            return new MapComposition(
+                renderer.Render(baseImage.Bytes, new MapProjection(0, 1, 1, 0, MapRenderer.OutputSize),
+                    markers: [], monuments: [], players: [], rigs: [],
+                    new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false,
+                        Rigs: false, Tunnels: false)),
+                Legend: null);
         }
 
         var projection = new MapProjection(dims.WorldSize, baseImage.PixelWidth, baseImage.PixelHeight,
@@ -90,12 +92,13 @@ public sealed class MapComposer(
 
         var monuments = GatherMonuments(serverMonuments, projection, layers);
         var tunnels = GatherTunnels(serverMonuments, projection, layers);
-        var players = await GatherPlayersAsync(guildId, serverId, projection, layers, cancellationToken)
+        var (players, legend) = await GatherPlayersAsync(guildId, serverId, projection, layers, cancellationToken)
             .ConfigureAwait(false);
         var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, projection, layers);
 
-        return renderer.Render(baseImage.Bytes, projection, markers, monuments, players, rigPlacements, layers,
+        var png = renderer.Render(baseImage.Bytes, projection, markers, monuments, players, rigPlacements, layers,
             gridStyle, tunnels);
+        return new MapComposition(png, legend);
     }
 
     private List<MarkerPlacement> GatherMarkers(
@@ -184,30 +187,46 @@ public sealed class MapComposer(
         return tunnels;
     }
 
-    private async Task<List<PlayerPlacement>> GatherPlayersAsync(
+    private async Task<(List<PlayerPlacement> Players, MapLegend? Legend)> GatherPlayersAsync(
         ulong guildId,
         Guid serverId,
         MapProjection projection,
         MapLayerSet layers,
         CancellationToken cancellationToken)
     {
-        var players = new List<PlayerPlacement>();
-        if (layers.Players)
+        if (!layers.Players)
         {
-            var team = await query.GetTeamInfoAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-            // Stable color per player: order by SteamId, index into the palette. SteamId never changes,
-            // so a player keeps their color across refreshes regardless of online/offline ordering.
-            var ordered = (team?.Members ?? []).OrderBy(m => m.SteamId).ToList();
-            for (var i = 0; i < ordered.Count; i++)
-            {
-                var member = ordered[i];
-                var (px, py) = projection.ToPixel(member.X, member.Y);
-                players.Add(new PlayerPlacement(member.Name, px, py, member.IsAlive, member.IsOnline,
-                    PlayerPalette.For(i).Rgba));
-            }
+            return ([], null);
         }
 
-        return players;
+        var team = await query.GetTeamInfoAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        // Stable color per player: order by SteamId, index into the palette. SteamId never changes,
+        // so a player keeps their color across refreshes regardless of online/offline ordering. The
+        // legend is built from the same index so a cross color and its legend row never drift.
+        var ordered = (team?.Members ?? []).OrderBy(m => m.SteamId).ToList();
+        if (ordered.Count == 0)
+        {
+            return ([], null);
+        }
+
+        var players = new List<PlayerPlacement>(ordered.Count);
+        var legend = new List<MapLegendEntry>(ordered.Count);
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var member = ordered[i];
+            var color = PlayerPalette.For(i);
+            var (px, py) = projection.ToPixel(member.X, member.Y);
+            players.Add(new PlayerPlacement(member.Name, px, py, member.IsAlive, member.IsOnline, color.Rgba));
+            legend.Add(new MapLegendEntry(color.Emoji, member.Name, StatusText(member)));
+        }
+
+        return (players, new MapLegend(legend));
+    }
+
+    private static string StatusText(TeamMemberSnapshot member)
+    {
+        var presence = member.IsOnline ? "online" : "offline";
+        return member.IsAlive ? presence : presence + ", dead";
     }
 
     private List<RigPlacement> GatherRigs(
