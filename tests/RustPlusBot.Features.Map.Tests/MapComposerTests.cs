@@ -1,8 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using RustMapsApi.V4.Assets;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Features.Map.Assets;
 using RustPlusBot.Features.Map.Composing;
 using RustPlusBot.Features.Map.Rendering;
 using RustPlusBot.Persistence.Map;
@@ -44,7 +47,8 @@ public sealed class MapComposerTests
             baseImage is null
                 ? null
                 : new BaseMapImage(baseImage, (int)Dims.Width, (int)Dims.Height, Dims.OceanMargin));
-        return new MapComposer(new BaseMapCache([source]), events, rigs, query, new MapRenderer(),
+        return new MapComposer(new BaseMapCache([source]), events, rigs, query,
+            new MapRenderer(new MonumentIconSource(new MonumentAssetSource(), NullLogger<MonumentIconSource>.Instance)),
             ScopeFactory(settingsStore));
     }
 

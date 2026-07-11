@@ -1,5 +1,8 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using RustMapsApi.V4.Assets;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Features.Map.Assets;
 using RustPlusBot.Features.Map.Rendering;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -11,6 +14,9 @@ public sealed class MapRendererTests
     private static readonly MapProjection Projection =
         new(WorldSize: 4000, ImageWidth: 4000, ImageHeight: 4000, OceanMarginPx: 500,
             OutputSize: MapRenderer.OutputSize);
+
+    private static MapRenderer CreateRenderer() =>
+        new(new MonumentIconSource(new MonumentAssetSource(), NullLogger<MonumentIconSource>.Instance));
 
     /// <summary>A 64x64 solid-green JPEG, generated once in-test so the renderer has a real base image to decode.</summary>
     private static byte[] BaseJpeg()
@@ -54,7 +60,7 @@ public sealed class MapRendererTests
     [Fact]
     public void Render_produces_a_png_of_the_output_size()
     {
-        var renderer = new MapRenderer();
+        var renderer = CreateRenderer();
 
         var bytes = renderer.Render(BaseJpeg(), Projection, markers: [], monuments: [], players: [], rigs: [],
             MapLayerSet.AllOn);
@@ -67,7 +73,7 @@ public sealed class MapRendererTests
     [Fact]
     public void Render_with_a_marker_differs_from_render_without()
     {
-        var renderer = new MapRenderer();
+        var renderer = CreateRenderer();
         var jpeg = BaseJpeg();
 
         var without = renderer.Render(jpeg, Projection, markers: [], monuments: [], players: [], rigs: [],
@@ -83,7 +89,7 @@ public sealed class MapRendererTests
     [Fact]
     public void Render_with_all_layers_produces_valid_png()
     {
-        var renderer = new MapRenderer();
+        var renderer = CreateRenderer();
         var markers = new[]
         {
             new MarkerPlacement(MarkerKind.CargoShip, 100, 100, null, [])
@@ -110,7 +116,7 @@ public sealed class MapRendererTests
     [Fact]
     public void Monument_icon_is_drawn_scaled_not_native()
     {
-        var renderer = new MapRenderer();
+        var renderer = CreateRenderer();
         var projection = new MapProjection(4000, 2000, 2000, 100, MapRenderer.OutputSize);
         var baseJpeg = SolidJpeg(2000);
         var (px, py) = projection.ToPixel(2000f, 2000f);
@@ -130,7 +136,7 @@ public sealed class MapRendererTests
     [Fact]
     public void Trail_draws_pixels_between_history_points()
     {
-        var renderer = new MapRenderer();
+        var renderer = CreateRenderer();
         var projection = new MapProjection(4000, 2000, 2000, 100, MapRenderer.OutputSize);
         var baseJpeg = SolidJpeg(2000);
         var (ax, ay) = projection.ToPixel(1000f, 2000f);
@@ -155,7 +161,7 @@ public sealed class MapRendererTests
     {
         // Rust+/RustMaps rows sit 100 world-units south of the in-game rows, so the two styles must
         // produce different grid pixels on the same base image.
-        var renderer = new MapRenderer();
+        var renderer = CreateRenderer();
         var projection = new MapProjection(1500, 2000, 2000, 100, MapRenderer.OutputSize);
         var baseJpeg = SolidJpeg(2000);
         var layers = new MapLayerSet(Grid: true, Markers: false, Monuments: false, Vendor: false,
@@ -170,7 +176,7 @@ public sealed class MapRendererTests
     [Fact]
     public void Rotation_changes_the_rendered_icon()
     {
-        var renderer = new MapRenderer();
+        var renderer = CreateRenderer();
         var projection = new MapProjection(4000, 2000, 2000, 100, MapRenderer.OutputSize);
         var baseJpeg = SolidJpeg(2000);
         var (px, py) = projection.ToPixel(2000f, 2000f);
