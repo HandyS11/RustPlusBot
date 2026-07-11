@@ -173,10 +173,12 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
                 var baseColor = MapRenderStyle.TrailColor(marker.Kind);
                 for (var i = 1; i < marker.Trail.Count; i++)
                 {
-                    // Fade from faint (oldest) to strong (newest) so travel direction reads instantly.
-                    var alpha = 0.15f + (0.45f * i / (marker.Trail.Count - 1));
-                    ctx.DrawLine(baseColor.WithAlpha(alpha), MapRenderStyle.TrailWidth,
-                        marker.Trail[i - 1], marker.Trail[i]);
+                    // Fade from faint (oldest) to the alpha ceiling (newest) so direction still reads,
+                    // but stays subtle. A dashed pen keeps it from looking like a solid smear.
+                    var alpha = MapRenderStyle.TrailMaxAlpha * i / (marker.Trail.Count - 1);
+                    var pen = new PatternPen(baseColor.WithAlpha(alpha), MapRenderStyle.TrailWidth,
+                        MapRenderStyle.TrailDash);
+                    ctx.DrawLine(pen, marker.Trail[i - 1], marker.Trail[i]);
                 }
             }
         });

@@ -18,11 +18,17 @@ public static class MapRenderStyle
     /// <summary>Player icon box edge, in output pixels.</summary>
     public const int PlayerIconSize = 20;
 
-    /// <summary>Trail polyline stroke width, in output pixels.</summary>
-    public const float TrailWidth = 2f;
+    /// <summary>Trail polyline stroke width, in output pixels (thin, so it reads as a faint hint).</summary>
+    public const float TrailWidth = 1.25f;
+
+    /// <summary>Opacity ceiling for the newest trail segment (older segments fade below this).</summary>
+    public const float TrailMaxAlpha = 0.4f;
 
     /// <summary>Grid cell label font size, in points.</summary>
     public const float GridLabelFontSize = 10f;
+
+    /// <summary>Dash pattern (on, off, on, off …) for the trail, in multiples of the pen width.</summary>
+    public static float[] TrailDash { get; } = [3f, 3f];
 
     /// <summary>Gets the icon box edge for a marker kind.</summary>
     /// <param name="kind">The marker kind.</param>
