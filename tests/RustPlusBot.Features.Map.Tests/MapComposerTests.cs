@@ -143,37 +143,36 @@ public sealed class MapComposerTests
     }
 
     [Fact]
-    public async Task Tunnel_tokens_render_only_when_the_tunnels_layer_is_on()
+    public async Task Tunnel_tokens_render_under_the_tunnels_layer_not_the_monuments_layer()
     {
-        // Two monuments at the same spot: a launchsite (ordinary) and a tunnel entrance.
+        // A single tunnel-entrance monument. Every layer except Monuments/Tunnels is held OFF in all
+        // three configs, so any byte difference is attributable ONLY to the tunnel token's draw pass.
+        // - baseOnly: Monuments off, Tunnels off        -> tunnel token never drawn (bare base render)
+        // - monumentsOnly: Monuments on, Tunnels off     -> tunnel token EXCLUDED from the monuments pass
+        // - tunnelsOnly: Monuments off, Tunnels on       -> tunnel token drawn via the tunnels pass
+        var basePng = await ComposeTunnelScenarioAsync(monuments: false, tunnels: false);
+        var monPng = await ComposeTunnelScenarioAsync(monuments: true, tunnels: false);
+        var tunPng = await ComposeTunnelScenarioAsync(monuments: false, tunnels: true);
+
+        Assert.NotNull(basePng);
+        Assert.NotNull(monPng);
+        Assert.NotNull(tunPng);
+        // Monuments layer must NOT draw the tunnel token -> identical to the bare base render.
+        Assert.True(monPng!.SequenceEqual(basePng!), "tunnel token must be excluded from the Monuments pass");
+        // Tunnels layer MUST draw the tunnel token -> differs from the bare base render.
+        Assert.False(tunPng!.SequenceEqual(basePng!), "tunnel token must render under the Tunnels layer");
+    }
+
+    private static async Task<byte[]?> ComposeTunnelScenarioAsync(bool monuments, bool tunnels)
+    {
         var query = NewQuery();
         query.GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>())
             .Returns([new MonumentSnapshot("train_tunnel_display_name", 2000f, 2000f)]);
-        var events = NewEvents();
-
-        // Monuments ON, Tunnels OFF -> the tunnel token must NOT draw (it belongs to the Tunnels layer).
-        var tunnelsOff = Build(BaseJpeg(), Dims, query, events, NewRigs(),
-            NewSettings(MapLayerSettings.AllOn with
-            {
-                Tunnels = false
-            }));
-        // Monuments OFF, Tunnels ON -> the tunnel token draws via the tunnels pass.
-        var query2 = NewQuery();
-        query2.GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns([new MonumentSnapshot("train_tunnel_display_name", 2000f, 2000f)]);
-        var tunnelsOn = Build(BaseJpeg(), Dims, query2, events, NewRigs(),
-            NewSettings(new MapLayerSettings(
-                Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false, Rigs: false,
-                Tunnels: true)));
-
-        var off = await tunnelsOff.ComposeAsync(Guild, Server, CancellationToken.None);
-        var on = await tunnelsOn.ComposeAsync(Guild, Server, CancellationToken.None);
-
-        Assert.NotNull(off);
-        Assert.NotNull(on);
-        // With Monuments on but Tunnels off, the tunnel token is excluded from the monuments pass, so the
-        // only difference from a Tunnels-on/Monuments-off render is whether the tunnel icon was painted.
-        Assert.False(off!.SequenceEqual(on!), "tunnel token must render under the Tunnels layer only");
+        var settings = new MapLayerSettings(
+            Grid: false, Markers: false, Monuments: monuments, Vendor: false, Players: false, Rigs: false,
+            Tunnels: tunnels);
+        var composer = Build(BaseJpeg(), Dims, query, NewEvents(), NewRigs(), NewSettings(settings));
+        return await composer.ComposeAsync(Guild, Server, CancellationToken.None);
     }
 
     [Fact]
