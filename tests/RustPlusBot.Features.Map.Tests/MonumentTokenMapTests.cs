@@ -51,7 +51,9 @@ public sealed class MonumentTokenMapTests
     public void Every_mapped_type_has_a_package_asset()
     {
         // Drift guard: fails loud if a RustMapsApi.Assets update drops art we depend on.
-        foreach (var token in MonumentTokenMap.KnownTokens)
+        // Includes two prefix-family samples (swamp_a, underwater_lab_d) alongside KnownTokens so a
+        // dropped Swamp or Underwater_Lab asset fails loud too, not just the exactly-mapped tokens.
+        foreach (var token in MonumentTokenMap.KnownTokens.Concat(["swamp_a", "underwater_lab_d"]))
         {
             var type = MonumentTokenMap.TypeFor(token);
             Assert.NotNull(type);

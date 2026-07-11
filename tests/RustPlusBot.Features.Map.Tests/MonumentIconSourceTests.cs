@@ -56,10 +56,28 @@ public sealed class MonumentIconSourceTests
     public void Every_known_token_rasterizes()
     {
         // SVG-engine smoke test across the whole mapping: every token must yield a real image.
+        // Includes two prefix-family samples (swamp_a, underwater_lab_d) alongside KnownTokens so a
+        // rasterization regression in those families is caught too, not just the exactly-mapped tokens.
         var source = CreateSource();
-        foreach (var token in MonumentTokenMap.KnownTokens)
+        foreach (var token in MonumentTokenMap.KnownTokens.Concat(["swamp_a", "underwater_lab_d"]))
         {
-            Assert.True(source.Monument(token, 30) is not null, $"{token} produced no icon");
+            var icon = source.Monument(token, 30);
+            Assert.True(icon is not null, $"{token} produced no icon");
+
+            var hasVisiblePixel = false;
+            for (var y = 0; y < icon!.Height && !hasVisiblePixel; y++)
+            {
+                for (var x = 0; x < icon.Width; x++)
+                {
+                    if (icon[x, y].A > 0)
+                    {
+                        hasVisiblePixel = true;
+                        break;
+                    }
+                }
+            }
+
+            Assert.True(hasVisiblePixel, $"{token} produced a fully transparent (blank) icon");
         }
     }
 
