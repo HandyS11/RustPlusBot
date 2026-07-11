@@ -195,10 +195,15 @@ public sealed class MapComposer(
         if (layers.Players)
         {
             var team = await query.GetTeamInfoAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-            foreach (var member in team?.Members ?? [])
+            // Stable color per player: order by SteamId, index into the palette. SteamId never changes,
+            // so a player keeps their color across refreshes regardless of online/offline ordering.
+            var ordered = (team?.Members ?? []).OrderBy(m => m.SteamId).ToList();
+            for (var i = 0; i < ordered.Count; i++)
             {
+                var member = ordered[i];
                 var (px, py) = projection.ToPixel(member.X, member.Y);
-                players.Add(new PlayerPlacement(member.Name, px, py, member.IsAlive, member.IsOnline));
+                players.Add(new PlayerPlacement(member.Name, px, py, member.IsAlive, member.IsOnline,
+                    PlayerPalette.For(i).Rgba));
             }
         }
 

@@ -40,15 +40,6 @@ public static class MapIcons
     /// <returns>The cached vendor icon image, or null.</returns>
     public static Image<Rgba32>? Vendor() => Native("vendor");
 
-    /// <summary>Gets the player position icon, or null when the asset is missing.</summary>
-    /// <returns>The player icon, or null.</returns>
-    public static Image<Rgba32>? Player() => Native("player");
-
-    /// <summary>Gets the player icon scaled to fit a square box, or null when the asset is missing.</summary>
-    /// <param name="size">The box edge length in pixels.</param>
-    /// <returns>The cached scaled icon, or null.</returns>
-    public static Image<Rgba32>? Player(int size) => Scaled("player", size);
-
     private static string? KeyFor(MarkerKind kind) => kind switch
     {
         MarkerKind.CargoShip => "cargo",

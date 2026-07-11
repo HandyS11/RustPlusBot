@@ -13,10 +13,6 @@ public sealed class MapIconsTests
         Assert.NotNull(MapIcons.Marker(kind));
 
     [Fact]
-    public void Player_resolves_to_vendored_icon() =>
-        Assert.NotNull(MapIcons.Player());
-
-    [Fact]
     public void Sized_marker_icon_fits_the_requested_box()
     {
         var icon = MapIcons.Marker(MarkerKind.CargoShip, 40);
@@ -29,7 +25,7 @@ public sealed class MapIconsTests
     [Fact]
     public void Sized_icons_are_cached_per_size()
     {
-        Assert.Same(MapIcons.Player(20), MapIcons.Player(20));
-        Assert.NotSame(MapIcons.Player(20), MapIcons.Player(24));
+        Assert.Same(MapIcons.Marker(MarkerKind.CargoShip, 40), MapIcons.Marker(MarkerKind.CargoShip, 40));
+        Assert.NotSame(MapIcons.Marker(MarkerKind.CargoShip, 40), MapIcons.Marker(MarkerKind.CargoShip, 44));
     }
 }

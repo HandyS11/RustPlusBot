@@ -100,7 +100,8 @@ public sealed class MapRendererTests
         };
         var players = new[]
         {
-            new PlayerPlacement("Alice", 300, 300, IsAlive: true, IsOnline: true)
+            new PlayerPlacement("Alice", 300, 300, IsAlive: true, IsOnline: true,
+                PlayerPalette.For(0).Rgba)
         };
         var rigs = new[]
         {
@@ -188,5 +189,56 @@ public sealed class MapRendererTests
             [new MarkerPlacement(MarkerKind.CargoShip, px, py, 45f, [])], [], [], [], layers);
 
         Assert.False(unrotated.AsSpan().SequenceEqual(rotated));
+    }
+
+    [Fact]
+    public void Player_cross_paints_in_the_assigned_color()
+    {
+        var renderer = CreateRenderer();
+        var projection = new MapProjection(4000, 2000, 2000, 100, MapRenderer.OutputSize);
+        var baseJpeg = SolidJpeg(2000);
+        var (px, py) = projection.ToPixel(2000f, 2000f);
+        var layers = new MapLayerSet(false, false, false, false, true, false);
+        var red = SixLabors.ImageSharp.Color.ParseHex("E03131");
+
+        var without = renderer.Render(baseJpeg, projection, [], [], [], [], layers);
+        var with = renderer.Render(baseJpeg, projection, [], [],
+            [new PlayerPlacement("A", px, py, IsAlive: true, IsOnline: true, red)], [], layers);
+
+        Assert.False(without.AsSpan().SequenceEqual(with));
+        // A red-dominant pixel must appear where the cross was drawn.
+        using var img = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(with);
+        var found = false;
+        for (var dy = -8; dy <= 8 && !found; dy++)
+        {
+            for (var dx = -8; dx <= 8 && !found; dx++)
+            {
+                var p = img[(int)px + dx, (int)py + dy];
+                if (p.R > 150 && p.G < 120 && p.B < 120)
+                {
+                    found = true;
+                }
+            }
+        }
+
+        Assert.True(found, "no red cross pixel near the player position");
+    }
+
+    [Fact]
+    public void Alive_and_dead_players_render_differently()
+    {
+        var renderer = CreateRenderer();
+        var projection = new MapProjection(4000, 2000, 2000, 100, MapRenderer.OutputSize);
+        var baseJpeg = SolidJpeg(2000);
+        var (px, py) = projection.ToPixel(2000f, 2000f);
+        var layers = new MapLayerSet(false, false, false, false, true, false);
+        var blue = SixLabors.ImageSharp.Color.ParseHex("1971C2");
+
+        var alive = renderer.Render(baseJpeg, projection, [], [],
+            [new PlayerPlacement("A", px, py, IsAlive: true, IsOnline: true, blue)], [], layers);
+        var dead = renderer.Render(baseJpeg, projection, [], [],
+            [new PlayerPlacement("A", px, py, IsAlive: false, IsOnline: true, blue)], [], layers);
+
+        Assert.False(alive.AsSpan().SequenceEqual(dead)); // '+' vs 'x'
     }
 }

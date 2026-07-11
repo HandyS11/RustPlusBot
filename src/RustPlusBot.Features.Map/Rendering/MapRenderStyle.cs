@@ -15,8 +15,17 @@ public static class MapRenderStyle
     /// <summary>Cargo-ship icon box edge, in output pixels (slightly larger — it is a big target).</summary>
     public const int CargoIconSize = 40;
 
-    /// <summary>Player icon box edge, in output pixels.</summary>
-    public const int PlayerIconSize = 20;
+    /// <summary>Player cross half-arm length, in output pixels.</summary>
+    public const float PlayerCrossArm = 7f;
+
+    /// <summary>Player cross colored-stroke width, in output pixels.</summary>
+    public const float PlayerCrossWidth = 2.5f;
+
+    /// <summary>Player cross dark-halo stroke width (drawn under the color for contrast).</summary>
+    public const float PlayerCrossHaloWidth = 4.5f;
+
+    /// <summary>Opacity for offline players' crosses.</summary>
+    public const float PlayerOfflineAlpha = 0.5f;
 
     /// <summary>Trail polyline stroke width, in output pixels (thin, so it reads as a faint hint).</summary>
     public const float TrailWidth = 1.25f;

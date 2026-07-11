@@ -8,7 +8,14 @@ namespace RustPlusBot.Features.Map.Rendering;
 /// <param name="PixelY">Pixel Y on the rendered tile.</param>
 /// <param name="IsAlive">Whether the player is alive (dead players are styled differently).</param>
 /// <param name="IsOnline">Whether the player is online.</param>
-public sealed record PlayerPlacement(string Name, float PixelX, float PixelY, bool IsAlive, bool IsOnline);
+/// <param name="CrossColor">The palette color the on-map cross is drawn in.</param>
+public sealed record PlayerPlacement(
+    string Name,
+    float PixelX,
+    float PixelY,
+    bool IsAlive,
+    bool IsOnline,
+    SixLabors.ImageSharp.Color CrossColor);
 
 /// <summary>One monument to draw, already projected to pixel coordinates.</summary>
 /// <param name="Token">The monument protobuf token (selects the icon).</param>
