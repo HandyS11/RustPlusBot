@@ -114,14 +114,17 @@ public sealed class MonumentIconSourceTests
     {
         private readonly List<LogLevel> _entries = [];
 
-        public int Count(LogLevel level) => _entries.Count(l => l == level);
-
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) => true;
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+        public void Log<TState>(LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
             Func<TState, Exception?, string> formatter) => _entries.Add(logLevel);
+
+        public int Count(LogLevel level) => _entries.Count(l => l == level);
     }
 }
