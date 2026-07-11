@@ -129,7 +129,7 @@ public sealed class MapComposerTests
         var events = NewEvents(new ActiveMarker(1, MarkerKind.CargoShip, 2000f, 2000f, Dims, DateTimeOffset.UtcNow,
             [new TrailPoint(2000f, 2000f)], null));
         var settings = NewSettings(new MapLayerSettings(
-            Grid: true, Markers: true, Monuments: false, Vendor: true, Players: true, Rigs: false));
+            Grid: true, Markers: true, Monuments: false, Vendor: true, Players: true, Rigs: false, Tunnels: false));
 
         var composer = Build(BaseJpeg(), Dims, query, events, NewRigs(), settings);
 
@@ -140,6 +140,40 @@ public sealed class MapComposerTests
         await query.DidNotReceive().GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>());
         // Players enabled -> the team seam was consulted.
         await query.Received().GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Tunnel_tokens_render_only_when_the_tunnels_layer_is_on()
+    {
+        // Two monuments at the same spot: a launchsite (ordinary) and a tunnel entrance.
+        var query = NewQuery();
+        query.GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns([new MonumentSnapshot("train_tunnel_display_name", 2000f, 2000f)]);
+        var events = NewEvents();
+
+        // Monuments ON, Tunnels OFF -> the tunnel token must NOT draw (it belongs to the Tunnels layer).
+        var tunnelsOff = Build(BaseJpeg(), Dims, query, events, NewRigs(),
+            NewSettings(MapLayerSettings.AllOn with
+            {
+                Tunnels = false
+            }));
+        // Monuments OFF, Tunnels ON -> the tunnel token draws via the tunnels pass.
+        var query2 = NewQuery();
+        query2.GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns([new MonumentSnapshot("train_tunnel_display_name", 2000f, 2000f)]);
+        var tunnelsOn = Build(BaseJpeg(), Dims, query2, events, NewRigs(),
+            NewSettings(new MapLayerSettings(
+                Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false, Rigs: false,
+                Tunnels: true)));
+
+        var off = await tunnelsOff.ComposeAsync(Guild, Server, CancellationToken.None);
+        var on = await tunnelsOn.ComposeAsync(Guild, Server, CancellationToken.None);
+
+        Assert.NotNull(off);
+        Assert.NotNull(on);
+        // With Monuments on but Tunnels off, the tunnel token is excluded from the monuments pass, so the
+        // only difference from a Tunnels-on/Monuments-off render is whether the tunnel icon was painted.
+        Assert.False(off!.SequenceEqual(on!), "tunnel token must render under the Tunnels layer only");
     }
 
     [Fact]

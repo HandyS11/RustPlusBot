@@ -47,6 +47,7 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
     /// <param name="rigs">Oil-rig placements already projected to pixel coordinates.</param>
     /// <param name="layers">Which overlay layers to draw.</param>
     /// <param name="gridStyle">Which grid convention to draw (in-game F1 map, or Rust+/RustMaps).</param>
+    /// <param name="tunnels">Train-tunnel placements already projected to pixel coordinates.</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
     public byte[] Render(byte[] baseJpeg,
         MapProjection projection,
@@ -55,7 +56,8 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
         IReadOnlyList<PlayerPlacement> players,
         IReadOnlyList<RigPlacement> rigs,
         MapLayerSet layers,
-        MapGridStyle gridStyle = MapGridStyle.InGame)
+        MapGridStyle gridStyle = MapGridStyle.InGame,
+        IReadOnlyList<MonumentPlacement>? tunnels = null)
     {
         ArgumentNullException.ThrowIfNull(baseJpeg);
         ArgumentNullException.ThrowIfNull(projection);
@@ -76,6 +78,11 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
         if (layers.Monuments)
         {
             DrawMonuments(image, monuments);
+        }
+
+        if (layers.Tunnels && tunnels is { Count: > 0 })
+        {
+            DrawMonuments(image, tunnels);
         }
 
         if (layers.Markers || layers.Vendor)

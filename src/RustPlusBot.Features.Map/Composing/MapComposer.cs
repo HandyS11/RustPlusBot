@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Features.Map.Assets;
 using RustPlusBot.Features.Map.Rendering;
 using RustPlusBot.Persistence.Map;
 using SixLabors.ImageSharp;
@@ -45,7 +46,7 @@ public sealed class MapComposer(
         }
 
         var layers = new MapLayerSet(settings.Grid, settings.Markers, settings.Monuments,
-            settings.Vendor, settings.Players, settings.Rigs);
+            settings.Vendor, settings.Players, settings.Rigs, settings.Tunnels);
         return await ComposeWithLayersAsync(guildId, serverId, layers, settings.GridStyle, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -80,20 +81,21 @@ public sealed class MapComposer(
 
         var markers = GatherMarkers(guildId, serverId, projection, layers);
 
-        // Monuments feed both the monuments layer and the rig-styling layer; fetch them once when either is on.
+        // Monuments feed the monuments, rig-styling, and tunnels layers; fetch them once when any is on.
         IReadOnlyList<MonumentSnapshot> serverMonuments = [];
-        if (layers.Monuments || layers.Rigs)
+        if (layers.Monuments || layers.Rigs || layers.Tunnels)
         {
             serverMonuments = await query.GetMonumentsAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         }
 
         var monuments = GatherMonuments(serverMonuments, projection, layers);
+        var tunnels = GatherTunnels(serverMonuments, projection, layers);
         var players = await GatherPlayersAsync(guildId, serverId, projection, layers, cancellationToken)
             .ConfigureAwait(false);
         var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, projection, layers);
 
         return renderer.Render(baseImage.Bytes, projection, markers, monuments, players, rigPlacements, layers,
-            gridStyle);
+            gridStyle, tunnels);
     }
 
     private List<MarkerPlacement> GatherMarkers(
@@ -151,12 +153,35 @@ public sealed class MapComposer(
         {
             foreach (var mon in serverMonuments)
             {
+                if (TunnelTokens.All.Contains(mon.Token))
+                {
+                    continue; // routed to the Tunnels layer instead
+                }
+
                 var (px, py) = projection.ToPixel(mon.X, mon.Y);
                 monuments.Add(new MonumentPlacement(mon.Token, px, py));
             }
         }
 
         return monuments;
+    }
+
+    private static List<MonumentPlacement> GatherTunnels(
+        IReadOnlyList<MonumentSnapshot> serverMonuments,
+        MapProjection projection,
+        MapLayerSet layers)
+    {
+        var tunnels = new List<MonumentPlacement>();
+        if (layers.Tunnels)
+        {
+            foreach (var mon in serverMonuments.Where(m => TunnelTokens.All.Contains(m.Token)))
+            {
+                var (px, py) = projection.ToPixel(mon.X, mon.Y);
+                tunnels.Add(new MonumentPlacement(mon.Token, px, py));
+            }
+        }
+
+        return tunnels;
     }
 
     private async Task<List<PlayerPlacement>> GatherPlayersAsync(
