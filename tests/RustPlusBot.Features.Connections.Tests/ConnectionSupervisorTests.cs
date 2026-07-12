@@ -250,9 +250,16 @@ public sealed class ConnectionSupervisorTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var events = new List<ConnectionStatusChangedEvent>();
+        // Register the subscription synchronously on this thread BEFORE any connection work runs.
+        // InMemoryEventBus registers the channel eagerly when SubscribeAsync is invoked, so buffering
+        // starts here. Deferring the call into the Task.Run below would race the supervisor's first
+        // publishes: on a slow runner the initial Connecting/Connected events are dropped, the drop
+        // event (WasConnected=true) becomes the collector's first observation, and the "before first
+        // Connected" assertion fails.
+        var stream = h.Bus.SubscribeAsync<ConnectionStatusChangedEvent>(cts.Token);
         _ = Task.Run(async () =>
         {
-            await foreach (var e in h.Bus.SubscribeAsync<ConnectionStatusChangedEvent>(cts.Token))
+            await foreach (var e in stream)
             {
                 lock (events)
                 {
