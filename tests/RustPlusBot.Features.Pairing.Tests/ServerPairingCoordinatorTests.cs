@@ -188,6 +188,28 @@ public sealed class ServerPairingCoordinatorTests
     }
 
     [Fact]
+    public async Task Concurrent_detections_for_same_endpoint_post_single_prompt()
+    {
+        var h = Create();
+        await using var _ = h.Context;
+        await using var __ = h.Connection;
+        var gate = new TaskCompletionSource<ulong?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Poster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
+                Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
+            .Returns(_ => gate.Task);
+
+        var first = h.Coordinator.HandleDetectedAsync(10UL, 1UL, ServerPairing(steam: 1UL), CancellationToken.None);
+        var second = h.Coordinator.HandleDetectedAsync(10UL, 2UL, ServerPairing(steam: 2UL), CancellationToken.None);
+        gate.SetResult(900UL);
+        await Task.WhenAll(first, second);
+
+        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),
+            Arg.Any<CancellationToken>());
+        Assert.True(h.Coordinator.HasPending(10UL, "1.2.3.4", 28015));
+    }
+
+    [Fact]
     public async Task Dismiss_clears_pending_once()
     {
         var h = Create();

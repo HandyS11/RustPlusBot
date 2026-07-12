@@ -15,7 +15,8 @@ using RustPlusBot.Persistence.Workspace;
 namespace RustPlusBot.Features.Pairing.Pairing;
 
 /// <summary>Turns a new-server pairing into an "Add it?" prompt in #setup and, on Accept, a registered server.
-/// Pending state is in-memory only (mirrors the entity coordinators): lost on restart, re-pair to re-prompt.</summary>
+/// Pending state is in-memory only (mirrors the entity coordinators): lost on restart, re-pair to re-prompt.
+/// Detections are serialized through a gate so concurrent pairings for one endpoint post a single prompt.</summary>
 /// <param name="scopeFactory">Opens scopes for the scoped server/credential/workspace stores.</param>
 /// <param name="locator">Resolves the guild's #setup channel id.</param>
 /// <param name="poster">Posts/edits the prompt message.</param>
@@ -30,9 +31,13 @@ internal sealed partial class ServerPairingCoordinator(
     ServerPairingPromptRenderer renderer,
     IOwnerNotifier ownerNotifier,
     IEventBus eventBus,
-    ILogger<ServerPairingCoordinator> logger) : IServerPairingCoordinator
+    ILogger<ServerPairingCoordinator> logger) : IServerPairingCoordinator, IDisposable
 {
+    private readonly SemaphoreSlim _detectGate = new(1, 1);
     private readonly ConcurrentDictionary<(ulong Guild, string Ip, int Port), Pending> _pending = new();
+
+    /// <inheritdoc />
+    public void Dispose() => _detectGate.Dispose();
 
     /// <summary>Gets whether a pairing is pending for the endpoint (test seam).</summary>
     /// <param name="guildId">The guild id.</param>
@@ -49,29 +54,40 @@ internal sealed partial class ServerPairingCoordinator(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(notification);
-        var key = (guildId, notification.Ip, notification.Port);
-        if (_pending.TryGetValue(key, out var existing))
-        {
-            // Repeat in-game "Pair" press: keep the prompt, refresh the held pairing (latest token wins).
-            _pending[key] = new Pending(ownerUserId, notification, existing.MessageId);
-            return;
-        }
 
-        var channelId = await locator.GetChannelIdAsync(guildId, cancellationToken).ConfigureAwait(false);
-        if (channelId is not { } channel)
+        // Serialize detections: without the gate, two concurrent pairings for the same endpoint could
+        // both see "not pending" and post duplicate prompts (check-then-await-then-set race).
+        await _detectGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            LogSetupChannelMissing(logger, guildId);
-            await ownerNotifier.NotifySetupChannelMissingAsync(guildId, ownerUserId, cancellationToken)
+            var key = (guildId, notification.Ip, notification.Port);
+            if (_pending.TryGetValue(key, out var existing))
+            {
+                // Repeat in-game "Pair" press: keep the prompt, refresh the held pairing (latest token wins).
+                _pending[key] = new Pending(ownerUserId, notification, existing.MessageId);
+                return;
+            }
+
+            var channelId = await locator.GetChannelIdAsync(guildId, cancellationToken).ConfigureAwait(false);
+            if (channelId is not { } channel)
+            {
+                LogSetupChannelMissing(logger, guildId);
+                await ownerNotifier.NotifySetupChannelMissingAsync(guildId, ownerUserId, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            var culture = await GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
+            var (embed, components) =
+                renderer.RenderPrompt(notification.ServerName, notification.Ip, notification.Port, culture);
+            var messageId = await poster.EnsureAsync(channel, null, embed, components, cancellationToken)
                 .ConfigureAwait(false);
-            return;
+            _pending[key] = new Pending(ownerUserId, notification, messageId);
         }
-
-        var culture = await GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
-        var (embed, components) =
-            renderer.RenderPrompt(notification.ServerName, notification.Ip, notification.Port, culture);
-        var messageId = await poster.EnsureAsync(channel, null, embed, components, cancellationToken)
-            .ConfigureAwait(false);
-        _pending[key] = new Pending(ownerUserId, notification, messageId);
+        finally
+        {
+            _detectGate.Release();
+        }
     }
 
     /// <inheritdoc />
