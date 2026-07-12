@@ -15,4 +15,14 @@ internal sealed class DiscordOwnerNotifier(IUserDmSender dmSender) : IOwnerNotif
             ownerUserId,
             "Your Rust+ credentials were rejected. Reconnect your account in #setup to keep receiving pairings.",
             cancellationToken);
+
+    /// <inheritdoc />
+    public Task NotifySetupChannelMissingAsync(
+        ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default) =>
+        dmSender.SendAsync(
+            ownerUserId,
+            "A server pairing arrived but this guild has no #setup channel. Run /setup, then press \"Pair\" in-game again.",
+            cancellationToken);
 }
