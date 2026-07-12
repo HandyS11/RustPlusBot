@@ -16,6 +16,7 @@ namespace RustPlusBot.Features.Pairing.Pairing;
 
 /// <summary>Turns a new-server pairing into an "Add it?" prompt in #setup and, on Accept, a registered server.
 /// Pending state is in-memory only (mirrors the entity coordinators): lost on restart, re-pair to re-prompt.
+/// A repeat detection re-ensures the prompt (self-healing a deleted message) rather than stranding pending.
 /// Detections are serialized through a gate so concurrent pairings for one endpoint post a single prompt.</summary>
 /// <param name="scopeFactory">Opens scopes for the scoped server/credential/workspace stores.</param>
 /// <param name="locator">Resolves the guild's #setup channel id.</param>
@@ -54,16 +55,13 @@ internal sealed partial class ServerPairingCoordinator(
         try
         {
             var key = (guildId, notification.Ip, notification.Port);
-            if (_pending.TryGetValue(key, out var existing))
-            {
-                // Repeat in-game "Pair" press: keep the prompt, refresh the held pairing (latest token wins).
-                _pending[key] = new Pending(ownerUserId, notification, existing.MessageId);
-                return;
-            }
+            _pending.TryGetValue(key, out var existing);
 
             var channelId = await locator.GetChannelIdAsync(guildId, cancellationToken).ConfigureAwait(false);
             if (channelId is not { } channel)
             {
+                // No #setup to prompt in — drop any stale pending so a later /setup + re-pair starts clean.
+                _pending.TryRemove(key, out _);
                 LogSetupChannelMissing(logger, guildId);
                 await ownerNotifier.NotifySetupChannelMissingAsync(guildId, ownerUserId, cancellationToken)
                     .ConfigureAwait(false);
@@ -73,11 +71,23 @@ internal sealed partial class ServerPairingCoordinator(
             var culture = await GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
             var (embed, components) =
                 renderer.RenderPrompt(notification.ServerName, notification.Ip, notification.Port, culture);
-            var messageId = await poster.EnsureAsync(channel, null, embed, components, cancellationToken)
+
+            // Pass the known message id (null on first detection) so an edit self-heals a deleted prompt and a
+            // repeat "Pair" press re-ensures rather than posting a duplicate. The latest token always wins.
+            var messageId = await poster.EnsureAsync(channel, existing?.MessageId, embed, components, cancellationToken)
                 .ConfigureAwait(false);
             if (messageId is not { } mid)
             {
-                LogPromptPostFailed(logger, guildId);
+                if (existing is null)
+                {
+                    // First prompt failed to post — leave nothing pending so a later re-pair retries.
+                    LogPromptPostFailed(logger, guildId);
+                    return;
+                }
+
+                // Transient re-ensure failure with a prompt already shown — keep the live prompt/pending and
+                // just refresh the token so a later re-pair can retry the heal.
+                _pending[key] = new Pending(ownerUserId, notification, existing.MessageId);
                 return;
             }
 

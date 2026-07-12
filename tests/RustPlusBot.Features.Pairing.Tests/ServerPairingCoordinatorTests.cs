@@ -82,7 +82,7 @@ public sealed class ServerPairingCoordinatorTests
     }
 
     [Fact]
-    public async Task Detected_again_while_pending_refreshes_without_reposting()
+    public async Task Detected_again_while_pending_refreshes_token_and_reensures_without_duplicate()
     {
         var h = Create();
         await using var _ = h.Context;
@@ -91,9 +91,11 @@ public sealed class ServerPairingCoordinatorTests
         await h.Coordinator.HandleDetectedAsync(10UL, 1UL, ServerPairing(steam: 1UL), CancellationToken.None);
         await h.Coordinator.HandleDetectedAsync(10UL, 2UL, ServerPairing(steam: 2UL), CancellationToken.None);
 
-        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
-            Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),
-            Arg.Any<CancellationToken>());
+        // Exactly one fresh post; the repeat edits that same message (self-heal) rather than posting a duplicate.
+        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), null, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), 900UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
 
         // Accepting proves the refreshed pairing (owner 2) won.
         await h.Coordinator.TryAcceptAsync(10UL, "1.2.3.4", 28015, CancellationToken.None);
@@ -101,6 +103,34 @@ public sealed class ServerPairingCoordinatorTests
         Assert.Equal(2UL, server.AddedByUserId);
         var credential = await h.Context.PlayerCredentials.SingleAsync();
         Assert.Equal(2UL, credential.OwnerUserId);
+    }
+
+    [Fact]
+    public async Task Repeat_detection_reensures_prompt_so_a_deleted_message_self_heals()
+    {
+        var h = Create();
+        await using var _ = h.Context;
+        await using var __ = h.Connection;
+
+        // First detection posts the prompt as message 900 (the Create() default).
+        await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
+
+        // The prompt was deleted; re-ensuring the known id self-heals into a fresh message 901.
+        h.Poster.EnsureAsync(Arg.Any<ulong>(), 900UL, Arg.Any<global::Discord.Embed>(),
+                Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
+            .Returns(901UL);
+
+        await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
+
+        // The repeat re-ensures the known message rather than silently keeping a dead prompt pending.
+        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), 900UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+        Assert.True(h.Coordinator.HasPending(10UL, "1.2.3.4", 28015));
+
+        // Pending now tracks the healed id: Accept edits 901, not the stale 900.
+        await h.Coordinator.TryAcceptAsync(10UL, "1.2.3.4", 28015, CancellationToken.None);
+        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), 901UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -194,9 +224,12 @@ public sealed class ServerPairingCoordinatorTests
         gate.SetResult(900UL);
         await Task.WhenAll(first, second);
 
-        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
-            Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),
-            Arg.Any<CancellationToken>());
+        // The gate serialized the two detections: one fresh post, then a self-healing edit of that same
+        // message — a single prompt, never a duplicate post (without the gate, both would post with a null id).
+        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), null, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), 900UL, Arg.Any<global::Discord.Embed>(),
+            Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
         Assert.True(h.Coordinator.HasPending(10UL, "1.2.3.4", 28015));
     }
 
