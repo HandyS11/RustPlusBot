@@ -39,13 +39,6 @@ internal sealed partial class ServerPairingCoordinator(
     /// <inheritdoc />
     public void Dispose() => _detectGate.Dispose();
 
-    /// <summary>Gets whether a pairing is pending for the endpoint (test seam).</summary>
-    /// <param name="guildId">The guild id.</param>
-    /// <param name="ip">The server host or ip.</param>
-    /// <param name="port">The Rust+ app port.</param>
-    /// <returns>True when a prompt is pending.</returns>
-    public bool HasPending(ulong guildId, string ip, int port) => _pending.ContainsKey((guildId, ip, port));
-
     /// <inheritdoc />
     public async Task HandleDetectedAsync(
         ulong guildId,
@@ -151,6 +144,13 @@ internal sealed partial class ServerPairingCoordinator(
 
     /// <inheritdoc />
     public bool TryDismiss(ulong guildId, string ip, int port) => _pending.TryRemove((guildId, ip, port), out _);
+
+    /// <summary>Gets whether a pairing is pending for the endpoint (test seam).</summary>
+    /// <param name="guildId">The guild id.</param>
+    /// <param name="ip">The server host or ip.</param>
+    /// <param name="port">The Rust+ app port.</param>
+    /// <returns>True when a prompt is pending.</returns>
+    public bool HasPending(ulong guildId, string ip, int port) => _pending.ContainsKey((guildId, ip, port));
 
     private async Task<string> GetCultureAsync(ulong guildId, CancellationToken ct)
     {

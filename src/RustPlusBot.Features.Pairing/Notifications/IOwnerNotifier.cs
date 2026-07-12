@@ -13,5 +13,7 @@ internal interface IOwnerNotifier
     /// <param name="guildId">The guild the pairing belongs to.</param>
     /// <param name="ownerUserId">The Discord user to notify.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    Task NotifySetupChannelMissingAsync(ulong guildId, ulong ownerUserId, CancellationToken cancellationToken = default);
+    Task NotifySetupChannelMissingAsync(ulong guildId,
+        ulong ownerUserId,
+        CancellationToken cancellationToken = default);
 }

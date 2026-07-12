@@ -25,7 +25,8 @@ public sealed class PairingHandlerTests
     }
 
     private static (PairingHandler Handler, IServerPairingCoordinator Coordinator) CreateHandler(
-        BotDbContext context, IEventBus bus)
+        BotDbContext context,
+        IEventBus bus)
     {
         var coordinator = Substitute.For<IServerPairingCoordinator>();
         var handler = new PairingHandler(new ServerService(context), new CredentialStore(context, PassThrough()),

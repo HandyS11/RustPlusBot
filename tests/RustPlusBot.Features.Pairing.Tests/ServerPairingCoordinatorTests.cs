@@ -33,15 +33,6 @@ public sealed class ServerPairingCoordinatorTests
     private static PairingNotification ServerPairing(string ip = "1.2.3.4", int port = 28015, ulong steam = 7UL) =>
         new(PairingKind.Server, "Rustopia", ip, port, steam, "ptoken", FacepunchServerId: FpServer, EntityId: 0UL);
 
-    private sealed record Harness(
-        ServerPairingCoordinator Coordinator,
-        BotDbContext Context,
-        Microsoft.Data.Sqlite.SqliteConnection Connection,
-        ISetupChannelLocator Locator,
-        ISetupChannelPoster Poster,
-        IOwnerNotifier Notifier,
-        IEventBus Bus);
-
     private static Harness Create(ulong? channelId = 777UL)
     {
         var (context, connection) = TestDb.Create();
@@ -221,4 +212,13 @@ public sealed class ServerPairingCoordinatorTests
         Assert.False(h.Coordinator.TryDismiss(10UL, "1.2.3.4", 28015));
         Assert.False(h.Coordinator.HasPending(10UL, "1.2.3.4", 28015));
     }
+
+    private sealed record Harness(
+        ServerPairingCoordinator Coordinator,
+        BotDbContext Context,
+        Microsoft.Data.Sqlite.SqliteConnection Connection,
+        ISetupChannelLocator Locator,
+        ISetupChannelPoster Poster,
+        IOwnerNotifier Notifier,
+        IEventBus Bus);
 }
