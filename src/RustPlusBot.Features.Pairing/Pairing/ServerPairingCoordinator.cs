@@ -75,7 +75,13 @@ internal sealed partial class ServerPairingCoordinator(
                 renderer.RenderPrompt(notification.ServerName, notification.Ip, notification.Port, culture);
             var messageId = await poster.EnsureAsync(channel, null, embed, components, cancellationToken)
                 .ConfigureAwait(false);
-            _pending[key] = new Pending(ownerUserId, notification, messageId);
+            if (messageId is not { } mid)
+            {
+                LogPromptPostFailed(logger, guildId);
+                return;
+            }
+
+            _pending[key] = new Pending(ownerUserId, notification, mid);
         }
         finally
         {
@@ -165,6 +171,11 @@ internal sealed partial class ServerPairingCoordinator(
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Server pairing for guild {GuildId} dropped: no #setup channel to prompt in.")]
     private static partial void LogSetupChannelMissing(ILogger logger, ulong guildId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Server-pairing prompt for guild {GuildId} could not be posted to #setup; " +
+                  "pairing dropped — pair again in-game to retry.")]
+    private static partial void LogPromptPostFailed(ILogger logger, ulong guildId);
 
     private sealed record Pending(ulong OwnerUserId, PairingNotification Notification, ulong? MessageId);
 }

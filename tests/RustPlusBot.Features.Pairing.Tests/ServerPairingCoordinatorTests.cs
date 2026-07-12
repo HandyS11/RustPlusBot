@@ -201,6 +201,59 @@ public sealed class ServerPairingCoordinatorTests
     }
 
     [Fact]
+    public async Task Detected_with_failed_prompt_post_drops_pending_and_repair_retries()
+    {
+        var h = Create();
+        await using var _ = h.Context;
+        await using var __ = h.Connection;
+        h.Poster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
+                Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
+            .Returns((ulong?)null);
+
+        await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
+
+        Assert.False(h.Coordinator.HasPending(10UL, "1.2.3.4", 28015));
+        Assert.Empty(await h.Context.RustServers.ToListAsync());
+
+        h.Poster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
+                Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
+            .Returns(900UL);
+
+        await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
+
+        await h.Poster.Received(2).EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),
+            Arg.Any<CancellationToken>());
+        Assert.True(h.Coordinator.HasPending(10UL, "1.2.3.4", 28015));
+    }
+
+    [Fact]
+    public async Task Accept_without_setup_channel_still_persists_and_skips_edit()
+    {
+        var h = Create();
+        await using var _ = h.Context;
+        await using var __ = h.Connection;
+        await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
+
+        h.Locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns((ulong?)null);
+
+        var outcome = await h.Coordinator.TryAcceptAsync(10UL, "1.2.3.4", 28015, CancellationToken.None);
+
+        Assert.Equal(ServerPairingAcceptOutcome.Added, outcome);
+        var server = await h.Context.RustServers.SingleAsync();
+        Assert.Equal("Rustopia", server.Name);
+        var credential = await h.Context.PlayerCredentials.SingleAsync();
+        Assert.Equal(server.Id, credential.RustServerId);
+        Assert.Equal(CredentialStatus.Active, credential.Status);
+        await h.Bus.Received(1).PublishAsync(
+            Arg.Is<ServerRegisteredEvent>(e => e.GuildId == 10UL && e.ServerId == server.Id),
+            Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
+            Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Dismiss_clears_pending_once()
     {
         var h = Create();
