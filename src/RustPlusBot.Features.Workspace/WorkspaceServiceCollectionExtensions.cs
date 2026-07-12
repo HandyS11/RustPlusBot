@@ -70,6 +70,7 @@ public static class WorkspaceServiceCollectionExtensions
         services.AddSingleton<ISwitchChannelLocator, SwitchChannelLocator>();
         services.AddSingleton<IAlarmChannelLocator, AlarmChannelLocator>();
         services.AddSingleton<IStorageMonitorChannelLocator, StorageMonitorChannelLocator>();
+        services.AddSingleton<ISetupChannelLocator, SetupChannelLocator>();
 
         services.AddHostedService<Hosting.WorkspaceHostedService>();
 

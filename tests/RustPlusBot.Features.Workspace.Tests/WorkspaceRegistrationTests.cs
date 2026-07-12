@@ -4,6 +4,7 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Teardown;
 using RustPlusBot.Persistence;
@@ -33,5 +34,20 @@ public sealed class WorkspaceRegistrationTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IWorkspaceTeardownService>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IServerWorkspaceRemover>());
+    }
+
+    [Fact]
+    public void AddWorkspace_registers_channel_locators()
+    {
+        var services = new ServiceCollection();
+        services.AddWorkspace();
+
+        Assert.Contains(services, d => d.ServiceType == typeof(ITeamChatChannelLocator));
+        Assert.Contains(services, d => d.ServiceType == typeof(IEventChannelLocator));
+        Assert.Contains(services, d => d.ServiceType == typeof(IMapChannelLocator));
+        Assert.Contains(services, d => d.ServiceType == typeof(ISwitchChannelLocator));
+        Assert.Contains(services, d => d.ServiceType == typeof(IAlarmChannelLocator));
+        Assert.Contains(services, d => d.ServiceType == typeof(IStorageMonitorChannelLocator));
+        Assert.Contains(services, d => d.ServiceType == typeof(ISetupChannelLocator));
     }
 }
