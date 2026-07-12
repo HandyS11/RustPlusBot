@@ -663,6 +663,24 @@
   <data name="server.info.team.value" xml:space="preserve">
     <value>{0}/{1} en ligne · chef {2}</value>
   </data>
+  <data name="server.prompt.accept" xml:space="preserve">
+    <value>Accepter</value>
+  </data>
+  <data name="server.prompt.added.body" xml:space="preserve">
+    <value>{0} a été ajouté. Ses salons sont en cours de création et le bot se connecte.</value>
+  </data>
+  <data name="server.prompt.added.title" xml:space="preserve">
+    <value>Serveur ajouté</value>
+  </data>
+  <data name="server.prompt.body" xml:space="preserve">
+    <value>Nouvel appairage de serveur détecté : {0} ({1}:{2}). L'ajouter ?</value>
+  </data>
+  <data name="server.prompt.dismiss" xml:space="preserve">
+    <value>Ignorer</value>
+  </data>
+  <data name="server.prompt.title" xml:space="preserve">
+    <value>Nouveau serveur détecté</value>
+  </data>
   <data name="settings.body" xml:space="preserve">
     <value>Configurez le bot pour ce serveur.</value>
   </data>

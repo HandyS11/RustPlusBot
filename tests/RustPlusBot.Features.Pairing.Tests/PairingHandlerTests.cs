@@ -4,6 +4,7 @@ using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Entities;
+using RustPlusBot.Domain.Servers;
 using RustPlusBot.Features.Pairing.Listening;
 using RustPlusBot.Features.Pairing.Pairing;
 using RustPlusBot.Persistence;
@@ -23,9 +24,27 @@ public sealed class PairingHandlerTests
         return p;
     }
 
-    private static PairingHandler CreateHandler(BotDbContext context, IEventBus bus) =>
-        new(new ServerService(context), new CredentialStore(context, PassThrough()), bus,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<PairingHandler>.Instance);
+    private static (PairingHandler Handler, IServerPairingCoordinator Coordinator) CreateHandler(
+        BotDbContext context,
+        IEventBus bus)
+    {
+        var coordinator = Substitute.For<IServerPairingCoordinator>();
+        var handler = new PairingHandler(new ServerService(context), new CredentialStore(context, PassThrough()),
+            bus, coordinator, Microsoft.Extensions.Logging.Abstractions.NullLogger<PairingHandler>.Instance);
+        return (handler, coordinator);
+    }
+
+    private static async Task<RustServer> SeedServerAsync(BotDbContext context, Guid? facepunchServerId = null)
+    {
+        var service = new ServerService(context);
+        var server = await service.AddAsync(10UL, 99UL, "Rustopia", "1.2.3.4", 28015);
+        if (facepunchServerId is { } fp)
+        {
+            await service.SetFacepunchServerIdAsync(server.Id, fp);
+        }
+
+        return server;
+    }
 
     private static PairingNotification ServerPairing(string ip = "1.2.3.4", int port = 28015, ulong steam = 7UL) =>
         new(PairingKind.Server, "Rustopia", ip, port, steam, "ptoken", FacepunchServerId: FpServer, EntityId: 0UL);
@@ -43,54 +62,52 @@ public sealed class PairingHandlerTests
             FacepunchServerId: fpServer, EntityId: entityId, EntityKind: PairedEntityKind.StorageMonitor);
 
     [Fact]
-    public async Task ServerPairing_CreatesServerCredentialAndFiresEventOnce()
+    public async Task NewServerPairing_RoutesToCoordinator_PersistsNothing()
     {
         var (context, connection) = TestDb.Create();
         await using var _ = context;
         await using var __ = connection;
         var bus = Substitute.For<IEventBus>();
-        var handler = CreateHandler(context, bus);
+        var (handler, coordinator) = CreateHandler(context, bus);
 
         await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
-        var server = await context.RustServers.SingleAsync();
-        Assert.Equal("Rustopia", server.Name);
-        var credential = await context.PlayerCredentials.SingleAsync();
-        Assert.Equal(server.Id, credential.RustServerId);
-        Assert.Equal(CredentialStatus.Active, credential.Status);
-        await bus.Received(1).PublishAsync(
-            Arg.Is<ServerRegisteredEvent>(e => e.GuildId == 10UL && e.ServerId == server.Id),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task SecondOwnerSameServer_AddsStandbyCredentialNoEvent()
-    {
-        var (context, connection) = TestDb.Create();
-        await using var _ = context;
-        await using var __ = connection;
-        var bus = Substitute.For<IEventBus>();
-        var handler = CreateHandler(context, bus);
-
-        await handler.HandleAsync(10UL, 1UL, ServerPairing(steam: 1UL), CancellationToken.None);
-        bus.ClearReceivedCalls();
-        await handler.HandleAsync(10UL, 2UL, ServerPairing(steam: 2UL), CancellationToken.None);
-
-        Assert.Single(await context.RustServers.ToListAsync());
-        Assert.Equal(2, await context.PlayerCredentials.CountAsync());
-        var second = await context.PlayerCredentials.SingleAsync(c => c.OwnerUserId == 2UL);
-        Assert.Equal(CredentialStatus.Standby, second.Status);
+        await coordinator.Received(1).HandleDetectedAsync(10UL, 99UL,
+            Arg.Is<PairingNotification>(n => n.Ip == "1.2.3.4" && n.Port == 28015), Arg.Any<CancellationToken>());
+        Assert.Empty(await context.RustServers.ToListAsync());
+        Assert.Empty(await context.PlayerCredentials.ToListAsync());
         await bus.DidNotReceive().PublishAsync(Arg.Any<ServerRegisteredEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ServerPairing_BackfillsFacepunchServerId()
+    public async Task ExistingServerPairing_AddsStandbyCredential_NoEventNoPrompt()
     {
         var (context, connection) = TestDb.Create();
         await using var _ = context;
         await using var __ = connection;
         var bus = Substitute.For<IEventBus>();
-        var handler = CreateHandler(context, bus);
+        var (handler, coordinator) = CreateHandler(context, bus);
+        await SeedServerAsync(context);
+
+        await handler.HandleAsync(10UL, 2UL, ServerPairing(steam: 2UL), CancellationToken.None);
+
+        Assert.Single(await context.RustServers.ToListAsync());
+        var credential = await context.PlayerCredentials.SingleAsync(c => c.OwnerUserId == 2UL);
+        Assert.Equal(CredentialStatus.Standby, credential.Status);
+        await bus.DidNotReceive().PublishAsync(Arg.Any<ServerRegisteredEvent>(), Arg.Any<CancellationToken>());
+        await coordinator.DidNotReceive().HandleDetectedAsync(Arg.Any<ulong>(), Arg.Any<ulong>(),
+            Arg.Any<PairingNotification>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExistingServerPairing_BackfillsFacepunchServerId()
+    {
+        var (context, connection) = TestDb.Create();
+        await using var _ = context;
+        await using var __ = connection;
+        var bus = Substitute.For<IEventBus>();
+        var (handler, _) = CreateHandler(context, bus);
+        await SeedServerAsync(context); // no Facepunch id yet
 
         await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
@@ -105,11 +122,8 @@ public sealed class PairingHandlerTests
         await using var _ = context;
         await using var __ = connection;
         var bus = Substitute.For<IEventBus>();
-        var handler = CreateHandler(context, bus);
-
-        await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
-        var server = await context.RustServers.SingleAsync();
-        bus.ClearReceivedCalls();
+        var (handler, _) = CreateHandler(context, bus);
+        var server = await SeedServerAsync(context, FpServer);
 
         await handler.HandleAsync(10UL, 1UL, EntityPairing(FpServer, entityId: 42UL), CancellationToken.None);
 
@@ -125,7 +139,7 @@ public sealed class PairingHandlerTests
         await using var _ = context;
         await using var __ = connection;
         var bus = Substitute.For<IEventBus>();
-        var handler = CreateHandler(context, bus);
+        var (handler, _) = CreateHandler(context, bus);
 
         await handler.HandleAsync(10UL, 1UL, EntityPairing(Guid.NewGuid(), 42UL), CancellationToken.None);
 
@@ -140,10 +154,8 @@ public sealed class PairingHandlerTests
         await using var _ = context;
         await using var __ = connection;
         var bus = Substitute.For<IEventBus>();
-        var handler = CreateHandler(context, bus);
-        await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
-        var server = await context.RustServers.SingleAsync();
-        bus.ClearReceivedCalls();
+        var (handler, _) = CreateHandler(context, bus);
+        var server = await SeedServerAsync(context, FpServer);
 
         await handler.HandleAsync(10UL, 1UL, AlarmPairing(FpServer, 55UL), CancellationToken.None);
 
@@ -159,10 +171,8 @@ public sealed class PairingHandlerTests
         await using var _ = context;
         await using var __ = connection;
         var bus = Substitute.For<IEventBus>();
-        var handler = CreateHandler(context, bus);
-        await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
-        var server = await context.RustServers.SingleAsync();
-        bus.ClearReceivedCalls();
+        var (handler, _) = CreateHandler(context, bus);
+        var server = await SeedServerAsync(context, FpServer);
 
         await handler.HandleAsync(10UL, 1UL, StorageMonitorPairing(FpServer, 77UL), CancellationToken.None);
 

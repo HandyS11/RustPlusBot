@@ -6,15 +6,18 @@ using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Pairing.Pairing;
 
-/// <summary>Default <see cref="IPairingHandler"/>: resolve-or-create the server, upsert the credential, announce new servers.</summary>
-/// <param name="servers">Server resolve-or-create.</param>
+/// <summary>Default <see cref="IPairingHandler"/>: known servers get a silent credential upsert; new servers
+/// are routed to the #setup confirmation prompt; entity pairings fan out to their feature events.</summary>
+/// <param name="servers">Server lookup/backfill.</param>
 /// <param name="credentials">The credential pool store.</param>
-/// <param name="eventBus">Publishes the real ServerRegisteredEvent on new-server creation.</param>
+/// <param name="eventBus">Publishes the entity paired events.</param>
+/// <param name="serverPairings">Prompts for confirmation before a new server is registered.</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class PairingHandler(
     IServerService servers,
     ICredentialStore credentials,
     IEventBus eventBus,
+    IServerPairingCoordinator serverPairings,
     ILogger<PairingHandler> logger) : IPairingHandler
 {
     /// <inheritdoc />
@@ -31,29 +34,29 @@ internal sealed partial class PairingHandler(
             return;
         }
 
-        var (server, created) = await servers.ResolveOrCreateByEndpointAsync(
-                guildId, ownerUserId, notification.ServerName, notification.Ip, notification.Port, cancellationToken)
+        var existing = await servers.GetByEndpointAsync(guildId, notification.Ip, notification.Port, cancellationToken)
             .ConfigureAwait(false);
+        if (existing is null)
+        {
+            // New server: nothing is persisted until the user accepts the #setup prompt.
+            await serverPairings.HandleDetectedAsync(guildId, ownerUserId, notification, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
 
         // Only backfill a real Facepunch GUID. Persisting Guid.Empty would make every server that paired
         // without one share the same id, breaking GUID-based entity-pairing attribution.
         if (notification.FacepunchServerId != Guid.Empty)
         {
-            await servers.SetFacepunchServerIdAsync(server.Id, notification.FacepunchServerId, cancellationToken)
+            await servers.SetFacepunchServerIdAsync(existing.Id, notification.FacepunchServerId, cancellationToken)
                 .ConfigureAwait(false);
         }
 
         await credentials.UpsertFromPairingAsync(
-            new StoreCredentialRequest(guildId, server.Id, ownerUserId, notification.PlayerId,
+            new StoreCredentialRequest(guildId, existing.Id, ownerUserId, notification.PlayerId,
                 notification.PlayerToken),
-            markActive: created,
+            markActive: false,
             cancellationToken).ConfigureAwait(false);
-
-        if (created)
-        {
-            await eventBus.PublishAsync(new ServerRegisteredEvent(guildId, server.Id), cancellationToken)
-                .ConfigureAwait(false);
-        }
     }
 
     private async Task HandleEntityAsync(

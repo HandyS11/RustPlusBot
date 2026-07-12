@@ -5,7 +5,10 @@ using RustPlusBot.Features.Pairing.Hosting;
 using RustPlusBot.Features.Pairing.Listening;
 using RustPlusBot.Features.Pairing.Notifications;
 using RustPlusBot.Features.Pairing.Pairing;
+using RustPlusBot.Features.Pairing.Posting;
+using RustPlusBot.Features.Pairing.Rendering;
 using RustPlusBot.Features.Pairing.Supervisor;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Pairing;
 
@@ -24,6 +27,11 @@ public static class PairingServiceCollectionExtensions
         services.AddSingleton<IOwnerNotifier, DiscordOwnerNotifier>();
         services.AddSingleton<IPairingSupervisor, PairingSupervisor>();
         services.AddScoped<IAccountDisconnectService, AccountDisconnectService>();
+
+        services.AddRustPlusBotLocalization();
+        services.AddSingleton<ServerPairingPromptRenderer>();
+        services.AddSingleton<ISetupChannelPoster, DiscordSetupChannelPoster>();
+        services.AddSingleton<IServerPairingCoordinator, ServerPairingCoordinator>();
 
         // Contribute this assembly's interaction modules to the Discord layer.
         services.AddSingleton(new InteractionModuleAssembly(typeof(PairingServiceCollectionExtensions).Assembly));

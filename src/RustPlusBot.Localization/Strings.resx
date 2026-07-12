@@ -663,6 +663,24 @@
   <data name="server.info.team.value" xml:space="preserve">
     <value>{0}/{1} online · leader {2}</value>
   </data>
+  <data name="server.prompt.accept" xml:space="preserve">
+    <value>Accept</value>
+  </data>
+  <data name="server.prompt.added.body" xml:space="preserve">
+    <value>{0} was added. Its channels are being created and the bot is connecting.</value>
+  </data>
+  <data name="server.prompt.added.title" xml:space="preserve">
+    <value>Server added</value>
+  </data>
+  <data name="server.prompt.body" xml:space="preserve">
+    <value>Detected a new server pairing: {0} ({1}:{2}). Add it?</value>
+  </data>
+  <data name="server.prompt.dismiss" xml:space="preserve">
+    <value>Dismiss</value>
+  </data>
+  <data name="server.prompt.title" xml:space="preserve">
+    <value>New server detected</value>
+  </data>
   <data name="settings.body" xml:space="preserve">
     <value>Configure the bot for this server.</value>
   </data>
