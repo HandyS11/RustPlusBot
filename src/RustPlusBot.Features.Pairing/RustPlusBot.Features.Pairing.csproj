@@ -11,6 +11,7 @@
     <ProjectReference Include="..\RustPlusBot.Domain\RustPlusBot.Domain.csproj" />
     <ProjectReference Include="..\RustPlusBot.Abstractions\RustPlusBot.Abstractions.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Workspace\RustPlusBot.Features.Workspace.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Localization\RustPlusBot.Localization.csproj" />
   </ItemGroup>
 
   <ItemGroup>
