@@ -6,7 +6,7 @@ using RustPlusBot.Features.Wipes.Detection;
 
 namespace RustPlusBot.Features.Wipes.Hosting;
 
-/// <summary>Runs the wipe-check loop (on connected transitions) and the wipe-announcement loop.</summary>
+/// <summary>Runs the wipe-check loop (on reconnect transitions) and the wipe-announcement loop.</summary>
 /// <param name="eventBus">The in-process event bus.</param>
 /// <param name="detector">Diffs the live server against the persisted baseline.</param>
 /// <param name="announcer">Posts the wipe announcement in #events.</param>
@@ -61,7 +61,7 @@ internal sealed partial class WipesHostedService(
             await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
                                .ConfigureAwait(false))
             {
-                if (!evt.IsConnected)
+                if (!evt.IsConnected || evt.WasConnected)
                 {
                     continue;
                 }

@@ -153,6 +153,46 @@ public sealed class WipeDetectorTests
     }
 
     [Fact]
+    public async Task Null_observed_wipe_time_preserves_baseline_wipe_time()
+    {
+        var h = Create(info: Info(null), world: new WorldSnapshot(3500u, 42u),
+            baseline: new WipeBaseline(OldWipe, 42u, 3500u));
+
+        await h.Detector.CheckAsync(10UL, ServerId, CancellationToken.None);
+
+        await h.Store.DidNotReceiveWithAnyArgs().SetAsync(default, Guid.Empty, null!, default);
+        await h.Bus.DidNotReceiveWithAnyArgs().PublishAsync<ServerWipedEvent>(null!, default);
+    }
+
+    [Fact]
+    public async Task Wipe_time_advance_at_exact_tolerance_is_not_a_wipe()
+    {
+        var atTolerance = OldWipe.AddSeconds(60);
+        var h = Create(info: Info(atTolerance), world: new WorldSnapshot(3500u, 42u),
+            baseline: new WipeBaseline(OldWipe, 42u, 3500u));
+
+        await h.Detector.CheckAsync(10UL, ServerId, CancellationToken.None);
+
+        await h.Store.Received(1).SetAsync(10UL, ServerId, new WipeBaseline(atTolerance, 42u, 3500u),
+            Arg.Any<CancellationToken>());
+        await h.Bus.DidNotReceiveWithAnyArgs().PublishAsync<ServerWipedEvent>(null!, default);
+    }
+
+    [Fact]
+    public async Task Wipe_time_advance_just_beyond_tolerance_publishes()
+    {
+        var beyondTolerance = OldWipe.AddSeconds(61);
+        var h = Create(info: Info(beyondTolerance), world: new WorldSnapshot(3500u, 42u),
+            baseline: new WipeBaseline(OldWipe, 42u, 3500u));
+
+        await h.Detector.CheckAsync(10UL, ServerId, CancellationToken.None);
+
+        await h.Bus.Received(1).PublishAsync(
+            new ServerWipedEvent(10UL, ServerId, OldWipe, beyondTolerance, 42u, 3500u),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Wipe_time_appearing_from_null_backfills_without_event()
     {
         // Baseline had seed/size but no wipe time (server started reporting it): not a wipe.

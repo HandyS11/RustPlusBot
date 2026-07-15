@@ -69,11 +69,12 @@ public sealed class WipeBaselineStoreTests
         var (store, context, conn) = Create();
         await using var _ = conn;
         await using var __ = context;
+        var unknownId = Guid.NewGuid();
 
-        await store.SetAsync(10UL, Guid.NewGuid(), new WipeBaseline(null, 42u, null));
+        await store.SetAsync(10UL, unknownId, new WipeBaseline(null, 42u, null));
 
         // No throw; nothing persisted.
-        Assert.Null(await store.GetAsync(10UL, Guid.NewGuid()));
+        Assert.Null(await store.GetAsync(10UL, unknownId));
     }
 
     [Fact]

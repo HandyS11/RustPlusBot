@@ -74,6 +74,26 @@ public sealed class WipesHostedServiceTests
     }
 
     [Fact]
+    public async Task Steady_state_republish_does_not_run_the_detector()
+    {
+        var h = Create();
+        await h.Service.StartAsync(default);
+        var evt = new ConnectionStatusChangedEvent(10UL, Guid.NewGuid(), IsConnected: true, WasConnected: true);
+
+        // Re-publish for a window (same eager-subscription concern as PublishUntilReceivedAsync) so the
+        // subscriber loop has definitely attached and processed at least one delivery before asserting
+        // the negative outcome below.
+        for (var i = 0; i < 10; i++)
+        {
+            await h.Bus.PublishAsync(evt);
+            await Task.Delay(20);
+        }
+
+        await h.Detector.DidNotReceiveWithAnyArgs().CheckAsync(default, Guid.Empty, default);
+        await h.Service.StopAsync(default);
+    }
+
+    [Fact]
     public async Task ServerWipedEvent_routes_to_the_announcer()
     {
         var h = Create();

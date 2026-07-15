@@ -35,16 +35,22 @@ internal sealed partial class WipeDetector(
             return; // Socket dropped mid-check; the next reconnect retries.
         }
 
-        var observed = new WipeBaseline(info.WipeTimeUtc, world.Seed, world.WorldSize);
         WipeBaseline? baseline;
+        WipeBaseline observed;
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
             var store = scope.ServiceProvider.GetRequiredService<IWipeBaselineStore>();
             baseline = await store.GetAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-            if (baseline is null || baseline == observed)
+            if (baseline is null)
             {
-                return; // Server removed mid-check, or plain reconnect with nothing changed.
+                return; // Server removed mid-check.
+            }
+
+            observed = new WipeBaseline(info.WipeTimeUtc ?? baseline.WipeTimeUtc, world.Seed, world.WorldSize);
+            if (baseline == observed)
+            {
+                return; // Plain reconnect with nothing changed.
             }
 
             await store.SetAsync(guildId, serverId, observed, cancellationToken).ConfigureAwait(false);
