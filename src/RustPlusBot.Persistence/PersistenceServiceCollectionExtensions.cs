@@ -10,6 +10,7 @@ using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.StorageMonitors;
 using RustPlusBot.Persistence.Switches;
+using RustPlusBot.Persistence.Wipes;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Persistence;
@@ -45,6 +46,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IStorageMonitorStore, StorageMonitorStore>();
         services.AddScoped<IMuteStore, MuteStore>();
         services.AddScoped<IMapSettingsStore, MapSettingsStore>();
+        services.AddScoped<IWipeBaselineStore, WipeBaselineStore>();
 
         return services;
     }

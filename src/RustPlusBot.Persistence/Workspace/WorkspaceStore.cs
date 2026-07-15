@@ -140,6 +140,39 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
     }
 
     /// <inheritdoc />
+    public async Task<bool> GetPingEveryoneOnWipeAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        var settings = await context.GuildSettings
+            .SingleOrDefaultAsync(s => s.GuildId == guildId, cancellationToken)
+            .ConfigureAwait(false);
+        return settings?.PingEveryoneOnWipe ?? false;
+    }
+
+    /// <inheritdoc />
+    public async Task SetPingEveryoneOnWipeAsync(ulong guildId,
+        bool enabled,
+        CancellationToken cancellationToken = default)
+    {
+        var settings = await context.GuildSettings
+            .SingleOrDefaultAsync(s => s.GuildId == guildId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (settings is null)
+        {
+            context.GuildSettings.Add(new GuildSettings
+            {
+                GuildId = guildId, PingEveryoneOnWipe = enabled
+            });
+        }
+        else
+        {
+            settings.PingEveryoneOnWipe = enabled;
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task DeleteScopeAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default)
     {
         await context.ProvisionedMessages

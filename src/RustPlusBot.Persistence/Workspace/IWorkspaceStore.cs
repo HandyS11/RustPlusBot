@@ -61,6 +61,19 @@ public interface IWorkspaceStore
     /// <param name="cancellationToken">A cancellation token.</param>
     Task SetCultureAsync(ulong guildId, string culture, CancellationToken cancellationToken = default);
 
+    /// <summary>True when the guild wants the server-wiped announcement to ping @everyone. Defaults to false.</summary>
+    /// <param name="guildId">The guild snowflake.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The current flag value.</returns>
+    Task<bool> GetPingEveryoneOnWipeAsync(ulong guildId, CancellationToken cancellationToken = default);
+
+    /// <summary>Sets the @everyone-on-wipe flag (upserting the GuildSettings row).</summary>
+    /// <param name="guildId">The guild snowflake.</param>
+    /// <param name="enabled">The new flag value.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the flag has been persisted.</returns>
+    Task SetPingEveryoneOnWipeAsync(ulong guildId, bool enabled, CancellationToken cancellationToken = default);
+
     /// <summary>Deletes all provisioning rows (category + channels + messages) for one scope.</summary>
     /// <param name="guildId">The Discord guild snowflake.</param>
     /// <param name="serverId">The Rust server id, or null for the global scope.</param>

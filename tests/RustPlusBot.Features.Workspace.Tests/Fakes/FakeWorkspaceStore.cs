@@ -17,6 +17,8 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
     /// <summary>Key: scope|messageKey.</summary>
     private readonly ConcurrentDictionary<string, ProvisionedMessage> _messages = new();
 
+    private readonly ConcurrentDictionary<ulong, bool> _pingEveryoneOnWipe = new();
+
     public Task<ProvisionedCategory?> GetCategoryAsync(ulong guildId,
         Guid? serverId,
         CancellationToken cancellationToken = default) =>
@@ -75,6 +77,15 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
     public Task SetCultureAsync(ulong guildId, string culture, CancellationToken cancellationToken = default)
     {
         _cultures[guildId] = culture;
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> GetPingEveryoneOnWipeAsync(ulong guildId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_pingEveryoneOnWipe.GetValueOrDefault(guildId, false));
+
+    public Task SetPingEveryoneOnWipeAsync(ulong guildId, bool enabled, CancellationToken cancellationToken = default)
+    {
+        _pingEveryoneOnWipe[guildId] = enabled;
         return Task.CompletedTask;
     }
 
