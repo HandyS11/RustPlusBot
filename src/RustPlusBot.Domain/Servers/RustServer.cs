@@ -23,4 +23,13 @@ public sealed class RustServer
 
     /// <summary>The Facepunch server GUID from FCM pairings, backfilled on server pairing; null until first seen. Used to attribute entity pairings.</summary>
     public Guid? FacepunchServerId { get; set; }
+
+    /// <summary>Baseline: the last observed wipe time (UTC) from getInfo, or null before first observation.</summary>
+    public DateTimeOffset? LastWipeTimeUtc { get; set; }
+
+    /// <summary>Baseline: the last observed procedural map seed, or null before first observation.</summary>
+    public uint? LastMapSeed { get; set; }
+
+    /// <summary>Baseline: the last observed world size (game units), or null before first observation.</summary>
+    public uint? LastMapSize { get; set; }
 }

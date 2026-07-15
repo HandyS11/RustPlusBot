@@ -8,4 +8,7 @@ public sealed class GuildSettings
 
     /// <summary>BCP-47 culture for localized output (e.g. "en", "fr").</summary>
     public string Culture { get; set; } = "en";
+
+    /// <summary>When true, the server-wiped announcement pings @everyone in #events. Off by default.</summary>
+    public bool PingEveryoneOnWipe { get; set; }
 }
