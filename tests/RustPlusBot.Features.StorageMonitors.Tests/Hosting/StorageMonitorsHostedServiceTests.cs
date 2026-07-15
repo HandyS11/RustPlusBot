@@ -55,11 +55,15 @@ public sealed class StorageMonitorsHostedServiceTests
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>()).Returns((ulong?)901UL);
         var coordinator = new StorageMonitorPairingCoordinator(scopeFactory, pairingLocator, pairingPoster, renderer);
 
+        var purger = new StorageMonitorWipePurger(scopeFactory, relayLocator, relayPoster,
+            NullLogger<StorageMonitorWipePurger>.Instance);
+
         var bus = new InMemoryEventBus();
         var service = new StorageMonitorsHostedService(
             bus,
             coordinator,
             relay,
+            purger,
             NullLogger<StorageMonitorsHostedService>.Instance);
 
         return new Harness(service, bus, store, relayPoster, relayLocator, pairingLocator, pairingPoster);
