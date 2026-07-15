@@ -834,4 +834,25 @@
   <data name="uptime.ok" xml:space="preserve">
     <value>Bot uptime: {0}</value>
   </data>
+  <data name="wipe.title" xml:space="preserve">
+    <value>🧹 Server wiped</value>
+  </data>
+  <data name="wipe.body" xml:space="preserve">
+    <value>The server has wiped. All paired smart devices were removed — pair them again in game to keep using your switches, alarms and storage monitors.</value>
+  </data>
+  <data name="wipe.field.wipedat" xml:space="preserve">
+    <value>Wiped</value>
+  </data>
+  <data name="wipe.field.mapsize" xml:space="preserve">
+    <value>Map size</value>
+  </data>
+  <data name="wipe.field.seed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="settings.wipeping.on" xml:space="preserve">
+    <value>🔔 Ping @everyone on wipe: On</value>
+  </data>
+  <data name="settings.wipeping.off" xml:space="preserve">
+    <value>🔕 Ping @everyone on wipe: Off</value>
+  </data>
 </root>

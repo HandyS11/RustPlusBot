@@ -834,4 +834,25 @@
   <data name="uptime.ok" xml:space="preserve">
     <value>Disponibilité du bot : {0}</value>
   </data>
+  <data name="wipe.title" xml:space="preserve">
+    <value>🧹 Serveur wipé</value>
+  </data>
+  <data name="wipe.body" xml:space="preserve">
+    <value>Le serveur a wipé. Tous les appareils connectés appairés ont été supprimés — appairez-les à nouveau en jeu pour continuer à utiliser vos interrupteurs, alarmes et moniteurs de stockage.</value>
+  </data>
+  <data name="wipe.field.wipedat" xml:space="preserve">
+    <value>Wipe</value>
+  </data>
+  <data name="wipe.field.mapsize" xml:space="preserve">
+    <value>Taille de la carte</value>
+  </data>
+  <data name="wipe.field.seed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="settings.wipeping.on" xml:space="preserve">
+    <value>🔔 Ping @everyone au wipe : activé</value>
+  </data>
+  <data name="settings.wipeping.off" xml:space="preserve">
+    <value>🔕 Ping @everyone au wipe : désactivé</value>
+  </data>
 </root>
