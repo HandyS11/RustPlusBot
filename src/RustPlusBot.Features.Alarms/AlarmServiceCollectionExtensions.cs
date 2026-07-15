@@ -12,7 +12,7 @@ namespace RustPlusBot.Features.Alarms;
 /// <summary>DI registration for the Smart Alarms feature.</summary>
 public static class AlarmServiceCollectionExtensions
 {
-    /// <summary>Registers the localizer, renderer, poster, refresher, coordinator, relay, modules, and hosted service.</summary>
+    /// <summary>Registers the localizer, renderer, poster, refresher, coordinator, relay, wipe purger, modules, and hosted service.</summary>
     /// <param name="services">The service collection to add to.</param>
     /// <returns>The same service collection, for chaining.</returns>
     public static IServiceCollection AddAlarms(this IServiceCollection services)
@@ -26,6 +26,7 @@ public static class AlarmServiceCollectionExtensions
         services.AddSingleton<AlarmPairingCoordinator>();
         services.AddSingleton<AlarmRelayChannels>();
         services.AddSingleton<AlarmStateRelay>();
+        services.AddSingleton<AlarmWipePurger>();
         services.AddHostedService<AlarmsHostedService>();
 
         // Contribute this assembly's interaction modules to the Discord layer.

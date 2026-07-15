@@ -26,6 +26,7 @@ public static class StorageMonitorServiceCollectionExtensions
         services.AddSingleton<IStorageMonitorChannelPoster, DiscordStorageMonitorChannelPoster>();
         services.AddSingleton<StorageMonitorPairingCoordinator>();
         services.AddSingleton<StorageMonitorStateRelay>();
+        services.AddSingleton<StorageMonitorWipePurger>();
         services.AddHostedService<StorageMonitorsHostedService>();
 
         services.AddSingleton(new InteractionModuleAssembly(

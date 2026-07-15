@@ -18,5 +18,7 @@ internal sealed class RustServerConfiguration : IEntityTypeConfiguration<RustSer
             s.GuildId, s.Ip, s.Port
         }).IsUnique();
         builder.HasIndex(s => s.FacepunchServerId);
+        builder.Property(s => s.LastMapSeed).HasConversion<long>();
+        builder.Property(s => s.LastMapSize).HasConversion<long>();
     }
 }

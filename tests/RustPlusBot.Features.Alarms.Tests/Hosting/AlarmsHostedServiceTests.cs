@@ -65,11 +65,15 @@ public sealed class AlarmsHostedServiceTests
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>()).Returns((ulong?)901UL);
         var coordinator = new AlarmPairingCoordinator(scopeFactory, pairingLocator, pairingPoster, alarmRenderer);
 
+        var purger = new AlarmWipePurger(scopeFactory, relayLocator, relayPoster,
+            NullLogger<AlarmWipePurger>.Instance);
+
         var bus = new InMemoryEventBus();
         var service = new AlarmsHostedService(
             bus,
             coordinator,
             relay,
+            purger,
             NullLogger<AlarmsHostedService>.Instance);
 
         return new Harness(service, bus, store, refresher, relayPoster, pairingLocator, pairingPoster);

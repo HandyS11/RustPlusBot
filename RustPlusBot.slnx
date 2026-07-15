@@ -16,6 +16,7 @@
     <Project Path="src/RustPlusBot.Features.StorageMonitors/RustPlusBot.Features.StorageMonitors.csproj" />
     <Project Path="src/RustPlusBot.Features.Switches/RustPlusBot.Features.Switches.csproj" />
     <Project Path="src/RustPlusBot.Features.Workspace/RustPlusBot.Features.Workspace.csproj" />
+    <Project Path="src/RustPlusBot.Features.Wipes/RustPlusBot.Features.Wipes.csproj" />
     <Project Path="src/RustPlusBot.Localization/RustPlusBot.Localization.csproj" />
     <Project Path="src/RustPlusBot.Persistence/RustPlusBot.Persistence.csproj" />
   </Folder>
@@ -34,6 +35,7 @@
     <Project Path="tests/RustPlusBot.Features.StorageMonitors.Tests/RustPlusBot.Features.StorageMonitors.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Switches.Tests/RustPlusBot.Features.Switches.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Workspace.Tests/RustPlusBot.Features.Workspace.Tests.csproj" />
+    <Project Path="tests/RustPlusBot.Features.Wipes.Tests/RustPlusBot.Features.Wipes.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Discord.Tests/RustPlusBot.Discord.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Alarms.Tests/RustPlusBot.Features.Alarms.Tests.csproj" />
     <Project Path="tests/RustPlusBot.Features.Chat.Tests/RustPlusBot.Features.Chat.Tests.csproj" />

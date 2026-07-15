@@ -49,11 +49,15 @@ public sealed class SwitchesHostedServiceTests
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>()).Returns((ulong?)901UL);
         var coordinator = new SwitchPairingCoordinator(scopeFactory, pairingLocator, pairingPoster, renderer);
 
+        var purger = new SwitchWipePurger(scopeFactory, relayLocator, relayPoster,
+            NullLogger<SwitchWipePurger>.Instance);
+
         var bus = new InMemoryEventBus();
         var service = new SwitchesHostedService(
             bus,
             coordinator,
             relay,
+            purger,
             NullLogger<SwitchesHostedService>.Instance);
 
         return new Harness(service, bus, store, relayPoster, relayLocator, pairingLocator, pairingPoster);

@@ -9,6 +9,7 @@ using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Servers;
+using RustPlusBot.Persistence.Workspace;
 using DomainConnectionState = RustPlusBot.Domain.Connections.ConnectionState;
 
 namespace RustPlusBot.Features.Workspace.Tests.Messages;
@@ -49,7 +50,9 @@ public sealed class RendererTests
     [Fact]
     public async Task Settings_HasLanguageSelectMenu()
     {
-        var renderer = new SettingsMessageRenderer(Loc);
+        var settingsStore = Substitute.For<IWorkspaceStore>();
+        settingsStore.GetPingEveryoneOnWipeAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns(false);
+        var renderer = new SettingsMessageRenderer(settingsStore, Loc);
 
         var payload = await renderer.RenderAsync(Global, default);
 

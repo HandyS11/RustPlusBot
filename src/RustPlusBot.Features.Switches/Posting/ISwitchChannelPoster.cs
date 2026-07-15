@@ -16,4 +16,11 @@ internal interface ISwitchChannelPoster
         global::Discord.Embed embed,
         global::Discord.MessageComponent components,
         CancellationToken cancellationToken);
+
+    /// <summary>Deletes a message in the given channel (missing message/channel tolerated).</summary>
+    /// <param name="channelId">The #switches channel id.</param>
+    /// <param name="messageId">The message id to delete.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the message has been deleted (or the failure swallowed).</returns>
+    Task DeleteMessageAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken);
 }

@@ -353,6 +353,9 @@ namespace RustPlusBot.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("PingEveryoneOnWipe")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("GuildId");
 
                     b.ToTable("GuildSettings");
@@ -413,6 +416,15 @@ namespace RustPlusBot.Persistence.Migrations
                     b.Property<string>("Ip")
                         .IsRequired()
                         .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LastMapSeed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("LastMapSize")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("LastWipeTimeUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
