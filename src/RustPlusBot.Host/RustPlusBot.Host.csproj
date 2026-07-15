@@ -31,6 +31,7 @@
     <ProjectReference Include="..\RustPlusBot.Features.Switches\RustPlusBot.Features.Switches.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Alarms\RustPlusBot.Features.Alarms.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.StorageMonitors\RustPlusBot.Features.StorageMonitors.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.Wipes\RustPlusBot.Features.Wipes.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Map\RustPlusBot.Features.Map.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Players\RustPlusBot.Features.Players.csproj" />
   </ItemGroup>

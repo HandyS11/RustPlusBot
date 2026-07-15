@@ -13,6 +13,7 @@ using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Players;
 using RustPlusBot.Features.StorageMonitors;
 using RustPlusBot.Features.Switches;
+using RustPlusBot.Features.Wipes;
 using RustPlusBot.Features.Workspace;
 using RustPlusBot.Host.Credentials;
 using RustPlusBot.Persistence;
@@ -87,6 +88,7 @@ builder.Services.AddMap(builder.Configuration);
 builder.Services.AddSwitches();
 builder.Services.AddAlarms();
 builder.Services.AddStorageMonitors();
+builder.Services.AddWipes();
 
 var host = builder.Build();
 
