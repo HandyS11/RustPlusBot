@@ -26,11 +26,14 @@ internal sealed partial class DiscordWipeChannelPoster(
                 return;
             }
 
+            // Only permit mentions when we are deliberately pinging (content carries the @everyone).
+            // For an embed-only post, suppress all mentions so incidental mention-like text in the
+            // localized embed can never ping a user or role.
             await channel.SendMessageAsync(
                     content,
                     embed: embed,
                     options: options,
-                    allowedMentions: AllowedMentions.All)
+                    allowedMentions: content is null ? AllowedMentions.None : AllowedMentions.All)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
