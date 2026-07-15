@@ -23,4 +23,11 @@ internal interface IAlarmChannelPoster
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the message has been sent (or silently swallowed on failure).</returns>
     Task SendEveryonePingAsync(ulong channelId, string content, CancellationToken cancellationToken);
+
+    /// <summary>Deletes a message in the given channel (missing message/channel tolerated).</summary>
+    /// <param name="channelId">The #alarms channel id.</param>
+    /// <param name="messageId">The message id to delete.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the message has been deleted (or the failure swallowed).</returns>
+    Task DeleteMessageAsync(ulong channelId, ulong messageId, CancellationToken cancellationToken);
 }
