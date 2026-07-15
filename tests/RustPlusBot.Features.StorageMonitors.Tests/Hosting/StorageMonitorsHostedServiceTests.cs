@@ -41,7 +41,7 @@ public sealed class StorageMonitorsHostedServiceTests
         relayPoster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>()).Returns((ulong?)900UL);
         var names = Substitute.For<IItemNameResolver>();
-        names.Resolve(Arg.Any<int>()).Returns(ci => "Item" + (int)ci[0]);
+        names.Resolve(Arg.Any<int>()).Returns(ci => "Item" + (int)ci[0]!);
         var renderer = new StorageMonitorEmbedRenderer(new ResxLocalizer(), names);
         var relay = new StorageMonitorStateRelay(scopeFactory, relayLocator, relayPoster, renderer,
             Substitute.For<IRustServerQuery>());
