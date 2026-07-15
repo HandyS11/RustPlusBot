@@ -49,7 +49,7 @@ public sealed class WipesHostedServiceTests
 
         await PublishUntilReceivedAsync(h.Bus, evt, h.Detector, nameof(IWipeDetector.CheckAsync));
 
-        await h.Detector.Received(1).CheckAsync(10UL, serverId, Arg.Any<CancellationToken>());
+        await h.Detector.Received().CheckAsync(10UL, serverId, Arg.Any<CancellationToken>());
         await h.Service.StopAsync(default);
     }
 
@@ -82,7 +82,7 @@ public sealed class WipesHostedServiceTests
 
         await PublishUntilReceivedAsync(h.Bus, evt, h.Announcer, nameof(IWipeAnnouncer.HandleServerWipedAsync));
 
-        await h.Announcer.Received(1).HandleServerWipedAsync(evt, Arg.Any<CancellationToken>());
+        await h.Announcer.Received().HandleServerWipedAsync(evt, Arg.Any<CancellationToken>());
         await h.Service.StopAsync(default);
     }
 
