@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Features.Wipes.Announcing;
 using RustPlusBot.Features.Wipes.Detection;
+using RustPlusBot.Features.Wipes.Posting;
 using RustPlusBot.Features.Wipes.Rendering;
 using RustPlusBot.Localization;
 
@@ -18,6 +20,8 @@ public static class WipeServiceCollectionExtensions
         services.AddRustPlusBotLocalization();
         services.AddSingleton<IWipeDetector, WipeDetector>();
         services.AddSingleton<WipeEmbedRenderer>();
+        services.AddSingleton<IWipeChannelPoster, DiscordWipeChannelPoster>();
+        services.AddSingleton<IWipeAnnouncer, WipeAnnouncer>();
 
         return services;
     }
