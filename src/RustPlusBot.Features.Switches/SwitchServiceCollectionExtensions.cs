@@ -24,6 +24,7 @@ public static class SwitchServiceCollectionExtensions
         services.AddSingleton<ISwitchChannelPoster, DiscordSwitchChannelPoster>();
         services.AddSingleton<SwitchPairingCoordinator>();
         services.AddSingleton<SwitchStateRelay>();
+        services.AddSingleton<SwitchWipePurger>();
         services.AddHostedService<SwitchesHostedService>();
 
         // Contribute this assembly's interaction modules to the Discord layer.
