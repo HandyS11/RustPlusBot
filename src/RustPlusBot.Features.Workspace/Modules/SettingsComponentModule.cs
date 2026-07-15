@@ -46,4 +46,35 @@ public sealed class SettingsComponentModule(IServiceScopeFactory scopeFactory)
             await scope.DisposeAsync().ConfigureAwait(false);
         }
     }
+
+    /// <summary>Toggles the @everyone-on-wipe ping and re-renders the workspace.</summary>
+    [ComponentInteraction(SettingsMessageRenderer.WipePingButtonId)]
+    [RequireUserPermission(GuildPermission.ManageGuild)]
+    public async Task ToggleWipePingAsync()
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync("This control must be used in a server.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var scope = scopeFactory.CreateAsyncScope();
+        try
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
+            var enabled = !await store.GetPingEveryoneOnWipeAsync(Context.Guild.Id).ConfigureAwait(false);
+            await store.SetPingEveryoneOnWipeAsync(Context.Guild.Id, enabled).ConfigureAwait(false);
+
+            var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
+            await reconciler.ReconcileGlobalAsync(Context.Guild.Id).ConfigureAwait(false);
+
+            await FollowupAsync($"@everyone ping on wipe {(enabled ? "enabled" : "disabled")}.", ephemeral: true)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await scope.DisposeAsync().ConfigureAwait(false);
+        }
+    }
 }
