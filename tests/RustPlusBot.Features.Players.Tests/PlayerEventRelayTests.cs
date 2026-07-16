@@ -54,7 +54,7 @@ public sealed class PlayerEventRelayTests
             Evt(new PlayerTransition(PlayerTransitionKind.Connect, 1, "Bob", null)), CancellationToken.None);
 
         await _sender.Received(1).SendAsync(
-            Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Is<string>(s => s.Contains("Bob")), Arg.Any<CancellationToken>());
+            Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Is<string>(s => s!.Contains("Bob")), Arg.Any<CancellationToken>());
     }
 
     [Fact]

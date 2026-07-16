@@ -167,7 +167,7 @@ public sealed class ServerPairingCoordinatorTests
         Assert.Equal(server.Id, credential.RustServerId);
         Assert.Equal(CredentialStatus.Active, credential.Status);
         await h.Bus.Received(1).PublishAsync(
-            Arg.Is<ServerRegisteredEvent>(e => e.GuildId == 10UL && e.ServerId == server.Id),
+            Arg.Is<ServerRegisteredEvent>(e => e!.GuildId == 10UL && e.ServerId == server.Id),
             Arg.Any<CancellationToken>());
         await h.Poster.Received(1).EnsureAsync(777UL, 900UL, Arg.Any<global::Discord.Embed>(),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
@@ -279,7 +279,7 @@ public sealed class ServerPairingCoordinatorTests
         Assert.Equal(server.Id, credential.RustServerId);
         Assert.Equal(CredentialStatus.Active, credential.Status);
         await h.Bus.Received(1).PublishAsync(
-            Arg.Is<ServerRegisteredEvent>(e => e.GuildId == 10UL && e.ServerId == server.Id),
+            Arg.Is<ServerRegisteredEvent>(e => e!.GuildId == 10UL && e.ServerId == server.Id),
             Arg.Any<CancellationToken>());
         await h.Poster.Received(1).EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(),
             Arg.Any<global::Discord.Embed>(), Arg.Any<global::Discord.MessageComponent>(),

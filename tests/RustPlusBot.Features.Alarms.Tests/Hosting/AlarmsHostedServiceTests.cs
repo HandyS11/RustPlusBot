@@ -198,7 +198,7 @@ public sealed class AlarmsHostedServiceTests
         }
 
         await h.Refresher.Received().RefreshAsync(
-            Arg.Is<SmartAlarm>(a => a.EntityId == 42UL), unreachable: true, Arg.Any<CancellationToken>());
+            Arg.Is<SmartAlarm>(a => a!.EntityId == 42UL), unreachable: true, Arg.Any<CancellationToken>());
 
         await h.Service.StopAsync(default);
     }

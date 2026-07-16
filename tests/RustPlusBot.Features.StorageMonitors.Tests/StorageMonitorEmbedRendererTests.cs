@@ -14,7 +14,7 @@ public sealed class StorageMonitorEmbedRendererTests
     {
         var loc = new ResxLocalizer();
         names = Substitute.For<IItemNameResolver>();
-        names.Resolve(Arg.Any<int>()).Returns(ci => "Item" + (int)ci[0]);
+        names.Resolve(Arg.Any<int>()).Returns(ci => "Item" + (int)ci[0]!);
         return new StorageMonitorEmbedRenderer(loc, names);
     }
 

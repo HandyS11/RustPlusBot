@@ -37,7 +37,7 @@ public sealed class StorageMonitorPairingCoordinatorTests
             .Returns(900UL);
 
         var names = Substitute.For<IItemNameResolver>();
-        names.Resolve(Arg.Any<int>()).Returns(ci => "Item" + (int)ci[0]);
+        names.Resolve(Arg.Any<int>()).Returns(ci => "Item" + (int)ci[0]!);
         var renderer = new StorageMonitorEmbedRenderer(new ResxLocalizer(), names);
         var coordinator = new StorageMonitorPairingCoordinator(scopeFactory, locator, poster, renderer);
         return new Harness(coordinator, store, poster, locator);

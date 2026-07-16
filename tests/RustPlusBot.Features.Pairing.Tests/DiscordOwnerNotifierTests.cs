@@ -16,7 +16,7 @@ public sealed class DiscordOwnerNotifierTests
 
         await dm.Received(1).SendAsync(
             99UL,
-            Arg.Is<string>(m => m.Contains("Reconnect", StringComparison.Ordinal)),
+            Arg.Is<string>(m => m!.Contains("Reconnect", StringComparison.Ordinal)),
             Arg.Any<CancellationToken>());
     }
 
@@ -29,6 +29,6 @@ public sealed class DiscordOwnerNotifierTests
         await notifier.NotifySetupChannelMissingAsync(10UL, 99UL, CancellationToken.None);
 
         await dm.Received(1).SendAsync(99UL,
-            Arg.Is<string>(m => m.Contains("/setup", StringComparison.Ordinal)), Arg.Any<CancellationToken>());
+            Arg.Is<string>(m => m!.Contains("/setup", StringComparison.Ordinal)), Arg.Any<CancellationToken>());
     }
 }

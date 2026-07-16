@@ -49,10 +49,10 @@ public sealed class AccountDisconnectServiceTests
         await sup.Received(1).StopListenerAsync(10UL, 99UL);
         await regs.Received(1).SetStatusAsync(regId, FcmRegistrationStatus.Disabled, Arg.Any<CancellationToken>());
         await bus.Received(1).PublishAsync(
-            Arg.Is<ServerCredentialsChangedEvent>(e => e.GuildId == 10UL && e.ServerId == s1),
+            Arg.Is<ServerCredentialsChangedEvent>(e => e!.GuildId == 10UL && e.ServerId == s1),
             Arg.Any<CancellationToken>());
         await bus.Received(1).PublishAsync(
-            Arg.Is<ServerCredentialsChangedEvent>(e => e.ServerId == s2), Arg.Any<CancellationToken>());
+            Arg.Is<ServerCredentialsChangedEvent>(e => e!.ServerId == s2), Arg.Any<CancellationToken>());
     }
 
     [Fact]

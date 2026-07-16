@@ -87,7 +87,7 @@ public sealed class RustMapsGenerationDriverTests
 
         Assert.Equal(RustMapsGenerationState.Generating, coord.Snapshot(Key).State);
         await client.Received(1).CreateMapAsync(
-            Arg.Is<MapGenerationRequest>(r => r.Size == 4000 && r.Seed == 12345 && !r.Staging),
+            Arg.Is<MapGenerationRequest>(r => r!.Size == 4000 && r.Seed == 12345 && !r.Staging),
             Arg.Any<CancellationToken>());
     }
 
