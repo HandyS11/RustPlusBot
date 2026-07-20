@@ -15,6 +15,7 @@ public sealed class ServerTeamMessageRendererTests
     private static readonly Guid ServerId = Guid.NewGuid();
     private static readonly DateTimeOffset Now = new(2026, 7, 20, 12, 0, 0, TimeSpan.Zero);
     private static readonly string[] ExpectedOrder = ["Alice", "Bob", "Carol", "Dave"];
+    private static readonly string[] SurvivalOrder = ["Erin", "Frank"];
 
     private static TeamMemberSnapshot Member(
         ulong steamId,
@@ -179,5 +180,23 @@ public sealed class ServerTeamMessageRendererTests
             .Select(l => ExpectedOrder.First(n => l.Contains(n, StringComparison.Ordinal)))
             .ToArray();
         Assert.Equal(ExpectedOrder, names);
+    }
+
+    [Fact]
+    public async Task Online_alive_members_sort_by_survival_time_descending()
+    {
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetTeamInfoAsync(1, ServerId, Arg.Any<CancellationToken>())
+            .Returns(new TeamInfoSnapshot(99UL, [
+                Member(5UL, "Frank", online: true, alive: true, spawnedHoursAgo: 1),
+                Member(6UL, "Erin", online: true, alive: true, spawnedHoursAgo: 5),
+            ]));
+
+        var payload = await Build(query, NoAfk()).RenderAsync(new MessageRenderContext(1, ServerId, "en"), default);
+
+        var names = payload.Embed!.Description.Split('\n')
+            .Select(l => SurvivalOrder.First(n => l.Contains(n, StringComparison.Ordinal)))
+            .ToArray();
+        Assert.Equal(SurvivalOrder, names);
     }
 }
