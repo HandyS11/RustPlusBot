@@ -107,11 +107,18 @@ public sealed class ServerInfoRefresherTests
     [Fact]
     public async Task Edit_failure_escalates_and_invalidates_the_gate()
     {
+        // This also stands in as the regression test for the missing-channel case: DiscordWorkspaceGateway's
+        // EditMessageAsync throws InvalidOperationException("Channel {id} not found in guild {id}.") when the
+        // channel is absent from the socket cache (symmetric with PostMessageAsync), rather than silently
+        // returning. ServerInfoRefresher's catch below is exception-type-agnostic, so a channel-missing throw
+        // is handled by the exact same escalate-and-invalidate path exercised here; a separate test with only
+        // a different exception message would exercise no new code and assert nothing new.
         var renderer = new StubRenderer(WorkspaceMessageKeys.ServerInfo, "v1");
         var gateway = Substitute.For<IWorkspaceGateway>();
         gateway.EditMessageAsync(GuildId, ChannelId, MessageId, Arg.Any<MessagePayload>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromException(new InvalidOperationException("404")));
+            .Returns(Task.FromException(
+                new InvalidOperationException($"Channel {ChannelId} not found in guild {GuildId}.")));
         var reconciler = Substitute.For<IWorkspaceReconciler>();
         var gate = new RenderGate();
         var refresher = new ServerInfoRefresher(StoreWith(WorkspaceMessageKeys.ServerInfo), gateway, [renderer], gate,
