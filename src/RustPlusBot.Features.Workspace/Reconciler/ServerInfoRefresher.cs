@@ -72,6 +72,10 @@ internal sealed class ServerInfoRefresher(
                     .ConfigureAwait(false);
                 gate.Commit(record.DiscordMessageId, canonical);
             }
+            catch (OperationCanceledException)
+            {
+                throw; // Shutdown — let the loop unwind.
+            }
 #pragma warning disable CA1031 // Broad catch: any edit failure (deleted message, permissions, 5xx) heals the same way.
             catch (Exception)
 #pragma warning restore CA1031

@@ -120,8 +120,11 @@ public sealed class ServerInfoRefresherTests
         await refresher.RefreshAsync(GuildId, ServerId, default);
 
         await reconciler.Received(1).ReconcileServerAsync(GuildId, ServerId, Arg.Any<CancellationToken>());
-        // The gate must not remember a render that never landed.
-        Assert.True(gate.ShouldSend(MessageId, "anything"));
+        // Probe with the EXACT canonical of the render that was attempted (what the stub renderer built and
+        // ServerInfoRefresher tried to send), not an arbitrary literal. A dummy probe would pass even if the
+        // gate had wrongly committed the render before the edit landed — this one would not.
+        var attemptedCanonical = RenderCanonicalizer.Canonicalize(new EmbedBuilder().WithTitle("v1").Build(), null);
+        Assert.True(gate.ShouldSend(MessageId, attemptedCanonical));
     }
 
     [Fact]
