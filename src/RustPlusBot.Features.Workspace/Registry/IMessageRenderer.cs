@@ -3,7 +3,7 @@ using RustPlusBot.Features.Workspace.Gateway;
 namespace RustPlusBot.Features.Workspace.Registry;
 
 /// <summary>Renders the payload for one message key. Looked up by <see cref="MessageKey"/>.</summary>
-internal interface IMessageRenderer
+public interface IMessageRenderer
 {
     /// <summary>The message key this renderer produces (matches <see cref="MessageSpec.Key"/>).</summary>
     string MessageKey { get; }
