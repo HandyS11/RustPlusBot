@@ -52,6 +52,7 @@ public static class WorkspaceServiceCollectionExtensions
         // off the same scoped instance, so resolving either does not create a second instance.
         services.AddScoped<WorkspaceBackends>();
         services.AddScoped<IWorkspaceReconciler, WorkspaceReconciler>();
+        services.AddScoped<IServerInfoRefresher, ServerInfoRefresher>();
         services.AddScoped<WorkspaceTeardownService>();
         services.AddScoped<IWorkspaceTeardownService>(sp => sp.GetRequiredService<WorkspaceTeardownService>());
         services.AddScoped<IServerWorkspaceRemover>(sp => sp.GetRequiredService<WorkspaceTeardownService>());
