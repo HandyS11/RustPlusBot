@@ -213,6 +213,12 @@
   <data name="command.server.none" xml:space="preserve">
     <value>No server is set up yet.</value>
   </data>
+  <data name="command.server.player.nopool" xml:space="preserve">
+    <value>No paired players are available for that server.</value>
+  </data>
+  <data name="command.server.player.pick" xml:space="preserve">
+    <value>Choose which paired player drives the connection.</value>
+  </data>
   <data name="command.server.specify" xml:space="preserve">
     <value>Multiple servers are set up — choose one with the server option.</value>
   </data>
@@ -464,6 +470,9 @@
   </data>
   <data name="help.slash.leader" xml:space="preserve">
     <value>Transfer in-game team leadership.</value>
+  </data>
+  <data name="help.slash.server.player" xml:space="preserve">
+    <value>Switch which paired player drives a server's connection</value>
   </data>
   <data name="help.slash.craft" xml:space="preserve">
     <value>Show an item's craft recipe.</value>
