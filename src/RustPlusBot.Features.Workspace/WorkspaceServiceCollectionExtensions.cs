@@ -74,6 +74,7 @@ public static class WorkspaceServiceCollectionExtensions
         services.AddSingleton<ISetupChannelLocator, SetupChannelLocator>();
 
         services.AddHostedService<Hosting.WorkspaceHostedService>();
+        services.AddHostedService<Hosting.ServerInfoRefreshHostedService>();
 
         return services;
     }
