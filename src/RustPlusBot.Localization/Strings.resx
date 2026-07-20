@@ -624,6 +624,42 @@
   <data name="player.title" xml:space="preserve">
     <value>Team event</value>
   </data>
+  <data name="server.events.cargo.label" xml:space="preserve">
+    <value>🚢 Cargo Ship</value>
+  </data>
+  <data name="server.events.chinook.label" xml:space="preserve">
+    <value>🚁 Chinook</value>
+  </data>
+  <data name="server.events.disconnected" xml:space="preserve">
+    <value>Not connected to the server.</value>
+  </data>
+  <data name="server.events.heli.label" xml:space="preserve">
+    <value>🚁 Patrol Helicopter</value>
+  </data>
+  <data name="server.events.large.label" xml:space="preserve">
+    <value>🛢️ Large Oil Rig</value>
+  </data>
+  <data name="server.events.notout" xml:space="preserve">
+    <value>Not out</value>
+  </data>
+  <data name="server.events.out" xml:space="preserve">
+    <value>Out · {0} · {1} ago</value>
+  </data>
+  <data name="server.events.rig.active" xml:space="preserve">
+    <value>Crate unlocking · {0} left</value>
+  </data>
+  <data name="server.events.rig.offline" xml:space="preserve">
+    <value>Looted · respawns in {0}</value>
+  </data>
+  <data name="server.events.rig.online" xml:space="preserve">
+    <value>Online</value>
+  </data>
+  <data name="server.events.small.label" xml:space="preserve">
+    <value>🛢️ Small Oil Rig</value>
+  </data>
+  <data name="server.events.title" xml:space="preserve">
+    <value>⚡ Events</value>
+  </data>
   <data name="server.info.endpoint" xml:space="preserve">
     <value>Endpoint: {0}:{1}</value>
   </data>

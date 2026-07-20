@@ -1,10 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Features.Events.Classifying;
 using RustPlusBot.Features.Events.Hosting;
+using RustPlusBot.Features.Events.Messages;
 using RustPlusBot.Features.Events.Posting;
 using RustPlusBot.Features.Events.Relaying;
 using RustPlusBot.Features.Events.Rendering;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Events;
@@ -31,6 +33,9 @@ public static class EventServiceCollectionExtensions
         services.AddSingleton<EventRelay>();
         services.AddSingleton<EventStores>();
         services.AddHostedService<EventsHostedService>();
+
+        // Contributes the #info events embed to the Workspace reconciler.
+        services.AddScoped<IMessageRenderer, ServerEventsMessageRenderer>();
 
         return services;
     }

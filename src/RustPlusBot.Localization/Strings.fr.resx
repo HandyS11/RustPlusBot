@@ -624,6 +624,42 @@
   <data name="player.title" xml:space="preserve">
     <value>Événement d'équipe</value>
   </data>
+  <data name="server.events.cargo.label" xml:space="preserve">
+    <value>🚢 Cargo</value>
+  </data>
+  <data name="server.events.chinook.label" xml:space="preserve">
+    <value>🚁 Chinook</value>
+  </data>
+  <data name="server.events.disconnected" xml:space="preserve">
+    <value>Non connecté au serveur.</value>
+  </data>
+  <data name="server.events.heli.label" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille</value>
+  </data>
+  <data name="server.events.large.label" xml:space="preserve">
+    <value>🛢️ Grande plateforme</value>
+  </data>
+  <data name="server.events.notout" xml:space="preserve">
+    <value>Absent</value>
+  </data>
+  <data name="server.events.out" xml:space="preserve">
+    <value>Présent · {0} · il y a {1}</value>
+  </data>
+  <data name="server.events.rig.active" xml:space="preserve">
+    <value>Caisse en déverrouillage · {0} restant</value>
+  </data>
+  <data name="server.events.rig.offline" xml:space="preserve">
+    <value>Pillée · réapparaît dans {0}</value>
+  </data>
+  <data name="server.events.rig.online" xml:space="preserve">
+    <value>En ligne</value>
+  </data>
+  <data name="server.events.small.label" xml:space="preserve">
+    <value>🛢️ Petite plateforme</value>
+  </data>
+  <data name="server.events.title" xml:space="preserve">
+    <value>⚡ Événements</value>
+  </data>
   <data name="server.info.endpoint" xml:space="preserve">
     <value>Adresse : {0}:{1}</value>
   </data>
