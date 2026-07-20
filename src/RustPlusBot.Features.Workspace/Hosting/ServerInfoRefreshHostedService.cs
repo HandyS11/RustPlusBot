@@ -1,57 +1,31 @@
-using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Workspace.Reconciler;
+using RustPlusBot.Persistence.Connections;
 
 namespace RustPlusBot.Features.Workspace.Hosting;
-
-/// <summary>The set of servers currently believed connected, maintained from connection status events.</summary>
-internal sealed class ConnectedServerSet
-{
-    private readonly ConcurrentDictionary<(ulong Guild, Guid Server), byte> _connected = new();
-
-    /// <summary>Adds or removes a server from the refresh rotation.</summary>
-    /// <param name="guildId">The owning guild snowflake.</param>
-    /// <param name="serverId">The server id.</param>
-    /// <param name="connected">True to track the server; false to drop it.</param>
-    public void Set(ulong guildId, Guid serverId, bool connected)
-    {
-        if (connected)
-        {
-            _connected[(guildId, serverId)] = 0;
-        }
-        else
-        {
-            _connected.TryRemove((guildId, serverId), out _);
-        }
-    }
-
-    /// <summary>A point-in-time copy of the tracked servers.</summary>
-    /// <returns>The currently-tracked (guild, server) pairs.</returns>
-    public IReadOnlyList<(ulong Guild, Guid Server)> Snapshot() => [.. _connected.Keys];
-}
 
 /// <summary>
 ///     Re-renders every connected server's #info embeds on a steady interval. In-game time, population
 ///     and team state change continuously, and the workspace reconciler is purely event-driven — without
 ///     this tick the embeds would only update on connect, disconnect, wipe or credential change.
+///     Each tick enumerates the connectable servers from the store (the source of truth) rather than
+///     tracking connections from <c>ConnectionStatusChangedEvent</c>: the connection can publish its
+///     "connected" event before this service has subscribed on startup, so an event-only set would miss
+///     it and that server's embeds would never refresh. A disconnected server renders cheaply — the live
+///     queries return null without a socket round-trip, producing its "not connected" embeds.
 /// </summary>
-/// <param name="eventBus">The in-process event bus.</param>
 /// <param name="options">Supplies the refresh interval.</param>
-/// <param name="scopeFactory">Opens a scope per refresh (the refresher is scoped).</param>
+/// <param name="scopeFactory">Opens a scope per tick (the store) and per refresh (the refresher is scoped).</param>
 /// <param name="logger">The logger.</param>
 internal sealed partial class ServerInfoRefreshHostedService(
-    IEventBus eventBus,
     IOptions<WorkspaceOptions> options,
     IServiceScopeFactory scopeFactory,
     ILogger<ServerInfoRefreshHostedService> logger) : IHostedService, IDisposable
 {
-    private readonly ConnectedServerSet _connected = new();
     private readonly CancellationTokenSource _cts = new();
-    private Task? _statusLoop;
     private Task? _tickLoop;
 
     /// <inheritdoc />
@@ -60,7 +34,6 @@ internal sealed partial class ServerInfoRefreshHostedService(
     /// <inheritdoc />
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _statusLoop = Task.Run(() => ConsumeStatusEventsAsync(_cts.Token), CancellationToken.None);
         _tickLoop = Task.Run(() => RunPeriodicRefreshAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
@@ -69,24 +42,18 @@ internal sealed partial class ServerInfoRefreshHostedService(
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await _cts.CancelAsync().ConfigureAwait(false);
-        foreach (var loop in new[]
-                 {
-                     _statusLoop, _tickLoop
-                 })
+        if (_tickLoop is null)
         {
-            if (loop is null)
-            {
-                continue;
-            }
+            return;
+        }
 
-            try
-            {
-                await loop.WaitAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                // Shutting down.
-            }
+        try
+        {
+            await _tickLoop.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
         }
     }
 
@@ -100,25 +67,40 @@ internal sealed partial class ServerInfoRefreshHostedService(
         return options.InfoRefreshInterval < floor ? floor : options.InfoRefreshInterval;
     }
 
-    private async Task ConsumeStatusEventsAsync(CancellationToken cancellationToken)
+    /// <summary>
+    ///     Enumerates the connectable servers from the store and refreshes each. A transient enumeration
+    ///     failure is logged and swallowed so the next tick still runs; per-server failures are isolated
+    ///     inside <see cref="RefreshAsync" />.
+    /// </summary>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when every connectable server has been refreshed.</returns>
+    internal async Task RefreshDueServersAsync(CancellationToken cancellationToken)
     {
+        IReadOnlyList<(ulong GuildId, Guid ServerId)> servers;
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
+            var scope = scopeFactory.CreateAsyncScope();
+            await using (scope.ConfigureAwait(false))
             {
-                _connected.Set(evt.GuildId, evt.ServerId, evt.IsConnected);
+                var store = scope.ServiceProvider.GetRequiredService<IConnectionStore>();
+                servers = await store.ListConnectableServersAsync(cancellationToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
         {
-            // Shutting down.
+            throw;
         }
-#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+#pragma warning disable CA1031 // Broad catch: a transient store failure must not stop future ticks.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            LogStatusLoopFaulted(logger, ex);
+            LogTickLoopFaulted(logger, ex);
+            return;
+        }
+
+        foreach (var (guildId, serverId) in servers)
+        {
+            await RefreshAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -129,10 +111,7 @@ internal sealed partial class ServerInfoRefreshHostedService(
             while (!cancellationToken.IsCancellationRequested)
             {
                 await Task.Delay(ResolveInterval(options.Value), cancellationToken).ConfigureAwait(false);
-                foreach (var (guildId, serverId) in _connected.Snapshot())
-                {
-                    await RefreshAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-                }
+                await RefreshDueServersAsync(cancellationToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -169,9 +148,6 @@ internal sealed partial class ServerInfoRefreshHostedService(
             LogRefreshFaulted(logger, ex, serverId);
         }
     }
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "#info status loop faulted.")]
-    private static partial void LogStatusLoopFaulted(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "#info refresh tick faulted.")]
     private static partial void LogTickLoopFaulted(ILogger logger, Exception exception);

@@ -472,7 +472,7 @@
     <value>Transférer le rôle de chef d'équipe en jeu.</value>
   </data>
   <data name="help.slash.server.player" xml:space="preserve">
-    <value>Changer le joueur associé qui pilote la connexion d'un serveur</value>
+    <value>Changer le joueur associé qui pilote la connexion d'un serveur.</value>
   </data>
   <data name="help.slash.craft" xml:space="preserve">
     <value>Afficher la recette de fabrication d'un objet.</value>

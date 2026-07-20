@@ -472,7 +472,7 @@
     <value>Transfer in-game team leadership.</value>
   </data>
   <data name="help.slash.server.player" xml:space="preserve">
-    <value>Switch which paired player drives a server's connection</value>
+    <value>Switch which paired player drives a server's connection.</value>
   </data>
   <data name="help.slash.craft" xml:space="preserve">
     <value>Show an item's craft recipe.</value>
