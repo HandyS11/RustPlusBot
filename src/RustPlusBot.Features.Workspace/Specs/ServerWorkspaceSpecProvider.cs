@@ -27,9 +27,12 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
     /// <inheritdoc />
     public IEnumerable<MessageSpec> GetMessageSpecs() =>
     [
-        // Declared FIRST so it posts above the status embed (within-channel order = declaration order).
+        // Declaration order IS the on-screen order (Discord orders messages by creation time), and
+        // the reconciler re-posts later messages to repair drift. Keep: map image, status, events, team.
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerInfoMap, WorkspaceChannelKeys.ServerInfo),
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerInfo, WorkspaceChannelKeys.ServerInfo),
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerEvents, WorkspaceChannelKeys.ServerInfo),
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerTeam, WorkspaceChannelKeys.ServerInfo),
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerMap, WorkspaceChannelKeys.ServerMap),
     ];
 }
