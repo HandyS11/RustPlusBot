@@ -7,7 +7,6 @@ using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Hosting;
-using RustPlusBot.Features.Commands.Servers;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.ItemData;
@@ -76,8 +75,6 @@ public sealed class CommandRegistrationTests
         Assert.Contains(handlers, h => h.Name == "durability");
         Assert.Contains(handlers, h => h.Name == "smelt");
         Assert.Contains(handlers, h => h.Name == "cctv");
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerResolver>());
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerQueryService>());
     }
 
     [Fact]

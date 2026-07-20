@@ -1,10 +1,10 @@
 using NSubstitute;
 using RustPlusBot.Domain.Servers;
-using RustPlusBot.Features.Commands.Servers;
+using RustPlusBot.Features.Connections.Servers;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Servers;
 
-namespace RustPlusBot.Features.Commands.Tests.Servers;
+namespace RustPlusBot.Features.Connections.Tests.Servers;
 
 public sealed class ServerResolverTests
 {

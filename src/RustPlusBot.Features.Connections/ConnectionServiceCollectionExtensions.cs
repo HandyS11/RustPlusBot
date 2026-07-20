@@ -4,7 +4,9 @@ using RustPlusBot.Discord;
 using RustPlusBot.Features.Connections.Hosting;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Connections.Removal;
+using RustPlusBot.Features.Connections.Servers;
 using RustPlusBot.Features.Connections.Supervisor;
+using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Connections;
 
@@ -18,6 +20,7 @@ public static class ConnectionServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.AddRustPlusBotLocalization();
         services.AddSingleton<IRustSocketSource, RustPlusSocketSource>();
         services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
@@ -27,6 +30,7 @@ public static class ConnectionServiceCollectionExtensions
         services.AddSingleton<IRustServerQuery>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddSingleton<IAfkState>(sp => sp.GetRequiredService<ConnectionSupervisor>());
         services.AddScoped<IServerRemovalService, ServerRemovalService>();
+        services.AddScoped<ServerResolver>();
 
         // Contribute this assembly's interaction modules to the Discord layer.
         services.AddSingleton(new InteractionModuleAssembly(typeof(ConnectionServiceCollectionExtensions).Assembly));

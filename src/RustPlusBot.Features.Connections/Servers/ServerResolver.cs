@@ -1,7 +1,7 @@
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Servers;
 
-namespace RustPlusBot.Features.Commands.Servers;
+namespace RustPlusBot.Features.Connections.Servers;
 
 /// <summary>Picks the target server for a slash command from an optional (autocompleted) server argument.</summary>
 /// <param name="servers">The server service used to list the guild's servers.</param>
