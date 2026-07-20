@@ -1,4 +1,4 @@
-using RustPlusBot.Features.Commands.Formatting;
+using RustPlusBot.Abstractions.Formatting;
 
 namespace RustPlusBot.Features.Commands.Tests.Formatting;
 

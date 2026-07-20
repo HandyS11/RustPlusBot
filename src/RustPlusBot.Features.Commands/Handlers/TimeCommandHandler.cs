@@ -1,4 +1,3 @@
-using System.Globalization;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Localization;
@@ -23,13 +22,8 @@ internal sealed class TimeCommandHandler(IRustServerQuery query, ILocalizer loca
             return localizer.Get("command.notconnected", context.Culture);
         }
 
-        var isDay = time.TimeOfDay >= time.Sunrise && time.TimeOfDay < time.Sunset;
-        var phase = localizer.Get(isDay ? "command.time.day" : "command.time.night", context.Culture);
+        var phase = localizer.Get(Daylight.IsDay(time) ? "command.time.day" : "command.time.night", context.Culture);
 
-        var hours = (int)time.TimeOfDay;
-        var minutes = (int)((time.TimeOfDay - hours) * 60f);
-        var clockText = string.Create(CultureInfo.InvariantCulture, $"{hours:00}:{minutes:00}");
-
-        return localizer.Get("command.time.ok", context.Culture, clockText, phase);
+        return localizer.Get("command.time.ok", context.Culture, Daylight.Clock(time), phase);
     }
 }

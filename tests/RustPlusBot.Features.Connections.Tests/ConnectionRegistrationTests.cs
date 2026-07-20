@@ -7,6 +7,7 @@ using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord.Notifications;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Connections.Removal;
+using RustPlusBot.Features.Connections.Servers;
 using RustPlusBot.Features.Connections.Supervisor;
 using RustPlusBot.Features.Workspace.Teardown;
 using RustPlusBot.Persistence;
@@ -41,5 +42,6 @@ public sealed class ConnectionRegistrationTests
         await using var scope = provider.CreateAsyncScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IConnectionStore>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IServerRemovalService>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<ServerResolver>());
     }
 }

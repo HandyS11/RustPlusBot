@@ -6,4 +6,4 @@ namespace RustPlusBot.Features.Workspace.Gateway;
 /// <param name="Text">Plain content, or null.</param>
 /// <param name="Embed">An embed, or null.</param>
 /// <param name="Components">Message components (buttons/selects), or null.</param>
-internal sealed record MessagePayload(string? Text, Embed? Embed, MessageComponent? Components);
+public sealed record MessagePayload(string? Text, Embed? Embed, MessageComponent? Components);

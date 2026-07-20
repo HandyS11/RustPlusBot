@@ -104,6 +104,11 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         MessagePayload payload,
         CancellationToken cancellationToken)
     {
+        if (!_channels.ContainsKey(channelId))
+        {
+            throw new InvalidOperationException($"Channel {channelId} not found in guild {guildId}.");
+        }
+
         _messages[messageId] = new Message(messageId, channelId, payload);
         EditedMessages++;
         return Task.CompletedTask;

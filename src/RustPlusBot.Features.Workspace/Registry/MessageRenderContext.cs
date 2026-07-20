@@ -4,4 +4,4 @@ namespace RustPlusBot.Features.Workspace.Registry;
 /// <param name="GuildId">The guild being rendered for.</param>
 /// <param name="ServerId">The server scope, or null for global messages.</param>
 /// <param name="Culture">The guild's BCP-47 culture.</param>
-internal sealed record MessageRenderContext(ulong GuildId, Guid? ServerId, string Culture);
+public sealed record MessageRenderContext(ulong GuildId, Guid? ServerId, string Culture);

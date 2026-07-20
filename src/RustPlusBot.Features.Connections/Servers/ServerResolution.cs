@@ -1,4 +1,4 @@
-namespace RustPlusBot.Features.Commands.Servers;
+namespace RustPlusBot.Features.Connections.Servers;
 
 /// <summary>The outcome of resolving a slash command's target server.</summary>
 /// <param name="ServerId">The resolved server id, or null on error.</param>

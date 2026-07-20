@@ -213,6 +213,12 @@
   <data name="command.server.none" xml:space="preserve">
     <value>Aucun serveur n'est encore configuré.</value>
   </data>
+  <data name="command.server.player.nopool" xml:space="preserve">
+    <value>Aucun joueur associé n'est disponible pour ce serveur.</value>
+  </data>
+  <data name="command.server.player.pick" xml:space="preserve">
+    <value>Choisissez quel joueur associé pilote la connexion.</value>
+  </data>
   <data name="command.server.specify" xml:space="preserve">
     <value>Plusieurs serveurs sont configurés — choisissez-en un avec l'option serveur.</value>
   </data>
@@ -465,6 +471,9 @@
   <data name="help.slash.leader" xml:space="preserve">
     <value>Transférer le rôle de chef d'équipe en jeu.</value>
   </data>
+  <data name="help.slash.server.player" xml:space="preserve">
+    <value>Changer le joueur associé qui pilote la connexion d'un serveur.</value>
+  </data>
   <data name="help.slash.craft" xml:space="preserve">
     <value>Afficher la recette de fabrication d'un objet.</value>
   </data>
@@ -624,6 +633,42 @@
   <data name="player.title" xml:space="preserve">
     <value>Événement d'équipe</value>
   </data>
+  <data name="server.events.cargo.label" xml:space="preserve">
+    <value>🚢 Cargo</value>
+  </data>
+  <data name="server.events.chinook.label" xml:space="preserve">
+    <value>🚁 Chinook</value>
+  </data>
+  <data name="server.events.disconnected" xml:space="preserve">
+    <value>Non connecté au serveur.</value>
+  </data>
+  <data name="server.events.heli.label" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille</value>
+  </data>
+  <data name="server.events.large.label" xml:space="preserve">
+    <value>🛢️ Grande plateforme</value>
+  </data>
+  <data name="server.events.notout" xml:space="preserve">
+    <value>Absent</value>
+  </data>
+  <data name="server.events.out" xml:space="preserve">
+    <value>Présent · {0} · il y a {1}</value>
+  </data>
+  <data name="server.events.rig.active" xml:space="preserve">
+    <value>Caisse en déverrouillage · {0} restant</value>
+  </data>
+  <data name="server.events.rig.offline" xml:space="preserve">
+    <value>Pillée · réapparaît dans {0}</value>
+  </data>
+  <data name="server.events.rig.online" xml:space="preserve">
+    <value>En ligne</value>
+  </data>
+  <data name="server.events.small.label" xml:space="preserve">
+    <value>🛢️ Petite plateforme</value>
+  </data>
+  <data name="server.events.title" xml:space="preserve">
+    <value>⚡ Événements</value>
+  </data>
   <data name="server.info.endpoint" xml:space="preserve">
     <value>Adresse : {0}:{1}</value>
   </data>
@@ -635,6 +680,9 @@
   </data>
   <data name="server.info.players.label" xml:space="preserve">
     <value>Joueurs en ligne</value>
+  </data>
+  <data name="server.info.players.value" xml:space="preserve">
+    <value>{0} / {1} · {2} en file</value>
   </data>
   <data name="server.info.remove.button" xml:space="preserve">
     <value>Supprimer le serveur</value>
@@ -663,6 +711,33 @@
   <data name="server.info.team.value" xml:space="preserve">
     <value>{0}/{1} en ligne · chef {2}</value>
   </data>
+  <data name="server.info.time.day" xml:space="preserve">
+    <value>☀️</value>
+  </data>
+  <data name="server.info.time.label" xml:space="preserve">
+    <value>Heure</value>
+  </data>
+  <data name="server.info.time.night" xml:space="preserve">
+    <value>🌙</value>
+  </data>
+  <data name="server.info.time.to.day" xml:space="preserve">
+    <value>le lever du soleil</value>
+  </data>
+  <data name="server.info.time.to.night" xml:space="preserve">
+    <value>la tombée de la nuit</value>
+  </data>
+  <data name="server.info.time.value" xml:space="preserve">
+    <value>{0} {1} · {2} de temps en jeu avant {3}</value>
+  </data>
+  <data name="server.info.wipe.label" xml:space="preserve">
+    <value>Wipe</value>
+  </data>
+  <data name="server.info.wipe.unknown" xml:space="preserve">
+    <value>Inconnu</value>
+  </data>
+  <data name="server.info.wipe.value" xml:space="preserve">
+    <value>il y a {0}</value>
+  </data>
   <data name="server.prompt.accept" xml:space="preserve">
     <value>Accepter</value>
   </data>
@@ -680,6 +755,33 @@
   </data>
   <data name="server.prompt.title" xml:space="preserve">
     <value>Nouveau serveur détecté</value>
+  </data>
+  <data name="server.team.afk" xml:space="preserve">
+    <value>AFK {0}</value>
+  </data>
+  <data name="server.team.alive" xml:space="preserve">
+    <value>en vie {0}</value>
+  </data>
+  <data name="server.team.dead" xml:space="preserve">
+    <value>mort {0}</value>
+  </data>
+  <data name="server.team.disconnected" xml:space="preserve">
+    <value>Non connecté au serveur.</value>
+  </data>
+  <data name="server.team.empty" xml:space="preserve">
+    <value>Aucun membre d'équipe.</value>
+  </data>
+  <data name="server.team.line" xml:space="preserve">
+    <value>{0}{1} **{2}** · {3} · {4}</value>
+  </data>
+  <data name="server.team.nogrid" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="server.team.offline" xml:space="preserve">
+    <value>hors ligne</value>
+  </data>
+  <data name="server.team.title" xml:space="preserve">
+    <value>👥 Équipe — {0}/{1} en ligne</value>
   </data>
   <data name="settings.body" xml:space="preserve">
     <value>Configurez le bot pour ce serveur.</value>

@@ -3,7 +3,7 @@ using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Persistence.Servers;
 
-namespace RustPlusBot.Features.Commands.Servers;
+namespace RustPlusBot.Features.Connections.Servers;
 
 /// <summary>Offers the guild's registered servers (by name) as choices for the slash <c>server</c> option.</summary>
 public sealed class ServerAutocompleteHandler : AutocompleteHandler

@@ -125,11 +125,8 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(payload);
-        var channel = client.GetGuild(guildId)?.GetTextChannel(channelId);
-        if (channel is null)
-        {
-            return;
-        }
+        var channel = client.GetGuild(guildId)?.GetTextChannel(channelId)
+                      ?? throw new InvalidOperationException($"Channel {channelId} not found in guild {guildId}.");
 
         await channel.ModifyMessageAsync(messageId, props =>
         {

@@ -25,13 +25,16 @@ recycle/craft/research/decay/upkeep calculators are all shipped. Cameras are nex
   server's channels.
 - **Credential pool per server** — multiple accounts can pair with the same server;
   the bot keeps one live socket per `(guild, server)` with **hot-swap** of the
-  active player (select menu on `#info`) and **auto-failover** to a standby
+  active player (`/server player`) and **auto-failover** to a standby
   credential when one goes invalid (owner is DM'd).
 - **Lifecycle controls** — "Remove server" (on `#info`) and "Disconnect account"
   (on `#setup`), both Manage-Server-gated with a confirmation step; cascade
   cleanup of channels, credentials, and live state.
-- **Live status** — `#info` shows connection status, player count, and a team
-  summary (online/total + leader), refreshed on connection-state changes.
+- **Live `#info` dashboard** — three auto-refreshing embeds below the map image:
+  **Server** (status, players/queue, in-game time, wipe age), **Events** (cargo /
+  heli / chinook / both oil rigs), and **Team** (per-member presence, grid, and
+  survival time). Refreshed on connection-state changes and on a configurable
+  interval (`Workspace:InfoRefreshInterval`, default 1 min).
 - **Bilingual** — every provisioned surface renders in **English or French**,
   switchable from a select menu in `#settings`.
 
@@ -51,12 +54,13 @@ configurable per-server prefix (default `!`) and per-command cooldowns:
 - **Items** — `!item`, `!recycle`, `!craft`, `!research`, `!decay`, `!upkeep` (name or id)
 - **Control** — `!mute` / `!unmute` (gate all bot→game output)
 
-### Slash commands
+Live server data (population, in-game time, wipe, team, oil rigs) is no longer a
+set of ephemeral commands — it renders continuously in the `#info` dashboard
+above, and stays available in-game via the `!commands`.
 
-- **Server data** (ephemeral, with a `server` selector when several are paired) —
-  `/pop`, `/time`, `/wipe`, `/online`, `/offline`, `/team`, `/alive`, `/small`, `/large`
 - **Items** (ephemeral) — `/item`, `/recycle`, `/craft`, `/research`, `/decay`, `/upkeep` (name or id)
 - **Utility** — `/help`, `/uptime`, `/leader` (Manage Server — transfer in-game team leadership)
+- **Server** — `/server player` (Manage Server — hot-swap the active paired account)
 - **Admin** — `/setup`, `/workspace reset`, `/workspace simulate-server`
 
 ### Live map events

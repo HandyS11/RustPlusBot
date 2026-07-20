@@ -91,6 +91,7 @@ internal interface IWorkspaceGateway
     /// <param name="messageId">The snowflake ID of the message to edit.</param>
     /// <param name="payload">The new content to apply to the message.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <exception cref="System.InvalidOperationException">The channel no longer exists in the guild.</exception>
     Task EditMessageAsync(ulong guildId,
         ulong channelId,
         ulong messageId,

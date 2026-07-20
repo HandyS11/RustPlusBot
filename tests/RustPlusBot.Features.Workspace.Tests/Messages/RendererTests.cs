@@ -1,6 +1,7 @@
 using Discord;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Servers;
@@ -63,10 +64,12 @@ public sealed class RendererTests
     }
 
     [Fact]
-    public async Task ServerInfo_Connected_ShowsStatusActivePlayerAndCount_AndSwapSelect()
+    public async Task ServerInfo_Connected_ShowsPlayersTimeAndWipe()
     {
         var serverId = Guid.NewGuid();
         var credId = Guid.NewGuid();
+        var now = new DateTimeOffset(2026, 7, 20, 12, 0, 0, TimeSpan.Zero);
+
         var servers = Substitute.For<IServerService>();
         servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns(new RustServer
@@ -86,11 +89,10 @@ public sealed class RendererTests
                 GuildId = 1,
                 ActiveCredentialId = credId,
                 Status = ConnectionStatus.Connected,
-                PlayerCount = 12,
+                PlayerCount = 187,
             });
         connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(
-            [
+            .Returns([
                 new()
                 {
                     Id = credId,
@@ -101,21 +103,125 @@ public sealed class RendererTests
                     Status = CredentialStatus.Active
                 },
             ]);
+
         var query = Substitute.For<IRustServerQuery>();
-        query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        query.GetServerInfoAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new ServerInfoSnapshot(187, 200, 12, now.AddDays(-4).AddHours(-6)));
+        query.GetTimeAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new ServerTimeSnapshot(14.0f, 7.0f, 20.0f));
+        query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
 
-        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(now);
+
+        var renderer = new ServerInfoMessageRenderer(servers, connections, query, clock, Loc);
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
-        Assert.Contains("Rustopia EU", payload.Embed!.Title, StringComparison.Ordinal);
-        Assert.Contains("12", string.Concat(payload.Embed.Fields.Select(f => f.Value)), StringComparison.Ordinal);
-        Assert.Contains("76561198000000000", string.Concat(payload.Embed.Fields.Select(f => f.Value)),
-            StringComparison.Ordinal);
+        var values = string.Concat(payload.Embed!.Fields.Select(f => f.Value));
+        Assert.Contains("187 / 200", values, StringComparison.Ordinal);
+        Assert.Contains("12 queued", values, StringComparison.Ordinal);
+        Assert.Contains("14:00", values, StringComparison.Ordinal);
+        Assert.Contains("4d 6h ago", values, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ServerInfo_NoLongerRendersSwapSelect()
+    {
+        var serverId = Guid.NewGuid();
+        var credId = Guid.NewGuid();
+
+        var servers = Substitute.For<IServerService>();
+        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "Rustopia EU",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
+
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new DomainConnectionState
+            {
+                RustServerId = serverId,
+                GuildId = 1,
+                ActiveCredentialId = credId,
+                Status = ConnectionStatus.Connected,
+                PlayerCount = 1,
+            });
+        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns([
+                new()
+                {
+                    Id = credId,
+                    GuildId = 1,
+                    RustServerId = serverId,
+                    OwnerUserId = 7,
+                    SteamId = 76561198000000000UL,
+                    Status = CredentialStatus.Active
+                },
+            ]);
+
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetServerInfoAsync(1, serverId, Arg.Any<CancellationToken>()).Returns((ServerInfoSnapshot?)null);
+        query.GetTimeAsync(1, serverId, Arg.Any<CancellationToken>()).Returns((ServerTimeSnapshot?)null);
+        query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>()).Returns((TeamInfoSnapshot?)null);
+
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
+
+        var renderer = new ServerInfoMessageRenderer(servers, connections, query, clock, Loc);
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
+
         var selects = payload.Components!.Components.OfType<ActionRowComponent>()
             .SelectMany(r => r.Components).OfType<SelectMenuComponent>();
-        Assert.Contains(selects, s => s.CustomId == $"workspace:info:swap:{serverId}");
+        Assert.Empty(selects);
+
+        var buttons = payload.Components.Components.OfType<ActionRowComponent>()
+            .SelectMany(r => r.Components).OfType<ButtonComponent>();
+        Assert.Contains(buttons, b => b.CustomId == $"workspace:info:remove:{serverId}");
+    }
+
+    [Fact]
+    public async Task ServerInfo_Disconnected_OmitsLiveFields()
+    {
+        var serverId = Guid.NewGuid();
+
+        var servers = Substitute.For<IServerService>();
+        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new RustServer
+            {
+                Id = serverId,
+                GuildId = 1,
+                Name = "Rustopia EU",
+                Ip = "1.2.3.4",
+                Port = 28015
+            });
+
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
+            .Returns(new DomainConnectionState
+            {
+                RustServerId = serverId, GuildId = 1, Status = ConnectionStatus.Unreachable,
+            });
+        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>()).Returns([]);
+
+        var query = Substitute.For<IRustServerQuery>();
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
+
+        var renderer = new ServerInfoMessageRenderer(servers, connections, query, clock, Loc);
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
+
+        // Disconnected: never queries the socket, and shows only Status + Active player.
+        await query.DidNotReceive().GetServerInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        Assert.Equal(2, payload.Embed!.Fields.Length);
     }
 
     [Fact]
@@ -143,8 +249,9 @@ public sealed class RendererTests
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
+        var clock = Substitute.For<IClock>();
 
-        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
+        var renderer = new ServerInfoMessageRenderer(servers, connections, query, clock, Loc);
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
@@ -174,8 +281,9 @@ public sealed class RendererTests
         var query = Substitute.For<IRustServerQuery>();
         query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
+        var clock = Substitute.For<IClock>();
 
-        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
+        var renderer = new ServerInfoMessageRenderer(servers, connections, query, clock, Loc);
 
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
@@ -206,253 +314,5 @@ public sealed class RendererTests
         var buttons = payload.Components!.Components.OfType<ActionRowComponent>()
             .SelectMany(r => r.Components).OfType<ButtonComponent>();
         Assert.Contains(buttons, b => b.CustomId == "workspace:setup:disconnect");
-    }
-
-    [Fact]
-    public async Task ServerInfo_HasRemoveServerButton()
-    {
-        var serverId = Guid.NewGuid();
-        var servers = Substitute.For<IServerService>();
-        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer
-            {
-                Id = serverId,
-                GuildId = 1,
-                Name = "S",
-                Ip = "1.2.3.4",
-                Port = 28015
-            });
-        var connections = Substitute.For<IConnectionStore>();
-        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new DomainConnectionState
-            {
-                RustServerId = serverId, GuildId = 1, Status = ConnectionStatus.NoCredentials
-            });
-        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns([]);
-        var query = Substitute.For<IRustServerQuery>();
-        query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns((TeamInfoSnapshot?)null);
-        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
-
-        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
-
-        var buttons = payload.Components!.Components.OfType<ActionRowComponent>()
-            .SelectMany(r => r.Components).OfType<ButtonComponent>();
-        Assert.Contains(buttons, b => b.CustomId == $"workspace:info:remove:{serverId}");
-    }
-
-    [Fact]
-    public async Task ServerInfo_SwapSelectAndRemoveButton_AreInSeparateActionRows()
-    {
-        var serverId = Guid.NewGuid();
-        var credId = Guid.NewGuid();
-        var servers = Substitute.For<IServerService>();
-        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer
-            {
-                Id = serverId,
-                GuildId = 1,
-                Name = "S",
-                Ip = "1.2.3.4",
-                Port = 28015
-            });
-        var connections = Substitute.For<IConnectionStore>();
-        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new DomainConnectionState
-            {
-                RustServerId = serverId,
-                GuildId = 1,
-                ActiveCredentialId = credId,
-                Status = ConnectionStatus.Connected,
-                PlayerCount = 1,
-            });
-        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(
-            [
-                new()
-                {
-                    Id = credId,
-                    GuildId = 1,
-                    RustServerId = serverId,
-                    OwnerUserId = 7,
-                    SteamId = 5UL,
-                    Status = CredentialStatus.Active
-                },
-            ]);
-        var query = Substitute.For<IRustServerQuery>();
-        query.GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns((TeamInfoSnapshot?)null);
-        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
-
-        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
-
-        var rows = payload.Components!.Components.OfType<ActionRowComponent>().ToList();
-        // Discord rejects an action row that mixes a select menu with buttons.
-        Assert.DoesNotContain(rows, r =>
-            r.Components.OfType<SelectMenuComponent>().Any() && r.Components.OfType<ButtonComponent>().Any());
-        Assert.Contains(rows, r => r.Components.OfType<SelectMenuComponent>().Any());
-        Assert.Contains(rows, r => r.Components.OfType<ButtonComponent>().Any());
-    }
-
-    [Fact]
-    public async Task ServerInfo_Connected_WithTeam_ShowsTeamSummary()
-    {
-        var serverId = Guid.NewGuid();
-        var credId = Guid.NewGuid();
-        var servers = Substitute.For<IServerService>();
-        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer
-            {
-                Id = serverId,
-                GuildId = 1,
-                Name = "S",
-                Ip = "1.2.3.4",
-                Port = 28015
-            });
-        var connections = Substitute.For<IConnectionStore>();
-        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new DomainConnectionState
-            {
-                RustServerId = serverId,
-                GuildId = 1,
-                ActiveCredentialId = credId,
-                Status = ConnectionStatus.Connected,
-                PlayerCount = 5,
-            });
-        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(
-            [
-                new()
-                {
-                    Id = credId,
-                    GuildId = 1,
-                    RustServerId = serverId,
-                    OwnerUserId = 7,
-                    SteamId = 5UL,
-                    Status = CredentialStatus.Active
-                },
-            ]);
-        var query = Substitute.For<IRustServerQuery>();
-        query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new TeamInfoSnapshot(
-                10UL,
-                [
-                    new TeamMemberSnapshot(10UL, "alice", 0f, 0f, true, true,
-                        DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch),
-                    new TeamMemberSnapshot(20UL, "bob", 0f, 0f, false, true,
-                        DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch),
-                ]));
-        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
-
-        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
-
-        var body = string.Concat(payload.Embed!.Fields.Select(f => f.Value));
-        Assert.Contains("1/2 online", body, StringComparison.Ordinal);
-        Assert.Contains("alice", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task ServerInfo_Connected_LeaderHasEmptyName_FallsBackToSteamId()
-    {
-        var serverId = Guid.NewGuid();
-        var credId = Guid.NewGuid();
-        var servers = Substitute.For<IServerService>();
-        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer
-            {
-                Id = serverId,
-                GuildId = 1,
-                Name = "S",
-                Ip = "1.2.3.4",
-                Port = 28015
-            });
-        var connections = Substitute.For<IConnectionStore>();
-        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new DomainConnectionState
-            {
-                RustServerId = serverId,
-                GuildId = 1,
-                ActiveCredentialId = credId,
-                Status = ConnectionStatus.Connected,
-                PlayerCount = 1,
-            });
-        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(
-            [
-                new()
-                {
-                    Id = credId,
-                    GuildId = 1,
-                    RustServerId = serverId,
-                    OwnerUserId = 7,
-                    SteamId = 5UL,
-                    Status = CredentialStatus.Active
-                },
-            ]);
-        var query = Substitute.For<IRustServerQuery>();
-        query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new TeamInfoSnapshot(
-                10UL,
-                [
-                    // Leader is present but the API reported no display name.
-                    new TeamMemberSnapshot(10UL, string.Empty, 0f, 0f, true, true,
-                        DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch),
-                ]));
-        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
-
-        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
-
-        var body = string.Concat(payload.Embed!.Fields.Select(f => f.Value));
-        Assert.Contains("leader 10", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task ServerInfo_Connected_NullTeam_OmitsTeamSummary()
-    {
-        var serverId = Guid.NewGuid();
-        var credId = Guid.NewGuid();
-        var servers = Substitute.For<IServerService>();
-        servers.GetAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new RustServer
-            {
-                Id = serverId,
-                GuildId = 1,
-                Name = "S",
-                Ip = "1.2.3.4",
-                Port = 28015
-            });
-        var connections = Substitute.For<IConnectionStore>();
-        connections.GetStateAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(new DomainConnectionState
-            {
-                RustServerId = serverId,
-                GuildId = 1,
-                ActiveCredentialId = credId,
-                Status = ConnectionStatus.Connected,
-                PlayerCount = 5,
-            });
-        connections.ListPoolAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns(
-            [
-                new()
-                {
-                    Id = credId,
-                    GuildId = 1,
-                    RustServerId = serverId,
-                    OwnerUserId = 7,
-                    SteamId = 5UL,
-                    Status = CredentialStatus.Active
-                },
-            ]);
-        var query = Substitute.For<IRustServerQuery>();
-        query.GetTeamInfoAsync(1, serverId, Arg.Any<CancellationToken>())
-            .Returns((TeamInfoSnapshot?)null);
-        var renderer = new ServerInfoMessageRenderer(servers, connections, query, Loc);
-
-        var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
-
-        var teamLabel = Loc.Get("server.info.team.label", "en");
-        Assert.DoesNotContain(payload.Embed!.Fields, f => f.Name == teamLabel);
     }
 }

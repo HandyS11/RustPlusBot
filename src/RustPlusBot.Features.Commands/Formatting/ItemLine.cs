@@ -1,4 +1,5 @@
 using System.Globalization;
+using RustPlusBot.Abstractions.Formatting;
 using RustPlusBot.Features.ItemData.Data;
 
 namespace RustPlusBot.Features.Commands.Formatting;

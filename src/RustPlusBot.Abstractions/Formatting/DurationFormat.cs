@@ -1,9 +1,9 @@
 using System.Globalization;
 
-namespace RustPlusBot.Features.Commands.Formatting;
+namespace RustPlusBot.Abstractions.Formatting;
 
-/// <summary>Formats durations compactly for in-game replies.</summary>
-internal static class DurationFormat
+/// <summary>Formats durations compactly for in-game replies and Discord embeds.</summary>
+public static class DurationFormat
 {
     /// <summary>Renders a duration as "Xd Yh" / "Yh Zm" / "Zm".</summary>
     /// <param name="span">The duration to render.</param>

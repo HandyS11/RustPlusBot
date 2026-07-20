@@ -52,6 +52,12 @@ internal static class WorkspaceMessageKeys
     /// <summary>Key for the per-server info message.</summary>
     public const string ServerInfo = "server.info";
 
+    /// <summary>Key for the per-server #info events embed (cargo/heli/chinook/rigs). Rendered by Features.Events.</summary>
+    public const string ServerEvents = "server.events";
+
+    /// <summary>Key for the per-server #info team embed (roster + presence). Rendered by Features.Players.</summary>
+    public const string ServerTeam = "server.team";
+
     /// <summary>Key for the per-server map control message (layer toggles).</summary>
     public const string ServerMap = "server.map";
 }
