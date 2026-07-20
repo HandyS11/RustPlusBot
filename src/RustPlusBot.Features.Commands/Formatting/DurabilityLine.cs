@@ -1,4 +1,5 @@
 using System.Globalization;
+using RustPlusBot.Abstractions.Formatting;
 using RustPlusBot.Features.ItemData.Data;
 using RustPlusBot.Features.ItemData.Naming;
 

@@ -1,5 +1,5 @@
+using RustPlusBot.Abstractions.Formatting;
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Formatting;
 using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Localization;
 

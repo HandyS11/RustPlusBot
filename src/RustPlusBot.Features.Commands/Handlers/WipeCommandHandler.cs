@@ -1,7 +1,7 @@
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Abstractions.Formatting;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Formatting;
 using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;

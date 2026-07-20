@@ -2,7 +2,7 @@ using System.Globalization;
 using Discord;
 using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
-using RustPlusBot.Features.Commands.Formatting;
+using RustPlusBot.Abstractions.Formatting;
 using RustPlusBot.Features.Commands.Help;
 using RustPlusBot.Features.Commands.Hosting;
 using RustPlusBot.Features.Commands.Leader;

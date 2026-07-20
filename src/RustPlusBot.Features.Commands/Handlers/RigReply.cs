@@ -1,6 +1,6 @@
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Abstractions.Formatting;
 using RustPlusBot.Features.Commands.Dispatching;
-using RustPlusBot.Features.Commands.Formatting;
 using RustPlusBot.Features.Events.State;
 using RustPlusBot.Localization;
 
