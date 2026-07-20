@@ -1,8 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Features.Players.Hosting;
+using RustPlusBot.Features.Players.Messages;
 using RustPlusBot.Features.Players.Posting;
 using RustPlusBot.Features.Players.Relaying;
 using RustPlusBot.Features.Players.Rendering;
+using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Players;
@@ -22,6 +24,9 @@ public static class PlayerEventServiceCollectionExtensions
         services.AddSingleton<IPlayerChannelPoster, DiscordPlayerChannelPoster>();
         services.AddSingleton<PlayerEventRelay>();
         services.AddHostedService<PlayersHostedService>();
+
+        // Contributes the #info team embed to the Workspace reconciler.
+        services.AddScoped<IMessageRenderer, ServerTeamMessageRenderer>();
 
         return services;
     }

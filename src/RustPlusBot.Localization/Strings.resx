@@ -747,6 +747,33 @@
   <data name="server.prompt.title" xml:space="preserve">
     <value>New server detected</value>
   </data>
+  <data name="server.team.afk" xml:space="preserve">
+    <value>AFK {0}</value>
+  </data>
+  <data name="server.team.alive" xml:space="preserve">
+    <value>alive {0}</value>
+  </data>
+  <data name="server.team.dead" xml:space="preserve">
+    <value>dead {0}</value>
+  </data>
+  <data name="server.team.disconnected" xml:space="preserve">
+    <value>Not connected to the server.</value>
+  </data>
+  <data name="server.team.empty" xml:space="preserve">
+    <value>No team members.</value>
+  </data>
+  <data name="server.team.line" xml:space="preserve">
+    <value>{0}{1} **{2}** · {3} · {4}</value>
+  </data>
+  <data name="server.team.nogrid" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="server.team.offline" xml:space="preserve">
+    <value>offline</value>
+  </data>
+  <data name="server.team.title" xml:space="preserve">
+    <value>👥 Team — {0}/{1} online</value>
+  </data>
   <data name="settings.body" xml:space="preserve">
     <value>Configure the bot for this server.</value>
   </data>
