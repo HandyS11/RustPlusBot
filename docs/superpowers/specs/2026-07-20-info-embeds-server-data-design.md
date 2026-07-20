@@ -67,16 +67,31 @@ existing autocomplete.
 | `Features.Commands.Tests/Servers/ServerQueryServiceTests.cs` | tests deleted code |
 
 Plus the DI registration of `ServerQueryService`
-(`CommandServiceCollectionExtensions.cs:66`) and the three slash-only resx keys
-`command.server.none`, `command.server.specify`, `command.server.unknown` from
-both `Strings.resx` and `Strings.fr.resx`.
+(`CommandServiceCollectionExtensions.cs:66`).
+
+### Moved
+
+`ServerResolver.cs`, `ServerResolution.cs` and `ServerAutocompleteHandler.cs`
+move from `Features.Commands/Servers/` to `Features.Connections/Servers/`, with
+their namespace changed and their DI registration relocated.
+
+The new `/server player` command must live in `Features.Connections`, because it
+references `WorkspaceComponentIds.ServerInfoSwapPrefix` and **`Features.Commands`
+does not reference `Features.Workspace`** (its refs are Abstractions,
+Localization, Persistence, Features.Connections, Features.Events,
+Features.ItemData, Discord). Since deleting `ServerCommandModule` leaves all
+three files with no remaining consumer in Commands, moving beats duplicating.
+`Features.Commands` references `Features.Connections`, so nothing there breaks.
+
+Their three resx keys — `command.server.none`, `command.server.specify`,
+`command.server.unknown` — are therefore **retained**, not deleted:
+`ServerResolver` still resolves them for `/server player`.
 
 ### Kept
 
 - All nine `ICommandHandler`s in `Features.Commands/Handlers/` and every
   `command.*` resx key they resolve, including `command.notconnected`.
-- `ServerResolver` and `ServerAutocompleteHandler` — reused by `/server player`.
-  `ServerResolverTests` stays.
+- `ServerResolverTests`, updated only for the new namespace.
 
 ## The three embeds
 
@@ -106,7 +121,7 @@ in-channel order, so the specs are declared map → server → events → team.
     👑🟢 Alice    G12   2h14m
       🟢 Bob      H9    AFK 7m
       💀 Carol    G12   dead 6m
-      ⚫ Dave     —     offline 3h12m
+      ⚫ Dave     —     offline
 ```
 
 ### Server embed (`server.info`, rewritten)
@@ -126,11 +141,10 @@ The bare `state.PlayerCount` field is replaced by the richer Players field.
 `ServerInfoMapMessageRenderer` in the embed directly above
 (`map.info.size`, `map.info.seed`). No duplication.
 
-**Day/night computation is extracted.** `TimeCommandHandler` currently computes
-day-vs-night and the interval to the next transition inline. That logic moves to
-a shared helper in `Features.Commands` consumed by both the handler and the
-renderer, so `!time` and the embed cannot drift apart. The helper returns the
-raw values; each caller formats with its own resx keys.
+**Day/night computation is extracted** into the shared `Daylight` helper in
+Abstractions described under "Renderer placement" below, consumed by both
+`TimeCommandHandler` and this renderer so `!time` and the embed cannot drift
+apart. The helper returns raw values; each caller formats with its own resx keys.
 
 ### Events embed (`server.events`, new)
 
@@ -163,7 +177,10 @@ Discord's three-column inline grid.
   per-server `MapGridStyle` read from `IMapSettingsStore`, matching every other
   grid reference the bot prints.
 - Offline members render `—` rather than a grid, since their reported
-  coordinates are last-known and would read as current.
+  coordinates are last-known and would read as current. They also carry **no
+  duration**: `TeamMemberSnapshot` exposes `LastSpawnTimeUtc` and
+  `LastDeathTimeUtc` but no disconnect timestamp, so any "offline for X" figure
+  would be fabricated from the wrong field.
 - Sort order: online-alive by survival time descending (the `/alive` ordering),
   then AFK, then dead, then offline.
 - Durations use `DurationFormat.Compact`.
@@ -181,19 +198,50 @@ renderer lives next to the data it renders:
 | Renderer | Project | Dependencies |
 | -------- | ------- | ------------ |
 | `ServerInfoMessageRenderer` (rewritten) | Features.Workspace | `IRustServerQuery` (Abstractions), `IConnectionStore`, `IServerService` |
-| `ServerEventsMessageRenderer` (new) | Features.Events | `IEventState`, `IRigState` |
-| `ServerTeamMessageRenderer` (new) | Features.Connections | `IRustServerQuery`, `IAfkState`, `IMapSettingsStore` |
+| `ServerEventsMessageRenderer` (new) | Features.Events | `IEventState`, `IRigState`, `GridReference` |
+| `ServerTeamMessageRenderer` (new) | Features.Players | `IRustServerQuery`, `IAfkState` (Connections), `GridReference` (Events), `IMapSettingsStore` |
 
-`Features.Events` and `Features.Connections` already reference
-`Features.Workspace` one-way, so this adds **no new project references and moves
-no types**. Each feature registers its own renderer in its existing
-`IServiceCollection` extension.
+The Team renderer lands in **Features.Players**, not Features.Connections. It
+needs both `IAfkState` (Features.Connections) and `GridReference`
+(Features.Events), and Connections sits *below* Events in the reference graph —
+`Features.Events → Features.Connections`, not the reverse. Features.Players is
+the lowest project that already references Workspace, Connections **and** Events,
+so it is the only existing home that sees every dependency.
+
+`Features.Events` and `Features.Players` already reference `Features.Workspace`
+one-way, so this adds **no new project references**. Each feature registers its
+own renderer in its existing `IServiceCollection` extension.
+
+### Prerequisite: `DurationFormat` moves down
+
+All three renderers format durations, but `DurationFormat` is currently
+`internal` to `Features.Commands` (`Formatting/DurationFormat.cs`) — the
+*highest* project in the graph, invisible to all three renderer homes. It moves
+to `RustPlusBot.Abstractions/Formatting/DurationFormat.cs` as `public static`,
+which every project already references. Its thirteen existing call sites are all
+inside Features.Commands and need only a `using` swap.
+
+`GridReference` is already `public` in `Features.Events.Formatting` and does not
+move.
+
+### Prerequisite: a shared daylight helper
+
+`TimeCommandHandler` computes day-vs-night inline
+(`Handlers/TimeCommandHandler.cs:27`), and it lives in Features.Commands where
+the Server renderer cannot reach it. The computation moves to
+`RustPlusBot.Abstractions/Connections/Daylight.cs` as a `public static` helper
+over `ServerTimeSnapshot`, consumed by both the handler and the renderer so
+`!time` and the embed cannot drift apart.
+
+The helper reports the interval to the next sunrise/sunset in **in-game hours**.
+Rust's day length is server-configurable and the API does not report it, so the
+render must not imply real-world minutes; the resx string says so explicitly.
 
 The alternative — keeping all three renderers in Workspace — would require
 promoting `IEventState`, `IRigState` and `IAfkState` into Abstractions along
-with `ActiveMarker`, `TrailPoint`, `RigState`, `RigStatus` and `AfkMember`.
-Strictly more churn for the same result, and it would invert the current
-layering where Workspace depends on no feature project.
+with `ActiveMarker`, `TrailPoint`, `RigState`, `RigStatus`, `AfkMember` and
+`GridReference`. Strictly more churn than moving one formatting helper, and it
+would invert the current layering where Workspace depends on no feature project.
 
 `MessageSpec` declarations stay centralised in `ServerWorkspaceSpecProvider` so
 the ordering invariant remains visible in one file.
@@ -298,10 +346,14 @@ message to an ephemeral response.
   swap select is present (`:66`, `:118`) and that the select and button occupy
   separate action rows (`:246`); those assertions change to expect the button
   alone.
-- **Command tests** — `ServerQueryServiceTests` deleted;
-  `CommandRegistrationTests` updated for nine fewer commands plus
-  `/server player`; the in-game `QueryHandlersTests` must keep passing
-  unmodified, which is the guard that the `!command` surface survived intact.
+- **Command tests** — `ServerQueryServiceTests` deleted.
+  `CommandRegistrationTests` drops its `ServerResolver` and `ServerQueryService`
+  resolution assertions (the former moves to the Connections container, the
+  latter is gone); its `Assert.Equal(28, handlers.Count)` is **unchanged**,
+  since no `ICommandHandler` is removed. A matching assertion that
+  `ServerResolver` resolves is added to the Connections registration test.
+  The in-game `QueryHandlersTests` must keep passing unmodified — that is the
+  guard that the `!command` surface survived intact.
 - **Localization** — `StringsResourceParityTests.Catalog_has_expected_key_count`
   hard-codes `281` (`tests/RustPlusBot.Localization.Tests/StringsResourceParityTests.cs:44`);
   update to the new total, with every added key present in both `Strings.resx`
