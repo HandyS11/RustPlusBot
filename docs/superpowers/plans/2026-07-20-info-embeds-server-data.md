@@ -10,12 +10,22 @@
 
 ## Global Constraints
 
-- Solution file is `RustPlusBot.slnx` — there is **no** `.sln`. Build with `dtk build RustPlusBot.slnx`.
-- `dotnet jb cleanupcode --profile=ReformatAndReorder` is a hard CI gate that fails on any diff. Run it before the final commit of each task.
+- Solution file is `RustPlusBot.slnx` — there is **no** `.sln`.
+- **`-maxcpucount:1` is MANDATORY on every build and test invocation.** `ConfigureGitHooks` races on `.git/config` under parallel MSBuild; a broken build then **silently drops an entire test assembly**, which reports 0 tests and looks like a pass. Read the per-assembly count, never just the green tick.
+- `dtk` wraps `dotnet` — the form is `dtk dotnet build …` / `dtk dotnet test …`, **not** `dtk build …`.
+- **Baseline at branch point: 1028 passed, 1 skipped, across 18 test assemblies.** A run reporting fewer than 18 assemblies means a build break swallowed one — investigate before trusting green.
+- Build is `-warnaserror`. Every public type and member needs an XML doc comment; match the surrounding density.
+- CA1305 / CA1307 / CA1310 are errors: `CultureInfo.InvariantCulture` for formatting, `StringComparison.Ordinal` for comparisons.
+- Tests are plain xUnit `Assert.*` plus NSubstitute. **No FluentAssertions.** `using Xunit;` is a global using — omit it from test files.
+- Format gate, run before the final commit of each task (after `dotnet tool restore`):
+  `dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR`
+  Hard CI gate; fails on any diff.
 - Every new user-facing string is a resx key present in **both** `src/RustPlusBot.Localization/Strings.resx` and `Strings.fr.resx`. `StringsResourceParityTests` enforces parity and a hard-coded key count.
 - The key count assertion lives at `tests/RustPlusBot.Localization.Tests/StringsResourceParityTests.cs:44` and currently reads `Assert.Equal(281, EnglishKeys().Count);`. Update it in whichever task changes the catalog.
-- Public types and members require XML doc comments (the repo builds with docs enabled); match the surrounding density.
-- Never bump ImageSharp to v4 or SixLabors.Drawing to v3 — the paid license hard-fails the build.
+- No new NuGet packages. Never bump ImageSharp to v4 or SixLabors.Drawing to v3 — the paid license hard-fails the build.
+- Every commit message ends with:
+  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
+- All 18 test projects already exist — including `tests/RustPlusBot.Abstractions.Tests` and `tests/RustPlusBot.Features.Connections.Tests` (which already grants `InternalsVisibleTo`). No test project needs creating.
 - Work happens on branch `feat/info-embeds`, already cut off `develop` with the spec committed.
 - Spec: `docs/superpowers/specs/2026-07-20-info-embeds-server-data-design.md`.
 
@@ -24,37 +34,47 @@
 ## File Structure
 
 **Task 1 — shared formatting primitives (unblocks everything else)**
+
 - Create `src/RustPlusBot.Abstractions/Formatting/DurationFormat.cs` — public duration formatting.
 - Create `src/RustPlusBot.Abstractions/Connections/Daylight.cs` — day/night + next-transition over `ServerTimeSnapshot`.
 - Delete `src/RustPlusBot.Features.Commands/Formatting/DurationFormat.cs`.
 
 **Task 2 — open the renderer seam**
+
 - Modify `src/RustPlusBot.Features.Workspace/Registry/IMessageRenderer.cs`, `Registry/MessageRenderContext.cs`, `Gateway/MessagePayload.cs` — `internal` → `public`.
 
 **Task 3 — Server embed**
+
 - Modify `src/RustPlusBot.Features.Workspace/Messages/ServerInfoMessageRenderer.cs`.
 
 **Task 4 — Events embed**
+
 - Create `src/RustPlusBot.Features.Events/Messages/ServerEventsMessageRenderer.cs`.
 
 **Task 5 — Team embed**
+
 - Create `src/RustPlusBot.Features.Players/Messages/ServerTeamMessageRenderer.cs`.
 
 **Task 6 — declare the specs**
+
 - Modify `src/RustPlusBot.Features.Workspace/WorkspaceKeys.cs`, `Specs/ServerWorkspaceSpecProvider.cs`.
 
 **Task 7 — gated refresh path**
+
 - Create `src/RustPlusBot.Features.Workspace/Reconciler/ServerInfoRefresher.cs` (+ `IServerInfoRefresher`).
 
 **Task 8 — refresh hosted service**
+
 - Create `src/RustPlusBot.Features.Workspace/Hosting/ServerInfoRefreshHostedService.cs`.
 - Modify `src/RustPlusBot.Features.Workspace/WorkspaceOptions.cs`, `src/RustPlusBot.Host/appsettings.json`.
 
 **Task 9 — delete the slash commands, move the resolver**
+
 - Delete `src/RustPlusBot.Features.Commands/Modules/ServerCommandModule.cs`, `Servers/ServerQueryService.cs`.
 - Move `Servers/ServerResolver.cs`, `Servers/ServerResolution.cs`, `Servers/ServerAutocompleteHandler.cs` → `src/RustPlusBot.Features.Connections/Servers/`.
 
 **Task 10 — `/server player`**
+
 - Create `src/RustPlusBot.Features.Connections/Modules/ServerPlayerModule.cs`.
 - Modify `src/RustPlusBot.Features.Commands/Help/CommandHelpCatalog.cs`.
 
@@ -65,6 +85,7 @@
 `DurationFormat` is `internal` to Features.Commands — the highest project in the reference graph — but all three renderers sit below it. Move it to Abstractions. Same for the day/night math currently inlined in `TimeCommandHandler`.
 
 **Files:**
+
 - Create: `src/RustPlusBot.Abstractions/Formatting/DurationFormat.cs`
 - Create: `src/RustPlusBot.Abstractions/Connections/Daylight.cs`
 - Delete: `src/RustPlusBot.Features.Commands/Formatting/DurationFormat.cs`
@@ -72,6 +93,7 @@
 - Test: `tests/RustPlusBot.Abstractions.Tests/Connections/DaylightTests.cs`
 
 **Interfaces:**
+
 - Consumes: `ServerTimeSnapshot(float TimeOfDay, float Sunrise, float Sunset)` from `RustPlusBot.Abstractions.Connections`.
 - Produces:
   - `RustPlusBot.Abstractions.Formatting.DurationFormat.Compact(TimeSpan) -> string`
@@ -155,10 +177,10 @@ public sealed class DaylightTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dtk test tests/RustPlusBot.Abstractions.Tests --filter FullyQualifiedName~DaylightTests`
+Run: `dtk dotnet test tests/RustPlusBot.Abstractions.Tests -maxcpucount:1 --filter FullyQualifiedName~DaylightTests`
 Expected: FAIL — compile error, `The name 'Daylight' does not exist in the namespace`.
 
-If `tests/RustPlusBot.Abstractions.Tests` does not exist, create it by copying the csproj from `tests/RustPlusBot.Localization.Tests/RustPlusBot.Localization.Tests.csproj`, renaming the assembly and swapping the `ProjectReference` to `../../src/RustPlusBot.Abstractions/RustPlusBot.Abstractions.csproj`, then add it to `RustPlusBot.slnx` beside the other test projects.
+`tests/RustPlusBot.Abstractions.Tests` already exists and is already in `RustPlusBot.slnx` — add the file to it, do not create a project.
 
 - [ ] **Step 3: Create the Daylight helper**
 
@@ -340,16 +362,16 @@ internal sealed class TimeCommandHandler(IRustServerQuery query, ILocalizer loca
 
 - [ ] **Step 7: Run the tests**
 
-Run: `dtk test tests/RustPlusBot.Abstractions.Tests --filter FullyQualifiedName~DaylightTests`
+Run: `dtk dotnet test tests/RustPlusBot.Abstractions.Tests -maxcpucount:1 --filter FullyQualifiedName~DaylightTests`
 Expected: PASS — all 13 test cases.
 
-Run: `dtk test tests/RustPlusBot.Features.Commands.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Commands.Tests -maxcpucount:1`
 Expected: PASS — the existing `!time` and duration-formatting tests still pass unchanged, proving the move was behaviour-preserving.
 
 - [ ] **Step 8: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "refactor: move DurationFormat to Abstractions and extract Daylight helper
 
@@ -365,11 +387,13 @@ its day/night math with the forthcoming server embed."
 The Events and Team renderers live outside Features.Workspace, so the three contracts they implement must become public.
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Workspace/Registry/IMessageRenderer.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/Registry/MessageRenderContext.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/Gateway/MessagePayload.cs`
 
 **Interfaces:**
+
 - Consumes: nothing from earlier tasks.
 - Produces: `public interface IMessageRenderer { string MessageKey { get; } ValueTask<MessagePayload> RenderAsync(MessageRenderContext context, CancellationToken cancellationToken); }`, `public sealed record MessageRenderContext(ulong GuildId, Guid? ServerId, string Culture)`, `public sealed record MessagePayload(string? Text, Embed? Embed, MessageComponent? Components)` — all in their existing namespaces (`RustPlusBot.Features.Workspace.Registry` and `...Gateway`).
 
@@ -413,20 +437,20 @@ public sealed record MessagePayload(string? Text, Embed? Embed, MessageComponent
 
 - [ ] **Step 2: Build to surface accessibility fallout**
 
-Run: `dtk build RustPlusBot.slnx`
+Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1`
 Expected: PASS. A public interface may not expose less-accessible types in its signature — `MessagePayload` and `MessageRenderContext` are widened in the same step, so `IMessageRenderer` is consistent.
 
 If the build reports CS0051/CS0053 ("inconsistent accessibility") on any *other* type reachable from these signatures, widen that type too and note it in the commit message.
 
 - [ ] **Step 3: Run the Workspace tests**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1`
 Expected: PASS — visibility widening is behaviour-neutral.
 
 - [ ] **Step 4: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "refactor: make the workspace message-renderer contracts public
 
@@ -441,12 +465,14 @@ Lets Features.Events and Features.Players contribute renderers for the new
 Rewrite the existing `#info` status embed: add Players / Time / Wipe, drop the swap select, keep the Remove button.
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Workspace/Messages/ServerInfoMessageRenderer.cs`
 - Modify: `src/RustPlusBot.Localization/Strings.resx`, `src/RustPlusBot.Localization/Strings.fr.resx`
 - Modify: `tests/RustPlusBot.Localization.Tests/StringsResourceParityTests.cs:44`
 - Test: `tests/RustPlusBot.Features.Workspace.Tests/Messages/RendererTests.cs`
 
 **Interfaces:**
+
 - Consumes: `Daylight.IsDay/Clock/UntilTransition`, `DurationFormat.Compact` (Task 1); `MessagePayload`, `MessageRenderContext`, `IMessageRenderer` (Task 2).
 - Produces: `ServerInfoMessageRenderer(IServerService servers, IConnectionStore connections, IRustServerQuery query, IClock clock, ILocalizer localizer)` — note the **added `IClock` parameter**, which Tasks 4 and 5 mirror.
 
@@ -636,7 +662,7 @@ using RustPlusBot.Abstractions.Time;
 
 - [ ] **Step 3: Run tests to verify they fail**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests --filter FullyQualifiedName~RendererTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1 --filter FullyQualifiedName~RendererTests`
 Expected: FAIL — compile error, `ServerInfoMessageRenderer` has no 5-parameter constructor.
 
 - [ ] **Step 4: Rewrite the renderer**
@@ -810,16 +836,16 @@ Every remaining `new ServerInfoMessageRenderer(...)` call in the file needs the 
 
 - [ ] **Step 6: Run the tests**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests --filter FullyQualifiedName~RendererTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1 --filter FullyQualifiedName~RendererTests`
 Expected: PASS.
 
-Run: `dtk test tests/RustPlusBot.Localization.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Localization.Tests -maxcpucount:1`
 Expected: PASS — parity holds and the count is 291.
 
 - [ ] **Step 7: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "feat: add players, time and wipe to the #info server embed
 
@@ -833,6 +859,7 @@ Drops the swap select ahead of /server player replacing it."
 ### Task 4: Events embed
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Events/Messages/ServerEventsMessageRenderer.cs`
 - Modify: `src/RustPlusBot.Features.Events/EventServiceCollectionExtensions.cs`
 - Modify: `src/RustPlusBot.Localization/Strings.resx`, `Strings.fr.resx`
@@ -840,6 +867,7 @@ Drops the swap select ahead of /server player replacing it."
 - Test: `tests/RustPlusBot.Features.Events.Tests/Messages/ServerEventsMessageRendererTests.cs`
 
 **Interfaces:**
+
 - Consumes: `DurationFormat.Compact` (Task 1); `IMessageRenderer`, `MessagePayload`, `MessageRenderContext` (Task 2); `IEventState.GetActiveMarkers(ulong, Guid, MarkerKind) -> IReadOnlyList<ActiveMarker>`; `IRigState.Get(ulong, Guid, RigKind) -> RigState`; `GridReference.From(float, float, MapDimensions?, MapGridStyle) -> string`; `IConnectionStore.GetStateAsync`.
 - Produces: `ServerEventsMessageRenderer(IEventState events, IRigState rigs, IMapSettingsStore mapSettings, IConnectionStore connections, IClock clock, ILocalizer localizer)` with `MessageKey => "server.events"`.
 
@@ -1029,7 +1057,7 @@ Confirm the `MapDimensions` constructor arity before running — if it differs f
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `dtk test tests/RustPlusBot.Features.Events.Tests --filter FullyQualifiedName~ServerEventsMessageRendererTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Events.Tests -maxcpucount:1 --filter FullyQualifiedName~ServerEventsMessageRendererTests`
 Expected: FAIL — `ServerEventsMessageRenderer` does not exist.
 
 - [ ] **Step 4: Write the renderer**
@@ -1162,16 +1190,16 @@ using RustPlusBot.Features.Workspace.Registry;
 
 - [ ] **Step 6: Run the tests**
 
-Run: `dtk test tests/RustPlusBot.Features.Events.Tests --filter FullyQualifiedName~ServerEventsMessageRendererTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Events.Tests -maxcpucount:1 --filter FullyQualifiedName~ServerEventsMessageRendererTests`
 Expected: PASS — 8 test cases.
 
-Run: `dtk test tests/RustPlusBot.Localization.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Localization.Tests -maxcpucount:1`
 Expected: PASS at count 303.
 
 - [ ] **Step 7: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "feat: add the #info events embed
 
@@ -1184,6 +1212,7 @@ Cargo, patrol heli, chinook and both oil rigs in one embed, replacing
 ### Task 5: Team embed
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Players/Messages/ServerTeamMessageRenderer.cs`
 - Modify: `src/RustPlusBot.Features.Players/PlayerEventServiceCollectionExtensions.cs`
 - Modify: `src/RustPlusBot.Localization/Strings.resx`, `Strings.fr.resx`
@@ -1191,6 +1220,7 @@ Cargo, patrol heli, chinook and both oil rigs in one embed, replacing
 - Test: `tests/RustPlusBot.Features.Players.Tests/Messages/ServerTeamMessageRendererTests.cs`
 
 **Interfaces:**
+
 - Consumes: `DurationFormat.Compact` (Task 1); `IMessageRenderer`, `MessagePayload`, `MessageRenderContext` (Task 2); `IRustServerQuery.GetTeamInfoAsync`, `GetMapDimensionsAsync`; `IAfkState.GetAfkMembersAsync`; `GridReference.From`.
 - Produces: `ServerTeamMessageRenderer(IRustServerQuery query, IAfkState afk, IMapSettingsStore mapSettings, IClock clock, ILocalizer localizer)` with `MessageKey => "server.team"`.
 
@@ -1421,7 +1451,7 @@ public sealed class ServerTeamMessageRendererTests
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `dtk test tests/RustPlusBot.Features.Players.Tests --filter FullyQualifiedName~ServerTeamMessageRendererTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Players.Tests -maxcpucount:1 --filter FullyQualifiedName~ServerTeamMessageRendererTests`
 Expected: FAIL — `ServerTeamMessageRenderer` does not exist.
 
 - [ ] **Step 4: Write the renderer**
@@ -1617,16 +1647,16 @@ using RustPlusBot.Features.Workspace.Registry;
 
 - [ ] **Step 6: Run the tests**
 
-Run: `dtk test tests/RustPlusBot.Features.Players.Tests --filter FullyQualifiedName~ServerTeamMessageRendererTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Players.Tests -maxcpucount:1 --filter FullyQualifiedName~ServerTeamMessageRendererTests`
 Expected: PASS — 9 test cases.
 
-Run: `dtk test tests/RustPlusBot.Localization.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Localization.Tests -maxcpucount:1`
 Expected: PASS at count 312.
 
 - [ ] **Step 7: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "feat: add the #info team embed
 
@@ -1642,11 +1672,13 @@ dead, offline."
 Wire the two new renderers into the reconciler and fix their in-channel order.
 
 **Files:**
+
 - Modify: `src/RustPlusBot.Features.Workspace/WorkspaceKeys.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/Specs/ServerWorkspaceSpecProvider.cs`
 - Test: `tests/RustPlusBot.Features.Workspace.Tests/Specs/ServerWorkspaceSpecProviderTests.cs`
 
 **Interfaces:**
+
 - Consumes: `ServerEventsMessageRenderer.Key == "server.events"` (Task 4), `ServerTeamMessageRenderer.Key == "server.team"` (Task 5).
 - Produces: `WorkspaceMessageKeys.ServerEvents == "server.events"`, `WorkspaceMessageKeys.ServerTeam == "server.team"`.
 
@@ -1688,7 +1720,7 @@ public sealed class ServerWorkspaceSpecProviderTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests --filter FullyQualifiedName~ServerWorkspaceSpecProviderTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1 --filter FullyQualifiedName~ServerWorkspaceSpecProviderTests`
 Expected: FAIL — the order assertion reports only `["server.info.map", "server.info"]`.
 
 If `ServerWorkspaceSpecProvider` is `internal`, the test resolves it via the existing `InternalsVisibleTo` entry for `RustPlusBot.Features.Workspace.Tests` declared in the csproj — no visibility change needed.
@@ -1725,7 +1757,7 @@ In `src/RustPlusBot.Features.Workspace/Specs/ServerWorkspaceSpecProvider.cs`, re
 
 - [ ] **Step 5: Run the tests**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1`
 Expected: PASS.
 
 Note the reconciler filters specs by `_renderers.ContainsKey(s.Key)` (`WorkspaceReconciler.cs:239`), so a host that composes Workspace without Events or Players simply skips the corresponding embed rather than failing.
@@ -1733,7 +1765,7 @@ Note the reconciler filters specs by `_renderers.ContainsKey(s.Key)` (`Workspace
 - [ ] **Step 6: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "feat: declare the events and team message specs in #info
 
@@ -1747,12 +1779,14 @@ Declaration order fixes the on-screen order: map, status, events, team."
 A narrow refresh that skips channel provisioning and suppresses no-op edits.
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Workspace/Reconciler/IServerInfoRefresher.cs`
 - Create: `src/RustPlusBot.Features.Workspace/Reconciler/ServerInfoRefresher.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/WorkspaceServiceCollectionExtensions.cs`
 - Test: `tests/RustPlusBot.Features.Workspace.Tests/Reconciler/ServerInfoRefresherTests.cs`
 
 **Interfaces:**
+
 - Consumes: `IWorkspaceStore.GetMessageAsync/GetCultureAsync`, `IWorkspaceGateway.EditMessageAsync`, `IWorkspaceReconciler.ReconcileServerAsync`, `RenderGate.ShouldSend/Commit/Invalidate`, `RenderCanonicalizer.Canonicalize`, `IMessageRenderer` (Task 2), the three message keys (Task 6).
 - Produces: `internal interface IServerInfoRefresher { Task RefreshAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken); }`, implemented by `ServerInfoRefresher`.
 
@@ -1947,7 +1981,7 @@ public sealed class ServerInfoRefresherTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests --filter FullyQualifiedName~ServerInfoRefresherTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1 --filter FullyQualifiedName~ServerInfoRefresherTests`
 Expected: FAIL — `ServerInfoRefresher` does not exist.
 
 - [ ] **Step 3: Write the interface**
@@ -2079,13 +2113,13 @@ In `src/RustPlusBot.Features.Workspace/WorkspaceServiceCollectionExtensions.cs`,
 
 - [ ] **Step 6: Run the tests**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests --filter FullyQualifiedName~ServerInfoRefresherTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1 --filter FullyQualifiedName~ServerInfoRefresherTests`
 Expected: PASS — 7 test cases.
 
 - [ ] **Step 7: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "feat: add a render-gated in-place refresh for #info
 
@@ -2099,6 +2133,7 @@ invalidates the gate and escalates to a full reconcile."
 ### Task 8: Refresh hosted service
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Workspace/Hosting/ServerInfoRefreshHostedService.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/WorkspaceOptions.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/WorkspaceServiceCollectionExtensions.cs`
@@ -2106,6 +2141,7 @@ invalidates the gate and escalates to a full reconcile."
 - Test: `tests/RustPlusBot.Features.Workspace.Tests/Hosting/ServerInfoRefreshHostedServiceTests.cs`
 
 **Interfaces:**
+
 - Consumes: `IServerInfoRefresher.RefreshAsync` (Task 7); `IEventBus.SubscribeAsync<ConnectionStatusChangedEvent>`; `ConnectionStatusChangedEvent` with its `GuildId`, `ServerId`, `IsConnected` members.
 - Produces: `WorkspaceOptions.InfoRefreshInterval` (`TimeSpan`, default 1 minute).
 
@@ -2209,7 +2245,7 @@ public sealed class ServerInfoRefreshHostedServiceTests
 
 - [ ] **Step 4: Run test to verify it fails**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests --filter FullyQualifiedName~ServerInfoRefreshHostedServiceTests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1 --filter FullyQualifiedName~ServerInfoRefreshHostedServiceTests`
 Expected: FAIL — neither `ServerInfoRefreshHostedService` nor `ConnectedServerSet` exists.
 
 - [ ] **Step 5: Write the hosted service**
@@ -2403,16 +2439,16 @@ In `src/RustPlusBot.Features.Workspace/WorkspaceServiceCollectionExtensions.cs`,
 
 - [ ] **Step 7: Run the tests**
 
-Run: `dtk test tests/RustPlusBot.Features.Workspace.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Workspace.Tests -maxcpucount:1`
 Expected: PASS.
 
-Run: `dtk build RustPlusBot.slnx`
+Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1`
 Expected: PASS.
 
 - [ ] **Step 8: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "feat: refresh #info on a configurable interval
 
@@ -2426,6 +2462,7 @@ floored at one second so a misconfiguration cannot spin the loop."
 ### Task 9: Delete the slash commands, move the resolver
 
 **Files:**
+
 - Delete: `src/RustPlusBot.Features.Commands/Modules/ServerCommandModule.cs`
 - Delete: `src/RustPlusBot.Features.Commands/Servers/ServerQueryService.cs`
 - Delete: `tests/RustPlusBot.Features.Commands.Tests/Servers/ServerQueryServiceTests.cs`
@@ -2436,6 +2473,7 @@ floored at one second so a misconfiguration cannot spin the loop."
 - Modify: `tests/RustPlusBot.Features.Commands.Tests/CommandRegistrationTests.cs`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces: `RustPlusBot.Features.Connections.Servers.ServerResolver`, `.ServerResolution(Guid? ServerId, string? Name, string? ErrorMessage)`, `.ServerAutocompleteHandler`. `ServerResolver` stays `internal`; `ServerAutocompleteHandler` stays `public` (Discord.Net instantiates it reflectively).
 
@@ -2497,11 +2535,9 @@ git mv tests/RustPlusBot.Features.Commands.Tests/Servers/ServerResolverTests.cs 
 
 In the moved file, change the namespace to `RustPlusBot.Features.Connections.Tests.Servers` and the `using RustPlusBot.Features.Commands.Servers;` to `using RustPlusBot.Features.Connections.Servers;`.
 
-If `tests/RustPlusBot.Features.Connections.Tests` lacks an `InternalsVisibleTo` grant for the internal `ServerResolver`, add to `src/RustPlusBot.Features.Connections/RustPlusBot.Features.Connections.csproj` (mirroring the existing `InternalsVisibleTo` item you saw in the csproj):
-
-```xml
-    <InternalsVisibleTo Include="RustPlusBot.Features.Connections.Tests" />
-```
+`src/RustPlusBot.Features.Connections/RustPlusBot.Features.Connections.csproj:4` already grants
+`<InternalsVisibleTo Include="RustPlusBot.Features.Connections.Tests" />`, so the internal
+`ServerResolver` is visible to the moved test with no csproj change.
 
 - [ ] **Step 5: Fix CommandRegistrationTests**
 
@@ -2527,19 +2563,19 @@ Add to `tests/RustPlusBot.Features.Connections.Tests/` a registration test (exte
 
 - [ ] **Step 7: Run the tests**
 
-Run: `dtk build RustPlusBot.slnx`
+Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1`
 Expected: PASS — no dangling references to the deleted types.
 
-Run: `dtk test tests/RustPlusBot.Features.Commands.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Commands.Tests -maxcpucount:1`
 Expected: PASS — including `QueryHandlersTests` **unmodified**, proving every `!command` still works.
 
-Run: `dtk test tests/RustPlusBot.Features.Connections.Tests`
+Run: `dtk dotnet test tests/RustPlusBot.Features.Connections.Tests -maxcpucount:1`
 Expected: PASS — including the moved `ServerResolverTests`.
 
 - [ ] **Step 8: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "refactor: delete the nine server-data slash commands
 
@@ -2554,12 +2590,14 @@ because Features.Commands cannot see WorkspaceComponentIds."
 ### Task 10: `/server player`
 
 **Files:**
+
 - Create: `src/RustPlusBot.Features.Connections/Modules/ServerPlayerModule.cs`
 - Modify: `src/RustPlusBot.Features.Commands/Help/CommandHelpCatalog.cs`
 - Modify: `src/RustPlusBot.Localization/Strings.resx`, `Strings.fr.resx`
 - Modify: `tests/RustPlusBot.Localization.Tests/StringsResourceParityTests.cs:44`
 
 **Interfaces:**
+
 - Consumes: `ServerResolver.ResolveAsync(ulong, string?, string, CancellationToken) -> ServerResolution` and `ServerAutocompleteHandler` (Task 9); `WorkspaceComponentIds.ServerInfoSwapPrefix`; `IConnectionStore.ListPoolAsync`, `GetStateAsync`; the retained `server.info.swap.placeholder` key.
 - Produces: the `/server player` slash command. No new types are consumed downstream.
 
@@ -2690,10 +2728,10 @@ In `src/RustPlusBot.Features.Commands/Help/CommandHelpCatalog.cs`, add to the `S
 
 - [ ] **Step 4: Build and run the suite**
 
-Run: `dtk build RustPlusBot.slnx`
+Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1`
 Expected: PASS.
 
-Run: `dtk test RustPlusBot.slnx`
+Run: `dtk dotnet test RustPlusBot.slnx -maxcpucount:1`
 Expected: PASS — the whole suite.
 
 If a help-catalog drift guard asserts every `Slash` entry maps to a registered slash command, it may need the `"server player"` name spelled as the framework reports it (Discord groups render as `server player`). Adjust to match the guard's expectation rather than weakening the guard.
@@ -2701,7 +2739,7 @@ If a help-catalog drift guard asserts every `Slash` entry maps to a registered s
 - [ ] **Step 5: Format and commit**
 
 ```bash
-dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx
+dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR
 git add -A
 git commit -m "feat: add /server player to replace the #info swap select
 
@@ -2715,12 +2753,12 @@ carry, so ConnectionComponentModule handles it unchanged."
 
 - [ ] **Full build and suite**
 
-Run: `dtk build RustPlusBot.slnx && dtk test RustPlusBot.slnx`
+Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1 && dtk dotnet test RustPlusBot.slnx -maxcpucount:1`
 Expected: PASS, with a test count higher than the pre-branch baseline by roughly 45 (13 Daylight + 3 server embed + 8 events + 9 team + 2 spec + 7 refresher + 4 hosted service, less the 3 deleted `ServerInfo` renderer tests and the deleted `ServerQueryServiceTests`).
 
 - [ ] **Format gate**
 
-Run: `dotnet jb cleanupcode --profile=ReformatAndReorder RustPlusBot.slnx && git diff --exit-code`
+Run: `dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder" --no-build --verbosity=ERROR && git diff --exit-code`
 Expected: exit 0, no diff. This is the hard CI gate.
 
 - [ ] **Live smoke (user gate — do not mark complete without the user confirming)**
