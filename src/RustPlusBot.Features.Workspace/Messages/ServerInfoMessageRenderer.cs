@@ -1,6 +1,8 @@
 using System.Globalization;
 using Discord;
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Abstractions.Formatting;
+using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Features.Workspace.Gateway;
@@ -11,15 +13,17 @@ using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Workspace.Messages;
 
-/// <summary>Renders a server's #info embed with live connection status and the ManageGuild swap select.</summary>
+/// <summary>Renders a server's #info status embed: connection, population, in-game time and wipe age.</summary>
 /// <param name="servers">Server lookup.</param>
 /// <param name="connections">Live connection state + pool.</param>
-/// <param name="query">Live team query.</param>
+/// <param name="query">Live server query.</param>
+/// <param name="clock">Supplies the current time for the wipe age.</param>
 /// <param name="localizer">String resolution.</param>
 internal sealed class ServerInfoMessageRenderer(
     IServerService servers,
     IConnectionStore connections,
     IRustServerQuery query,
+    IClock clock,
     ILocalizer localizer) : IMessageRenderer
 {
     /// <inheritdoc />
@@ -58,70 +62,61 @@ internal sealed class ServerInfoMessageRenderer(
             .AddField(localizer.Get("server.info.player.label", context.Culture),
                 active is null ? none : active.SteamId.ToString(CultureInfo.InvariantCulture));
 
-        if (status == ConnectionStatus.Connected && state?.PlayerCount is int count)
-        {
-            embed.AddField(localizer.Get("server.info.players.label", context.Culture),
-                count.ToString(CultureInfo.InvariantCulture));
-        }
-
         if (status == ConnectionStatus.Connected)
         {
-            await AddTeamFieldAsync(embed, context, serverId, cancellationToken).ConfigureAwait(false);
+            await AddLiveFieldsAsync(embed, context, serverId, cancellationToken).ConfigureAwait(false);
         }
 
-        var eligible = pool
-            .Where(c => c.Status != CredentialStatus.Invalid)
-            .Take(SelectMenuBuilder.MaxOptionCount) // Discord hard-limits a select menu to 25 options.
-            .ToList();
-        var builder = new ComponentBuilder();
-        if (eligible.Count > 0)
-        {
-            var select = new SelectMenuBuilder()
-                .WithCustomId($"{WorkspaceComponentIds.ServerInfoSwapPrefix}{serverId}")
-                .WithPlaceholder(localizer.Get("server.info.swap.placeholder", context.Culture));
-            foreach (var credential in eligible)
-            {
-                var label = credential.SteamId.ToString(CultureInfo.InvariantCulture);
-                select.AddOption(label, credential.Id.ToString(), isDefault: credential.Id == active?.Id);
-            }
-
-            builder.WithSelectMenu(select, row: 0);
-        }
-
-        // Keep the remove button on its own row: Discord rejects an action row that mixes a select with buttons.
-        builder.WithButton(
-            localizer.Get("server.info.remove.button", context.Culture),
-            $"{WorkspaceComponentIds.ServerInfoRemovePrefix}{serverId}",
-            ButtonStyle.Danger,
-            row: eligible.Count > 0 ? 1 : 0);
+        // The swap select moved to /server player; the remove button now owns row 0 alone.
+        var builder = new ComponentBuilder()
+            .WithButton(
+                localizer.Get("server.info.remove.button", context.Culture),
+                $"{WorkspaceComponentIds.ServerInfoRemovePrefix}{serverId}",
+                ButtonStyle.Danger,
+                row: 0);
 
         return new MessagePayload(null, embed.Build(), builder.Build());
     }
 
-    private async ValueTask AddTeamFieldAsync(
+    private async ValueTask AddLiveFieldsAsync(
         EmbedBuilder embed,
         MessageRenderContext context,
         Guid serverId,
         CancellationToken cancellationToken)
     {
-        var team = await query.GetTeamInfoAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
-        if (team is null)
+        var info = await query.GetServerInfoAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
+        if (info is not null)
         {
-            return;
+            embed.AddField(
+                localizer.Get("server.info.players.label", context.Culture),
+                localizer.Get("server.info.players.value", context.Culture,
+                    info.Players.ToString(CultureInfo.InvariantCulture),
+                    info.MaxPlayers.ToString(CultureInfo.InvariantCulture),
+                    info.QueuedPlayers.ToString(CultureInfo.InvariantCulture)));
         }
 
-        var online = team.Members.Count(m => m.IsOnline);
-        var leaderEntry = team.Members.FirstOrDefault(m => m.SteamId == team.LeaderSteamId);
-        // The API can report a member with no display name, so treat an empty name as missing.
-        var leaderName = string.IsNullOrWhiteSpace(leaderEntry?.Name)
-            ? team.LeaderSteamId.ToString(CultureInfo.InvariantCulture)
-            : leaderEntry.Name;
-        embed.AddField(
-            localizer.Get("server.info.team.label", context.Culture),
-            localizer.Get("server.info.team.value", context.Culture,
-                online.ToString(CultureInfo.InvariantCulture),
-                team.Members.Count.ToString(CultureInfo.InvariantCulture),
-                leaderName));
+        var time = await query.GetTimeAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
+        if (time is not null)
+        {
+            var isDay = Daylight.IsDay(time);
+            embed.AddField(
+                localizer.Get("server.info.time.label", context.Culture),
+                localizer.Get("server.info.time.value", context.Culture,
+                    Daylight.Clock(time),
+                    localizer.Get(isDay ? "server.info.time.day" : "server.info.time.night", context.Culture),
+                    DurationFormat.Compact(Daylight.UntilTransition(time)),
+                    localizer.Get(isDay ? "server.info.time.to.night" : "server.info.time.to.day", context.Culture)));
+        }
+
+        if (info is not null)
+        {
+            embed.AddField(
+                localizer.Get("server.info.wipe.label", context.Culture),
+                info.WipeTimeUtc is { } wiped
+                    ? localizer.Get("server.info.wipe.value", context.Culture,
+                        DurationFormat.Compact(clock.UtcNow - wiped))
+                    : localizer.Get("server.info.wipe.unknown", context.Culture));
+        }
     }
 
     private static string Glyph(ConnectionStatus status) => status switch

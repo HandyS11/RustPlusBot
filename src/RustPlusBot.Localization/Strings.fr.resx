@@ -636,6 +636,9 @@
   <data name="server.info.players.label" xml:space="preserve">
     <value>Joueurs en ligne</value>
   </data>
+  <data name="server.info.players.value" xml:space="preserve">
+    <value>{0} / {1} · {2} en file</value>
+  </data>
   <data name="server.info.remove.button" xml:space="preserve">
     <value>Supprimer le serveur</value>
   </data>
@@ -662,6 +665,33 @@
   </data>
   <data name="server.info.team.value" xml:space="preserve">
     <value>{0}/{1} en ligne · chef {2}</value>
+  </data>
+  <data name="server.info.time.day" xml:space="preserve">
+    <value>☀️</value>
+  </data>
+  <data name="server.info.time.label" xml:space="preserve">
+    <value>Heure</value>
+  </data>
+  <data name="server.info.time.night" xml:space="preserve">
+    <value>🌙</value>
+  </data>
+  <data name="server.info.time.to.day" xml:space="preserve">
+    <value>le lever du soleil</value>
+  </data>
+  <data name="server.info.time.to.night" xml:space="preserve">
+    <value>la tombée de la nuit</value>
+  </data>
+  <data name="server.info.time.value" xml:space="preserve">
+    <value>{0} {1} · {2} de temps en jeu avant {3}</value>
+  </data>
+  <data name="server.info.wipe.label" xml:space="preserve">
+    <value>Wipe</value>
+  </data>
+  <data name="server.info.wipe.unknown" xml:space="preserve">
+    <value>Inconnu</value>
+  </data>
+  <data name="server.info.wipe.value" xml:space="preserve">
+    <value>il y a {0}</value>
   </data>
   <data name="server.prompt.accept" xml:space="preserve">
     <value>Accepter</value>
