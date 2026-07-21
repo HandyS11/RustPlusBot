@@ -42,17 +42,29 @@ on already exists; no library change is required.
 **Error code:** `RustPlusErrorCode.NoClan` (`no_clan`) — the player is not in a clan. This is
 the authoritative negative-detection signal.
 
-**Models (`RustPlusApi.Data.Clans`):**
+**Models (`RustPlusApi.Data.Clans`)** — exact CLR types, verified by reflecting over the
+shipped assembly:
 
-- `ClanInfo` — `ClanId`, `Name`, `Created`, `Creator`, `Motd`, `MotdTimestamp`, `MotdAuthor`,
-  `Logo` (raw bytes), `Color` (packed ARGB), `Roles`, `Members`, `Invites`,
-  `MaxMemberCount`, `Score`
-- `ClanMember` — `SteamId`, `RoleId`, `Joined`, `LastSeen`, `Notes`, `Online`
-- `ClanRole` — `RoleId`, `Rank` (lower = higher rank), `Name`, and permission flags
-  `CanSetMotd`, `CanSetLogo`, `CanInvite`, `CanKick`, `CanPromote`, `CanDemote`,
-  `CanSetPlayerNotes`, `CanAccessLogs`, `CanAccessScoreEvents`
-- `ClanInvite` — `SteamId`, `Recruiter`, `Timestamp`
-- `ClanMessage` — `SteamId`, `Name`, `Message`, `Time`
+- `ClanInfo` — `long ClanId`, `string Name`, `DateTime Created`, `ulong Creator`,
+  `string? Motd`, `DateTime? MotdTimestamp`, `ulong? MotdAuthor`, `byte[]? Logo`,
+  `int? Color` (packed ARGB), `IEnumerable<ClanRole> Roles`,
+  `IEnumerable<ClanMember> Members`, `IEnumerable<ClanInvite> Invites`,
+  `int? MaxMemberCount`, `long? Score`
+- `ClanMember` — `ulong SteamId`, `int RoleId`, `DateTime Joined`, `DateTime LastSeen`,
+  `string? Notes`, **`bool? Online`** (nullable — treat `null` as offline)
+- `ClanRole` — `int RoleId`, `int Rank` (lower = higher rank), `string Name`, and eight
+  `bool` permission flags: `CanSetMotd`, `CanSetLogo`, `CanInvite`, `CanKick`,
+  `CanPromote`, `CanDemote`, `CanSetPlayerNotes`, `CanAccessLogs`, `CanAccessScoreEvents`
+- `ClanInvite` — `ulong SteamId`, `ulong Recruiter`, `DateTime Timestamp`
+- `ClanMessage` — `ulong SteamId`, `string Name`, `string Message`, `DateTime Time`
+- `ClanMessageEventArg` is **flat**, not nested: `long ClanId`, `ulong SteamId`,
+  `string Name`, `string Message`, `DateTime Time`
+
+All collections are `IEnumerable<T>` and all timestamps are `DateTime`, so the mapping layer
+materialises them to `IReadOnlyList<T>` and `DateTimeOffset` (assuming UTC) at the boundary.
+
+Requests return `Response<T>` with `IsSuccess`, `Data`, and `Error?.Code`
+(`RustPlusErrorCode`) — the same shape the existing socket source already consumes.
 
 **Deliberately out of scope — no API exists.** `CanAccessLogs` and `CanAccessScoreEvents`
 are readable permission flags, but the library exposes no clan audit-log fetch and no
@@ -236,8 +248,11 @@ Workspace's `ServerWorkspaceSpecProvider`.
 
 - title: clan name; embed colour unpacked from `ClanInfo.Color` ARGB, falling back to the
   neutral colour when unset
-- thumbnail: `Logo` bytes uploaded as an attachment when present, hashed so an unchanged
-  logo is not re-uploaded
+- no logo thumbnail. `ClanInfo.Logo` is raw bytes, and `MessagePayload` carries only
+  `(Text, Embed, Components)` — no attachment. Rendering the logo would mean threading file
+  uploads through `IWorkspaceGateway.PostMessageAsync`/`EditMessageAsync` and
+  `RenderCanonicalizer`, a substantial change to shared provisioning code for a decorative
+  thumbnail. The logo is still hashed so the feed can report "logo changed".
 - fields: Score · Members (`n/MaxMemberCount`) · Created (Discord relative timestamp) ·
   Leader (holder of the lowest-`Rank` role; `Creator` shown separately when different) ·
   MOTD with author name and relative timestamp
