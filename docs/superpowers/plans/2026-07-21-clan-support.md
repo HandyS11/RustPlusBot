@@ -3188,7 +3188,13 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory) 
 }
 ```
 
-`IWorkspaceCapabilityProvider` is `internal` to `Features.Workspace`, so add an `InternalsVisibleTo("RustPlusBot.Features.Clans")` to the Workspace project — matching how it already exposes internals to its test assembly. (If you prefer not to widen that, promote `IWorkspaceCapabilityProvider`, `ChannelSpec.Capability` and `WorkspaceCapabilities` to public instead; pick one and be consistent.)
+`InternalsVisibleTo("RustPlusBot.Features.Clans")` was already added to the Workspace project in Task 5, so `IWorkspaceCapabilityProvider` is visible here.
+
+**Three constraints carried over from Task 5's review, all load-bearing:**
+
+1. **Never answer `false` on a transient failure.** A `false` answer deletes the Discord channel and all its history. Answering from `IClanStore.HasClanAsync` is safe because `ClanStateService` clears that row only on a *definitive* `NoClan`, never on `Unavailable`. Do **not** add a `try/catch` that swallows a store exception into `false` — the reconciler deliberately lets an exception propagate and fail the reconcile, which is the safe outcome. Failing loudly beats deleting a user's channels.
+2. **Register exactly one provider per capability name.** `WorkspaceRegistry` indexes providers with `ToDictionary`, which throws at singleton construction on a duplicate key. Register `ClanCapabilityProvider` once.
+3. **Cache within a reconcile pass.** Two gated specs mean two `IsAvailableAsync` calls per server per reconcile, and the heal path reconciles every server on a timer. Opening a DI scope and hitting the DB on each call is wasteful; use a short TTL cache (driven by `IClock`, as `CachingChannelLocator` does). Keep the TTL well under the reconcile interval so a clan transition is still picked up promptly.
 
 - [ ] **Step 7: Implement the hosted service**
 
