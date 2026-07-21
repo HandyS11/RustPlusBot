@@ -3281,15 +3281,22 @@ Follow the file's existing `<data name="..." xml:space="preserve"><value>...</va
 
 Same key set, French copy, **same placeholder count and order** in every string. A mismatched placeholder count throws a `FormatException` at render time, not at build time — check each pair.
 
-- [ ] **Step 4: Verify parity**
+- [ ] **Step 4: Update the hard-coded key count**
+
+`tests/RustPlusBot.Localization.Tests/StringsResourceParityTests.cs` asserts an exact total:
+`Assert.Equal(315, EnglishKeys().Count);`. Update `315` to the new total. Do not delete the
+assertion — it is what catches a key added to one file and silently forgotten in the other.
+
+- [ ] **Step 5: Verify parity**
 
 Run: `dotnet test tests/RustPlusBot.Localization.Tests -maxcpucount:1`
-Expected: PASS. `StringsResourceParityTests` fails loudly on any key present in one file and not the other.
+Expected: PASS. The parity tests fail loudly on any key present in one file and not the other,
+and on a stale total.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/RustPlusBot.Localization
+git add src/RustPlusBot.Localization tests/RustPlusBot.Localization.Tests
 git commit -m "$(cat <<'EOF'
 Localize the clan channels, embeds and change feed
 
