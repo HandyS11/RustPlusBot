@@ -7,6 +7,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RustPlusBot.Abstractions\RustPlusBot.Abstractions.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Localization\RustPlusBot.Localization.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Persistence\RustPlusBot.Persistence.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.Workspace\RustPlusBot.Features.Workspace.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Discord.Net" />
   </ItemGroup>
 
 </Project>
