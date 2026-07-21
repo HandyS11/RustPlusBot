@@ -37,7 +37,7 @@ public sealed class PlayersHostedServiceTests
         var poster = Substitute.For<IPlayerChannelPoster>();
         var sender = Substitute.For<IBotTeamChatSender>();
         sender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(TeamChatSendResult.Sent);
+            .Returns(ChatSendResult.Sent);
 
         var relay = new PlayerEventRelay(
             new PlayerEventRenderer(new ResxLocalizer()),

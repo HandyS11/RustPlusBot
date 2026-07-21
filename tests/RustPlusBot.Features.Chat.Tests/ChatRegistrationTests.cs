@@ -2,6 +2,7 @@ using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Chat.Hosting;
@@ -36,8 +37,9 @@ public sealed class ChatRegistrationTests
         await using var provider = BuildProvider(out var locator, out var sender, out var poster);
         locator.ResolveAsync(channelId, Arg.Any<CancellationToken>()).Returns(((ulong, Guid)?)(guild, server));
         locator.GetChannelIdAsync(guild, server, Arg.Any<CancellationToken>()).Returns((ulong?)channelId);
-        sender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(TeamChatSendResult.Sent);
+        sender.SendAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(ChatSendResult.Sent);
 
         var processor = provider.GetRequiredService<TeamChatInboundProcessor>();
         var relay = provider.GetRequiredService<TeamChatRelay>();
@@ -56,12 +58,12 @@ public sealed class ChatRegistrationTests
     }
 
     private static ServiceProvider BuildProvider(
-        out ITeamChatChannelLocator locator,
-        out ITeamChatSender sender,
+        out IChatChannelLocator locator,
+        out IChatSender sender,
         out ITeamChatWebhookPoster poster)
     {
-        locator = Substitute.For<ITeamChatChannelLocator>();
-        sender = Substitute.For<ITeamChatSender>();
+        locator = Substitute.For<IChatChannelLocator>();
+        sender = Substitute.For<IChatSender>();
         poster = Substitute.For<ITeamChatWebhookPoster>();
 
         var services = new ServiceCollection();

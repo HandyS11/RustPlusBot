@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
@@ -40,7 +41,7 @@ internal sealed partial class ConnectionSupervisor(
     IClock clock,
     IOptions<ConnectionOptions> options,
     ILogger<ConnectionSupervisor> logger)
-    : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAfkState, IAsyncDisposable
+    : IConnectionSupervisor, IChatSender, IRustServerQuery, IAfkState, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -76,7 +77,7 @@ internal sealed partial class ConnectionSupervisor(
     public async ValueTask DisposeAsync()
     {
         // The supervisor is registered as one singleton backing three service types (IConnectionSupervisor,
-        // ITeamChatSender, and the concrete type), so the DI container may invoke DisposeAsync more than once.
+        // IChatSender, and the concrete type), so the DI container may invoke DisposeAsync more than once.
         if (_disposed)
         {
             return;
@@ -363,7 +364,8 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
-    public async Task<TeamChatSendResult> SendAsync(
+    public async Task<ChatSendResult> SendAsync(
+        ChatChannelKind kind,
         ulong guildId,
         Guid serverId,
         string message,
@@ -371,13 +373,24 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return TeamChatSendResult.NotConnected;
+            return ChatSendResult.NotConnected;
         }
 
         try
         {
-            await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
-            return TeamChatSendResult.Sent;
+            switch (kind)
+            {
+                case ChatChannelKind.Team:
+                    await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    break;
+                case ChatChannelKind.Clan:
+                    await live.Connection.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    break;
+                default:
+                    return ChatSendResult.Failed;
+            }
+
+            return ChatSendResult.Sent;
         }
         catch (OperationCanceledException)
         {
@@ -388,7 +401,7 @@ internal sealed partial class ConnectionSupervisor(
 #pragma warning restore CA1031
         {
             LogSendFailed(logger, ex, serverId);
-            return TeamChatSendResult.Failed;
+            return ChatSendResult.Failed;
         }
     }
 

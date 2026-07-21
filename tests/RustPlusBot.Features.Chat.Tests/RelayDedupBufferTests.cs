@@ -1,6 +1,6 @@
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Time;
-using RustPlusBot.Features.Chat.Relaying;
 
 namespace RustPlusBot.Features.Chat.Tests;
 
@@ -18,10 +18,10 @@ public sealed class RelayDedupBufferTests
     {
         var (buffer, _) = Build();
         var key = (10UL, Guid.Empty);
-        buffer.Record(key, "[Alice] hi");
+        buffer.Record(ChatChannelKind.Team, key, "[Alice] hi");
 
-        Assert.True(buffer.TryConsume(key, "[Alice] hi"));
-        Assert.False(buffer.TryConsume(key, "[Alice] hi")); // already consumed
+        Assert.True(buffer.TryConsume(ChatChannelKind.Team, key, "[Alice] hi"));
+        Assert.False(buffer.TryConsume(ChatChannelKind.Team, key, "[Alice] hi")); // already consumed
     }
 
     [Fact]
@@ -29,9 +29,9 @@ public sealed class RelayDedupBufferTests
     {
         var (buffer, _) = Build();
         var key = (10UL, Guid.Empty);
-        buffer.Record(key, "[Alice] hi");
+        buffer.Record(ChatChannelKind.Team, key, "[Alice] hi");
 
-        Assert.False(buffer.TryConsume(key, "[Bob] hi"));
+        Assert.False(buffer.TryConsume(ChatChannelKind.Team, key, "[Bob] hi"));
     }
 
     [Fact]
@@ -39,11 +39,11 @@ public sealed class RelayDedupBufferTests
     {
         var (buffer, clock) = Build();
         var key = (10UL, Guid.Empty);
-        buffer.Record(key, "[Alice] hi");
+        buffer.Record(ChatChannelKind.Team, key, "[Alice] hi");
 
         clock.UtcNow.Returns(DateTimeOffset.UnixEpoch + TimeSpan.FromMinutes(1));
 
-        Assert.False(buffer.TryConsume(key, "[Alice] hi"));
+        Assert.False(buffer.TryConsume(ChatChannelKind.Team, key, "[Alice] hi"));
     }
 
     [Fact]
@@ -51,11 +51,34 @@ public sealed class RelayDedupBufferTests
     {
         var (buffer, _) = Build();
         var key = (10UL, Guid.Empty);
-        buffer.Record(key, "[Alice] hi");
-        buffer.Record(key, "[Alice] hi");
+        buffer.Record(ChatChannelKind.Team, key, "[Alice] hi");
+        buffer.Record(ChatChannelKind.Team, key, "[Alice] hi");
 
-        Assert.True(buffer.TryConsume(key, "[Alice] hi"));
-        Assert.True(buffer.TryConsume(key, "[Alice] hi"));
-        Assert.False(buffer.TryConsume(key, "[Alice] hi"));
+        Assert.True(buffer.TryConsume(ChatChannelKind.Team, key, "[Alice] hi"));
+        Assert.True(buffer.TryConsume(ChatChannelKind.Team, key, "[Alice] hi"));
+        Assert.False(buffer.TryConsume(ChatChannelKind.Team, key, "[Alice] hi"));
+    }
+
+    [Fact]
+    public void A_clan_echo_does_not_consume_an_identical_team_entry()
+    {
+        var (buffer, _) = Build();
+        var key = (1UL, Guid.NewGuid());
+
+        buffer.Record(ChatChannelKind.Team, key, "[dave] hello");
+
+        Assert.False(buffer.TryConsume(ChatChannelKind.Clan, key, "[dave] hello"));
+        Assert.True(buffer.TryConsume(ChatChannelKind.Team, key, "[dave] hello"));
+    }
+
+    [Fact]
+    public void Consumes_a_clan_entry_recorded_for_the_same_key()
+    {
+        var (buffer, _) = Build();
+        var key = (1UL, Guid.NewGuid());
+
+        buffer.Record(ChatChannelKind.Clan, key, "[dave] hello");
+
+        Assert.True(buffer.TryConsume(ChatChannelKind.Clan, key, "[dave] hello"));
     }
 }

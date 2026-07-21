@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Chat.Inbound;
 using RustPlusBot.Features.Chat.Relaying;
@@ -13,16 +14,17 @@ public sealed class TeamChatInboundProcessorTests
 {
     private static readonly Guid ServerId = Guid.NewGuid();
 
-    private static (TeamChatInboundProcessor Processor, ITeamChatSender Sender, RelayDedupBuffer Dedup, IMuteStore Mute)
-        Build(TeamChatSendResult sendResult = TeamChatSendResult.Sent)
+    private static (TeamChatInboundProcessor Processor, IChatSender Sender, RelayDedupBuffer Dedup, IMuteStore Mute)
+        Build(ChatSendResult sendResult = ChatSendResult.Sent)
     {
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
         var dedup = new RelayDedupBuffer(clock);
-        var sender = Substitute.For<ITeamChatSender>();
-        sender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        var sender = Substitute.For<IChatSender>();
+        sender.SendAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
             .Returns(sendResult);
-        var locator = Substitute.For<ITeamChatChannelLocator>();
+        var locator = Substitute.For<IChatChannelLocator>();
         locator.ResolveAsync(777UL, Arg.Any<CancellationToken>()).Returns(((ulong, Guid)?)(10UL, ServerId));
         locator.ResolveAsync(Arg.Is<ulong>(c => c != 777UL), Arg.Any<CancellationToken>())
             .Returns(((ulong, Guid)?)null);
@@ -34,7 +36,7 @@ public sealed class TeamChatInboundProcessorTests
         scopeProvider.GetService(typeof(IMuteStore)).Returns(muteStore);
         scope.ServiceProvider.Returns(scopeProvider);
         scopeFactory.CreateScope().Returns(scope);
-        var processor = new TeamChatInboundProcessor(locator, sender, dedup, scopeFactory);
+        var processor = new TeamChatInboundProcessor([locator], sender, dedup, scopeFactory);
         return (processor, sender, dedup, muteStore);
     }
 
@@ -47,8 +49,8 @@ public sealed class TeamChatInboundProcessorTests
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
 
         Assert.Equal(InboundOutcome.Ignored, outcome);
-        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        await sender.DidNotReceive().SendAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<Guid>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -60,8 +62,8 @@ public sealed class TeamChatInboundProcessorTests
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
 
         Assert.Equal(InboundOutcome.Ignored, outcome);
-        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        await sender.DidNotReceive().SendAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<Guid>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -73,8 +75,8 @@ public sealed class TeamChatInboundProcessorTests
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
 
         Assert.Equal(InboundOutcome.Ignored, outcome);
-        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        await sender.DidNotReceive().SendAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<Guid>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -86,14 +88,15 @@ public sealed class TeamChatInboundProcessorTests
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
 
         Assert.Equal(InboundOutcome.Sent, outcome);
-        await sender.Received(1).SendAsync(10UL, ServerId, "[Alice] hello", Arg.Any<CancellationToken>());
-        Assert.True(dedup.TryConsume((10UL, ServerId), "[Alice] hello"));
+        await sender.Received(1)
+            .SendAsync(ChatChannelKind.Team, 10UL, ServerId, "[Alice] hello", Arg.Any<CancellationToken>());
+        Assert.True(dedup.TryConsume(ChatChannelKind.Team, (10UL, ServerId), "[Alice] hello"));
     }
 
     [Fact]
     public async Task Reports_failed_when_not_connected()
     {
-        var (processor, _, _, _) = Build(TeamChatSendResult.NotConnected);
+        var (processor, _, _, _) = Build(ChatSendResult.NotConnected);
         var msg = new InboundMessage(AuthorIsBotOrWebhook: false, 777UL, "Alice", "hello");
 
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
@@ -111,7 +114,7 @@ public sealed class TeamChatInboundProcessorTests
         var outcome = await processor.ProcessAsync(msg, CancellationToken.None);
 
         Assert.Equal(InboundOutcome.Ignored, outcome);
-        await sender.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        await sender.DidNotReceive().SendAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<Guid>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }

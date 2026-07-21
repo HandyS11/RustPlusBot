@@ -1,6 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
-using RustPlusBot.Features.Chat.Relaying;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Persistence.Commands;
@@ -8,16 +8,18 @@ using RustPlusBot.Persistence.Commands;
 namespace RustPlusBot.Features.Chat.Inbound;
 
 /// <summary>Turns a Discord #teamchat message into an in-game relay (record-then-send), reporting the outcome.</summary>
-/// <param name="locator">Resolves whether/which server a channel maps to.</param>
+/// <param name="locators">The registered chat channel locators; the team one is selected from these.</param>
 /// <param name="sender">Relays the formatted line into the game.</param>
 /// <param name="dedup">Records the relayed line so its in-game echo can be dropped.</param>
 /// <param name="scopeFactory">Opens a scope to read the scoped <see cref="IMuteStore"/> mute gate.</param>
 internal sealed class TeamChatInboundProcessor(
-    ITeamChatChannelLocator locator,
-    ITeamChatSender sender,
+    IEnumerable<IChatChannelLocator> locators,
+    IChatSender sender,
     RelayDedupBuffer dedup,
     IServiceScopeFactory scopeFactory)
 {
+    private readonly IChatChannelLocator _locator = locators.Single(l => l.Kind == ChatChannelKind.Team);
+
     /// <summary>Processes one observed Discord message.</summary>
     /// <param name="message">The reduced message.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
@@ -29,7 +31,7 @@ internal sealed class TeamChatInboundProcessor(
             return InboundOutcome.Ignored;
         }
 
-        var target = await locator.ResolveAsync(message.ChannelId, cancellationToken).ConfigureAwait(false);
+        var target = await _locator.ResolveAsync(message.ChannelId, cancellationToken).ConfigureAwait(false);
         if (target is not { } t)
         {
             return InboundOutcome.Ignored;
@@ -51,9 +53,11 @@ internal sealed class TeamChatInboundProcessor(
         var text = string.Create(CultureInfo.InvariantCulture, $"[{message.DisplayName}] {message.Content}");
 
         // Record BEFORE sending: the in-game echo can arrive before SendAsync returns. Unused entries expire.
-        dedup.Record(key, text);
-        var result = await sender.SendAsync(t.GuildId, t.ServerId, text, cancellationToken).ConfigureAwait(false);
+        dedup.Record(ChatChannelKind.Team, key, text);
+        var result = await sender
+            .SendAsync(ChatChannelKind.Team, t.GuildId, t.ServerId, text, cancellationToken)
+            .ConfigureAwait(false);
 
-        return result == TeamChatSendResult.Sent ? InboundOutcome.Sent : InboundOutcome.Failed;
+        return result == ChatSendResult.Sent ? InboundOutcome.Sent : InboundOutcome.Failed;
     }
 }

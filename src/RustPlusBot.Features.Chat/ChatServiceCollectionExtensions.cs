@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Features.Chat.Hosting;
 using RustPlusBot.Features.Chat.Inbound;
 using RustPlusBot.Features.Chat.Relaying;

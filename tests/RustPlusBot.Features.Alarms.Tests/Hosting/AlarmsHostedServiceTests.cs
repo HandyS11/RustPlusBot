@@ -45,7 +45,7 @@ public sealed class AlarmsHostedServiceTests
         var relayPoster = Substitute.For<IAlarmChannelPoster>();
         var teamChatSender = Substitute.For<IBotTeamChatSender>();
         teamChatSender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(TeamChatSendResult.Sent);
+            .Returns(ChatSendResult.Sent);
 
         var alarmRenderer = new AlarmEmbedRenderer(new ResxLocalizer());
         var relay = new AlarmStateRelay(

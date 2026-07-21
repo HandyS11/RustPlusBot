@@ -4,7 +4,7 @@ namespace RustPlusBot.Features.Connections.Listening;
 /// Relays a bot-originated line (command reply, event/player/alarm notification) into a server's
 /// in-game team chat, prefixed with <see cref="BotTeamChat.Prefix"/> so its echo is never re-posted
 /// to the Discord #teamchat channel. Player speech bridged from Discord uses
-/// <see cref="ITeamChatSender"/> instead.
+/// <see cref="IChatSender"/> instead.
 /// </summary>
 public interface IBotTeamChatSender
 {
@@ -14,7 +14,7 @@ public interface IBotTeamChatSender
     /// <param name="message">The unprefixed message text.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The send result.</returns>
-    Task<TeamChatSendResult> SendAsync(ulong guildId,
+    Task<ChatSendResult> SendAsync(ulong guildId,
         Guid serverId,
         string message,
         CancellationToken cancellationToken);

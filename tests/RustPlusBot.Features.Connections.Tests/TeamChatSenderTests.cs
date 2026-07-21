@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
@@ -149,9 +150,9 @@ public sealed class TeamChatSenderTests
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
         await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
 
-        var result = await supervisor.SendAsync(10UL, serverId, "[Alice] hi", cts.Token);
+        var result = await supervisor.SendAsync(ChatChannelKind.Team, 10UL, serverId, "[Alice] hi", cts.Token);
 
-        Assert.Equal(TeamChatSendResult.Sent, result);
+        Assert.Equal(ChatSendResult.Sent, result);
         Assert.Contains("[Alice] hi", source.LastConnection!.SentMessages);
         await supervisor.StopAllAsync();
     }
@@ -163,9 +164,10 @@ public sealed class TeamChatSenderTests
         var (provider, supervisor, _) = CreateHarness(source);
         await using var _p = provider;
 
-        var result = await supervisor.SendAsync(10UL, Guid.NewGuid(), "hi", CancellationToken.None);
+        var result = await supervisor.SendAsync(ChatChannelKind.Team, 10UL, Guid.NewGuid(), "hi",
+            CancellationToken.None);
 
-        Assert.Equal(TeamChatSendResult.NotConnected, result);
+        Assert.Equal(ChatSendResult.NotConnected, result);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Chat.Hosting;
@@ -18,7 +19,7 @@ namespace RustPlusBot.Features.Chat.Tests.Hosting;
 public sealed class ChatHostedServiceTests
 {
     private static (ChatHostedService Service, InMemoryEventBus Bus, ITeamChatWebhookPoster Poster,
-        ITeamChatChannelLocator Locator)
+        IChatChannelLocator Locator)
         Build()
     {
         var clock = Substitute.For<IClock>();
@@ -26,7 +27,7 @@ public sealed class ChatHostedServiceTests
         var dedup = new RelayDedupBuffer(clock);
 
         var poster = Substitute.For<ITeamChatWebhookPoster>();
-        var locator = Substitute.For<ITeamChatChannelLocator>();
+        var locator = Substitute.For<IChatChannelLocator>();
         locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ulong?)555UL);
         // The relay reads the scoped IMuteStore command prefix per message; stub a scope that provides it.
@@ -38,10 +39,10 @@ public sealed class ChatHostedServiceTests
         relayScopeProvider.GetService(typeof(IMuteStore)).Returns(muteStore);
         relayScope.ServiceProvider.Returns(relayScopeProvider);
         relayScopeFactory.CreateScope().Returns(relayScope);
-        var relay = new TeamChatRelay(locator, poster, dedup, relayScopeFactory);
+        var relay = new TeamChatRelay([locator], poster, dedup, relayScopeFactory);
 
-        var inboundLocator = Substitute.For<ITeamChatChannelLocator>();
-        var sender = Substitute.For<ITeamChatSender>();
+        var inboundLocator = Substitute.For<IChatChannelLocator>();
+        var sender = Substitute.For<IChatSender>();
         // Processor not exercised by bus-side tests; stub scope factory is sufficient.
         var processor = ChatHostedServiceTestAccess.BuildProcessor(inboundLocator, sender, dedup);
 
@@ -121,12 +122,12 @@ public sealed class ChatHostedServiceTests
 internal static class ChatHostedServiceTestAccess
 {
     internal static TeamChatInboundProcessor BuildProcessor(
-        ITeamChatChannelLocator locator,
-        ITeamChatSender sender,
+        IChatChannelLocator locator,
+        IChatSender sender,
         RelayDedupBuffer dedup)
     {
         // A NullScopeFactory is sufficient — processor is not exercised by the bus relay path under test.
         var scopeFactory = Substitute.For<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
-        return new TeamChatInboundProcessor(locator, sender, dedup, scopeFactory);
+        return new TeamChatInboundProcessor([locator], sender, dedup, scopeFactory);
     }
 }

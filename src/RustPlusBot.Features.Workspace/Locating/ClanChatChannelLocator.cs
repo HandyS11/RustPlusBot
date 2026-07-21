@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Time;
 
 namespace RustPlusBot.Features.Workspace.Locating;
@@ -10,12 +11,12 @@ namespace RustPlusBot.Features.Workspace.Locating;
 /// <param name="scopeFactory">Opens scopes for the scoped workspace store.</param>
 /// <param name="clock">Drives the cache TTL.</param>
 internal sealed class ClanChatChannelLocator(IServiceScopeFactory scopeFactory, IClock clock)
-    : CachingChannelLocator(scopeFactory, clock, WorkspaceChannelKeys.ServerClanChat)
+    : CachingChannelLocator(scopeFactory, clock, WorkspaceChannelKeys.ServerClanChat), IChatChannelLocator
 {
-    /// <summary>Resolves the (guild, server) pair a #clanchat channel belongs to, or null.</summary>
-    /// <param name="channelId">The Discord channel snowflake.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The owning guild and server, or null when the channel is not a provisioned #clanchat.</returns>
+    /// <inheritdoc />
+    public ChatChannelKind Kind => ChatChannelKind.Clan;
+
+    /// <inheritdoc />
     public async Task<(ulong GuildId, Guid ServerId)?> ResolveAsync(ulong channelId,
         CancellationToken cancellationToken)
     {

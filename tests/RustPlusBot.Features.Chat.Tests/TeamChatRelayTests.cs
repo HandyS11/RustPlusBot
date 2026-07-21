@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Chat.Relaying;
@@ -11,7 +12,7 @@ namespace RustPlusBot.Features.Chat.Tests;
 
 public sealed class TeamChatRelayTests
 {
-    private static (TeamChatRelay Relay, ITeamChatWebhookPoster Poster, RelayDedupBuffer Dedup, ITeamChatChannelLocator
+    private static (TeamChatRelay Relay, ITeamChatWebhookPoster Poster, RelayDedupBuffer Dedup, IChatChannelLocator
         Locator)
         Build(string prefix = "!")
     {
@@ -19,7 +20,7 @@ public sealed class TeamChatRelayTests
         clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
         var dedup = new RelayDedupBuffer(clock);
         var poster = Substitute.For<ITeamChatWebhookPoster>();
-        var locator = Substitute.For<ITeamChatChannelLocator>();
+        var locator = Substitute.For<IChatChannelLocator>();
         locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ulong?)777UL);
         var muteStore = Substitute.For<IMuteStore>();
@@ -30,7 +31,7 @@ public sealed class TeamChatRelayTests
         scopeProvider.GetService(typeof(IMuteStore)).Returns(muteStore);
         scope.ServiceProvider.Returns(scopeProvider);
         scopeFactory.CreateScope().Returns(scope);
-        var relay = new TeamChatRelay(locator, poster, dedup, scopeFactory);
+        var relay = new TeamChatRelay([locator], poster, dedup, scopeFactory);
         return (relay, poster, dedup, locator);
     }
 
@@ -50,7 +51,7 @@ public sealed class TeamChatRelayTests
     {
         var (relay, poster, dedup, _) = Build();
         var key = (10UL, Guid.Empty);
-        dedup.Record(key, "[Alice] hello");
+        dedup.Record(ChatChannelKind.Team, key, "[Alice] hello");
         var echo = new TeamMessageReceivedEvent(10UL, Guid.Empty, 555UL, "BotPlayer", "[Alice] hello",
             FromActivePlayer: true);
 

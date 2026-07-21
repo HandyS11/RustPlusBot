@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
@@ -427,6 +428,39 @@ public sealed class ClanSupervisorTests
         {
             /* expected */
         }
+    }
+
+    [Fact]
+    public async Task Routes_a_team_send_to_team_chat_and_a_clan_send_to_clan_chat()
+    {
+        // One IChatSender, two destinations: assert the kind selects the right socket call and
+        // that neither leaks into the other's buffer.
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        var teamResult =
+            await h.Supervisor.SendAsync(ChatChannelKind.Team, 10UL, serverId, "[Alice] team line", cts.Token);
+        var clanResult =
+            await h.Supervisor.SendAsync(ChatChannelKind.Clan, 10UL, serverId, "[Bob] clan line", cts.Token);
+
+        Assert.Equal(ChatSendResult.Sent, teamResult);
+        Assert.Equal(ChatSendResult.Sent, clanResult);
+
+        Assert.NotNull(source.LastConnection);
+        var connection = source.LastConnection!;
+
+        // Assert both destinations independently, so swapping the routing fails on both sides.
+        Assert.Equal("[Alice] team line", Assert.Single(connection.SentMessages));
+        Assert.Equal("[Bob] clan line", Assert.Single(connection.SentClanMessages));
+
+        await h.Supervisor.StopAllAsync();
     }
 
     private sealed class Harness : IAsyncDisposable

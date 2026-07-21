@@ -42,7 +42,7 @@ public sealed class WorkspaceRegistrationTests
         var services = new ServiceCollection();
         services.AddWorkspace();
 
-        Assert.Contains(services, d => d.ServiceType == typeof(ITeamChatChannelLocator));
+        Assert.Equal(2, services.Count(d => d.ServiceType == typeof(IChatChannelLocator)));
         Assert.Contains(services, d => d.ServiceType == typeof(IEventChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(IMapChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(ISwitchChannelLocator));
