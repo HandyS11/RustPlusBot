@@ -142,6 +142,32 @@ public sealed class ClanSnapshotDifferTests
     }
 
     [Fact]
+    public void Orders_joined_members_ascending_by_steam_id_regardless_of_input_order()
+    {
+        var previous = Clan(members: []);
+        var current = Clan(members: [Member(50), Member(10), Member(30)]);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        Assert.All(result, c => Assert.Equal(ClanChangeKind.MemberJoined, c.Kind));
+        ulong?[] expected = [10, 30, 50];
+        Assert.Equal(expected, [.. result.Select(c => c.SteamId)]);
+    }
+
+    [Fact]
+    public void Orders_left_members_ascending_by_steam_id_regardless_of_input_order()
+    {
+        var previous = Clan(members: [Member(50), Member(10), Member(30)]);
+        var current = Clan(members: []);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        Assert.All(result, c => Assert.Equal(ClanChangeKind.MemberLeft, c.Kind));
+        ulong?[] expected = [10, 30, 50];
+        Assert.Equal(expected, [.. result.Select(c => c.SteamId)]);
+    }
+
+    [Fact]
     public void Detects_a_promotion_using_rank_order()
     {
         IReadOnlyList<ClanRoleSnapshot> roles = [Role(1, 2, "Member"), Role(2, 0, "Leader")];
@@ -182,6 +208,19 @@ public sealed class ClanSnapshotDifferTests
     }
 
     [Fact]
+    public void Emits_no_role_change_when_the_old_role_is_unknown()
+    {
+        // The member's previous role id (1) does not exist in current.Roles, while the new role
+        // id (2) does. The direction can't be judged without both endpoints, so nothing is emitted.
+        var previous = Clan(members: [Member(10, roleId: 1)]);
+        var current = Clan(roles: [Role(2, 0, "Leader")], members: [Member(10, roleId: 2)]);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
     public void Detects_an_invite_being_sent()
     {
         var previous = Clan(invites: []);
@@ -192,6 +231,19 @@ public sealed class ClanSnapshotDifferTests
         Assert.Equal(ClanChangeKind.InviteSent, change.Kind);
         Assert.Equal((ulong?)30, change.SteamId);
         Assert.Equal((ulong?)5, change.ActorSteamId);
+    }
+
+    [Fact]
+    public void Orders_sent_invites_ascending_by_steam_id_regardless_of_input_order()
+    {
+        var previous = Clan(invites: []);
+        var current = Clan(invites: [Invite(50), Invite(10), Invite(30)]);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        Assert.All(result, c => Assert.Equal(ClanChangeKind.InviteSent, c.Kind));
+        ulong?[] expected = [10, 30, 50];
+        Assert.Equal(expected, [.. result.Select(c => c.SteamId)]);
     }
 
     [Fact]
