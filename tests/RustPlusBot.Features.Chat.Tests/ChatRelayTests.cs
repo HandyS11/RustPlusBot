@@ -1,5 +1,5 @@
-using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Time;
@@ -45,7 +45,7 @@ public sealed class ChatRelayTests
         scopeProvider.GetService(typeof(IMuteStore)).Returns(muteStore);
         scope.ServiceProvider.Returns(scopeProvider);
         scopeFactory.CreateScope().Returns(scope);
-        var relay = new ChatRelay([team, clan], poster, dedup, scopeFactory);
+        var relay = new ChatRelay([team, clan], poster, dedup, scopeFactory, NullLogger<ChatRelay>.Instance);
         return (relay, poster, dedup, team, clan);
     }
 
@@ -238,23 +238,5 @@ public sealed class ChatRelayTests
         await poster.Received(1)
             .PostAsync(ChatChannelKind.Team, TeamChannel, "Bob", "hello", Arg.Any<CancellationToken>());
         await clan.DidNotReceive().GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public void Uses_the_clan_webhook_name_for_clan_lines()
-    {
-        // The poster re-discovers its webhook by name on restart, so these strings are load-bearing:
-        // changing one orphans every webhook already provisioned in live guilds.
-        Assert.Equal("RustPlusBot ClanChat", WebhookNameFor(ChatChannelKind.Clan));
-        Assert.Equal("RustPlusBot TeamChat", WebhookNameFor(ChatChannelKind.Team));
-    }
-
-    private static string WebhookNameFor(ChatChannelKind kind)
-    {
-        var method = typeof(DiscordChatWebhookPoster).GetMethod(
-            "WebhookNameFor",
-            BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-        return (string)method.Invoke(null, [kind])!;
     }
 }

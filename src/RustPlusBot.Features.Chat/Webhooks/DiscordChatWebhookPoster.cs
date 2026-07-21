@@ -67,7 +67,7 @@ internal sealed partial class DiscordChatWebhookPoster(
     /// </summary>
     /// <param name="kind">The channel kind.</param>
     /// <returns>The webhook name to find or create.</returns>
-    private static string WebhookNameFor(ChatChannelKind kind) => kind switch
+    internal static string WebhookNameFor(ChatChannelKind kind) => kind switch
     {
         ChatChannelKind.Clan => "RustPlusBot ClanChat",
         _ => "RustPlusBot TeamChat",

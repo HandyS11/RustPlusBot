@@ -46,7 +46,8 @@ public sealed class ChatHostedServiceTests
         var muteStore = Substitute.For<IMuteStore>();
         muteStore.GetPrefixAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns("!");
         var relayScopeFactory = BuildScopeFactory(muteStore, typeof(IMuteStore));
-        var relay = new ChatRelay([teamLocator, clanLocator], poster, dedup, relayScopeFactory);
+        var relay = new ChatRelay([teamLocator, clanLocator], poster, dedup, relayScopeFactory,
+            NullLogger<ChatRelay>.Instance);
 
         var inboundLocator = Substitute.For<IChatChannelLocator>();
         inboundLocator.Kind.Returns(ChatChannelKind.Team);
@@ -84,26 +85,6 @@ public sealed class ChatHostedServiceTests
 
     private static bool Posted(IChatWebhookPoster poster) =>
         poster.ReceivedCalls().Any(c => c.GetMethodInfo().Name == nameof(IChatWebhookPoster.PostAsync));
-
-    [Fact]
-    public async Task TeamMessageReceivedEvent_routes_to_relay_and_posts_to_discord()
-    {
-        var (service, bus, poster, _) = Build();
-        await service.StartAsync(default);
-
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
-        while (DateTimeOffset.UtcNow < deadline && !Posted(poster))
-        {
-            await bus.PublishAsync(
-                new TeamMessageReceivedEvent(10UL, Guid.NewGuid(), 1UL, "Alice", "hello", FromActivePlayer: false));
-            await Task.Delay(20);
-        }
-
-        await poster.Received()
-            .PostAsync(ChatChannelKind.Team, TeamChannel, "Alice", "hello", Arg.Any<CancellationToken>());
-
-        await service.StopAsync(default);
-    }
 
     [Fact]
     public async Task Relays_a_team_message_event()

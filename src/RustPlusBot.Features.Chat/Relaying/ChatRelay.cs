@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Features.Chat.Webhooks;
 using RustPlusBot.Features.Connections.Listening;
@@ -15,11 +16,13 @@ namespace RustPlusBot.Features.Chat.Relaying;
 /// <param name="poster">Posts the line via webhook.</param>
 /// <param name="dedup">Tracks lines the bridge relayed into the game so their echoes can be dropped.</param>
 /// <param name="scopeFactory">Opens a scope to read the scoped <see cref="IMuteStore"/> command prefix.</param>
-internal sealed class ChatRelay(
+/// <param name="logger">The logger.</param>
+internal sealed partial class ChatRelay(
     IEnumerable<IChatChannelLocator> locators,
     IChatWebhookPoster poster,
     RelayDedupBuffer dedup,
-    IServiceScopeFactory scopeFactory)
+    IServiceScopeFactory scopeFactory,
+    ILogger<ChatRelay> logger)
 {
     private readonly Dictionary<ChatChannelKind, IChatChannelLocator> _locators = locators.ToDictionary(l => l.Kind);
 
@@ -44,6 +47,7 @@ internal sealed class ChatRelay(
 
         if (!_locators.TryGetValue(line.Kind, out var locator))
         {
+            LogNoLocatorForKind(logger, line.Kind);
             return;
         }
 
@@ -79,4 +83,7 @@ internal sealed class ChatRelay(
             return await muteStore.GetPrefixAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No chat channel locator is registered for kind {Kind}.")]
+    private static partial void LogNoLocatorForKind(ILogger logger, ChatChannelKind kind);
 }

@@ -103,13 +103,24 @@ internal sealed partial class ChatHostedService(
             await foreach (var evt in eventBus.SubscribeAsync<ClanMessageReceivedEvent>(cancellationToken)
                                .ConfigureAwait(false))
             {
-                // Clan members arrive as Steam ids only; chat is where we learn their names.
-                var scope = scopeFactory.CreateAsyncScope();
-                await using (scope.ConfigureAwait(false))
+                // Clan members arrive as Steam ids only; chat is where we learn their names. A failure here
+                // is isolated so it cannot take down the relay loop below: a missed name is cosmetic, a
+                // dead relay loop silences clan chat until the process restarts.
+                try
                 {
-                    var store = scope.ServiceProvider.GetRequiredService<IClanStore>();
-                    await store.RecordNameAsync(evt.GuildId, evt.ServerId, evt.SenderSteamId, evt.SenderName,
-                        cancellationToken).ConfigureAwait(false);
+                    var scope = scopeFactory.CreateAsyncScope();
+                    await using (scope.ConfigureAwait(false))
+                    {
+                        var store = scope.ServiceProvider.GetRequiredService<IClanStore>();
+                        await store.RecordNameAsync(evt.GuildId, evt.ServerId, evt.SenderSteamId, evt.SenderName,
+                            cancellationToken).ConfigureAwait(false);
+                    }
+                }
+#pragma warning disable CA1031 // Broad catch: a name-recording failure must not kill the clan relay loop.
+                catch (Exception ex)
+#pragma warning restore CA1031
+                {
+                    LogClanNameRecordFailed(logger, ex);
                 }
 
                 await relay.RelayAsync(
@@ -163,6 +174,9 @@ internal sealed partial class ChatHostedService(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Clan message relay loop faulted.")]
     private static partial void LogClanRelayLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Recording the clan sender's display name failed.")]
+    private static partial void LogClanNameRecordFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Chat inbound listener faulted.")]
     private static partial void LogListenerFaulted(ILogger logger, Exception exception);
