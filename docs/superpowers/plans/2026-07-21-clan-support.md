@@ -2619,7 +2619,7 @@ internal static class ClanSnapshotDiffer
 - [ ] **Step 5: Run the tests**
 
 Run: `dtk dotnet test tests/RustPlusBot.Features.Clans.Tests -maxcpucount:1`
-Expected: PASS, 36 tests total (17 from Task 7 + 19 here).
+Expected: PASS, 19 tests. This is a brand-new test project, so confirm the assembly reports 19 and not 0 — a build failure in a new project reports zero tests and looks green.
 
 - [ ] **Step 6: Commit**
 
@@ -2837,7 +2837,7 @@ internal static class ClanComponentIds
 - [ ] **Step 8: Run the tests**
 
 Run: `dtk dotnet test tests/RustPlusBot.Features.Clans.Tests -maxcpucount:1`
-Expected: PASS, 56 total (36 + 4 resolver + 16 renderer).
+Expected: PASS, 39 total in `Features.Clans.Tests` (19 + 4 resolver + 16 renderer).
 
 - [ ] **Step 9: Commit**
 
@@ -3014,7 +3014,7 @@ Register the assembly for module discovery in Task 11's DI, via `services.AddSin
 - [ ] **Step 5: Run the tests**
 
 Run: `dotnet test tests/RustPlusBot.Features.Clans.Tests -maxcpucount:1`
-Expected: PASS, 63 total.
+Expected: PASS, 46 total in `Features.Clans.Tests`.
 
 Run: `dotnet build RustPlusBot.slnx -maxcpucount:1`
 Expected: `0 Error(s)`.
@@ -3247,7 +3247,7 @@ public static IServiceCollection AddClans(this IServiceCollection services)
 - [ ] **Step 9: Run the tests**
 
 Run: `dtk dotnet test tests/RustPlusBot.Features.Clans.Tests -maxcpucount:1`
-Expected: PASS, 74 total (63 + 8 state + 3 registration).
+Expected: PASS, 57 total in `Features.Clans.Tests` (46 + 8 state + 3 registration).
 
 Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1`
 Expected: `0 Error(s)`.
@@ -3363,7 +3363,7 @@ Expected: the host reaches Discord login. A `ValidateOnStart` or DI resolution f
 
 Run: `dotnet test RustPlusBot.slnx -maxcpucount:1`
 
-Expected: every assembly passes. **Read the per-assembly counts.** `RustPlusBot.Features.Clans.Tests` must report **74**, not 0. An assembly reporting 0 means it failed to build and its tests silently did not run.
+Expected: every assembly passes. **Read the per-assembly counts.** `RustPlusBot.Features.Clans.Tests` must report **57**, not 0. An assembly reporting 0 means it failed to build and its tests silently did not run.
 
 Record the actual per-assembly numbers in the commit message or PR body — not "all tests pass".
 
