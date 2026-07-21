@@ -3283,11 +3283,22 @@ EOF
 - [ ] **Step 1: Collect the exact key list**
 
 ```bash
-grep -rhoE '"(channel\.clan[a-z.]*|clan\.[a-z.]+|server\.clan[a-z.]*)"' src/RustPlusBot.Features.Clans \
+grep -rhoE '"(channel\.clan[a-z.]*|clan\.[a-z.]+|server\.clan[a-z.]*)"' \
+  src/RustPlusBot.Features.Clans src/RustPlusBot.Features.Workspace \
   | tr -d '"' | sort -u
 ```
 
-Every key that command prints MUST exist in both resx files. Work from that list, not from memory.
+Every key that command prints MUST exist in both resx files.
+
+**That grep is necessary but NOT sufficient.** Some keys are built by string interpolation and
+never appear as a quoted literal — notably the nine `clan.roster.perm.*` keys, which the roster
+renderer composes from each `ClanRoleSnapshot` permission flag name. Grep for `perm.` and for
+`$"` inside `src/RustPlusBot.Features.Clans` and enumerate those by hand. A missed interpolated
+key does not fail any test; it silently renders as the raw key text inside a Discord embed field
+name, which is exactly the failure this step exists to prevent.
+
+Cross-check your final list against `Task 9`'s report at `.superpowers/sdd/task-9-report.md`,
+which enumerates the interpolated key list explicitly.
 
 - [ ] **Step 2: Add every key to `Strings.resx`**
 
