@@ -1,6 +1,7 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
@@ -49,5 +50,34 @@ public sealed class WorkspaceRegistrationTests
         Assert.Contains(services, d => d.ServiceType == typeof(IAlarmChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(IStorageMonitorChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(ISetupChannelLocator));
+    }
+
+    [Fact]
+    public void AddWorkspace_registers_one_chat_channel_locator_per_kind_with_matching_concrete_type()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(new DiscordSocketClient());
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IEventBus, InMemoryEventBus>();
+        services.AddSingleton(Substitute.For<IRustServerQuery>());
+        services.AddLogging();
+        services.AddBotPersistence("DataSource=:memory:");
+        services.AddWorkspace();
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true
+        });
+        using var scope = provider.CreateScope();
+
+        var locators = scope.ServiceProvider.GetServices<IChatChannelLocator>().ToList();
+
+        Assert.Equal(2, locators.Count);
+
+        var teamLocator = Assert.Single(locators, l => l.Kind == ChatChannelKind.Team);
+        Assert.IsType<TeamChatChannelLocator>(teamLocator);
+
+        var clanLocator = Assert.Single(locators, l => l.Kind == ChatChannelKind.Clan);
+        Assert.IsType<ClanChatChannelLocator>(clanLocator);
     }
 }
