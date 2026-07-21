@@ -151,15 +151,79 @@ public sealed class ClanRendererTests
         Assert.Null(payload.Components);
     }
 
+    [Fact]
+    public async Task Overview_hides_the_set_motd_button_when_there_is_no_active_credential()
+    {
+        // The granted-role member's SteamId (1UL) matches the clan's default Creator (see Clan()),
+        // so a mutation that falls back to the creator when there is no credential would
+        // incorrectly resolve a member and show the button instead of hiding it.
+        var clan = Clan(
+            roles: [Role(1, 0, "Leader", canSetMotd: true)],
+            members: [Member(1UL, 1)]);
+        var connections = Substitute.For<IConnectionStore>();
+        connections.GetActiveCredentialAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<PlayerCredential?>(null));
+        var renderer = new ClanOverviewMessageRenderer(Store(clan), Resolver(), connections, Localizer());
+
+        var payload = await renderer.RenderAsync(Context, CancellationToken.None);
+
+        Assert.Null(payload.Components);
+    }
+
+    [Fact]
+    public async Task Overview_hides_the_set_motd_button_when_the_role_is_unknown()
+    {
+        // The active player is a clan member, but their RoleId (99) matches none of the clan's roles.
+        var clan = Clan(
+            roles: [Role(1, 0, "Leader", canSetMotd: true)],
+            members: [Member(7UL, 99)]);
+        var renderer = new ClanOverviewMessageRenderer(Store(clan), Resolver(), Connections(7UL), Localizer());
+
+        var payload = await renderer.RenderAsync(Context, CancellationToken.None);
+
+        Assert.Null(payload.Components);
+    }
+
     // ----- Roster ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Roster_returns_an_empty_payload_without_a_server_id()
+    {
+        var store = Substitute.For<IClanStore>();
+        var renderer = new ClanRosterMessageRenderer(store, Resolver(), Localizer());
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(Guild, null, "en"), CancellationToken.None);
+
+        Assert.Null(payload.Text);
+        Assert.Null(payload.Embed);
+        Assert.Null(payload.Components);
+    }
+
+    [Fact]
+    public async Task Roster_returns_an_empty_payload_when_no_clan_is_stored()
+    {
+        var store = Substitute.For<IClanStore>();
+        store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Task.FromResult<ClanSnapshot?>(null));
+        var renderer = new ClanRosterMessageRenderer(store, Resolver(), Localizer());
+
+        var payload = await renderer.RenderAsync(Context, CancellationToken.None);
+
+        Assert.Null(payload.Text);
+        Assert.Null(payload.Embed);
+        Assert.Null(payload.Components);
+    }
 
     [Fact]
     public async Task Roster_groups_members_by_role_in_rank_order()
     {
+        // RoleId intentionally does not correlate with Rank (Leader=rank0/id9, Officer=rank1/id2,
+        // Member=rank2/id5), so a mutation that orders by RoleId alone (dropping the Rank key)
+        // would visibly reorder the fields below.
         var clan = Clan(
-            roles: [Role(3, 2, "Member"), Role(1, 0, "Leader"), Role(2, 1, "Officer")],
-            members: [Member(3UL, 3), Member(1UL, 1), Member(2UL, 2)]);
-        var renderer = new ClanRosterMessageRenderer(Store(clan), Resolver(), Localizer());
+            roles: [Role(9, 0, "Leader"), Role(2, 1, "Officer"), Role(5, 2, "Member")],
+            members: [Member(1UL, 9), Member(2UL, 2), Member(3UL, 5)]);
+        var resolver = Resolver();
+        var renderer = new ClanRosterMessageRenderer(Store(clan), resolver, Localizer());
 
         var payload = await renderer.RenderAsync(Context, CancellationToken.None);
 
@@ -168,6 +232,37 @@ public sealed class ClanRendererTests
         Assert.Contains("Leader", payload.Embed.Fields[0].Name, StringComparison.Ordinal);
         Assert.Contains("Officer", payload.Embed.Fields[1].Name, StringComparison.Ordinal);
         Assert.Contains("Member", payload.Embed.Fields[2].Name, StringComparison.Ordinal);
+
+        // One batched name-resolution call for the whole roster, not one per member.
+        await resolver.Received(1).ResolveAsync(
+            Guild, Server, Arg.Any<IReadOnlyCollection<ulong>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Roster_truncates_a_role_body_that_would_exceed_the_field_value_limit()
+    {
+        var members = Enumerable.Range(1, 60)
+            .Select(i => Member((ulong)i, 1, joined: DateTimeOffset.UnixEpoch))
+            .ToList();
+        var clan = Clan(roles: [Role(1, 0, "Leader")], members: members);
+        var renderer = new ClanRosterMessageRenderer(Store(clan), Resolver(), Localizer());
+
+        var payload = await renderer.RenderAsync(Context, CancellationToken.None);
+
+        Assert.NotNull(payload.Embed);
+        var value = payload.Embed.Fields[0].Value;
+        Assert.True(value.Length <= 1024, $"Field value length {value.Length} exceeds Discord's 1024 cap.");
+
+        var lines = value.Split('\n');
+        var noticeLine = lines[^1];
+        Assert.Contains("clan.roster.truncated", noticeLine, StringComparison.Ordinal);
+
+        // Compute the expected omitted count from what actually rendered rather than hard-coding
+        // it, so this stays valid if line formatting changes.
+        var renderedMemberLines = lines.Length - 1;
+        var expectedOmitted = members.Count - renderedMemberLines;
+        var omittedToken = noticeLine.Split(' ')[^1];
+        Assert.Equal(expectedOmitted.ToString(CultureInfo.InvariantCulture), omittedToken);
     }
 
     [Fact]
@@ -256,6 +351,33 @@ public sealed class ClanRendererTests
     }
 
     // ----- Invites --------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Invites_returns_an_empty_payload_without_a_server_id()
+    {
+        var store = Substitute.For<IClanStore>();
+        var renderer = new ClanInvitesMessageRenderer(store, Resolver(), Localizer());
+
+        var payload = await renderer.RenderAsync(new MessageRenderContext(Guild, null, "en"), CancellationToken.None);
+
+        Assert.Null(payload.Text);
+        Assert.Null(payload.Embed);
+        Assert.Null(payload.Components);
+    }
+
+    [Fact]
+    public async Task Invites_returns_an_empty_payload_when_no_clan_is_stored()
+    {
+        var store = Substitute.For<IClanStore>();
+        store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Task.FromResult<ClanSnapshot?>(null));
+        var renderer = new ClanInvitesMessageRenderer(store, Resolver(), Localizer());
+
+        var payload = await renderer.RenderAsync(Context, CancellationToken.None);
+
+        Assert.Null(payload.Text);
+        Assert.Null(payload.Embed);
+        Assert.Null(payload.Components);
+    }
 
     [Fact]
     public async Task Invites_returns_an_empty_payload_when_there_are_none()
