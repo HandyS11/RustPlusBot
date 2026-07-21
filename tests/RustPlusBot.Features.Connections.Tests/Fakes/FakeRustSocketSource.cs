@@ -28,6 +28,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
     private IReadOnlyList<MonumentSnapshot> _pendingMonuments = [];
+    private ClanProbeResult? _pendingClanProbe;
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
@@ -83,6 +84,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         _pendingDeviceStates.Clear();
 
+        // Transfer any pre-staged clan probe so it is in place before the supervisor's connect-time probe
+        // reads it. Reset after transfer so the staging applies to the NEXT connection only.
+        if (_pendingClanProbe is { } clanProbe)
+        {
+            connection.ClanProbe = clanProbe;
+            _pendingClanProbe = null;
+        }
+
         LastConnection = connection;
         return connection;
     }
@@ -109,6 +118,16 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// </summary>
     /// <param name="monuments">The monument list to return from <see cref="IRustServerConnection.GetMonumentsAsync"/>.</param>
     public void SetMonuments(IReadOnlyList<MonumentSnapshot> monuments) => _pendingMonuments = monuments;
+
+    /// <summary>
+    /// Pre-stages the probe result returned by <see cref="FakeConnection.GetClanInfoAsync"/> for the NEXT
+    /// connection created by <see cref="Create"/>. Transferred to the new connection at creation time, before
+    /// the supervisor's connect-time clan probe runs, eliminating the setup race between the test assigning
+    /// <see cref="FakeConnection.ClanProbe"/> and the supervisor reading it. Call this before
+    /// <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    /// <param name="probe">The probe result to return from <see cref="IRustServerConnection.GetClanInfoAsync"/>.</param>
+    public void SetClanProbe(ClanProbeResult probe) => _pendingClanProbe = probe;
 
     /// <summary>
     /// Pre-stages storage contents for a given entity, to be transferred to the NEXT connection created by

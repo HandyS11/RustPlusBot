@@ -547,12 +547,34 @@ internal sealed partial class ConnectionSupervisor(
         }
 #pragma warning restore RCS1163
 
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<ClanChatLine> delegate shape.
+        void OnClanMessage(object? sender, ClanChatLine line)
+        {
+            _ = PublishClanMessageAsync(key, activeSteamId, line);
+        }
+#pragma warning restore RCS1163
+
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<ClanProbeResult> delegate shape.
+        void OnClanChanged(object? sender, ClanProbeResult probe)
+        {
+            _ = PublishClanStateAsync(key, probe);
+        }
+#pragma warning restore RCS1163
+
         var tracker = new TeamStateTracker();
         connection.TeamMessageReceived += OnTeamMessage;
         connection.SmartDeviceTriggered += OnSmartDevice;
         connection.StorageMonitorTriggered += OnStorage;
+        connection.ClanMessageReceived += OnClanMessage;
+        connection.ClanChanged += OnClanChanged;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
         await PrimeDevicesAsync(key, connection, ct).ConfigureAwait(false);
+
+        // Probe once on connect so clan state is correct after a bot restart, not only after the
+        // next in-game change. An Unavailable result publishes too: the consumer preserves state.
+        var clanProbe = await connection.GetClanInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        await PublishClanStateAsync(key, clanProbe).ConfigureAwait(false);
+
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
             CancellationToken.None);
@@ -580,6 +602,8 @@ internal sealed partial class ConnectionSupervisor(
             connection.TeamMessageReceived -= OnTeamMessage;
             connection.SmartDeviceTriggered -= OnSmartDevice;
             connection.StorageMonitorTriggered -= OnStorage;
+            connection.ClanMessageReceived -= OnClanMessage;
+            connection.ClanChanged -= OnClanChanged;
         }
     }
 
@@ -1033,6 +1057,57 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
+    private async Task PublishClanMessageAsync((ulong Guild, Guid Server) key, ulong activeSteamId, ClanChatLine line)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            var evt = new ClanMessageReceivedEvent(
+                key.Guild, key.Server, line.SteamId, line.Name, line.Message, line.SteamId == activeSteamId);
+            // Supervisor-wide shutdown token, not a per-connection ct: an inbound line should publish
+            // regardless of one connection's reconnect cycle.
+            await eventBus.PublishAsync(evt, _shutdown.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a publish failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogPublishClanMessageFailed(logger, ex, key.Server);
+        }
+    }
+
+    private async Task PublishClanStateAsync((ulong Guild, Guid Server) key, ClanProbeResult probe)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            var evt = new ClanStateChangedEvent(key.Guild, key.Server, probe.Status, probe.Snapshot);
+            await eventBus.PublishAsync(evt, _shutdown.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a publish failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogPublishClanStateFailed(logger, ex, key.Server);
+        }
+    }
+
     private async Task PrimeDevicesAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
@@ -1340,6 +1415,12 @@ internal sealed partial class ConnectionSupervisor(
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Publishing a received team message for server {ServerId} failed.")]
     private static partial void LogPublishTeamMessageFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Publishing a clan message for server {ServerId} failed.")]
+    private static partial void LogPublishClanMessageFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Publishing clan state for server {ServerId} failed.")]
+    private static partial void LogPublishClanStateFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Listing smart devices to prime on server {ServerId} failed; priming skipped for this connection.")]
