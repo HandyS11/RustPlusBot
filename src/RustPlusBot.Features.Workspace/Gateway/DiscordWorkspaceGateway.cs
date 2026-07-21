@@ -163,6 +163,27 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
     }
 
     /// <inheritdoc />
+    public async Task PinMessageAsync(ulong guildId,
+        ulong channelId,
+        ulong messageId,
+        CancellationToken cancellationToken)
+    {
+        var channel = client.GetGuild(guildId)?.GetTextChannel(channelId);
+        if (channel is null)
+        {
+            return;
+        }
+
+        if (await channel.GetMessageAsync(messageId).ConfigureAwait(false) is IUserMessage message)
+        {
+            await message.PinAsync(new RequestOptions
+            {
+                CancelToken = cancellationToken
+            }).ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task DeleteChannelAsync(ulong guildId, ulong channelId, CancellationToken cancellationToken)
     {
         var channel = client.GetGuild(guildId)?.GetChannel(channelId);

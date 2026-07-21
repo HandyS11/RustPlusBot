@@ -171,9 +171,19 @@ internal sealed class WorkspaceReconciler(
             .ToDictionary(c => c.ChannelKey, StringComparer.Ordinal);
         var result = new Dictionary<string, ulong>(StringComparer.Ordinal);
         var specs = backends.Registry.GetChannelSpecs(scope);
+        var gatedOff = new List<string>();
 
         foreach (var spec in specs)
         {
+            if (spec.Capability is { } capability &&
+                !await backends.Registry
+                    .IsCapabilityAvailableAsync(capability, guildId, serverId, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                gatedOff.Add(spec.Key);
+                continue;
+            }
+
             var name = localizer.Get(spec.NameKey, culture);
             ulong channelId;
 
@@ -214,6 +224,28 @@ internal sealed class WorkspaceReconciler(
             result[spec.Key] = channelId;
         }
 
+        // A capability that has gone away is an explicit removal, distinct from a spec merely
+        // disappearing from the registry (which is retained, below).
+        foreach (var key in gatedOff)
+        {
+            if (!existing.TryGetValue(key, out var stale))
+            {
+                continue;
+            }
+
+            await backends.Gateway.DeleteChannelAsync(guildId, stale.DiscordChannelId, cancellationToken)
+                .ConfigureAwait(false);
+            await backends.Store.DeleteChannelAsync(guildId, serverId, key, cancellationToken).ConfigureAwait(false);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "Removed channel '{Key}' for guild {GuildId}: its capability is no longer available.", key,
+                    guildId);
+            }
+        }
+
+        // Gated-off keys are still in specs, so the retention log below never reports a channel this
+        // pass deliberately removed.
         var registryKeys = specs.Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
         if (logger.IsEnabled(LogLevel.Information))
         {
@@ -302,6 +334,7 @@ internal sealed class WorkspaceReconciler(
                 }
 
                 ulong messageId;
+                var newlyPosted = false;
                 if (item.LiveId is { } liveId)
                 {
                     await backends.Gateway
@@ -314,6 +347,25 @@ internal sealed class WorkspaceReconciler(
                     messageId = await backends.Gateway
                         .PostMessageAsync(guildId, channelId, item.Payload, cancellationToken)
                         .ConfigureAwait(false);
+                    newlyPosted = true;
+                }
+
+                // Pin only on first post: pinning is idempotent but costs an API call, and a
+                // re-posted message (declaration-order repair) also lands here as newly posted.
+                if (newlyPosted && item.Spec.Pinned)
+                {
+                    try
+                    {
+                        await backends.Gateway.PinMessageAsync(guildId, channelId, messageId, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+#pragma warning disable CA1031 // Broad catch: an unpinned embed is still correct; never fail a reconcile over it.
+                    catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+                    {
+                        logger.LogWarning(ex, "Pinning message '{Key}' in guild {GuildId} failed.", item.Spec.Key,
+                            guildId);
+                    }
                 }
 
                 await backends.Store.SaveMessageAsync(

@@ -89,6 +89,29 @@ internal sealed class FakeWorkspaceStore : IWorkspaceStore
         return Task.CompletedTask;
     }
 
+    public Task DeleteChannelAsync(ulong guildId,
+        Guid? serverId,
+        string channelKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_channels.TryRemove($"{Scope(guildId, serverId)}|{channelKey}", out var channel))
+        {
+            return Task.CompletedTask;
+        }
+
+        var prefix = Scope(guildId, serverId) + "|";
+        foreach (var key in _messages
+                     .Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal) &&
+                                  kv.Value.DiscordChannelId == channel.DiscordChannelId)
+                     .Select(kv => kv.Key)
+                     .ToList())
+        {
+            _messages.TryRemove(key, out _);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task DeleteScopeAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default)
     {
         _categories.TryRemove(Scope(guildId, serverId), out _);

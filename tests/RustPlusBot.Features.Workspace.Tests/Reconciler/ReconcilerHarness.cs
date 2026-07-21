@@ -12,6 +12,7 @@ namespace RustPlusBot.Features.Workspace.Tests.Reconciler;
 /// <summary>Builds a WorkspaceReconciler wired with fakes for tests.</summary>
 internal sealed class ReconcilerHarness
 {
+    private readonly List<IWorkspaceCapabilityProvider> _capabilityProviders = [];
     private readonly List<IChannelSpecProvider> _channelProviders = [];
     private readonly List<IMessageSpecProvider> _messageProviders = [];
     private readonly List<IMessageRenderer> _renderers = [];
@@ -19,24 +20,38 @@ internal sealed class ReconcilerHarness
     public FakeWorkspaceStore Store { get; } = new();
     public IServerService Servers { get; } = Substitute.For<IServerService>();
 
-    public ReconcilerHarness WithChannel(WorkspaceScope scope, string key, string nameKey, int order = 0)
+    public ReconcilerHarness WithChannel(WorkspaceScope scope,
+        string key,
+        string nameKey,
+        int order = 0,
+        string? capability = null)
     {
         _channelProviders.Add(new StubChannelProvider([
-            new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order)
+            new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order, capability)
         ]));
         return this;
     }
 
-    public ReconcilerHarness WithMessage(WorkspaceScope scope, string key, string channelKey, string text)
+    public ReconcilerHarness WithMessage(WorkspaceScope scope,
+        string key,
+        string channelKey,
+        string text,
+        bool pinned = false)
     {
-        _messageProviders.Add(new StubMessageProvider([new MessageSpec(scope, key, channelKey)]));
+        _messageProviders.Add(new StubMessageProvider([new MessageSpec(scope, key, channelKey, pinned)]));
         _renderers.Add(new StubRenderer(key, text));
+        return this;
+    }
+
+    public ReconcilerHarness WithCapability(string capability, bool available)
+    {
+        _capabilityProviders.Add(new StubCapabilityProvider(capability, available));
         return this;
     }
 
     public WorkspaceReconciler Build()
     {
-        var registry = new WorkspaceRegistry(_channelProviders, _messageProviders);
+        var registry = new WorkspaceRegistry(_channelProviders, _messageProviders, _capabilityProviders);
         return new WorkspaceReconciler(
             new WorkspaceBackends(registry, Gateway, Store), _renderers, Servers,
             new ResxLocalizer(), new ProvisioningLock(),
@@ -61,31 +76,55 @@ internal sealed class ReconcilerHarness
             RenderAsync(MessageRenderContext context, CancellationToken cancellationToken) =>
             ValueTask.FromResult(new MessagePayload(text, null, null));
     }
+
+    private sealed class StubCapabilityProvider(string capability, bool available) : IWorkspaceCapabilityProvider
+    {
+        public string Capability { get; } = capability;
+
+        public ValueTask<bool> IsAvailableAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(available);
+    }
 }
 
 internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
 {
+    private readonly List<IWorkspaceCapabilityProvider> _capabilityProviders = [];
     private readonly List<IChannelSpecProvider> _channelProviders = [];
     private readonly List<IMessageSpecProvider> _messageProviders = [];
     private readonly List<IMessageRenderer> _renderers = [];
 
-    public ReconcilerBuilderReusing WithChannel(WorkspaceScope scope, string key, string nameKey, int order = 0)
+    public ReconcilerBuilderReusing WithChannel(WorkspaceScope scope,
+        string key,
+        string nameKey,
+        int order = 0,
+        string? capability = null)
     {
         _channelProviders.Add(new ListChannelProvider([
-            new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order)
+            new ChannelSpec(scope, key, nameKey, ChannelPermissionProfile.ReadOnly, order, capability)
         ]));
         return this;
     }
 
-    public ReconcilerBuilderReusing WithMessage(WorkspaceScope scope, string key, string channelKey, string text)
+    public ReconcilerBuilderReusing WithMessage(WorkspaceScope scope,
+        string key,
+        string channelKey,
+        string text,
+        bool pinned = false)
     {
-        _messageProviders.Add(new ListMessageProvider([new MessageSpec(scope, key, channelKey)]));
+        _messageProviders.Add(new ListMessageProvider([new MessageSpec(scope, key, channelKey, pinned)]));
         _renderers.Add(new ListMessageRenderer(key, text));
         return this;
     }
 
+    public ReconcilerBuilderReusing WithCapability(string capability, bool available)
+    {
+        _capabilityProviders.Add(new ListCapabilityProvider(capability, available));
+        return this;
+    }
+
     public WorkspaceReconciler Build() => new(
-        new WorkspaceBackends(new WorkspaceRegistry(_channelProviders, _messageProviders), source.Gateway,
+        new WorkspaceBackends(new WorkspaceRegistry(_channelProviders, _messageProviders, _capabilityProviders),
+            source.Gateway,
             source.Store),
         _renderers, source.Servers,
         new ResxLocalizer(), new ProvisioningLock(),
@@ -108,5 +147,13 @@ internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
         public ValueTask<MessagePayload>
             RenderAsync(MessageRenderContext context, CancellationToken cancellationToken) =>
             ValueTask.FromResult(new MessagePayload(text, null, null));
+    }
+
+    private sealed class ListCapabilityProvider(string capability, bool available) : IWorkspaceCapabilityProvider
+    {
+        public string Capability { get; } = capability;
+
+        public ValueTask<bool> IsAvailableAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(available);
     }
 }

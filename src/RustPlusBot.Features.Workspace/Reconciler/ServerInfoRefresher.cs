@@ -24,6 +24,9 @@ internal sealed class ServerInfoRefresher(
         WorkspaceMessageKeys.ServerInfo,
         WorkspaceMessageKeys.ServerEvents,
         WorkspaceMessageKeys.ServerTeam,
+        WorkspaceMessageKeys.ClanOverview,
+        WorkspaceMessageKeys.ClanRoster,
+        WorkspaceMessageKeys.ClanInvites,
     ];
 
     private readonly Dictionary<string, IMessageRenderer> _renderers =

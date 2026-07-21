@@ -12,16 +12,20 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
             ChannelPermissionProfile.ReadOnly, 0),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerTeamChat, "channel.teamchat.name",
             ChannelPermissionProfile.Interactive, 1),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerClanChat, "channel.clanchat.name",
+            ChannelPermissionProfile.Interactive, 2, WorkspaceCapabilities.Clan),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerClanInfo, "channel.claninfo.name",
+            ChannelPermissionProfile.ReadOnly, 3, WorkspaceCapabilities.Clan),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerEvents, "channel.events.name",
-            ChannelPermissionProfile.ReadOnly, 2),
+            ChannelPermissionProfile.ReadOnly, 4),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerMap, "channel.map.name",
-            ChannelPermissionProfile.ReadOnly, 3),
+            ChannelPermissionProfile.ReadOnly, 5),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerSwitches, "channel.switches.name",
-            ChannelPermissionProfile.Interactive, 4),
-        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerAlarms, "channel.alarms.name",
-            ChannelPermissionProfile.Interactive, 5),
-        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerStorageMonitors, "channel.storagemonitors.name",
             ChannelPermissionProfile.Interactive, 6),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerAlarms, "channel.alarms.name",
+            ChannelPermissionProfile.Interactive, 7),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerStorageMonitors, "channel.storagemonitors.name",
+            ChannelPermissionProfile.Interactive, 8),
     ];
 
     /// <inheritdoc />
@@ -34,5 +38,11 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerEvents, WorkspaceChannelKeys.ServerInfo),
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerTeam, WorkspaceChannelKeys.ServerInfo),
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerMap, WorkspaceChannelKeys.ServerMap),
+
+        // #claninfo also carries a transient change feed, so the anchored embeds are pinned to stay
+        // reachable once the feed pushes them up.
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanOverview, WorkspaceChannelKeys.ServerClanInfo, true),
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanRoster, WorkspaceChannelKeys.ServerClanInfo, true),
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanInvites, WorkspaceChannelKeys.ServerClanInfo, true),
     ];
 }

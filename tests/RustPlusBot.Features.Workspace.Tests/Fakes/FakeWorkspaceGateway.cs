@@ -11,10 +11,14 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     private readonly ConcurrentDictionary<ulong, Channel> _channels = new();
     private readonly List<ulong> _deletedMessageIds = [];
     private readonly ConcurrentDictionary<ulong, Message> _messages = new();
+    private readonly List<(ulong ChannelId, ulong MessageId)> _pinnedMessages = [];
     private readonly List<MessagePayload> _postedPayloads = [];
     private ulong _nextId = 1000;
 
     public IReadOnlyList<string> MissingPermissions { get; set; } = [];
+
+    /// <summary>When true, <see cref="PinMessageAsync"/> throws (pin-failure path).</summary>
+    public bool ThrowOnPin { get; set; }
     public int CreatedCategories { get; private set; }
     public int CreatedChannels { get; private set; }
     public int PostedMessages { get; private set; }
@@ -27,6 +31,9 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
 
     /// <summary>Payloads posted via <see cref="PostMessageAsync"/>, in call order.</summary>
     public IReadOnlyList<MessagePayload> PostedPayloads => _postedPayloads;
+
+    /// <summary>Pairs pinned via <see cref="PinMessageAsync"/>, in call order.</summary>
+    public IReadOnlyList<(ulong ChannelId, ulong MessageId)> PinnedMessages => _pinnedMessages;
 
     public bool CategoryExists(ulong guildId, ulong categoryId) => _categories.ContainsKey(categoryId);
 
@@ -118,6 +125,17 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     {
         _messages.TryRemove(messageId, out _);
         _deletedMessageIds.Add(messageId);
+        return Task.CompletedTask;
+    }
+
+    public Task PinMessageAsync(ulong guildId, ulong channelId, ulong messageId, CancellationToken cancellationToken)
+    {
+        if (ThrowOnPin)
+        {
+            throw new InvalidOperationException($"Pinning message {messageId} failed.");
+        }
+
+        _pinnedMessages.Add((channelId, messageId));
         return Task.CompletedTask;
     }
 

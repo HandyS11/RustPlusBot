@@ -74,6 +74,16 @@ public interface IWorkspaceStore
     /// <returns>A task that completes when the flag has been persisted.</returns>
     Task SetPingEveryoneOnWipeAsync(ulong guildId, bool enabled, CancellationToken cancellationToken = default);
 
+    /// <summary>Deletes one provisioned channel row and any messages anchored in it.</summary>
+    /// <param name="guildId">The Discord guild snowflake.</param>
+    /// <param name="serverId">The Rust server id, or null for the global scope.</param>
+    /// <param name="channelKey">The stable channel key to delete.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    Task DeleteChannelAsync(ulong guildId,
+        Guid? serverId,
+        string channelKey,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Deletes all provisioning rows (category + channels + messages) for one scope.</summary>
     /// <param name="guildId">The Discord guild snowflake.</param>
     /// <param name="serverId">The Rust server id, or null for the global scope.</param>

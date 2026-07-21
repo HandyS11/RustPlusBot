@@ -7,7 +7,7 @@ public sealed class WorkspaceRegistryTests
     [Fact]
     public void ChannelSpecs_AggregateAcrossProviders_OrderedByOrder()
     {
-        var registry = new WorkspaceRegistry([new ProviderA(), new ProviderB()], []);
+        var registry = new WorkspaceRegistry([new ProviderA(), new ProviderB()], [], []);
 
         var global = registry.GetChannelSpecs(WorkspaceScope.Global);
         Assert.Equal(["a", "b"], global.Select(s => s.Key));

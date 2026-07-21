@@ -18,6 +18,12 @@ internal static class WorkspaceChannelKeys
     /// <summary>Key for the per-server #teamchat channel.</summary>
     public const string ServerTeamChat = "teamchat";
 
+    /// <summary>Key for the per-server #clanchat channel (provisioned only while a clan exists).</summary>
+    public const string ServerClanChat = "clanchat";
+
+    /// <summary>Key for the per-server #claninfo channel (provisioned only while a clan exists).</summary>
+    public const string ServerClanInfo = "claninfo";
+
     /// <summary>Key for the per-server #events channel.</summary>
     public const string ServerEvents = "events";
 
@@ -60,4 +66,20 @@ internal static class WorkspaceMessageKeys
 
     /// <summary>Key for the per-server map control message (layer toggles).</summary>
     public const string ServerMap = "server.map";
+
+    /// <summary>Key for the pinned clan overview embed. Rendered by Features.Clans.</summary>
+    public const string ClanOverview = "clan.overview";
+
+    /// <summary>Key for the pinned clan roster embed. Rendered by Features.Clans.</summary>
+    public const string ClanRoster = "clan.roster";
+
+    /// <summary>Key for the pinned clan invites embed. Rendered by Features.Clans.</summary>
+    public const string ClanInvites = "clan.invites";
+}
+
+/// <summary>Stable capability names gating optional workspace channels.</summary>
+internal static class WorkspaceCapabilities
+{
+    /// <summary>Gates the per-server clan channels; available only while the paired player is in a clan.</summary>
+    public const string Clan = "clan";
 }

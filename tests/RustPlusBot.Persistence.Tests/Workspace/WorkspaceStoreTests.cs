@@ -127,6 +127,49 @@ public sealed class WorkspaceStoreTests
         Assert.NotNull(await store.GetCategoryAsync(1, server.Id));
     }
 
+    [Fact]
+    public async Task Deleting_a_channel_also_removes_its_anchored_messages()
+    {
+        var store = NewStore(out _, out var cleanup);
+        using var _cleanup = cleanup;
+
+        await store.SaveChannelAsync(new ProvisionedChannel
+        {
+            GuildId = 1, RustServerId = null, ChannelKey = "claninfo", DiscordChannelId = 5
+        });
+        await store.SaveChannelAsync(new ProvisionedChannel
+        {
+            GuildId = 1, RustServerId = null, ChannelKey = "information", DiscordChannelId = 6
+        });
+        await store.SaveMessageAsync(new ProvisionedMessage
+        {
+            GuildId = 1, MessageKey = "clan.overview", DiscordChannelId = 5, DiscordMessageId = 100
+        });
+        await store.SaveMessageAsync(new ProvisionedMessage
+        {
+            GuildId = 1, MessageKey = "information.main", DiscordChannelId = 6, DiscordMessageId = 101
+        });
+
+        await store.DeleteChannelAsync(1, null, "claninfo");
+
+        var channels = await store.GetChannelsAsync(1, null);
+        Assert.Single(channels);
+        Assert.Equal("information", channels[0].ChannelKey);
+        Assert.Null(await store.GetMessageAsync(1, null, "clan.overview"));
+        Assert.NotNull(await store.GetMessageAsync(1, null, "information.main"));
+    }
+
+    [Fact]
+    public async Task Deleting_an_unknown_channel_is_a_no_op()
+    {
+        var store = NewStore(out _, out var cleanup);
+        using var _cleanup = cleanup;
+
+        await store.DeleteChannelAsync(1, null, "claninfo");
+
+        Assert.Empty(await store.GetChannelsAsync(1, null));
+    }
+
     private sealed class FixedClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow { get; } = now;
