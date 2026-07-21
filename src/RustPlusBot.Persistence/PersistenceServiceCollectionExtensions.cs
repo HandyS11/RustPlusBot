@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Persistence.Alarms;
+using RustPlusBot.Persistence.Clans;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Credentials;
@@ -47,6 +48,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IMuteStore, MuteStore>();
         services.AddScoped<IMapSettingsStore, MapSettingsStore>();
         services.AddScoped<IWipeBaselineStore, WipeBaselineStore>();
+        services.AddScoped<IClanStore, ClanStore>();
 
         return services;
     }
