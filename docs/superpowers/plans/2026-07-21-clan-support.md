@@ -21,6 +21,7 @@ Every task's requirements implicitly include this section.
 - `CA1305`/`CA1307`/`CA1310`: pass `CultureInfo.InvariantCulture` on every format/parse and `StringComparison.Ordinal` on every string comparison.
 - `CA2007`: `.ConfigureAwait(false)` on every awaited task in `src/`. Test projects are exempt.
 - Broad `catch (Exception)` is allowed ONLY with an inline `#pragma warning disable CA1031` carrying a one-line justification comment, paired with a `[LoggerMessage]`-generated `static partial` log method.
+- **Any broad catch in a method that takes a `CancellationToken` MUST be guarded `catch (Exception ex) when (!cancellationToken.IsCancellationRequested)`**, so caller-initiated cancellation propagates instead of being logged as a fault and swallowed into a fallback value. Every timeout-guarded method in `RustPlusSocketSource` already does this — match it.
 - Tests: plain xUnit `Assert.*` + NSubstitute. **No FluentAssertions.** `using Xunit` is a global using — never add it per file. Tests do not need `.ConfigureAwait(false)`.
 - Every new string key MUST be added to **both** `src/RustPlusBot.Localization/Strings.resx` and `Strings.fr.resx`. `StringsResourceParityTests` fails the build otherwise.
 - `dotnet jb cleanupcode RustPlusBot.slnx --profile="ReformatAndReorder"` is a hard CI gate that fails on any diff. It is slow — run it ONCE at the very end (Task 13), not per task.
@@ -705,7 +706,7 @@ and add the members (place them next to `SendTeamMessageAsync`):
                 return ClanProbeResult.Unavailable;
             }
 #pragma warning disable CA1031 // Broad catch: a failed clan probe must degrade to Unavailable, never crash the caller.
-            catch (Exception ex)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
                 LogQueryFailed(_logger, ex);
@@ -733,7 +734,7 @@ and add the members (place them next to `SendTeamMessageAsync`):
                 return false;
             }
 #pragma warning disable CA1031 // Broad catch: a failed MOTD write is reported to the user, not thrown.
-            catch (Exception ex)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
                 LogQueryFailed(_logger, ex);
