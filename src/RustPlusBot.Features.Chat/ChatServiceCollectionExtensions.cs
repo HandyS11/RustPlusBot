@@ -7,7 +7,7 @@ using RustPlusBot.Features.Chat.Webhooks;
 
 namespace RustPlusBot.Features.Chat;
 
-/// <summary>DI registration for the team chat bridge.</summary>
+/// <summary>DI registration for the chat bridge (team and clan chat).</summary>
 public static class ChatServiceCollectionExtensions
 {
     /// <summary>Registers the dedup buffer, webhook poster, relay, inbound processor, and hosted service.</summary>
@@ -18,9 +18,9 @@ public static class ChatServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<RelayDedupBuffer>();
-        services.AddSingleton<ITeamChatWebhookPoster, DiscordTeamChatWebhookPoster>();
-        services.AddSingleton<TeamChatRelay>();
-        services.AddSingleton<TeamChatInboundProcessor>();
+        services.AddSingleton<IChatWebhookPoster, DiscordChatWebhookPoster>();
+        services.AddSingleton<ChatRelay>();
+        services.AddSingleton<ChatInboundProcessor>();
         services.AddHostedService<ChatHostedService>();
 
         return services;
