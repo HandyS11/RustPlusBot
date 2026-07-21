@@ -231,6 +231,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
+        /// <summary>Raised when a clan chat message arrives on this connection.</summary>
+        public event EventHandler<ClanChatLine>? ClanMessageReceived;
+
+        /// <summary>Raised when the clan snapshot changes on this connection.</summary>
+        public event EventHandler<ClanProbeResult>? ClanChanged;
+
         /// <summary>Raised by <see cref="RaiseSmartDeviceTriggered"/>.</summary>
         public event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
 
@@ -257,6 +263,24 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             SentMessages.Add(message);
             return Task.CompletedTask;
         }
+
+        /// <summary>The probe result this fake returns; defaults to no clan.</summary>
+        public ClanProbeResult ClanProbe { get; set; } = ClanProbeResult.NoClan;
+
+        /// <summary>Messages sent to in-game clan chat through this fake.</summary>
+        public List<string> SentClanMessages { get; } = [];
+
+        public Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(ClanProbe);
+
+        public Task SendClanMessageAsync(string message, CancellationToken cancellationToken)
+        {
+            SentClanMessages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken)
@@ -369,6 +393,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>Raises <see cref="TeamMessageReceived"/> to simulate an inbound team chat line.</summary>
         /// <param name="line">The team chat line to raise.</param>
         public void RaiseTeamMessage(TeamChatLine line) => TeamMessageReceived?.Invoke(this, line);
+
+        /// <summary>Raises <see cref="ClanMessageReceived"/> to simulate an inbound clan chat line.</summary>
+        /// <param name="line">The clan chat line to raise.</param>
+        public void RaiseClanMessage(ClanChatLine line) => ClanMessageReceived?.Invoke(this, line);
+
+        /// <summary>Raises <see cref="ClanChanged"/> to simulate a clan snapshot change.</summary>
+        /// <param name="result">The probe result to raise.</param>
+        public void RaiseClanChanged(ClanProbeResult result) => ClanChanged?.Invoke(this, result);
 
         /// <summary>Simulates an in-game smart-device state change.</summary>
         /// <param name="entityId">The smart-device entity id to raise the event for.</param>
