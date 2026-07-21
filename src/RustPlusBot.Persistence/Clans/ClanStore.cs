@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Clans;
 
 namespace RustPlusBot.Persistence.Clans;
 
 /// <summary>EF-backed <see cref="IClanStore"/>.</summary>
 /// <param name="db">The bot database context.</param>
-internal sealed class ClanStore(BotDbContext db) : IClanStore
+/// <param name="clock">Supplies write timestamps.</param>
+internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
 {
     /// <inheritdoc />
     public async Task<ClanSnapshot?> GetAsync(
@@ -77,7 +79,7 @@ internal sealed class ClanStore(BotDbContext db) : IClanStore
         row.RolesJson = ClanSnapshotSerializer.Serialize(snapshot.Roles);
         row.MembersJson = ClanSnapshotSerializer.Serialize(snapshot.Members);
         row.InvitesJson = ClanSnapshotSerializer.Serialize(snapshot.Invites);
-        row.LastSeenUtc = DateTimeOffset.UtcNow;
+        row.LastSeenUtc = clock.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -142,7 +144,7 @@ internal sealed class ClanStore(BotDbContext db) : IClanStore
 
         var row = await db.ClanPlayerNames
             .FirstOrDefaultAsync(
-                n => n.ServerId == serverId && n.GuildId == guildId && n.SteamId == steamId,
+                n => n.ServerId == serverId && n.SteamId == steamId,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -161,7 +163,7 @@ internal sealed class ClanStore(BotDbContext db) : IClanStore
         }
 
         row.Name = name;
-        row.UpdatedUtc = DateTimeOffset.UtcNow;
+        row.UpdatedUtc = clock.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }

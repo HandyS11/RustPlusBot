@@ -1,6 +1,8 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Clans;
 
@@ -9,10 +11,12 @@ namespace RustPlusBot.Persistence.Tests;
 /// <summary>Unit tests for <see cref="ClanStore"/>.</summary>
 public sealed class ClanStoreTests
 {
-    private static (ClanStore Store, BotDbContext Context, SqliteConnection Conn) Create()
+    private static (ClanStore Store, BotDbContext Context, SqliteConnection Conn, IClock Clock) Create()
     {
         var (context, connection) = SqliteContextFixture.Create();
-        return (new ClanStore(context), context, connection);
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
+        return (new ClanStore(context, clock), context, connection, clock);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context, ulong guildId = 10UL)
@@ -76,7 +80,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Returns_null_when_no_clan_is_stored()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -89,7 +93,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Round_trips_a_snapshot_including_members_roles_and_invites()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -133,7 +137,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Overwrites_the_previous_snapshot_on_save()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -155,7 +159,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task HasClan_is_false_before_save_and_true_after()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -170,7 +174,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Clear_removes_the_row_and_reports_true_only_the_first_time()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -187,7 +191,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Deleting_the_server_cascades_to_the_clan_state()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -203,7 +207,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Records_and_reads_back_player_names()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -218,7 +222,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Name_lookup_returns_only_the_requested_ids()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -235,12 +239,17 @@ public sealed class ClanStoreTests
     }
 
     [Fact]
-    public async Task Name_lookup_returns_empty_without_querying_for_no_ids()
+    public async Task Name_lookup_returns_empty_for_no_ids()
     {
-        var (store, context, conn) = Create();
+        // Note: an empty `IN ()` clause returns no rows whether or not the empty-collection guard
+        // exists in GetNamesAsync, so this cannot prove the guard is what produced the empty result.
+        // Seeding a row for the same server at least confirms the empty result isn't a side effect of
+        // an empty table.
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
+        await store.RecordNameAsync(10UL, serverId, 111UL, "Alice");
 
         var names = await store.GetNamesAsync(10UL, serverId, []);
 
@@ -250,7 +259,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Recording_a_name_twice_updates_rather_than_duplicating()
     {
-        var (store, context, conn) = Create();
+        var (store, context, conn, _) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -260,6 +269,25 @@ public sealed class ClanStoreTests
 
         var names = await store.GetNamesAsync(10UL, serverId, [111UL]);
         Assert.Equal("Alicia", names[111UL]);
+        Assert.Single(await context.ClanPlayerNames.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Recording_the_same_name_again_skips_the_write()
+    {
+        var (store, context, conn, clock) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+        var serverId = await SeedServerAsync(context);
+
+        await store.RecordNameAsync(10UL, serverId, 111UL, "Alice");
+        var firstUpdatedUtc = (await context.ClanPlayerNames.SingleAsync(n => n.SteamId == 111UL)).UpdatedUtc;
+
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch.AddMinutes(5));
+        await store.RecordNameAsync(10UL, serverId, 111UL, "Alice");
+
+        var row = await context.ClanPlayerNames.SingleAsync(n => n.SteamId == 111UL);
+        Assert.Equal(firstUpdatedUtc, row.UpdatedUtc);
         Assert.Single(await context.ClanPlayerNames.ToListAsync());
     }
 }
