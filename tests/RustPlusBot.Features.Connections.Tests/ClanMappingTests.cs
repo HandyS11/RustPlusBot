@@ -82,13 +82,26 @@ public sealed class ClanMappingTests
         Assert.Equal(7UL, snapshot.Creator);
         Assert.Equal(1234L, snapshot.Score);
         Assert.Equal(8, snapshot.MaxMemberCount);
+        Assert.Equal("hold the line", snapshot.Motd);
+        Assert.Equal(new DateTimeOffset(2026, 2, 2, 0, 0, 0, TimeSpan.Zero), snapshot.MotdTimestamp);
+        Assert.Equal(9UL, snapshot.MotdAuthor);
+        Assert.Equal(255, snapshot.Color);
+        Assert.Equal(new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero), snapshot.Created);
         Assert.Single(snapshot.Roles);
         Assert.True(snapshot.Roles[0].CanSetMotd);
+        Assert.Equal(1, snapshot.Roles[0].RoleId);
+        Assert.Equal(0, snapshot.Roles[0].Rank);
+        Assert.Equal("Leader", snapshot.Roles[0].Name);
         Assert.Single(snapshot.Members);
         Assert.True(snapshot.Members[0].Online);
         Assert.Equal("founder", snapshot.Members[0].Notes);
+        Assert.Equal(1, snapshot.Members[0].RoleId);
+        Assert.Equal(new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero), snapshot.Members[0].Joined);
+        Assert.Equal(new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero), snapshot.Members[0].LastSeen);
         Assert.Single(snapshot.Invites);
         Assert.Equal(11UL, snapshot.Invites[0].SteamId);
+        Assert.Equal(7UL, snapshot.Invites[0].Recruiter);
+        Assert.Equal(new DateTimeOffset(2026, 3, 2, 0, 0, 0, TimeSpan.Zero), snapshot.Invites[0].Timestamp);
         Assert.NotNull(snapshot.LogoHash);
     }
 

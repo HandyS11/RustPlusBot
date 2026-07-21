@@ -378,7 +378,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 return ClanProbeResult.Unavailable;
             }
 #pragma warning disable CA1031 // Broad catch: a failed clan probe must degrade to Unavailable, never crash the caller.
-            catch (Exception ex)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
                 LogQueryFailed(_logger, ex);
@@ -406,7 +406,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
                 return false;
             }
 #pragma warning disable CA1031 // Broad catch: a failed MOTD write is reported to the user, not thrown.
-            catch (Exception ex)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
             {
                 LogQueryFailed(_logger, ex);
