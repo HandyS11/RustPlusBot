@@ -2660,6 +2660,15 @@ EOF
 
 Renderers are `public` because `IMessageRenderer` is public and they are resolved by the Workspace reconciler across an assembly boundary — the same reason `ServerTeamMessageRenderer` is public.
 
+**Load-bearing requirement — all three renderers.** Each renderer MUST return an empty
+`MessagePayload(null, null, null)` when the server has no stored clan. This is not cosmetic:
+`ServerInfoRefresher` now has the three clan keys in its `Keys` list, and its per-key flow is
+"render → skip if empty → look up the `ProvisionedMessage` → **if missing, full-reconcile and
+return**". A clanless server has no clan channel and therefore no clan `ProvisionedMessage`, so a
+renderer that returns anything non-empty would trigger a full `ReconcileServerAsync` on *every*
+refresh tick, forever, and would also stop the loop before it reached the later keys. The empty
+payload is what makes the clan keys inert on clanless servers.
+
 **Name resolution contract:**
 `ResolveAsync` returns a dictionary covering **every** requested id. Known ids map to the cached display name; unknown ids map to a Steam profile markdown link, `[{id}](https://steamcommunity.com/profiles/{id})`. Callers never have to null-check.
 
