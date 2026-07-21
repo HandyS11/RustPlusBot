@@ -67,14 +67,14 @@ Lower `ClanRole.Rank` = higher rank (leader is the lowest number).
 | File | Responsibility |
 | --- | --- |
 | `ClansServiceCollectionExtensions.cs` | The single public `AddClans()` |
-| `Hosting/ClansHostedService.cs` | Two event-bus consumer loops + the Discord `MessageReceived` hook |
-| `Relaying/ClanChatRelay.cs` | Game→Discord: drop echoes/commands, post via webhook |
-| `Webhooks/IClanChatWebhookPoster.cs` / `DiscordClanChatWebhookPoster.cs` | Webhook impersonation |
-| `Inbound/ClanChatInboundProcessor.cs` | Discord→game: mute gate, record-then-send |
+| `Hosting/ClansHostedService.cs` | One event-bus consumer loop applying clan state changes |
 | `State/ClanStateService.cs` | Applies a `ClanStateChangedEvent`: persist, diff, trigger reconcile |
 | `State/ClanSnapshotDiffer.cs` | Pure `(previous, current) -> IReadOnlyList<ClanChange>` |
 | `State/ClanChange.cs` | The typed change record + `ClanChangeKind` enum |
 | `State/ClanCapabilityProvider.cs` | `IWorkspaceCapabilityProvider` for `"clan"` |
+| `Posting/IClanFeedPoster.cs` / `DiscordClanFeedPoster.cs` | Posts feed lines into `#claninfo` |
+
+**Note:** there is no clan chat bridge in this project. `Features.Chat` is generalised over `ChatChannelKind` in Tasks 6-7 and serves both team and clan chat from one implementation.
 | `Names/IClanNameResolver.cs` / `ClanNameResolver.cs` | Steam id → display name, with profile-link fallback |
 | `Messages/ClanOverviewMessageRenderer.cs` | `clan.overview` embed + Set MOTD button |
 | `Messages/ClanRosterMessageRenderer.cs` | `clan.roster` embed |
@@ -319,7 +319,6 @@ EOF
 **Files:**
 - Create: `src/RustPlusBot.Features.Connections/Listening/ClanMapping.cs`
 - Create: `src/RustPlusBot.Features.Connections/Listening/ClanChatLine.cs`
-- Create: `src/RustPlusBot.Features.Connections/Listening/IClanChatSender.cs`
 - Modify: `src/RustPlusBot.Features.Connections/Listening/IRustServerConnection.cs`
 - Modify: `src/RustPlusBot.Features.Connections/Listening/RustPlusSocketSource.cs`
 - Test: `tests/RustPlusBot.Features.Connections.Tests/ClanMappingTests.cs`
@@ -330,7 +329,8 @@ EOF
 - Produces:
   - `internal static class ClanMapping` with `public static ClanProbeResult FromResponse(bool isSuccess, RustPlusErrorCode? errorCode, ClanInfo? data)` and `public static ClanSnapshot ToSnapshot(ClanInfo info)` and `public static string HashLogo(byte[]? logo)`.
   - `internal sealed record ClanChatLine(ulong SteamId, string Name, string Message, DateTimeOffset Time)`.
-  - `public enum ClanChatSendResult { Sent = 0, NotConnected = 1, Failed = 2 }` and `public interface IClanChatSender { Task<ClanChatSendResult> SendAsync(ulong guildId, Guid serverId, string message, CancellationToken cancellationToken); }`.
+
+**Not produced here:** there is no `IClanChatSender`. Task 6 replaces `ITeamChatSender` with a single kind-parameterised `IChatSender` that serves both channels, so a second same-shaped sender interface is never created.
   - New `IRustServerConnection` members: `Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken)`, `Task SendClanMessageAsync(string message, CancellationToken cancellationToken)`, `Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken cancellationToken)`, `event EventHandler<ClanChatLine>? ClanMessageReceived`, `event EventHandler<ClanProbeResult>? ClanChanged`.
 
 **Note on `ClanChanged`:** the event carries `ClanProbeResult`, not `ClanSnapshot?`. `OnClanChanged` with a null `ClanInfo` maps to `ClanProbeResult.NoClan` — a definitive signal — which keeps a single type flowing from socket to supervisor to bus.
@@ -588,7 +588,7 @@ Note: `CultureInfo` is imported for consistency with sibling files; if the analy
 Run: `dtk dotnet test tests/RustPlusBot.Features.Connections.Tests -maxcpucount:1 --filter FullyQualifiedName~ClanMappingTests`
 Expected: PASS, 8 tests.
 
-- [ ] **Step 5: Add the chat line and sender seam**
+- [ ] **Step 5: Add the chat line record**
 
 `src/RustPlusBot.Features.Connections/Listening/ClanChatLine.cs`:
 
@@ -601,40 +601,6 @@ namespace RustPlusBot.Features.Connections.Listening;
 /// <param name="Message">The message text.</param>
 /// <param name="Time">When the line was sent (UTC).</param>
 internal sealed record ClanChatLine(ulong SteamId, string Name, string Message, DateTimeOffset Time);
-```
-
-`src/RustPlusBot.Features.Connections/Listening/IClanChatSender.cs`:
-
-```csharp
-namespace RustPlusBot.Features.Connections.Listening;
-
-/// <summary>The outcome of relaying a Discord message into in-game clan chat.</summary>
-public enum ClanChatSendResult
-{
-    /// <summary>The message was handed to the live socket.</summary>
-    Sent = 0,
-
-    /// <summary>There is no live socket for that (guild, server) right now.</summary>
-    NotConnected = 1,
-
-    /// <summary>A live socket exists but the send failed.</summary>
-    Failed = 2,
-}
-
-/// <summary>Relays a message into a server's in-game clan chat (implemented by the connection supervisor).</summary>
-public interface IClanChatSender
-{
-    /// <summary>Sends <paramref name="message"/> to the live socket for (<paramref name="guildId"/>, <paramref name="serverId"/>).</summary>
-    /// <param name="guildId">The owning guild snowflake.</param>
-    /// <param name="serverId">The target server id.</param>
-    /// <param name="message">The message text to relay.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The send result.</returns>
-    Task<ClanChatSendResult> SendAsync(ulong guildId,
-        Guid serverId,
-        string message,
-        CancellationToken cancellationToken);
-}
 ```
 
 - [ ] **Step 6: Extend `IRustServerConnection`**
@@ -866,8 +832,8 @@ EOF
 - Test: `tests/RustPlusBot.Features.Connections.Tests/ClanSupervisorTests.cs`
 
 **Interfaces:**
-- Consumes: `ClanChatLine`, `ClanProbeResult`, `IClanChatSender`, `ClanChatSendResult` (Task 2); `ClanMessageReceivedEvent`, `ClanStateChangedEvent` (Task 1).
-- Produces: `ConnectionSupervisor` additionally implements `IClanChatSender`; publishes `ClanMessageReceivedEvent` and `ClanStateChangedEvent` on `IEventBus`.
+- Consumes: `ClanChatLine`, `ClanProbeResult` (Task 2); `ClanMessageReceivedEvent`, `ClanStateChangedEvent` (Task 1).
+- Produces: `ConnectionSupervisor` publishes `ClanMessageReceivedEvent` and `ClanStateChangedEvent` on `IEventBus`. Sending is NOT added here — Task 6 unifies it.
 
 Read `ConnectionSupervisorTests.cs` first — it already establishes how to stand up a supervisor over `FakeRustSocketSource` and drain the bus. Reuse that harness rather than inventing one.
 
@@ -893,16 +859,7 @@ Read `ConnectionSupervisorTests.cs` first — it already establishes how to stan
 // RaiseClanMessage with SteamId == the credential's steam id => FromActivePlayer true;
 // with a different SteamId => false.
 
-// 5. Sending with no live socket reports NotConnected.
-[Fact] public async Task Clan_send_reports_NotConnected_without_a_live_socket()
-// var result = await supervisor.SendAsync(guildId, Guid.NewGuid(), "hi", default);
-// Assert.Equal(ClanChatSendResult.NotConnected, result);
-
-// 6. Sending with a live socket reaches the connection.
-[Fact] public async Task Clan_send_reaches_the_live_socket()
-// Assert fake.SentClanMessages contains the text and the result is Sent.
-
-// 7. Unsubscription on disconnect: after the connection loop exits, raising a clan
+// 5. Unsubscription on disconnect: after the connection loop exits, raising a clan
 //    event on the fake publishes nothing further.
 [Fact] public async Task Stops_publishing_clan_events_after_the_socket_closes()
 ```
@@ -912,45 +869,11 @@ Write these out fully against the existing harness. Do not leave them as comment
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `dotnet test tests/RustPlusBot.Features.Connections.Tests -maxcpucount:1 --filter FullyQualifiedName~ClanSupervisorTests`
-Expected: FAIL — `SendAsync` returning `ClanChatSendResult` does not exist; no clan events are published.
+Expected: FAIL — no clan events are published.
 
-- [ ] **Step 3: Implement `IClanChatSender` on the supervisor**
+- [ ] **Step 3: (removed)**
 
-Declare `IClanChatSender` on the class alongside `ITeamChatSender`. Because `ITeamChatSender.SendAsync` and `IClanChatSender.SendAsync` have identical parameter lists and differ only in return type, C# cannot host both as implicit implementations. Implement the clan one **explicitly**:
-
-```csharp
-    /// <inheritdoc />
-    async Task<ClanChatSendResult> IClanChatSender.SendAsync(
-        ulong guildId,
-        Guid serverId,
-        string message,
-        CancellationToken cancellationToken)
-    {
-        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
-        {
-            return ClanChatSendResult.NotConnected;
-        }
-
-        try
-        {
-            await live.Connection.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
-            return ClanChatSendResult.Sent;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
-        catch (Exception ex)
-#pragma warning restore CA1031
-        {
-            LogClanSendFailed(logger, ex, serverId);
-            return ClanChatSendResult.Failed;
-        }
-    }
-```
-
-Because it is explicit, the tests must call it through the interface: `((IClanChatSender)supervisor).SendAsync(...)`.
+Nothing to do here. The supervisor's send path is unified in Task 6 as a single kind-parameterised `IChatSender`, so no clan-specific sender is added in this task. Proceed to Step 4.
 
 - [ ] **Step 4: Subscribe, probe, and publish in the connected window**
 
@@ -1065,20 +988,14 @@ And the three log methods next to the existing `[LoggerMessage]` block:
     private static partial void LogPublishClanStateFailed(ILogger logger, Exception exception, Guid serverId);
 ```
 
-- [ ] **Step 6: Register the sender**
+- [ ] **Step 6: (removed)**
 
-In `ConnectionServiceCollectionExtensions.cs`, next to the existing `ITeamChatSender` registration, expose the same singleton instance under the new interface:
-
-```csharp
-        services.AddSingleton<IClanChatSender>(sp => sp.GetRequiredService<ConnectionSupervisor>());
-```
-
-Match the exact style already used for `ITeamChatSender` in that file — if it registers via `sp.GetRequiredService<ConnectionSupervisor>()`, mirror it verbatim so both interfaces resolve to one supervisor.
+No new registration. Task 6 changes the existing `ITeamChatSender` registration into `IChatSender`.
 
 - [ ] **Step 7: Run the tests**
 
 Run: `dtk dotnet test tests/RustPlusBot.Features.Connections.Tests -maxcpucount:1`
-Expected: all pass, 7 more than after Task 2.
+Expected: all pass, 5 more than after Task 2.
 
 - [ ] **Step 8: Commit**
 
@@ -1089,8 +1006,7 @@ Publish clan chat and clan state from the supervisor
 
 Subscribe to the socket's clan events for the lifetime of a connected window,
 probe the clan once on connect so state survives a restart, and publish both
-onto the event bus. The supervisor also implements IClanChatSender explicitly,
-since it differs from ITeamChatSender only by return type.
+onto the event bus.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
@@ -1439,7 +1355,6 @@ The reconciler currently provisions every declared channel unconditionally. This
 
 **Files:**
 - Create: `src/RustPlusBot.Features.Workspace/Registry/IWorkspaceCapabilityProvider.cs`
-- Create: `src/RustPlusBot.Features.Workspace/Locating/IClanChatChannelLocator.cs`
 - Create: `src/RustPlusBot.Features.Workspace/Locating/ClanChatChannelLocator.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/Registry/ChannelSpec.cs`
 - Modify: `src/RustPlusBot.Features.Workspace/Registry/MessageSpec.cs`
@@ -1466,7 +1381,7 @@ The reconciler currently provisions every declared channel unconditionally. This
   - `WorkspaceChannelKeys.ServerClanChat = "clanchat"`, `WorkspaceChannelKeys.ServerClanInfo = "claninfo"`.
   - `WorkspaceMessageKeys.ClanOverview = "clan.overview"`, `ClanRoster = "clan.roster"`, `ClanInvites = "clan.invites"`.
   - `WorkspaceCapabilities.Clan = "clan"`.
-  - `public interface IClanChatChannelLocator` with the same two members as `ITeamChatChannelLocator`.
+  - `internal sealed class ClanChatChannelLocator : CachingChannelLocator` over `WorkspaceChannelKeys.ServerClanChat`. It gets its `IChatChannelLocator` interface and its DI registration in Task 6, which unifies the locator seam; here it is only the class.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1831,15 +1746,7 @@ and add the three pinned messages to `GetMessageSpecs()`, after the existing ent
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanInvites, WorkspaceChannelKeys.ServerClanInfo, true),
 ```
 
-`IClanChatChannelLocator.cs` — copy `ITeamChatChannelLocator` verbatim, renaming the type and swapping "#teamchat" for "#clanchat" in the docs.
-
-`ClanChatChannelLocator.cs` — copy `TeamChatChannelLocator` verbatim, renaming the type, the base-constructor key to `WorkspaceChannelKeys.ServerClanChat`, and the implemented interface.
-
-Register in `WorkspaceServiceCollectionExtensions.cs` next to the other locators:
-
-```csharp
-        services.AddSingleton<IClanChatChannelLocator, ClanChatChannelLocator>();
-```
+`ClanChatChannelLocator.cs` — a `CachingChannelLocator` subclass over `WorkspaceChannelKeys.ServerClanChat` with the same `ResolveAsync` reverse lookup `TeamChatChannelLocator` has. Do **not** give it a `ClanChat`-specific interface and do **not** register it yet: Task 6 introduces the shared `IChatChannelLocator` that both locators implement, and registers them as a collection. Leaving it unregistered for one task is intentional and the build stays green.
 
 - [ ] **Step 11: Refresh the clan embeds too**
 
@@ -1890,27 +1797,63 @@ EOF
 
 ---
 
-### Task 6: Share the dedup buffer across both bridges
+### Task 6: Unify the chat sender and locator seams
 
-`RelayDedupBuffer` is `internal` to `Features.Chat`, but the clan bridge needs the same instance — and it must not let a clan echo cancel an identical team line. Move it to `Abstractions` and key it by channel kind. This is a prerequisite for Task 7, so it lands on its own.
+The clan bridge is NOT a copy of the team bridge — one kind-driven bridge serves both. This task unifies the three seams that currently hardcode "team"; Task 7 generalises the behaviour on top of them. Splitting them keeps each task at a green suite.
 
 **Files:**
-- Create: `src/RustPlusBot.Abstractions/Chat/RelayDedupBuffer.cs`
 - Create: `src/RustPlusBot.Abstractions/Chat/ChatChannelKind.cs`
+- Create: `src/RustPlusBot.Abstractions/Chat/RelayDedupBuffer.cs`
 - Delete: `src/RustPlusBot.Features.Chat/Relaying/RelayDedupBuffer.cs`
-- Modify: `src/RustPlusBot.Features.Chat/Relaying/TeamChatRelay.cs`
-- Modify: `src/RustPlusBot.Features.Chat/Inbound/TeamChatInboundProcessor.cs`
-- Modify: `src/RustPlusBot.Features.Chat/ChatServiceCollectionExtensions.cs`
-- Modify: `tests/RustPlusBot.Features.Chat.Tests/RelayDedupBufferTests.cs`
-- Modify: `tests/RustPlusBot.Features.Chat.Tests/TeamChatRelayTests.cs`, `TeamChatInboundProcessorTests.cs`, `ChatRegistrationTests.cs`
+- Create: `src/RustPlusBot.Features.Connections/Listening/IChatSender.cs`
+- Delete: `src/RustPlusBot.Features.Connections/Listening/ITeamChatSender.cs`
+- Modify: `src/RustPlusBot.Features.Connections/Listening/BotTeamChatSender.cs`, `IBotTeamChatSender.cs`
+- Modify: `src/RustPlusBot.Features.Connections/Supervisor/ConnectionSupervisor.cs`
+- Modify: `src/RustPlusBot.Features.Connections/ConnectionServiceCollectionExtensions.cs`
+- Create: `src/RustPlusBot.Features.Workspace/Locating/IChatChannelLocator.cs`
+- Delete: `src/RustPlusBot.Features.Workspace/Locating/ITeamChatChannelLocator.cs`
+- Modify: `src/RustPlusBot.Features.Workspace/Locating/TeamChatChannelLocator.cs`, `ClanChatChannelLocator.cs`, `WorkspaceServiceCollectionExtensions.cs`
+- Modify: `src/RustPlusBot.Features.Chat/Relaying/TeamChatRelay.cs`, `Inbound/TeamChatInboundProcessor.cs`, `ChatServiceCollectionExtensions.cs`
+- Modify: the Chat and Connections test files that reference the removed types
 
 **Interfaces:**
-- Consumes: `IClock` (existing).
-- Produces: `public enum ChatChannelKind { Team = 0, Clan = 1 }` and `public sealed class RelayDedupBuffer(IClock clock)` with `void Record(ChatChannelKind kind, (ulong Guild, Guid Server) key, string text)` and `bool TryConsume(ChatChannelKind kind, (ulong Guild, Guid Server) key, string text)`, both in namespace `RustPlusBot.Abstractions.Chat`.
+- Consumes: `IClock` (existing); `ClanChatLine` and the clan socket members (Task 2).
+- Produces:
 
-- [ ] **Step 1: Write the failing test**
+```csharp
+namespace RustPlusBot.Abstractions.Chat;
+public enum ChatChannelKind { Team = 0, Clan = 1 }
 
-Add to `tests/RustPlusBot.Features.Chat.Tests/RelayDedupBufferTests.cs` (keeping every existing test, updated for the new signature):
+public sealed class RelayDedupBuffer(IClock clock)
+{
+    public void Record(ChatChannelKind kind, (ulong Guild, Guid Server) key, string text);
+    public bool TryConsume(ChatChannelKind kind, (ulong Guild, Guid Server) key, string text);
+}
+
+namespace RustPlusBot.Features.Connections.Listening;
+public enum ChatSendResult { Sent = 0, NotConnected = 1, Failed = 2 }
+
+public interface IChatSender
+{
+    Task<ChatSendResult> SendAsync(ChatChannelKind kind, ulong guildId, Guid serverId, string message, CancellationToken cancellationToken);
+}
+
+namespace RustPlusBot.Features.Workspace.Locating;
+public interface IChatChannelLocator
+{
+    ChatChannelKind Kind { get; }
+    Task<ulong?> GetChannelIdAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
+    Task<(ulong GuildId, Guid ServerId)?> ResolveAsync(ulong channelId, CancellationToken cancellationToken);
+}
+```
+
+`ITeamChatSender`, `TeamChatSendResult` and `ITeamChatChannelLocator` are **removed**, not kept as aliases. Two names for one concept is how the duplication returns.
+
+Because `IChatSender.SendAsync` now takes the kind as a parameter, the supervisor implements it once as a normal (non-explicit) member — no `IClanChatSender`, and none of the explicit-implementation awkwardness a second same-shaped interface would force.
+
+- [ ] **Step 1: Write the failing tests**
+
+Update `tests/RustPlusBot.Features.Chat.Tests/RelayDedupBufferTests.cs` for the new signature, keeping every existing case, and add:
 
 ```csharp
     [Fact]
@@ -1939,14 +1882,25 @@ Add to `tests/RustPlusBot.Features.Chat.Tests/RelayDedupBufferTests.cs` (keeping
     }
 ```
 
-Use whatever fake clock the existing tests in this file already use — do not introduce a new one.
+Use whatever fake clock that file already uses. Add to `tests/RustPlusBot.Features.Connections.Tests/ClanSupervisorTests.cs` (created in Task 3):
+
+```csharp
+    [Fact]
+    public async Task Routes_a_team_send_to_team_chat_and_a_clan_send_to_clan_chat()
+    {
+        // One IChatSender, two destinations: assert the kind selects the right socket call and
+        // that neither leaks into the other's buffer.
+    }
+```
+
+Write it fully against the Task 3 harness, asserting `fake.SentTeamMessages` and `fake.SentClanMessages` independently.
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `dtk dotnet test tests/RustPlusBot.Features.Chat.Tests -maxcpucount:1`
-Expected: FAIL — compile error, `Record` takes two arguments.
+Run: `dotnet test tests/RustPlusBot.Features.Chat.Tests tests/RustPlusBot.Features.Connections.Tests -maxcpucount:1`
+Expected: FAIL — compile errors; `Record` takes two arguments and `IChatSender` does not exist.
 
-- [ ] **Step 3: Move and re-key the buffer**
+- [ ] **Step 3: Move and re-key the dedup buffer**
 
 `src/RustPlusBot.Abstractions/Chat/ChatChannelKind.cs`:
 
@@ -1964,60 +1918,116 @@ public enum ChatChannelKind
 }
 ```
 
-`src/RustPlusBot.Abstractions/Chat/RelayDedupBuffer.cs` — the existing implementation moved verbatim, with three changes:
-1. namespace becomes `RustPlusBot.Abstractions.Chat` and the class becomes `public sealed`;
-2. the dictionary key becomes `(ChatChannelKind Kind, ulong Guild, Guid Server)`;
-3. `Record` and `TryConsume` take `ChatChannelKind kind` as their first parameter and build the composite key internally.
+`src/RustPlusBot.Abstractions/Chat/RelayDedupBuffer.cs` — the existing implementation moved verbatim, with three changes: namespace becomes `RustPlusBot.Abstractions.Chat`; the class becomes `public sealed`; the dictionary key becomes `(ChatChannelKind Kind, ulong Guild, Guid Server)` and both methods take `ChatChannelKind kind` first. Update the class doc to explain that the kind is part of the key so an identical line relayed to both channels within the TTL cannot cross-cancel. Delete the old file.
 
-The class doc should now read:
+- [ ] **Step 4: Unify the sender**
 
-```csharp
-/// <summary>
-/// Short-lived record of lines the bridges relayed into the game, keyed by (channel kind, guild,
-/// server). When the bot's active player echoes a relayed line back on the socket,
-/// <see cref="TryConsume"/> matches and removes one entry so the relay drops the echo instead of
-/// re-posting it to Discord. The channel kind is part of the key so an identical line relayed to
-/// both team and clan chat within the TTL cannot cross-cancel.
-/// </summary>
-/// <param name="clock">Drives entry expiry.</param>
-```
+`src/RustPlusBot.Features.Connections/Listening/IChatSender.cs` — `ChatSendResult` and `IChatSender` exactly as in the Interfaces block, with full `///` docs. Delete `ITeamChatSender.cs`.
 
-Delete `src/RustPlusBot.Features.Chat/Relaying/RelayDedupBuffer.cs`.
-
-- [ ] **Step 4: Update the team bridge call sites**
-
-`TeamChatRelay.cs` — add `using RustPlusBot.Abstractions.Chat;` and change the guard to:
+On `ConnectionSupervisor`, replace `ITeamChatSender` in the base list with `IChatSender` and rewrite the existing `SendAsync` to dispatch on kind:
 
 ```csharp
-        if (evt.FromActivePlayer && dedup.TryConsume(ChatChannelKind.Team, (evt.GuildId, evt.ServerId), evt.Message))
+    /// <inheritdoc />
+    public async Task<ChatSendResult> SendAsync(
+        ChatChannelKind kind,
+        ulong guildId,
+        Guid serverId,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return ChatSendResult.NotConnected;
+        }
+
+        try
+        {
+            switch (kind)
+            {
+                case ChatChannelKind.Team:
+                    await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    break;
+                case ChatChannelKind.Clan:
+                    await live.Connection.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    break;
+                default:
+                    return ChatSendResult.Failed;
+            }
+
+            return ChatSendResult.Sent;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogSendFailed(logger, ex, serverId);
+            return ChatSendResult.Failed;
+        }
+    }
 ```
 
-`TeamChatInboundProcessor.cs` — add the using and change the record call to:
+Update the DI registration to `services.AddSingleton<IChatSender>(sp => sp.GetRequiredService<ConnectionSupervisor>());`, the disposal comment that names `ITeamChatSender`, and `BotTeamChatSender` to take `IChatSender` and pass `ChatChannelKind.Team`.
+
+- [ ] **Step 5: Unify the locator**
+
+`src/RustPlusBot.Features.Workspace/Locating/IChatChannelLocator.cs` — as in the Interfaces block, with docs written generically ("the per-server chat channel for this kind"), not team-specific. Delete `ITeamChatChannelLocator.cs`.
+
+`TeamChatChannelLocator` implements `IChatChannelLocator` with `public ChatChannelKind Kind => ChatChannelKind.Team;`. `ClanChatChannelLocator` (created in Task 5) does the same with `Clan`, and gains the `ResolveAsync` override it already has.
+
+Registration changes to a collection so the bridge can index by kind:
 
 ```csharp
-        dedup.Record(ChatChannelKind.Team, key, text);
+        services.AddSingleton<IChatChannelLocator, TeamChatChannelLocator>();
+        services.AddSingleton<IChatChannelLocator, ClanChatChannelLocator>();
 ```
 
-`ChatServiceCollectionExtensions.cs` — the `services.AddSingleton<RelayDedupBuffer>();` line stays, but its `using` moves from `RustPlusBot.Features.Chat.Relaying` to `RustPlusBot.Abstractions.Chat`. Keeping the registration in `AddChat()` is deliberate: `AddClans()` will register it with `TryAddSingleton` so the two features share one instance in either composition order.
+`IClanInfoChannelLocator` (Task 11) is unaffected — it is not a chat channel and keeps its own single-purpose interface.
 
-- [ ] **Step 5: Run the Chat suite**
+- [ ] **Step 6: Update the existing team bridge call sites**
 
-Run: `dotnet test tests/RustPlusBot.Features.Chat.Tests -maxcpucount:1`
-Expected: all pass, 2 more than before.
+`TeamChatRelay` — take `IEnumerable<IChatChannelLocator>` is NOT needed yet; for this task simply resolve the team locator by filtering the injected collection in the constructor:
 
-Run: `dotnet build RustPlusBot.slnx -maxcpucount:1`
+```csharp
+internal sealed class TeamChatRelay(
+    IEnumerable<IChatChannelLocator> locators,
+    ITeamChatWebhookPoster poster,
+    RelayDedupBuffer dedup,
+    IServiceScopeFactory scopeFactory)
+{
+    private readonly IChatChannelLocator _locator = locators.Single(l => l.Kind == ChatChannelKind.Team);
+```
+
+and pass `ChatChannelKind.Team` to `dedup.TryConsume`. `TeamChatInboundProcessor` does the same, passes `ChatChannelKind.Team` to `dedup.Record`, calls `sender.SendAsync(ChatChannelKind.Team, ...)`, and compares against `ChatSendResult.Sent`.
+
+This is deliberately a minimal adaptation — Task 7 replaces both classes with kind-driven ones. Do not generalise them here; keeping this task's diff to seam changes is what makes it reviewable.
+
+`ChatServiceCollectionExtensions` — the `RelayDedupBuffer` registration stays but its `using` moves to `RustPlusBot.Abstractions.Chat`.
+
+- [ ] **Step 7: Run the affected suites**
+
+Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1`
 Expected: `0 Error(s)`.
 
-- [ ] **Step 6: Commit**
+Run: `dtk dotnet test tests/RustPlusBot.Features.Chat.Tests tests/RustPlusBot.Features.Connections.Tests -maxcpucount:1`
+Expected: all pass. Chat is 2 higher than before; Connections is 1 higher.
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/RustPlusBot.Abstractions/Chat src/RustPlusBot.Features.Chat tests/RustPlusBot.Features.Chat.Tests
+git add src/RustPlusBot.Abstractions src/RustPlusBot.Features.Connections \
+        src/RustPlusBot.Features.Workspace src/RustPlusBot.Features.Chat \
+        tests/RustPlusBot.Features.Chat.Tests tests/RustPlusBot.Features.Connections.Tests
 git commit -m "$(cat <<'EOF'
-Share the relay dedup buffer and key it by channel kind
+Unify the chat sender, locator and dedup seams across channel kinds
 
-Move RelayDedupBuffer to Abstractions so both chat bridges can share one
-instance, and add the channel kind to its key so an identical line relayed to
-team and clan chat within the TTL cannot cross-cancel.
+Replace ITeamChatSender and ITeamChatChannelLocator with kind-parameterised
+IChatSender and IChatChannelLocator, and move RelayDedupBuffer to Abstractions
+keyed by channel kind so team and clan echoes cannot cross-cancel. One seam per
+concept, so the clan bridge does not need a parallel set.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
@@ -2026,138 +2036,163 @@ EOF
 
 ---
 
-### Task 7: The clan chat bridge
+### Task 7: Generalise the chat bridge to serve both channels
+
+One bridge, driven by `ChatChannelKind`. `Features.Clans` gets **no** chat bridge — `Features.Chat` owns both, because relaying in-game chat to Discord is one concern regardless of which in-game channel it came from.
 
 **Files:**
-- Create: `src/RustPlusBot.Features.Clans/RustPlusBot.Features.Clans.csproj`
-- Create: `src/RustPlusBot.Features.Clans/Webhooks/IClanChatWebhookPoster.cs`
-- Create: `src/RustPlusBot.Features.Clans/Webhooks/DiscordClanChatWebhookPoster.cs`
-- Create: `src/RustPlusBot.Features.Clans/Relaying/ClanChatRelay.cs`
-- Create: `src/RustPlusBot.Features.Clans/Inbound/InboundMessage.cs`
-- Create: `src/RustPlusBot.Features.Clans/Inbound/InboundOutcome.cs`
-- Create: `src/RustPlusBot.Features.Clans/Inbound/ClanChatInboundProcessor.cs`
-- Create: `tests/RustPlusBot.Features.Clans.Tests/RustPlusBot.Features.Clans.Tests.csproj`
-- Create: `tests/RustPlusBot.Features.Clans.Tests/ClanChatRelayTests.cs`
-- Create: `tests/RustPlusBot.Features.Clans.Tests/ClanChatInboundProcessorTests.cs`
-- Modify: `RustPlusBot.slnx`
+- Rename: `Relaying/TeamChatRelay.cs` → `Relaying/ChatRelay.cs`
+- Rename: `Inbound/TeamChatInboundProcessor.cs` → `Inbound/ChatInboundProcessor.cs`
+- Rename: `Webhooks/ITeamChatWebhookPoster.cs` → `Webhooks/IChatWebhookPoster.cs`, `DiscordTeamChatWebhookPoster.cs` → `DiscordChatWebhookPoster.cs`
+- Create: `src/RustPlusBot.Features.Chat/Relaying/RelayedChatLine.cs`
+- Modify: `src/RustPlusBot.Features.Chat/Hosting/ChatHostedService.cs`
+- Modify: `src/RustPlusBot.Features.Chat/ChatServiceCollectionExtensions.cs`
+- Modify/rename the corresponding test files
 
 **Interfaces:**
-- Consumes: `ClanMessageReceivedEvent` (T1), `IClanChatSender`/`ClanChatSendResult` (T2), `IClanChatChannelLocator` (T5), `RelayDedupBuffer`/`ChatChannelKind` (T6), `IMuteStore` and `BotTeamChat.Prefix` (existing).
-- Produces: `internal sealed class ClanChatRelay` with `Task RelayAsync(ClanMessageReceivedEvent evt, CancellationToken ct)`; `internal sealed class ClanChatInboundProcessor` with `Task<InboundOutcome> ProcessAsync(InboundMessage message, CancellationToken ct)`; `public interface IClanChatWebhookPoster` with `Task PostAsync(ulong channelId, string username, string message, CancellationToken ct)`; `internal sealed record InboundMessage(bool AuthorIsBotOrWebhook, ulong ChannelId, string DisplayName, string Content)`; `internal enum InboundOutcome { Ignored, Sent, Failed }`.
-
-`InboundMessage`/`InboundOutcome` are duplicated rather than shared: they are trivial DTOs private to each bridge's Discord adapter, and hoisting them into Abstractions to save eight lines would couple two features that otherwise share nothing.
-
-- [ ] **Step 1: Scaffold the projects**
-
-Create `src/RustPlusBot.Features.Clans/RustPlusBot.Features.Clans.csproj` by copying `src/RustPlusBot.Features.Chat/RustPlusBot.Features.Chat.csproj` verbatim, then setting its `ProjectReference`s to: `RustPlusBot.Abstractions`, `RustPlusBot.Discord`, `RustPlusBot.Domain`, `RustPlusBot.Features.Connections`, `RustPlusBot.Features.Workspace`, `RustPlusBot.Localization`, `RustPlusBot.Persistence`.
-
-Create `tests/RustPlusBot.Features.Clans.Tests/RustPlusBot.Features.Clans.Tests.csproj` by copying `tests/RustPlusBot.Features.Chat.Tests/RustPlusBot.Features.Chat.Tests.csproj` verbatim and pointing its single `ProjectReference` at `RustPlusBot.Features.Clans`.
-
-Add an `InternalsVisibleTo` for the test assembly following whatever the Chat project does (either an `AssemblyInfo.cs` or an MSBuild item).
-
-Add both projects to `RustPlusBot.slnx` under the `src/` and `tests/` folders, matching the existing entries' formatting exactly.
-
-Run: `dotnet build RustPlusBot.slnx -maxcpucount:1`
-Expected: `0 Error(s)` with two new (empty) projects.
-
-- [ ] **Step 2: Write the failing tests**
-
-`tests/RustPlusBot.Features.Clans.Tests/ClanChatRelayTests.cs` — model on `TeamChatRelayTests.cs`, including its private static `Build(...)` factory returning the SUT plus substitutes:
+- Consumes: `ChatChannelKind`, `RelayDedupBuffer`, `IChatSender`, `IChatChannelLocator` (Task 6); `ClanMessageReceivedEvent` (Task 1).
+- Produces:
 
 ```csharp
-[Fact] public async Task Posts_a_normal_message_via_webhook()
-[Fact] public async Task Drops_a_bot_prefixed_line_from_the_active_player()
-// evt.FromActivePlayer = true, Message = "[R+] pop: 42" => poster never called.
-[Fact] public async Task Keeps_a_bot_prefixed_line_from_another_player()
-// FromActivePlayer = false => posted. Another player typing "[R+]" is not our echo.
-[Fact] public async Task Drops_our_own_echo()
-// dedup.Record(ChatChannelKind.Clan, key, text) first => poster never called.
-[Fact] public async Task Does_not_consume_a_team_dedup_entry()
-// dedup.Record(ChatChannelKind.Team, key, text) => the clan line IS posted.
-[Fact] public async Task Drops_a_command_invocation()
-// IMuteStore.GetPrefixAsync returns "!"; Message = "!pop" => poster never called.
-[Fact] public async Task Ignores_leading_whitespace_when_matching_the_command_prefix()
-[Fact] public async Task Does_nothing_when_the_channel_is_not_provisioned()
-// locator returns null => poster never called, and the prefix is never queried.
+/// One received in-game chat line, normalised across channel kinds.
+internal sealed record RelayedChatLine(
+    ChatChannelKind Kind, ulong GuildId, Guid ServerId,
+    string SenderName, string Message, bool FromActivePlayer);
+
+internal sealed class ChatRelay
+{
+    public Task RelayAsync(RelayedChatLine line, CancellationToken cancellationToken);
+}
+
+internal sealed class ChatInboundProcessor
+{
+    public Task<InboundOutcome> ProcessAsync(InboundMessage message, CancellationToken cancellationToken);
+}
+
+public interface IChatWebhookPoster
+{
+    Task PostAsync(ChatChannelKind kind, ulong channelId, string username, string message, CancellationToken cancellationToken);
+}
 ```
 
-`tests/RustPlusBot.Features.Clans.Tests/ClanChatInboundProcessorTests.cs` — model on `TeamChatInboundProcessorTests.cs`:
+`TeamMessageReceivedEvent` and `ClanMessageReceivedEvent` stay as separate bus types — `Features.Commands` consumes the team one, and merging them would drag a working feature into this refactor. `ChatHostedService` adapts each into `RelayedChatLine` in three lines.
+
+**Kind routing on the inbound path:** `ChatInboundProcessor` no longer knows its kind up front. It asks each registered `IChatChannelLocator` to resolve the incoming channel id; the one that matches supplies both the `(guild, server)` and the `Kind`. A channel that no locator claims is ignored.
+
+**Webhook naming:** `DiscordChatWebhookPoster` derives the name from the kind — `"RustPlusBot TeamChat"` / `"RustPlusBot ClanChat"`. Keep the existing team name byte-for-byte: changing it would orphan every webhook already provisioned in live guilds and silently create duplicates. Cache clients per `(kind, channelId)`.
+
+- [ ] **Step 1: Write the failing tests**
+
+Rename `TeamChatRelayTests.cs` → `ChatRelayTests.cs` and `TeamChatInboundProcessorTests.cs` → `ChatInboundProcessorTests.cs`, converting each existing test to the new signature and making the kind a parameter. Every behavioural test becomes a `[Theory]` over both kinds, because both must behave identically:
 
 ```csharp
-[Fact] public async Task Ignores_bot_and_webhook_authors()
-[Fact] public async Task Ignores_empty_content()
-[Fact] public async Task Ignores_a_channel_that_is_not_a_clanchat()
-[Fact] public async Task Ignores_a_muted_server_without_recording_a_dedup_entry()
-// Assert the sender was never called AND buffer.TryConsume(Clan, key, text) is false.
-[Fact] public async Task Records_the_dedup_entry_before_sending()
-// Use a sender substitute whose Returns callback asserts the entry is already recorded.
-[Fact] public async Task Formats_the_line_with_the_display_name()
-// Assert the sent text is exactly "[dave] hello".
-[Fact] public async Task Reports_Failed_when_the_send_fails()
-[Fact] public async Task Reports_Failed_when_there_is_no_live_socket()
-// ClanChatSendResult.NotConnected => InboundOutcome.Failed, so the user sees the ❌ reaction.
+    [Theory]
+    [InlineData(ChatChannelKind.Team)]
+    [InlineData(ChatChannelKind.Clan)]
+    public async Task Posts_a_normal_message_via_webhook(ChatChannelKind kind)
+
+    [Theory]
+    [InlineData(ChatChannelKind.Team)]
+    [InlineData(ChatChannelKind.Clan)]
+    public async Task Drops_a_bot_prefixed_line_from_the_active_player(ChatChannelKind kind)
+
+    [Theory] // ... and likewise for:
+    // Keeps_a_bot_prefixed_line_from_another_player
+    // Drops_our_own_echo
+    // Drops_a_command_invocation
+    // Ignores_leading_whitespace_when_matching_the_command_prefix
+    // Does_nothing_when_the_channel_is_not_provisioned
 ```
 
-- [ ] **Step 3: Run to verify failure**
-
-Run: `dotnet test tests/RustPlusBot.Features.Clans.Tests -maxcpucount:1`
-Expected: FAIL — compile errors, none of the types exist.
-
-- [ ] **Step 4: Implement the poster**
-
-`IClanChatWebhookPoster.cs` and `DiscordClanChatWebhookPoster.cs` — copy `ITeamChatWebhookPoster` / `DiscordTeamChatWebhookPoster` verbatim, renaming the types, changing `WebhookName` to `"RustPlusBot ClanChat"`, and updating the doc comments and the `[LoggerMessage]` text to say "clan chat line".
-
-- [ ] **Step 5: Implement the relay**
-
-`src/RustPlusBot.Features.Clans/Relaying/ClanChatRelay.cs` — structurally identical to `TeamChatRelay`:
+Plus these cross-kind facts, which are the whole point of the unification:
 
 ```csharp
-using Microsoft.Extensions.DependencyInjection;
-using RustPlusBot.Abstractions.Chat;
-using RustPlusBot.Abstractions.Events;
-using RustPlusBot.Features.Clans.Webhooks;
-using RustPlusBot.Features.Connections.Listening;
-using RustPlusBot.Features.Workspace.Locating;
-using RustPlusBot.Persistence.Commands;
+    [Fact] public async Task A_team_dedup_entry_does_not_suppress_a_clan_line()
+    [Fact] public async Task A_clan_dedup_entry_does_not_suppress_a_team_line()
+    [Fact] public async Task Posts_a_clan_line_to_the_clan_channel_not_the_team_channel()
+    [Fact] public async Task Routes_an_inbound_message_by_which_locator_claims_the_channel()
+    [Fact] public async Task Ignores_an_inbound_message_in_a_channel_no_locator_claims()
+    [Fact] public async Task Uses_the_clan_webhook_name_for_clan_lines()
+```
 
-namespace RustPlusBot.Features.Clans.Relaying;
+And for the inbound processor, converted to `[Theory]` over both kinds: ignores bots/webhooks, ignores empty content, mute gate without recording dedup, records dedup before sending, formats `"[dave] hello"`, `Failed` on a failed send, `Failed` on `NotConnected`.
 
-/// <summary>
-/// Relays one received in-game clan message into its Discord #clanchat channel, dropping our own
-/// echoes and command invocations.
-/// </summary>
-/// <param name="locator">Resolves the target #clanchat channel.</param>
-/// <param name="poster">Posts the line via webhook.</param>
-/// <param name="dedup">Tracks lines the bridge relayed into the game so their echoes can be dropped.</param>
-/// <param name="scopeFactory">Opens a scope to read the scoped <see cref="IMuteStore"/> command prefix.</param>
-internal sealed class ClanChatRelay(
-    IClanChatChannelLocator locator,
-    IClanChatWebhookPoster poster,
+`ChatHostedServiceTests` gains:
+
+```csharp
+    [Fact] public async Task Relays_a_clan_message_event()
+    [Fact] public async Task Relays_a_team_message_event()
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `dtk dotnet test tests/RustPlusBot.Features.Chat.Tests -maxcpucount:1`
+Expected: FAIL — `ChatRelay` and `RelayedChatLine` do not exist.
+
+- [ ] **Step 3: Generalise the poster**
+
+Rename the interface and class. `PostAsync` gains a leading `ChatChannelKind kind`. Replace the `WebhookName` constant with:
+
+```csharp
+    /// <summary>
+    /// Webhook name per channel kind. These strings are load-bearing: the poster re-discovers its
+    /// webhook by name on restart, so changing one orphans every webhook already created in live
+    /// guilds and silently creates a duplicate alongside it.
+    /// </summary>
+    /// <param name="kind">The channel kind.</param>
+    /// <returns>The webhook name to find or create.</returns>
+    private static string WebhookNameFor(ChatChannelKind kind) => kind switch
+    {
+        ChatChannelKind.Clan => "RustPlusBot ClanChat",
+        _ => "RustPlusBot TeamChat",
+    };
+```
+
+Key the client cache on `(ChatChannelKind Kind, ulong ChannelId)`.
+
+- [ ] **Step 4: Generalise the relay**
+
+`Relaying/RelayedChatLine.cs` as in the Interfaces block, with full `///` docs.
+
+`Relaying/ChatRelay.cs` — the existing `TeamChatRelay` body with `evt` replaced by `line`, the locator chosen by `line.Kind`, and the kind threaded into the dedup and poster calls:
+
+```csharp
+internal sealed class ChatRelay(
+    IEnumerable<IChatChannelLocator> locators,
+    IChatWebhookPoster poster,
     RelayDedupBuffer dedup,
     IServiceScopeFactory scopeFactory)
 {
-    /// <summary>Handles one <see cref="ClanMessageReceivedEvent"/>.</summary>
-    /// <param name="evt">The received clan message.</param>
+    private readonly Dictionary<ChatChannelKind, IChatChannelLocator> _locators =
+        locators.ToDictionary(l => l.Kind);
+
+    /// <summary>Relays one received in-game chat line into its Discord channel.</summary>
+    /// <param name="line">The received line.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the line has been relayed or dropped.</returns>
-    public async Task RelayAsync(ClanMessageReceivedEvent evt, CancellationToken cancellationToken)
+    public async Task RelayAsync(RelayedChatLine line, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(evt);
+        ArgumentNullException.ThrowIfNull(line);
 
-        if (evt.FromActivePlayer && evt.Message.StartsWith(BotTeamChat.Prefix, StringComparison.Ordinal))
+        if (line.FromActivePlayer && line.Message.StartsWith(BotTeamChat.Prefix, StringComparison.Ordinal))
         {
-            return; // Bot-originated line echoing back; #clanchat carries only human discussion.
+            return; // Bot-originated line echoing back; the channel carries only human discussion.
         }
 
-        if (evt.FromActivePlayer &&
-            dedup.TryConsume(ChatChannelKind.Clan, (evt.GuildId, evt.ServerId), evt.Message))
+        if (line.FromActivePlayer &&
+            dedup.TryConsume(line.Kind, (line.GuildId, line.ServerId), line.Message))
         {
             return; // Our own relayed line echoing back; do not re-post.
         }
 
+        if (!_locators.TryGetValue(line.Kind, out var locator))
+        {
+            return;
+        }
+
         // The locator is an in-memory cache, so resolve the channel first: unmapped servers exit
         // before the per-message prefix query below.
-        var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
+        var channelId = await locator.GetChannelIdAsync(line.GuildId, line.ServerId, cancellationToken)
             .ConfigureAwait(false);
         if (channelId is null)
         {
@@ -2165,64 +2200,114 @@ internal sealed class ClanChatRelay(
         }
 
         // A command invocation gets its reply in game; the bare trigger line is noise in Discord.
-        var prefix = await GetCommandPrefixAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
+        var prefix = await GetCommandPrefixAsync(line.GuildId, line.ServerId, cancellationToken)
+            .ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(prefix) &&
-            evt.Message.TrimStart().StartsWith(prefix, StringComparison.Ordinal))
+            line.Message.TrimStart().StartsWith(prefix, StringComparison.Ordinal))
         {
             return;
         }
 
-        await poster.PostAsync(channelId.Value, evt.SenderName, evt.Message, cancellationToken).ConfigureAwait(false);
+        await poster.PostAsync(line.Kind, channelId.Value, line.SenderName, line.Message, cancellationToken)
+            .ConfigureAwait(false);
     }
 
-    private async Task<string> GetCommandPrefixAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
-    {
-        // IMuteStore is scoped, so resolve it from a fresh scope rather than capturing it on this singleton.
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var muteStore = scope.ServiceProvider.GetRequiredService<IMuteStore>();
-            return await muteStore.GetPrefixAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-        }
-    }
+    // GetCommandPrefixAsync unchanged from TeamChatRelay.
 }
 ```
 
-`BotTeamChat.Prefix` is reused deliberately: it is the bot's single marker for its own in-game output, not a team-specific constant.
+`BotTeamChat.Prefix` is the bot's single marker for its own in-game output across both channels, not a team-specific constant. Leave its name alone — renaming it is churn in unrelated files.
 
-- [ ] **Step 6: Implement the inbound path**
+- [ ] **Step 5: Generalise the inbound processor**
 
-`Inbound/InboundMessage.cs` and `Inbound/InboundOutcome.cs` — copy the Chat equivalents verbatim into the `RustPlusBot.Features.Clans.Inbound` namespace, updating "#teamchat" to "#clanchat" in the docs.
-
-`Inbound/ClanChatInboundProcessor.cs` — copy `TeamChatInboundProcessor` with these substitutions: `IClanChatChannelLocator`, `IClanChatSender`, `dedup.Record(ChatChannelKind.Clan, key, text)`, and
+`Inbound/ChatInboundProcessor.cs` — resolve the kind from whichever locator claims the channel:
 
 ```csharp
-        return result == ClanChatSendResult.Sent ? InboundOutcome.Sent : InboundOutcome.Failed;
+        (ulong GuildId, Guid ServerId)? target = null;
+        var kind = ChatChannelKind.Team;
+        foreach (var locator in locators)
+        {
+            if (await locator.ResolveAsync(message.ChannelId, cancellationToken).ConfigureAwait(false) is { } hit)
+            {
+                target = hit;
+                kind = locator.Kind;
+                break;
+            }
+        }
+
+        if (target is not { } t)
+        {
+            return InboundOutcome.Ignored;
+        }
 ```
 
-- [ ] **Step 7: Run the tests**
+then the existing mute gate, `dedup.Record(kind, key, text)`, `sender.SendAsync(kind, t.GuildId, t.ServerId, text, cancellationToken)`, and `result == ChatSendResult.Sent ? InboundOutcome.Sent : InboundOutcome.Failed`.
 
-Run: `dtk dotnet test tests/RustPlusBot.Features.Clans.Tests -maxcpucount:1`
-Expected: PASS, 17 tests. **Confirm the assembly reports 17, not 0** — a build failure in a new project reports zero tests and looks green.
+- [ ] **Step 6: Subscribe to both events**
 
-- [ ] **Step 8: Commit**
+`ChatHostedService` — add a second consumer loop, identical in shape to the first, and adapt both event types:
+
+```csharp
+        _teamLoop = Task.Run(() => ConsumeTeamMessagesAsync(_cts.Token), CancellationToken.None);
+        _clanLoop = Task.Run(() => ConsumeClanMessagesAsync(_cts.Token), CancellationToken.None);
+```
+
+with the bodies mapping to `RelayedChatLine`:
+
+```csharp
+                await relay.RelayAsync(
+                    new RelayedChatLine(ChatChannelKind.Team, evt.GuildId, evt.ServerId, evt.SenderName,
+                        evt.Message, evt.FromActivePlayer), cancellationToken).ConfigureAwait(false);
+```
+
+and the clan equivalent with `ChatChannelKind.Clan`. `StopAsync` cancels then awaits **both** loops. Each loop keeps the mandated shape: `OperationCanceledException` swallowed, broad catch with the CA1031 pragma and its own `[LoggerMessage]` partial.
+
+Also record the clan sender's display name for later roster rendering. `IClanStore` is scoped, so resolve it from a fresh scope inside the clan loop:
+
+```csharp
+                // Clan members arrive as Steam ids only; chat is where we learn their names.
+                var scope = scopeFactory.CreateAsyncScope();
+                await using (scope.ConfigureAwait(false))
+                {
+                    var store = scope.ServiceProvider.GetRequiredService<IClanStore>();
+                    await store.RecordNameAsync(evt.GuildId, evt.ServerId, evt.SenderSteamId, evt.SenderName,
+                        cancellationToken).ConfigureAwait(false);
+                }
+```
+
+This makes `Features.Chat` reference `RustPlusBot.Persistence` — it already does, for `IMuteStore`.
+
+- [ ] **Step 7: Update registrations**
+
+`ChatServiceCollectionExtensions` — rename the registered types (`IChatWebhookPoster`/`DiscordChatWebhookPoster`, `ChatRelay`, `ChatInboundProcessor`). `RelayDedupBuffer` stays `AddSingleton` here; `AddClans()` will `TryAddSingleton` it.
+
+Update `ChatRegistrationTests` for the renamed types, and add an assertion that both locator kinds resolve into the relay.
+
+- [ ] **Step 8: Run the suites**
+
+Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1`
+Expected: `0 Error(s)`.
+
+Run: `dtk dotnet test RustPlusBot.slnx -maxcpucount:1`
+Expected: every assembly passes. Read per-assembly counts — `Features.Chat.Tests` should be substantially higher (each converted test now runs twice, once per kind).
+
+- [ ] **Step 9: Commit**
 
 ```bash
-git add RustPlusBot.slnx src/RustPlusBot.Features.Clans tests/RustPlusBot.Features.Clans.Tests
+git add src/RustPlusBot.Features.Chat tests/RustPlusBot.Features.Chat.Tests
 git commit -m "$(cat <<'EOF'
-Add the clan chat bridge
+Drive the chat bridge by channel kind to serve clan chat
 
-Relay in-game clan chat into #clanchat via webhook impersonation and relay
-Discord messages back with record-then-send dedup, mirroring the team chat
-bridge including its bot-prefix, echo, mute and command-prefix gates.
+Generalise the relay, webhook poster and inbound processor over
+ChatChannelKind so one bridge serves both team and clan chat, and subscribe the
+hosted service to both message events. The inbound path picks its kind from
+whichever locator claims the channel. Clan chat senders are recorded as the
+name source for the clan roster.
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 EOF
 )"
 ```
-
----
-
 ### Task 8: The clan snapshot differ
 
 A pure function, so this is the highest-value test target in the feature. No I/O, no DI.
@@ -2773,7 +2858,7 @@ EOF
 
 **Interfaces:**
 - Consumes: `ClanComponentIds` (T9), `IClanStore` (T4), `IRustServerConnection.SetClanMotdAsync` (T2).
-- Produces: `internal interface IClanMotdWriter { Task<ClanMotdWriteResult> SetAsync(ulong guildId, Guid serverId, ulong actorSteamId, string motd, CancellationToken cancellationToken); }` and `internal enum ClanMotdWriteResult { Ok, NotConnected, NotPermitted, Failed }`.
+- Produces: `internal interface IClanMotdWriter { Task<ClanMotdWriteResult> SetAsync(ulong guildId, Guid serverId, ulong actorSteamId, string motd, CancellationToken cancellationToken); }` and `internal enum ClanMotdWriteResult { Ok, NotPermitted, Failed }`.
 
 Interaction modules are Discord.Net-bound and effectively untestable in this codebase (no other feature unit-tests one), so all decision logic lives in `ClanMotdWriter`, which IS tested. The module only marshals the interaction.
 
@@ -2828,14 +2913,11 @@ internal enum ClanMotdWriteResult
     /// <summary>The MOTD was set.</summary>
     Ok = 0,
 
-    /// <summary>There is no live socket for that server.</summary>
-    NotConnected = 1,
-
     /// <summary>The acting player's clan role does not allow setting the MOTD.</summary>
-    NotPermitted = 2,
+    NotPermitted = 1,
 
-    /// <summary>The write was attempted and failed.</summary>
-    Failed = 3,
+    /// <summary>The write did not succeed: no live socket, a rejected write, or blank input.</summary>
+    Failed = 2,
 }
 
 /// <summary>
@@ -2884,7 +2966,7 @@ internal sealed class ClanMotdWriter(IClanStore store, IRustServerQuery query) :
 }
 ```
 
-`NotConnected` is currently unreachable because `IRustServerQuery.SetClanMotdAsync` collapses "no socket" into false. That is deliberate: the user-facing message for both is the same, and widening the query seam's return type for a distinction nothing acts on is not worth it. Keep the enum member — it documents the state and costs nothing.
+There is deliberately no `NotConnected` member. `IRustServerQuery.SetClanMotdAsync` collapses "no live socket" into `false`, so such a member would be unreachable, and the user-facing message is the same either way. Do not add one.
 
 - [ ] **Step 4: Implement the modal and module**
 
@@ -3008,12 +3090,11 @@ Reconcile is called only on a **transition** (none→clan, clan→none), never o
 [Fact] public void Resolves_every_registered_clan_service()
 // Real ServiceCollection + the substitutes AddClans needs, then
 // BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true }) and resolve each.
-[Fact] public void Shares_one_dedup_buffer_between_the_relay_and_the_processor()
-[Fact] public void Shares_the_dedup_buffer_with_the_team_chat_bridge()
-// Call AddChat() and AddClans() on one collection; assert a single RelayDedupBuffer instance.
 [Fact] public void Registers_the_clan_capability_provider()
 // Resolve IEnumerable<IWorkspaceCapabilityProvider> and assert one has Capability == "clan".
 [Fact] public void Registers_the_three_clan_message_renderers()
+[Fact] public void Does_not_register_a_second_chat_bridge()
+// Features.Chat owns both bridges; assert AddClans registers no ChatRelay/IChatWebhookPoster.
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -3110,13 +3191,11 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory) 
 
 - [ ] **Step 7: Implement the hosted service**
 
-`Hosting/ClansHostedService.cs` — copy `ChatHostedService` and extend it to **two** consumer loops plus the Discord listener:
+`Hosting/ClansHostedService.cs` — a **single** consumer loop. Clan chat is not handled here at all: `Features.Chat` owns both bridges after Task 7, and clan chat senders are already recorded as names there.
 
-- loop 1: `SubscribeAsync<ClanMessageReceivedEvent>` → `relay.RelayAsync`, and also record the sender's name via `IClanStore.RecordNameAsync` (this is the main name-harvesting path).
-- loop 2: `SubscribeAsync<ClanStateChangedEvent>` → `stateService.ApplyAsync`.
-- `MessageReceived` → `ClanChatInboundProcessor`, ❌ on `InboundOutcome.Failed`.
+- `SubscribeAsync<ClanStateChangedEvent>` → `stateService.ApplyAsync`.
 
-Both loops follow the mandated shape verbatim: `Task.Run` in `StartAsync`, `await foreach`, `OperationCanceledException` swallowed, broad catch with the CA1031 pragma and a `[LoggerMessage]` partial. `StopAsync` cancels then awaits **both** loop tasks.
+The loop follows the mandated shape verbatim: `Task.Run` in `StartAsync`, `await foreach`, `OperationCanceledException` swallowed, broad catch with the CA1031 pragma and a `[LoggerMessage]` partial. `StopAsync` cancels then awaits the loop task. There is no `MessageReceived` hook — nothing in `#claninfo` is read back.
 
 - [ ] **Step 8: Implement `AddClans()`**
 
@@ -3125,15 +3204,9 @@ public static IServiceCollection AddClans(this IServiceCollection services)
 {
     ArgumentNullException.ThrowIfNull(services);
 
-    // Shared with AddChat: TryAdd so the two bridges get one buffer in either composition order.
-    services.TryAddSingleton<RelayDedupBuffer>();
-
     services.AddRustPlusBotLocalization();
 
-    services.AddSingleton<IClanChatWebhookPoster, DiscordClanChatWebhookPoster>();
     services.AddSingleton<IClanFeedPoster, DiscordClanFeedPoster>();
-    services.AddSingleton<ClanChatRelay>();
-    services.AddSingleton<ClanChatInboundProcessor>();
     services.AddSingleton<ClanChangeRenderer>();
     services.AddSingleton<ClanStateService>();
     services.AddSingleton<IWorkspaceCapabilityProvider, ClanCapabilityProvider>();
@@ -3157,7 +3230,7 @@ public static IServiceCollection AddClans(this IServiceCollection services)
 - [ ] **Step 9: Run the tests**
 
 Run: `dtk dotnet test tests/RustPlusBot.Features.Clans.Tests -maxcpucount:1`
-Expected: PASS, 76 total (63 + 8 state + 5 registration).
+Expected: PASS, 74 total (63 + 8 state + 3 registration).
 
 Run: `dtk dotnet build RustPlusBot.slnx -maxcpucount:1`
 Expected: `0 Error(s)`.
@@ -3266,7 +3339,7 @@ Expected: the host reaches Discord login. A `ValidateOnStart` or DI resolution f
 
 Run: `dotnet test RustPlusBot.slnx -maxcpucount:1`
 
-Expected: every assembly passes. **Read the per-assembly counts.** `RustPlusBot.Features.Clans.Tests` must report **76**, not 0. An assembly reporting 0 means it failed to build and its tests silently did not run.
+Expected: every assembly passes. **Read the per-assembly counts.** `RustPlusBot.Features.Clans.Tests` must report **74**, not 0. An assembly reporting 0 means it failed to build and its tests silently did not run.
 
 Record the actual per-assembly numbers in the commit message or PR body — not "all tests pass".
 

@@ -13,7 +13,7 @@ has no awareness of clans at all.
 We want:
 
 1. Detection of whether the paired player on a given Rust server is in a clan.
-2. A `#clanchat` channel bridging clan chat, mirroring the existing `#teamchat` bridge.
+2. A `#clanchat` channel bridging clan chat, served by the same bridge as `#teamchat`.
 3. A `#claninfo` channel presenting clan data — overview, roster, invites — plus a live
    feed of clan changes.
 4. Both channels present **only** while a clan exists, and removed when it does not.
@@ -98,7 +98,7 @@ Task SendClanMessageAsync(string message, CancellationToken ct);
 Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken ct);
 
 event EventHandler<ClanChatLine>? ClanMessageReceived;
-event EventHandler<ClanSnapshot?>? ClanChanged;
+event EventHandler<ClanProbeResult>? ClanChanged;
 ```
 
 `GetClanChatAsync` (history) is **not** added: the bridge is live-only, matching teamchat,
@@ -125,8 +125,8 @@ into a single `null` would let a socket hiccup delete a user's channels.
 - publishes `ClanMessageReceivedEvent(GuildId, ServerId, SteamId, Name, Message, Time,
   FromActivePlayer)` and `ClanStateChangedEvent(GuildId, ServerId, ClanSnapshot?,
   ClanProbeStatus)` on `IEventBus`
-- implements `IClanChatSender` returning `Sent` / `NotConnected` / `Failed`, mirroring
-  `ITeamChatSender`
+- implements the unified `IChatSender`, which takes a `ChatChannelKind` and returns
+  `Sent` / `NotConnected` / `Failed`, replacing the team-specific `ITeamChatSender`
 
 `RejectedConnection` gets the corresponding no-op implementations.
 
@@ -192,11 +192,21 @@ storagemonitors 8.
 A deliberate clone of the teamchat bridge, so it inherits its already-proven edge-case
 handling. Files mirror `Features.Chat` one-for-one.
 
-**Game → Discord.** `ClansHostedService` consumes `ClanMessageReceivedEvent` in the
-mandated `AlarmsHostedService` loop shape → `ClanChatRelay` → `IClanChatWebhookPoster` /
-`DiscordClanChatWebhookPoster` (webhook named `"RustPlusBot ClanChat"`, re-discovered by
-name on restart, `ConcurrentDictionary`-cached, `username:` impersonation,
-`AllowedMentions.None`).
+**One bridge, not two.** Rather than cloning the team bridge, `Features.Chat` is
+generalised over a `ChatChannelKind { Team, Clan }` discriminator and serves both channels
+from one implementation: one `ChatRelay`, one `ChatInboundProcessor`, one
+`DiscordChatWebhookPoster` (webhook name selected by kind), and one `IChatSender` /
+`IChatChannelLocator` seam replacing the team-specific pair. `Features.Clans` therefore
+contains no chat code at all — it owns clan state, the capability, the embeds, the feed and
+the MOTD write. This costs a refactor of the working team bridge, covered by its existing
+tests re-run against both kinds, and buys a single place to fix any relay bug.
+
+**Game → Discord.** `ChatHostedService` consumes both `TeamMessageReceivedEvent` and
+`ClanMessageReceivedEvent` in the mandated loop shape, normalises each into a
+`RelayedChatLine` carrying its kind, and hands it to `ChatRelay` → `IChatWebhookPoster`
+(webhook `"RustPlusBot ClanChat"` for clan lines, the unchanged `"RustPlusBot TeamChat"`
+for team lines, re-discovered by name on restart, cached per (kind, channel), `username:`
+impersonation, `AllowedMentions.None`).
 
 `ClanChatRelay` drops, in order:
 
@@ -206,11 +216,12 @@ name on restart, `ConcurrentDictionary`-cached, `username:` impersonation,
 
 then resolves the channel via `IClanChatChannelLocator` and posts.
 
-**Discord → game.** `ClanChatInboundProcessor` ignores bot and webhook authors and empty
-content, reverse-resolves `(guild, server)` from the channel id, applies the mute gate,
+**Discord → game.** `ChatInboundProcessor` ignores bot and webhook authors and empty
+content, then asks each registered `IChatChannelLocator` to claim the channel id — the one
+that matches supplies both `(guild, server)` and the kind. It applies the mute gate,
 formats `"[{DisplayName}] {Content}"` with `CultureInfo.InvariantCulture`, **records in the
 dedup buffer before sending** (the in-game echo can beat the send response), then calls
-`IClanChatSender.SendAsync`. A `Failed` outcome reacts ❌ on the Discord message.
+`IChatSender.SendAsync` with the resolved kind. A `Failed` outcome reacts ❌ on the Discord message.
 
 **Dedup buffer.** `RelayDedupBuffer` is currently keyed `(ulong Guild, Guid Server)`. It
 gains a `ChatChannelKind { Team, Clan }` discriminator in the key so a clan echo cannot
@@ -218,9 +229,9 @@ cancel an identical team-chat line sent in the same 15 s window. The buffer stay
 shared singleton; the registration test asserting relay and processor share one instance is
 extended to cover the clan pair.
 
-**Locator.** `IClanChatChannelLocator` / `ClanChatChannelLocator` — a subclass of
-`CachingChannelLocator` over `WorkspaceChannelKeys.ServerClanChat`, identical in shape to
-`TeamChatChannelLocator`, including the reverse `ResolveAsync(channelId)` lookup.
+**Locator.** `ClanChatChannelLocator` — a `CachingChannelLocator` subclass over
+`WorkspaceChannelKeys.ServerClanChat` implementing the shared `IChatChannelLocator`
+alongside `TeamChatChannelLocator`, including the reverse `ResolveAsync(channelId)` lookup.
 
 ## `#claninfo`
 
