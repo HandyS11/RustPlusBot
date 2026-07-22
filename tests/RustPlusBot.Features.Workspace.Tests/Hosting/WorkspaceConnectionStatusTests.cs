@@ -5,6 +5,7 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Workspace.Hosting;
 using RustPlusBot.Features.Workspace.Reconciler;
+using RustPlusBot.Features.Workspace.Registry;
 
 namespace RustPlusBot.Features.Workspace.Tests.Hosting;
 
@@ -16,6 +17,9 @@ public sealed class WorkspaceConnectionStatusTests
         var reconciler = Substitute.For<IWorkspaceReconciler>();
         var services = new ServiceCollection();
         services.AddScoped(_ => reconciler);
+        // StartAsync now resolves IWorkspaceRegistry up front (see the startup guard test); this
+        // minimal container needs a stand-in so that resolution succeeds.
+        services.AddSingleton(Substitute.For<IWorkspaceRegistry>());
         await using var provider = services.BuildServiceProvider();
 
         var bus = new InMemoryEventBus();
@@ -48,6 +52,9 @@ public sealed class WorkspaceConnectionStatusTests
         var reconciler = Substitute.For<IWorkspaceReconciler>();
         var services = new ServiceCollection();
         services.AddScoped(_ => reconciler);
+        // StartAsync now resolves IWorkspaceRegistry up front (see the startup guard test); this
+        // minimal container needs a stand-in so that resolution succeeds.
+        services.AddSingleton(Substitute.For<IWorkspaceRegistry>());
         await using var provider = services.BuildServiceProvider();
 
         var bus = new InMemoryEventBus();
