@@ -15,7 +15,7 @@ namespace RustPlusBot.Features.Players.Tests;
 
 public sealed class PlayerEventRelayTests
 {
-    private readonly IEventChannelLocator _locator = Substitute.For<IEventChannelLocator>();
+    private readonly IPlayerEventChannelLocator _locator = Substitute.For<IPlayerEventChannelLocator>();
     private readonly IPlayerChannelPoster _poster = Substitute.For<IPlayerChannelPoster>();
     private readonly IBotTeamChatSender _sender = Substitute.For<IBotTeamChatSender>();
     private readonly IWorkspaceStore _workspace = Substitute.For<IWorkspaceStore>();
@@ -83,5 +83,24 @@ public sealed class PlayerEventRelayTests
             Evt(new PlayerTransition(PlayerTransitionKind.Death, 1, "Bob", (10f, 10f))), CancellationToken.None);
 
         await _poster.Received(1).PostAsync(555UL, Arg.Any<global::Discord.Embed>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Never_posts_to_the_events_channel()
+    {
+        var eventsLocator = Substitute.For<IEventChannelLocator>();
+        eventsLocator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns((ulong?)888);
+        var relay = BuildRelay();
+        _locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns((ulong?)555);
+
+        await relay.RelayAsync(
+            Evt(new PlayerTransition(PlayerTransitionKind.Connect, 1, "Bob", null)), CancellationToken.None);
+
+        await _poster.Received(1).PostAsync(555UL, Arg.Any<global::Discord.Embed>(), Arg.Any<CancellationToken>());
+        await _poster.DidNotReceive()
+            .PostAsync(888UL, Arg.Any<global::Discord.Embed>(), Arg.Any<CancellationToken>());
+        await eventsLocator.DidNotReceiveWithAnyArgs().GetChannelIdAsync(default, Guid.Empty, default);
     }
 }

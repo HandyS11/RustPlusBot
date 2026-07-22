@@ -31,7 +31,7 @@ public sealed class PlayersHostedServiceTests
         var provider = services.BuildServiceProvider();
         var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
 
-        var locator = Substitute.For<IEventChannelLocator>();
+        var locator = Substitute.For<IPlayerEventChannelLocator>();
         locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((ulong?)null);
         var poster = Substitute.For<IPlayerChannelPoster>();
@@ -122,6 +122,6 @@ public sealed class PlayersHostedServiceTests
         PlayersHostedService Service,
         InMemoryEventBus Bus,
         IBotTeamChatSender Sender,
-        IEventChannelLocator Locator,
+        IPlayerEventChannelLocator Locator,
         IPlayerChannelPoster Poster);
 }
