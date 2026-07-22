@@ -97,7 +97,7 @@ public static class MonumentTokenMap
 
     /// <summary>Reduces a path-qualified prefab token ("assets/.../swamp_a.prefab") to its bare name.</summary>
     /// <param name="token">The raw Rust+ token: a bare display-name token or a full prefab path.</param>
-    /// <returns>The bare prefab name, or the token unchanged when it carries no path or extension.</returns>
+    /// <returns>The last path segment with any ".prefab" suffix removed; bare tokens come back unchanged.</returns>
     private static string? PrefabName(string? token)
     {
         if (string.IsNullOrEmpty(token))
