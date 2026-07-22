@@ -28,6 +28,7 @@ Once paired, each Rust server gets its own Discord category — every channel be
 | `#teamchat` | Two-way bridge with in-game team chat |
 | `#clanchat` / `#claninfo` | Clan bridge, roster/overview/invites embeds and a live change feed — appear only while the paired player is in a clan |
 | `#events` | Live feed for Cargo, Patrol Heli, Chinook, and oil-rig activity |
+| `#player-events` | Team presence: joins, disconnects, deaths, respawns, and AFK transitions. Read-only. The same lines are still broadcast to in-game team chat. |
 | `#map` | Rendered live map with toggleable layers |
 | `#switches` / `#alarms` / `#storagemonitors` | One embed per paired smart device |
 
