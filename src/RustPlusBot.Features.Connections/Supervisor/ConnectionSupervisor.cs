@@ -364,6 +364,23 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<bool> SetClanMotdAsync(
+        ulong guildId,
+        Guid serverId,
+        string motd,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return false;
+        }
+
+        return await live.Connection
+            .SetClanMotdAsync(motd, _options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<ChatSendResult> SendAsync(
         ChatChannelKind kind,
         ulong guildId,

@@ -124,4 +124,12 @@ public interface IRustServerQuery
         int timeoutMs,
         bool value,
         CancellationToken cancellationToken);
+
+    /// <summary>Sets the clan message of the day on a live socket.</summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The target server id.</param>
+    /// <param name="motd">The new message of the day.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>True on success; false when not connected or the write failed.</returns>
+    Task<bool> SetClanMotdAsync(ulong guildId, Guid serverId, string motd, CancellationToken cancellationToken);
 }
