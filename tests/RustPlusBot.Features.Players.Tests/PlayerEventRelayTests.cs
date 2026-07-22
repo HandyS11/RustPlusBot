@@ -84,5 +84,4 @@ public sealed class PlayerEventRelayTests
 
         await _poster.Received(1).PostAsync(555UL, Arg.Any<global::Discord.Embed>(), Arg.Any<CancellationToken>());
     }
-
 }

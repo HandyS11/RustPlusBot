@@ -69,3 +69,7 @@ Each provisioned server category also includes an `#events` channel, which recei
 Discord gateway intent is required — event markers are detected by polling the Rust+ socket, not the
 Discord gateway; only the existing **Send Messages** and **Embed Links** permissions on the provisioned
 channel are used.
+
+A `#player-events` channel is also automatically created, read-only to players, and receives updates
+when team members log in, disconnect, die, respawn, or transition AFK status. The same team-presence
+lines are still broadcast to the in-game team chat.
