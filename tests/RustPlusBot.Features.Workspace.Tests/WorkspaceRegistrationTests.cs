@@ -51,6 +51,7 @@ public sealed class WorkspaceRegistrationTests
 
         Assert.Equal(2, services.Count(d => d.ServiceType == typeof(IChatChannelLocator)));
         Assert.Contains(services, d => d.ServiceType == typeof(IEventChannelLocator));
+        Assert.Contains(services, d => d.ServiceType == typeof(IPlayerEventChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(IMapChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(ISwitchChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(IAlarmChannelLocator));
