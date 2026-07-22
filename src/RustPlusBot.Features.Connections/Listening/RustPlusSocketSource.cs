@@ -8,7 +8,12 @@ namespace RustPlusBot.Features.Connections.Listening;
 
 /// <summary>Real <see cref="IRustSocketSource"/> backed by RustPlusApi. Untested integration shim.</summary>
 /// <param name="logger">The logger.</param>
-internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource> logger) : IRustSocketSource
+/// <param name="loggerFactory">Routes RustPlusApi's own diagnostics (e.g. mapping failures) into the
+/// host's logging stack; without it the library logs to a <c>NullLogger</c> and every client-side
+/// failure it downgrades to a failed response is invisible.</param>
+internal sealed partial class RustPlusSocketSource(
+    ILogger<RustPlusSocketSource> logger,
+    ILoggerFactory loggerFactory) : IRustSocketSource
 {
     /// <inheritdoc />
     public IRustServerConnection Create(string ip, int port, ulong steamId, string playerToken)
@@ -19,7 +24,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             return new RejectedConnection();
         }
 
-        return new RustPlusServerConnection(ip, port, steamId, token, logger);
+        return new RustPlusServerConnection(ip, port, steamId, token, logger, loggerFactory);
     }
 
     [LoggerMessage(Level = LogLevel.Warning,
@@ -147,12 +152,17 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         private readonly ILogger _logger;
         private readonly RustPlus _rustPlus;
 
-        public RustPlusServerConnection(string ip, int port, ulong steamId, int playerToken, ILogger logger)
+        public RustPlusServerConnection(string ip,
+            int port,
+            ulong steamId,
+            int playerToken,
+            ILogger logger,
+            ILoggerFactory loggerFactory)
         {
             _logger = logger;
             // CONFIRMED: RustPlusConnection(string Server, int Port, ulong PlayerId, int PlayerToken, bool UseFacepunchProxy).
             var connection = new RustPlusConnection(ip, port, steamId, playerToken, UseFacepunchProxy: false);
-            _rustPlus = new RustPlus(connection);
+            _rustPlus = new RustPlus(connection, loggerFactory: loggerFactory);
             _rustPlus.OnTeamChatReceived += OnTeamChatReceived;
             _rustPlus.OnSmartDeviceTriggered += OnSmartDeviceTriggered;
             _rustPlus.OnStorageMonitorTriggered += OnStorageMonitorTriggered;

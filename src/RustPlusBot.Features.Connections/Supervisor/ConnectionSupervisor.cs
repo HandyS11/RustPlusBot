@@ -603,6 +603,7 @@ internal sealed partial class ConnectionSupervisor(
         // Probe once on connect so clan state is correct after a bot restart, not only after the
         // next in-game change. An Unavailable result publishes too: the consumer preserves state.
         var clanProbe = await connection.GetClanInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        LogClanPrimeProbed(logger, key.Server, clanProbe.Status);
         await PublishClanStateAsync(key, clanProbe).ConfigureAwait(false);
 
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -1451,6 +1452,12 @@ internal sealed partial class ConnectionSupervisor(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Publishing clan state for server {ServerId} failed.")]
     private static partial void LogPublishClanStateFailed(ILogger logger, Exception exception, Guid serverId);
+
+    // Information, once per connect: an Unavailable prime is deliberately ignored downstream, so
+    // without this line a clan-probe failure is completely invisible in the logs.
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Connect-time clan probe for server {ServerId} returned {Status}.")]
+    private static partial void LogClanPrimeProbed(ILogger logger, Guid serverId, ClanProbeStatus status);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Listing smart devices to prime on server {ServerId} failed; priming skipped for this connection.")]
