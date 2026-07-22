@@ -16,20 +16,20 @@ public sealed class ClanSnapshotDifferTests
         IReadOnlyList<ClanRoleSnapshot>? roles = null,
         IReadOnlyList<ClanMemberSnapshot>? members = null,
         IReadOnlyList<ClanInviteSnapshot>? invites = null) => new(
-            clanId,
-            name,
-            DateTimeOffset.UnixEpoch,
-            1,
-            motd,
-            motd is null ? null : DateTimeOffset.UnixEpoch,
-            motdAuthor,
-            logoHash,
-            color,
-            null,
-            score,
-            roles ?? [Role(1, 0, "Member")],
-            members ?? [],
-            invites ?? []);
+        clanId,
+        name,
+        DateTimeOffset.UnixEpoch,
+        1,
+        motd,
+        motd is null ? null : DateTimeOffset.UnixEpoch,
+        motdAuthor,
+        logoHash,
+        color,
+        null,
+        score,
+        roles ?? [Role(1, 0, "Member")],
+        members ?? [],
+        invites ?? []);
 
     private static ClanRoleSnapshot Role(int roleId, int rank, string name) =>
         new(roleId, rank, name, false, false, false, false, false, false, false, false, false);

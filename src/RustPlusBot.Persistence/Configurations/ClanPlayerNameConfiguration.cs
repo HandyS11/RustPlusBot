@@ -10,7 +10,10 @@ internal sealed class ClanPlayerNameConfiguration : IEntityTypeConfiguration<Cla
     public void Configure(EntityTypeBuilder<ClanPlayerName> builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        builder.HasKey(n => new { n.ServerId, n.SteamId });
+        builder.HasKey(n => new
+        {
+            n.ServerId, n.SteamId
+        });
         builder.Property(n => n.Name).HasMaxLength(64);
 
         builder.HasOne<RustServer>()

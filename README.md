@@ -43,6 +43,26 @@ recycle/craft/research/decay/upkeep calculators are all shipped. Cameras are nex
 - Two-way relay between in-game team chat and a per-server `#teamchat` channel
   (via a managed webhook), with echo/loop suppression.
 
+### Clans
+
+- **Conditional channels** — `#clanchat` and `#claninfo` appear automatically when
+  the paired player is in a clan, and are removed again when they leave; no
+  command to run either way.
+- **`#clanchat`** — two-way relay between in-game clan chat and the channel, sharing
+  the same echo/loop suppression as the team bridge.
+- **`#claninfo`** — three pinned auto-refreshing embeds — **Overview** (score,
+  member count, creation date, leader, creator, MOTD), **Roster** (members grouped
+  by clan role, online first, with each role's permissions), and **Invites** —
+  refreshed on the existing `Workspace:InfoRefreshInterval`, plus a live feed of
+  clan changes (members joining/leaving, promotions/demotions, invites, rename,
+  MOTD, logo, colour, score, dissolution).
+- **Set MOTD** — a button on the overview embed opens a modal that writes the MOTD
+  back to the game; it is offered only when the paired player's in-game clan role
+  carries the permission.
+- **API limits** — RustPlusApi 2.0.0-beta.4 exposes no clan audit log, no per-member
+  scores, and no kick/invite/promote actions, so none of those are implemented; the
+  feed is instead derived by diffing successive clan snapshots.
+
 ### In-game `!commands`
 
 Run in team chat by any teammate; replies in the guild's language with a
@@ -128,7 +148,8 @@ See [docs/development/running-locally.md](docs/development/running-locally.md).
 | `RustPlusBot.Features.Workspace` | Channel/message provisioning, reconciler, `#info`/`#setup`/`#settings` surfaces |
 | `RustPlusBot.Features.Pairing` | FCM pairing listener, credential intake, account disconnect |
 | `RustPlusBot.Features.Connections` | Live socket supervisor, hot-swap/failover, Rust+ query seam |
-| `RustPlusBot.Features.Chat` | Two-way `#teamchat` ↔ in-game chat bridge |
+| `RustPlusBot.Features.Chat` | Two-way `#teamchat` / `#clanchat` ↔ in-game chat bridges |
+| `RustPlusBot.Features.Clans` | Clan state, `#claninfo` embeds and change feed, Set MOTD |
 | `RustPlusBot.Features.Commands` | In-game `!commands`, slash surfaces, `/help`/`/leader` |
 | `RustPlusBot.Features.Events` | Live map-event classification + `#events` feed |
 | `RustPlusBot.Features.Map` | Map image rendering with toggleable layers |

@@ -36,20 +36,6 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory, 
     /// <inheritdoc />
     public string Capability => WorkspaceCapabilities.Clan;
 
-    /// <summary>
-    /// Drops the cached answer for a server. Called by <see cref="ClanStateService"/> immediately
-    /// before it reconciles a clan transition, so the reconcile sees the just-written row rather
-    /// than a stale pre-transition answer.
-    /// </summary>
-    /// <param name="guildId">The guild snowflake.</param>
-    /// <param name="serverId">The server id.</param>
-    public void Invalidate(ulong guildId, Guid serverId)
-    {
-        // Bump first: an in-flight read that observes the new epoch after its query will not cache.
-        Interlocked.Increment(ref _epoch);
-        _cache.TryRemove((guildId, serverId), out _);
-    }
-
     /// <inheritdoc />
     public async ValueTask<bool> IsAvailableAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken)
     {
@@ -85,5 +71,19 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory, 
 
             return available;
         }
+    }
+
+    /// <summary>
+    /// Drops the cached answer for a server. Called by <see cref="ClanStateService"/> immediately
+    /// before it reconciles a clan transition, so the reconcile sees the just-written row rather
+    /// than a stale pre-transition answer.
+    /// </summary>
+    /// <param name="guildId">The guild snowflake.</param>
+    /// <param name="serverId">The server id.</param>
+    public void Invalidate(ulong guildId, Guid serverId)
+    {
+        // Bump first: an in-flight read that observes the new epoch after its query will not cache.
+        Interlocked.Increment(ref _epoch);
+        _cache.TryRemove((guildId, serverId), out _);
     }
 }

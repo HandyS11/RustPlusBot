@@ -78,7 +78,10 @@ public sealed class ClanRendererTests
             motd: "Hold the fort",
             motdAuthor: 2UL,
             members: [Member(1UL, 1), Member(2UL, 2)]);
-        var resolver = Resolver(new Dictionary<ulong, string> { [2UL] = "Grace" });
+        var resolver = Resolver(new Dictionary<ulong, string>
+        {
+            [2UL] = "Grace"
+        });
         var renderer = new ClanOverviewMessageRenderer(Store(clan), resolver, Substitute.For<IConnectionStore>(),
             Localizer());
 
@@ -325,7 +328,10 @@ public sealed class ClanRendererTests
     {
         const string link = "[1](https://steamcommunity.com/profiles/1)";
         var clan = Clan(roles: [Role(1, 0, "Leader")], members: [Member(1UL, 1)]);
-        var resolver = Resolver(new Dictionary<ulong, string> { [1UL] = link });
+        var resolver = Resolver(new Dictionary<ulong, string>
+        {
+            [1UL] = link
+        });
         var renderer = new ClanRosterMessageRenderer(Store(clan), resolver, Localizer());
 
         var payload = await renderer.RenderAsync(Context, CancellationToken.None);
@@ -395,7 +401,10 @@ public sealed class ClanRendererTests
     public async Task Invites_lists_the_invitee_and_the_recruiter()
     {
         var clan = Clan(invites: [new ClanInviteSnapshot(5UL, 9UL, DateTimeOffset.UnixEpoch)]);
-        var resolver = Resolver(new Dictionary<ulong, string> { [5UL] = "Newbie", [9UL] = "Grace" });
+        var resolver = Resolver(new Dictionary<ulong, string>
+        {
+            [5UL] = "Newbie", [9UL] = "Grace"
+        });
         var renderer = new ClanInvitesMessageRenderer(Store(clan), resolver, Localizer());
 
         var payload = await renderer.RenderAsync(Context, CancellationToken.None);
@@ -435,7 +444,10 @@ public sealed class ClanRendererTests
     {
         var connections = Substitute.For<IConnectionStore>();
         connections.GetActiveCredentialAsync(Guild, Server, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<PlayerCredential?>(new PlayerCredential { SteamId = steamId }));
+            .Returns(Task.FromResult<PlayerCredential?>(new PlayerCredential
+            {
+                SteamId = steamId
+            }));
         return connections;
     }
 

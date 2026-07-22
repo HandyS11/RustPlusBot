@@ -9,7 +9,6 @@ using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Discord.Notifications;
-using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Features.Connections.Listening;

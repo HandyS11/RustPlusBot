@@ -19,6 +19,7 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
 
     /// <summary>When true, <see cref="PinMessageAsync"/> throws (pin-failure path).</summary>
     public bool ThrowOnPin { get; set; }
+
     public int CreatedCategories { get; private set; }
     public int CreatedChannels { get; private set; }
     public int PostedMessages { get; private set; }

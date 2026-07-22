@@ -120,7 +120,10 @@ public sealed class ClanOverviewMessageRenderer(
         CancellationToken cancellationToken)
     {
         // One batched call: the embed needs at most the leader, the creator and the MOTD author.
-        var ids = new HashSet<ulong> { clan.Creator };
+        var ids = new HashSet<ulong>
+        {
+            clan.Creator
+        };
         if (leader is not null)
         {
             ids.Add(leader.SteamId);

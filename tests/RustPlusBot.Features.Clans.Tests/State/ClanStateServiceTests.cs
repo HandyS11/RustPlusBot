@@ -21,14 +21,14 @@ public sealed class ClanStateServiceTests
     private const ulong Guild = 42UL;
     private const ulong Channel = 999UL;
     private static readonly Guid Server = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private readonly ILocalizer _localizer = Substitute.For<ILocalizer>();
+    private readonly IClanInfoChannelLocator _locator = Substitute.For<IClanInfoChannelLocator>();
+    private readonly IClanNameResolver _names = Substitute.For<IClanNameResolver>();
+    private readonly IClanFeedPoster _poster = Substitute.For<IClanFeedPoster>();
+    private readonly IWorkspaceReconciler _reconciler = Substitute.For<IWorkspaceReconciler>();
 
     private readonly IClanStore _store = Substitute.For<IClanStore>();
     private readonly IWorkspaceStore _workspace = Substitute.For<IWorkspaceStore>();
-    private readonly IClanNameResolver _names = Substitute.For<IClanNameResolver>();
-    private readonly IWorkspaceReconciler _reconciler = Substitute.For<IWorkspaceReconciler>();
-    private readonly IClanInfoChannelLocator _locator = Substitute.For<IClanInfoChannelLocator>();
-    private readonly IClanFeedPoster _poster = Substitute.For<IClanFeedPoster>();
-    private readonly ILocalizer _localizer = Substitute.For<ILocalizer>();
 
     public ClanStateServiceTests()
     {

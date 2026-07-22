@@ -53,7 +53,8 @@ internal static class ClanSnapshotDiffer
         // An id that left Invites and appeared in Members in one step is an acceptance, reported
         // once — never as a join plus a revocation.
         var accepted = previousInvites
-            .Where(id => !currentInvites.Contains(id) && currentMembers.ContainsKey(id) && !previousMembers.ContainsKey(id))
+            .Where(id =>
+                !currentInvites.Contains(id) && currentMembers.ContainsKey(id) && !previousMembers.ContainsKey(id))
             .ToHashSet();
 
         foreach (var id in currentMembers.Keys.Where(id => !previousMembers.ContainsKey(id) && !accepted.Contains(id))

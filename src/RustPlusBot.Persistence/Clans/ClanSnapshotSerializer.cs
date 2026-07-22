@@ -1,5 +1,4 @@
 using System.Text.Json;
-using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Persistence.Clans;
 

@@ -16,7 +16,10 @@ public sealed class ClanNameResolverTests
         var store = Substitute.For<IClanStore>();
         store.GetNamesAsync(Guild, Server, Arg.Any<IReadOnlyCollection<ulong>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyDictionary<ulong, string>>(
-                new Dictionary<ulong, string> { [1UL] = "Ada", [2UL] = "Grace" }));
+                new Dictionary<ulong, string>
+                {
+                    [1UL] = "Ada", [2UL] = "Grace"
+                }));
 
         var resolved = await new ClanNameResolver(store)
             .ResolveAsync(Guild, Server, [1UL, 2UL], CancellationToken.None);
@@ -46,7 +49,10 @@ public sealed class ClanNameResolverTests
         var store = Substitute.For<IClanStore>();
         store.GetNamesAsync(Guild, Server, Arg.Any<IReadOnlyCollection<ulong>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyDictionary<ulong, string>>(
-                new Dictionary<ulong, string> { [1UL] = "Ada", [3UL] = "  " }));
+                new Dictionary<ulong, string>
+                {
+                    [1UL] = "Ada", [3UL] = "  "
+                }));
 
         var resolved = await new ClanNameResolver(store)
             .ResolveAsync(Guild, Server, [1UL, 2UL, 3UL], CancellationToken.None);

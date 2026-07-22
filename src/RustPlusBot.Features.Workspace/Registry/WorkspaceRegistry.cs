@@ -9,11 +9,11 @@ internal sealed class WorkspaceRegistry(
     IEnumerable<IMessageSpecProvider> messageProviders,
     IEnumerable<IWorkspaceCapabilityProvider> capabilityProviders) : IWorkspaceRegistry
 {
-    private readonly List<ChannelSpec> _channels = [.. channelProviders.SelectMany(p => p.GetChannelSpecs())];
-    private readonly List<MessageSpec> _messages = [.. messageProviders.SelectMany(p => p.GetMessageSpecs())];
-
     private readonly Dictionary<string, IWorkspaceCapabilityProvider> _capabilities =
         capabilityProviders.ToDictionary(p => p.Capability, StringComparer.Ordinal);
+
+    private readonly List<ChannelSpec> _channels = [.. channelProviders.SelectMany(p => p.GetChannelSpecs())];
+    private readonly List<MessageSpec> _messages = [.. messageProviders.SelectMany(p => p.GetMessageSpecs())];
 
     /// <inheritdoc />
     public ValueTask<bool> IsCapabilityAvailableAsync(string capability,

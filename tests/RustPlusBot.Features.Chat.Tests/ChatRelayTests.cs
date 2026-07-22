@@ -115,7 +115,8 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.Received(1).PostAsync(kind, ChannelFor(kind), "BotPlayer", "genuine", Arg.Any<CancellationToken>());
+        await poster.Received(1)
+            .PostAsync(kind, ChannelFor(kind), "BotPlayer", "genuine", Arg.Any<CancellationToken>());
     }
 
     [Theory]

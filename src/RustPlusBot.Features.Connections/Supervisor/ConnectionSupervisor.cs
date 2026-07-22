@@ -90,6 +90,48 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
+    public async Task<ChatSendResult> SendAsync(
+        ChatChannelKind kind,
+        ulong guildId,
+        Guid serverId,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return ChatSendResult.NotConnected;
+        }
+
+        try
+        {
+            switch (kind)
+            {
+                case ChatChannelKind.Team:
+                    await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    break;
+                case ChatChannelKind.Clan:
+                    await live.Connection.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    break;
+                default:
+                    return ChatSendResult.Failed;
+            }
+
+            return ChatSendResult.Sent;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogSendFailed(logger, ex, serverId);
+            return ChatSendResult.Failed;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task StartAllAsync(CancellationToken cancellationToken = default)
     {
         IReadOnlyList<(ulong GuildId, Guid ServerId)> servers;
@@ -378,48 +420,6 @@ internal sealed partial class ConnectionSupervisor(
         return await live.Connection
             .SetClanMotdAsync(motd, _options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task<ChatSendResult> SendAsync(
-        ChatChannelKind kind,
-        ulong guildId,
-        Guid serverId,
-        string message,
-        CancellationToken cancellationToken)
-    {
-        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
-        {
-            return ChatSendResult.NotConnected;
-        }
-
-        try
-        {
-            switch (kind)
-            {
-                case ChatChannelKind.Team:
-                    await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
-                    break;
-                case ChatChannelKind.Clan:
-                    await live.Connection.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
-                    break;
-                default:
-                    return ChatSendResult.Failed;
-            }
-
-            return ChatSendResult.Sent;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
-        catch (Exception ex)
-#pragma warning restore CA1031
-        {
-            LogSendFailed(logger, ex, serverId);
-            return ChatSendResult.Failed;
-        }
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]

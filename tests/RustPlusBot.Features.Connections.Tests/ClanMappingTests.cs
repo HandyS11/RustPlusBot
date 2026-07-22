@@ -57,7 +57,13 @@ public sealed class ClanMappingTests
             Color = 255,
             MaxMemberCount = 8,
             Score = 1234,
-            Roles = [new ClanRole { RoleId = 1, Rank = 0, Name = "Leader", CanSetMotd = true }],
+            Roles =
+            [
+                new ClanRole
+                {
+                    RoleId = 1, Rank = 0, Name = "Leader", CanSetMotd = true
+                }
+            ],
             Members =
             [
                 new ClanMember
@@ -70,7 +76,13 @@ public sealed class ClanMappingTests
                     Online = true,
                 },
             ],
-            Invites = [new ClanInvite { SteamId = 11UL, Recruiter = 7UL, Timestamp = new DateTime(2026, 3, 2, 0, 0, 0, DateTimeKind.Utc) }],
+            Invites =
+            [
+                new ClanInvite
+                {
+                    SteamId = 11UL, Recruiter = 7UL, Timestamp = new DateTime(2026, 3, 2, 0, 0, 0, DateTimeKind.Utc)
+                }
+            ],
         };
 
         var result = ClanMapping.FromResponse(true, null, info);
@@ -109,7 +121,13 @@ public sealed class ClanMappingTests
     public void Treats_a_null_Online_flag_as_offline()
     {
         // ClanMember.Online is bool? in the API; null must not be rendered as online.
-        var info = NewClan(members: [new ClanMember { SteamId = 7UL, RoleId = 1, Online = null }]);
+        var info = NewClan(members:
+        [
+            new ClanMember
+            {
+                SteamId = 7UL, RoleId = 1, Online = null
+            }
+        ]);
 
         var result = ClanMapping.FromResponse(true, null, info);
 
@@ -119,7 +137,10 @@ public sealed class ClanMappingTests
     [Fact]
     public void Treats_timestamps_as_utc()
     {
-        var info = NewClan() with { Created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Unspecified) };
+        var info = NewClan() with
+        {
+            Created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Unspecified)
+        };
 
         var result = ClanMapping.FromResponse(true, null, info);
 

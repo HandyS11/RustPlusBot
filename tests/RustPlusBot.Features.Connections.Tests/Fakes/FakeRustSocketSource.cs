@@ -27,8 +27,8 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private int _createCount;
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
-    private IReadOnlyList<MonumentSnapshot> _pendingMonuments = [];
     private ClanProbeResult? _pendingClanProbe;
+    private IReadOnlyList<MonumentSnapshot> _pendingMonuments = [];
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
@@ -247,6 +247,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The bytes returned by <see cref="GetMapImageAsync"/>. Defaults to null.</summary>
         public byte[]? MapImageResult { get; set; }
 
+        /// <summary>The probe result this fake returns; defaults to no clan.</summary>
+        public ClanProbeResult ClanProbe { get; set; } = ClanProbeResult.NoClan;
+
+        /// <summary>Messages sent to in-game clan chat through this fake.</summary>
+        public List<string> SentClanMessages { get; } = [];
+
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
@@ -282,12 +288,6 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             SentMessages.Add(message);
             return Task.CompletedTask;
         }
-
-        /// <summary>The probe result this fake returns; defaults to no clan.</summary>
-        public ClanProbeResult ClanProbe { get; set; } = ClanProbeResult.NoClan;
-
-        /// <summary>Messages sent to in-game clan chat through this fake.</summary>
-        public List<string> SentClanMessages { get; } = [];
 
         public Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(ClanProbe);

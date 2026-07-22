@@ -11,9 +11,9 @@ public sealed class ClanCapabilityProviderTests
 {
     private const ulong Guild = 42UL;
     private static readonly Guid Server = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private readonly FakeClock _clock = new(DateTimeOffset.UnixEpoch);
 
     private readonly IClanStore _store = Substitute.For<IClanStore>();
-    private readonly FakeClock _clock = new(DateTimeOffset.UnixEpoch);
 
     [Fact]
     public async Task A_store_failure_faults_instead_of_answering_false()
@@ -24,8 +24,8 @@ public sealed class ClanCapabilityProviderTests
             .ThrowsAsync(new InvalidOperationException("store down"));
         await using var host = Build();
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await host.Provider.IsAvailableAsync(Guild, Server, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await host.Provider.IsAvailableAsync(Guild, Server, CancellationToken.None));
 
         Assert.Equal("store down", ex.Message);
     }
@@ -37,10 +37,10 @@ public sealed class ClanCapabilityProviderTests
             .ThrowsAsync(new InvalidOperationException("store down"));
         await using var host = Build();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await host.Provider.IsAvailableAsync(Guild, Server, CancellationToken.None));
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await host.Provider.IsAvailableAsync(Guild, Server, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await host.Provider.IsAvailableAsync(Guild, Server, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await host.Provider.IsAvailableAsync(Guild, Server, CancellationToken.None));
 
         await _store.Received(2).HasClanAsync(Guild, Server, Arg.Any<CancellationToken>());
     }

@@ -27,8 +27,8 @@ internal sealed partial class ChatHostedService(
     ILogger<ChatHostedService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
-    private Task? _teamLoop;
     private Task? _clanLoop;
+    private Task? _teamLoop;
 
     /// <inheritdoc />
     public void Dispose() => _cts.Dispose();
