@@ -269,6 +269,33 @@ public sealed class ClanRendererTests
     }
 
     [Fact]
+    public async Task Roster_stops_adding_role_groups_before_the_whole_embed_cap()
+    {
+        // Per-field truncation caps each group at 1024; enough groups still breach Discord's 6000
+        // whole-embed cap, and EmbedBuilder.Build() throws rather than trimming.
+        var roles = new List<ClanRoleSnapshot>();
+        var members = new List<ClanMemberSnapshot>();
+        for (var roleId = 1; roleId <= 8; roleId++)
+        {
+            roles.Add(Role(roleId, roleId, $"Role{roleId.ToString(CultureInfo.InvariantCulture)}"));
+            for (var i = 0; i < 60; i++)
+            {
+                members.Add(Member((ulong)((roleId * 1000) + i), roleId, joined: DateTimeOffset.UnixEpoch));
+            }
+        }
+
+        var renderer = new ClanRosterMessageRenderer(Store(Clan(roles: roles, members: members)), Resolver(),
+            Localizer());
+
+        var payload = await renderer.RenderAsync(Context, CancellationToken.None);
+
+        Assert.NotNull(payload.Embed);
+        Assert.True(payload.Embed.Length <= 6000, $"Embed length {payload.Embed.Length} exceeds Discord's cap.");
+        Assert.True(payload.Embed.Fields.Length < roles.Count, "No role group was omitted.");
+        Assert.Contains("clan.roster.omitted", payload.Embed.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Roster_puts_online_members_first_within_a_role()
     {
         var clan = Clan(
@@ -386,15 +413,17 @@ public sealed class ClanRendererTests
     }
 
     [Fact]
-    public async Task Invites_returns_an_empty_payload_when_there_are_none()
+    public async Task Invites_renders_an_explicit_empty_state_when_a_clan_has_none()
     {
+        // An empty payload means "leave the previous message on screen" to both the reconciler and
+        // the refresher, so an empty one here would pin a resolved invite list forever.
         var renderer = new ClanInvitesMessageRenderer(Store(Clan()), Resolver(), Localizer());
 
         var payload = await renderer.RenderAsync(Context, CancellationToken.None);
 
-        Assert.Null(payload.Text);
-        Assert.Null(payload.Embed);
-        Assert.Null(payload.Components);
+        Assert.NotNull(payload.Embed);
+        Assert.Contains("clan.invites.none", payload.Embed.Description, StringComparison.Ordinal);
+        Assert.Contains("clan.invites.title 0", payload.Embed.Title, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -162,6 +162,9 @@
   <data name="clan.invites.line" xml:space="preserve">
     <value>{0} — invité par {1} · {2}</value>
   </data>
+  <data name="clan.invites.none" xml:space="preserve">
+    <value>Aucune invitation en attente.</value>
+  </data>
   <data name="clan.invites.title" xml:space="preserve">
     <value>📨 Invitations en attente ({0})</value>
   </data>
@@ -218,6 +221,9 @@
   </data>
   <data name="clan.roster.notes" xml:space="preserve">
     <value>· {0}</value>
+  </data>
+  <data name="clan.roster.omitted" xml:space="preserve">
+    <value>…et {0} groupe(s) de rôles omis pour respecter la limite de taille des embeds Discord</value>
   </data>
   <data name="clan.roster.perm.accesslogs" xml:space="preserve">
     <value>Voir les journaux</value>

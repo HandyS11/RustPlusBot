@@ -13,9 +13,11 @@ using RustPlusBot.Features.Clans.Names;
 using RustPlusBot.Features.Clans.Posting;
 using RustPlusBot.Features.Clans.State;
 using RustPlusBot.Features.Clans.Writing;
+using RustPlusBot.Features.Workspace;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Registry;
+using RustPlusBot.Persistence;
 using RustPlusBot.Persistence.Clans;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Workspace;
@@ -79,6 +81,31 @@ public sealed class ClansRegistrationTests
         Assert.Contains(
             provider.GetServices<InteractionModuleAssembly>(),
             a => a.Assembly == typeof(ClanMotdModule).Assembly);
+    }
+
+    [Fact]
+    public void The_composed_host_registry_covers_every_gated_channel_capability()
+    {
+        // WorkspaceRegistry refuses to build when a ChannelSpec names a capability no provider
+        // answers for, because the reconciler would otherwise delete the gated channels. The clan
+        // specs live in Features.Workspace and the provider in Features.Clans, so this pins that the
+        // real composition of the two satisfies the guard.
+        var services = new ServiceCollection();
+        services.AddSingleton(new DiscordSocketClient());
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IEventBus, InMemoryEventBus>();
+        services.AddSingleton(Substitute.For<IRustServerQuery>());
+        services.AddLogging();
+        services.AddBotPersistence("DataSource=:memory:");
+        services.AddWorkspace();
+        services.AddClans();
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true
+        });
+
+        Assert.NotNull(provider.GetRequiredService<IWorkspaceRegistry>());
     }
 
     [Fact]

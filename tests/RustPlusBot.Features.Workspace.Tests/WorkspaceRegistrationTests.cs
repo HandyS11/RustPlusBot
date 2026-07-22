@@ -7,6 +7,7 @@ using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Features.Workspace.Reconciler;
+using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Features.Workspace.Teardown;
 using RustPlusBot.Persistence;
 
@@ -25,6 +26,11 @@ public sealed class WorkspaceRegistrationTests
         services.AddLogging();
         services.AddBotPersistence("DataSource=:memory:");
         services.AddWorkspace();
+
+        // AddWorkspace() contributes the clan-gated channel specs but not the provider that answers
+        // for them; the registry now refuses to build without it. Features.Clans supplies the real
+        // one in the host — see WorkspaceRegistryTests for the guard itself.
+        services.AddSingleton<IWorkspaceCapabilityProvider>(new StubClanCapability());
 
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions
         {
@@ -64,6 +70,11 @@ public sealed class WorkspaceRegistrationTests
         services.AddBotPersistence("DataSource=:memory:");
         services.AddWorkspace();
 
+        // AddWorkspace() contributes the clan-gated channel specs but not the provider that answers
+        // for them; the registry now refuses to build without it. Features.Clans supplies the real
+        // one in the host — see WorkspaceRegistryTests for the guard itself.
+        services.AddSingleton<IWorkspaceCapabilityProvider>(new StubClanCapability());
+
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateScopes = true
@@ -79,5 +90,13 @@ public sealed class WorkspaceRegistrationTests
 
         var clanLocator = Assert.Single(locators, l => l.Kind == ChatChannelKind.Clan);
         Assert.IsType<ClanChatChannelLocator>(clanLocator);
+    }
+
+    private sealed class StubClanCapability : IWorkspaceCapabilityProvider
+    {
+        public string Capability => WorkspaceCapabilities.Clan;
+
+        public ValueTask<bool> IsAvailableAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(false);
     }
 }

@@ -10,8 +10,8 @@ using RustPlusBot.Persistence.Clans;
 namespace RustPlusBot.Features.Clans.Messages;
 
 /// <summary>
-///     Renders the anchored #claninfo pending-invites embed. Renders empty when there are no pending
-///     invites so the reconciler never posts the message at all.
+///     Renders the anchored #claninfo pending-invites embed. Renders empty only where there is no
+///     clan to describe, so the reconciler never posts the message at all on a clanless server.
 /// </summary>
 /// <param name="store">Supplies the stored clan snapshot.</param>
 /// <param name="names">Resolves invitee and recruiter Steam ids to display names.</param>
@@ -38,14 +38,20 @@ public sealed class ClanInvitesMessageRenderer(
         }
 
         var clan = await store.GetAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
-        if (clan is null || clan.Invites.Count == 0)
+        if (clan is null)
         {
-            // See ClanOverviewMessageRenderer: an empty payload keeps this key inert, both on clanless
-            // servers and when there is simply nothing pending.
+            // See ClanOverviewMessageRenderer: an empty payload keeps this key inert on clanless
+            // servers, where the channel this message would live in does not exist either.
             return new MessagePayload(null, null, null);
         }
 
         var culture = context.Culture;
+        if (clan.Invites.Count == 0)
+        {
+            // Honest over stale: an empty payload means "leave the previous message on screen", so
+            // returning one here would keep a since-resolved invite list pinned forever.
+            return new MessagePayload(null, EmptyState(culture), null);
+        }
 
         // One batched call covering both sides of every invite.
         var ids = new HashSet<ulong>();
@@ -77,6 +83,16 @@ public sealed class ClanInvitesMessageRenderer(
 
         return new MessagePayload(null, embed, null);
     }
+
+    /// <summary>Builds the "nothing pending" embed shown while a clan is stored but has no invites.</summary>
+    /// <param name="culture">The guild culture.</param>
+    /// <returns>The empty-state embed.</returns>
+    private Embed EmptyState(string culture) =>
+        new EmbedBuilder()
+            .WithTitle(localizer.Get("clan.invites.title", culture, "0"))
+            .WithColor(Color.Gold)
+            .WithDescription(localizer.Get("clan.invites.none", culture))
+            .Build();
 
     private static string Name(IReadOnlyDictionary<ulong, string> resolved, ulong steamId) =>
         resolved.TryGetValue(steamId, out var name)

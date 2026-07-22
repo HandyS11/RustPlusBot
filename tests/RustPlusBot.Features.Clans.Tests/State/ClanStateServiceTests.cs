@@ -25,6 +25,8 @@ public sealed class ClanStateServiceTests
     private readonly IClanInfoChannelLocator _locator = Substitute.For<IClanInfoChannelLocator>();
     private readonly IClanNameResolver _names = Substitute.For<IClanNameResolver>();
     private readonly IClanFeedPoster _poster = Substitute.For<IClanFeedPoster>();
+
+    private readonly IRustServerQuery _query = Substitute.For<IRustServerQuery>();
     private readonly IWorkspaceReconciler _reconciler = Substitute.For<IWorkspaceReconciler>();
 
     private readonly IClanStore _store = Substitute.For<IClanStore>();
@@ -245,6 +247,70 @@ public sealed class ClanStateServiceTests
     }
 
     [Fact]
+    public async Task Records_names_from_the_team_snapshot_for_clan_members_we_do_not_know()
+    {
+        // The second of the design's two name sources. Without it a fresh install renders every
+        // roster entry as a bare profile link until that member happens to speak in clan chat.
+        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns((ClanSnapshot?)null);
+        _store.GetNamesAsync(Guild, Server, Arg.Any<IReadOnlyCollection<ulong>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<ulong, string>
+            {
+                [222UL] = "Bob"
+            });
+        _query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns(new TeamInfoSnapshot(111UL,
+                [TeamMember(111UL, "Alice"), TeamMember(222UL, "Bob"), TeamMember(333UL, "Stranger")]));
+        var service = Build();
+
+        await service.ApplyAsync(
+            new ClanStateChangedEvent(Guild, Server, ClanProbeStatus.HasClan,
+                Snapshot(members: [Member(111UL), Member(222UL)])),
+            CancellationToken.None);
+
+        await _store.Received(1).RecordNameAsync(Guild, Server, 111UL, "Alice", Arg.Any<CancellationToken>());
+
+        // 222 is already cached, and 333 is on the team but not in the clan.
+        await _store.DidNotReceive()
+            .RecordNameAsync(Guild, Server, 222UL, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _store.DidNotReceive()
+            .RecordNameAsync(Guild, Server, 333UL, Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_null_team_snapshot_records_nothing_and_changes_nothing_else()
+    {
+        _query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns((TeamInfoSnapshot?)null);
+        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Snapshot());
+        var renamed = Snapshot("Bears");
+        var service = Build();
+
+        await service.ApplyAsync(new ClanStateChangedEvent(Guild, Server, ClanProbeStatus.HasClan, renamed),
+            CancellationToken.None);
+
+        await _store.DidNotReceive().RecordNameAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _store.Received(1).SaveAsync(Guild, Server, renamed, Arg.Any<CancellationToken>());
+        await _poster.Received(1).PostAsync(Channel, "clan.event.renamed", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_failing_team_query_still_persists_the_clan_and_posts_the_feed()
+    {
+        _query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns<TeamInfoSnapshot?>(_ => throw new InvalidOperationException("socket gone"));
+        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Snapshot());
+        var renamed = Snapshot("Bears");
+        var service = Build();
+
+        await service.ApplyAsync(new ClanStateChangedEvent(Guild, Server, ClanProbeStatus.HasClan, renamed),
+            CancellationToken.None);
+
+        await _store.Received(1).SaveAsync(Guild, Server, renamed, Arg.Any<CancellationToken>());
+        await _poster.Received(1).PostAsync(Channel, "clan.event.renamed", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Score_changes_are_throttled_to_one_post_per_minute()
     {
         var clock = new FakeClock(DateTimeOffset.UnixEpoch);
@@ -271,8 +337,17 @@ public sealed class ClanStateServiceTests
         await _poster.Received(2).PostAsync(Channel, "clan.event.score", Arg.Any<CancellationToken>());
     }
 
-    private static ClanSnapshot Snapshot(string name = "Wolves", long? score = null) =>
-        new(7L, name, DateTimeOffset.UnixEpoch, 1UL, null, null, null, null, null, null, score, [], [], []);
+    private static ClanSnapshot Snapshot(
+        string name = "Wolves",
+        long? score = null,
+        IReadOnlyList<ClanMemberSnapshot>? members = null) =>
+        new(7L, name, DateTimeOffset.UnixEpoch, 1UL, null, null, null, null, null, null, score, [], members ?? [], []);
+
+    private static ClanMemberSnapshot Member(ulong steamId) =>
+        new(steamId, 1, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, true);
+
+    private static TeamMemberSnapshot TeamMember(ulong steamId, string name) =>
+        new(steamId, name, 0f, 0f, true, true, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
 
     private ClanStateService Build(IClock? clock = null)
     {
@@ -281,6 +356,7 @@ public sealed class ClanStateServiceTests
         services.AddScoped(_ => _workspace);
         services.AddScoped(_ => _names);
         services.AddScoped(_ => _reconciler);
+        services.AddScoped(_ => _query);
         var provider = services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateScopes = true

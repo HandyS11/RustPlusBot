@@ -58,7 +58,25 @@ internal sealed partial class ClansHostedService(
             await foreach (var evt in eventBus.SubscribeAsync<ClanStateChangedEvent>(cancellationToken)
                                .ConfigureAwait(false))
             {
-                await stateService.ApplyAsync(evt, cancellationToken).ConfigureAwait(false);
+                // Per-item isolation: a transient store failure, a Discord 5xx during the transition
+                // reconcile or an embed validation throw must cost one event, not the loop. Losing
+                // the loop would also strand the teardown path, leaving the clan channels behind
+                // for a player who has already left their clan.
+                try
+                {
+                    await stateService.ApplyAsync(evt, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Shutting down: let the outer handler end the loop quietly.
+                    throw;
+                }
+#pragma warning disable CA1031 // Broad catch: one faulted clan state change must not end the loop.
+                catch (Exception ex)
+#pragma warning restore CA1031
+                {
+                    LogStateChangeFailed(logger, evt.GuildId, evt.ServerId, ex);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -75,4 +93,11 @@ internal sealed partial class ClansHostedService(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Clan state loop faulted.")]
     private static partial void LogStateLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error,
+        Message = "Applying a clan state change for guild {GuildId} server {ServerId} failed.")]
+    private static partial void LogStateChangeFailed(ILogger logger,
+        ulong guildId,
+        Guid serverId,
+        Exception exception);
 }

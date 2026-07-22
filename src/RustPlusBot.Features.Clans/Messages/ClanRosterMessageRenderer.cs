@@ -27,6 +27,13 @@ public sealed class ClanRosterMessageRenderer(
     /// <summary>Discord's hard cap on the length of an embed field value.</summary>
     private const int FieldValueLimit = 1024;
 
+    /// <summary>
+    ///     Budget for the whole embed's text. Discord's hard cap is 6000 and
+    ///     <see cref="EmbedBuilder.Build" /> throws above it; the margin leaves room for the title and
+    ///     the omission notice, both of which are added after the budget is spent.
+    /// </summary>
+    private const int EmbedTextBudget = 5200;
+
     /// <inheritdoc />
     public string MessageKey => Key;
 
@@ -66,6 +73,7 @@ public sealed class ClanRosterMessageRenderer(
             .ConfigureAwait(false);
 
         var roles = clan.Roles.ToDictionary(r => r.RoleId);
+        var groups = new List<(string Name, string Value)>();
         foreach (var role in clan.Roles.OrderBy(r => r.Rank).ThenBy(r => r.RoleId))
         {
             var members = Ordered(clan.Members.Where(m => m.RoleId == role.RoleId)).ToList();
@@ -74,13 +82,36 @@ public sealed class ClanRosterMessageRenderer(
                 continue;
             }
 
-            embed.AddField(Header(role, culture), Body(members, resolved, culture));
+            groups.Add((Header(role, culture), Body(members, resolved, culture)));
         }
 
         var orphans = Ordered(clan.Members.Where(m => !roles.ContainsKey(m.RoleId))).ToList();
         if (orphans.Count > 0)
         {
-            embed.AddField(localizer.Get("clan.roster.unknownrole", culture), Body(orphans, resolved, culture));
+            groups.Add((localizer.Get("clan.roster.unknownrole", culture),
+                Body(orphans, resolved, culture)));
+        }
+
+        // Per-field truncation alone is not enough: enough role groups at their 1024-char ceiling
+        // breach Discord's 6000-char whole-embed cap, and Build() throws rather than trimming.
+        var spent = 0;
+        var added = 0;
+        foreach (var (name, value) in groups)
+        {
+            if (spent + name.Length + value.Length > EmbedTextBudget)
+            {
+                break;
+            }
+
+            embed.AddField(name, value);
+            spent += name.Length + value.Length;
+            added++;
+        }
+
+        if (added < groups.Count)
+        {
+            embed.WithDescription(localizer.Get("clan.roster.omitted", culture,
+                (groups.Count - added).ToString(CultureInfo.InvariantCulture)));
         }
 
         return new MessagePayload(null, embed.Build(), null);

@@ -58,17 +58,17 @@ public sealed class CapabilityGatedChannelTests
     }
 
     [Fact]
-    public async Task Treats_a_capability_with_no_registered_provider_as_unavailable()
+    public void Fails_fast_when_a_gated_channel_has_no_registered_capability_provider()
     {
+        // "No provider" reads as "unavailable", and unavailable means the reconciler deletes the
+        // channel and its history. A misconfigured host must fail to start, not destroy data.
         var harness = NewHarness()
             .WithChannel(WorkspaceScope.PerServer, "info", "channel.info.name")
             .WithChannel(WorkspaceScope.PerServer, "ghostly", "channel.teamchat.name", 1, "ghost");
-        var sut = harness.Build();
 
-        await sut.ReconcileServerAsync(1, ServerId);
+        var ex = Assert.Throws<InvalidOperationException>(harness.Build);
 
-        Assert.DoesNotContain(await harness.Store.GetChannelsAsync(1, ServerId), c => c.ChannelKey == "ghostly");
-        Assert.Equal(1, harness.Gateway.CreatedChannels);
+        Assert.Contains("ghost", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

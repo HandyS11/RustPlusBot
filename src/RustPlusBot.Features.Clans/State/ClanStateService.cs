@@ -119,6 +119,9 @@ internal sealed partial class ClanStateService(
         var previous = await store.GetAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
         await store.SaveAsync(evt.GuildId, evt.ServerId, snapshot, cancellationToken).ConfigureAwait(false);
 
+        // Harvest before rendering so the feed lines below can already use the learned names.
+        await RecordTeamNamesAsync(services, store, evt, snapshot, cancellationToken).ConfigureAwait(false);
+
         var changes = ClanSnapshotDiffer.Diff(previous, snapshot);
         await PostChangesAsync(services, evt, changes, snapshot, cancellationToken).ConfigureAwait(false);
 
@@ -128,6 +131,67 @@ internal sealed partial class ClanStateService(
             // later snapshot skips this — OnClanChanged fires on any clan edit and reconciling each
             // time would hammer Discord.
             await ReconcileAsync(services, evt, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Populates the SteamId → Name cache from the live team snapshot, the second of the two name
+    /// sources (clan chat senders being the first). Without it a fresh install renders every roster
+    /// entry as a bare profile link until that member happens to speak in clan chat.
+    /// </summary>
+    /// <param name="services">The per-call scope's services.</param>
+    /// <param name="store">The scoped clan store.</param>
+    /// <param name="evt">The change being applied (identifies the server).</param>
+    /// <param name="snapshot">The clan snapshot whose roster bounds what is worth recording.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes once any learned names have been recorded.</returns>
+    private async Task RecordTeamNamesAsync(
+        IServiceProvider services,
+        IClanStore store,
+        ClanStateChangedEvent evt,
+        ClanSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var query = services.GetRequiredService<IRustServerQuery>();
+            var team = await query.GetTeamInfoAsync(evt.GuildId, evt.ServerId, cancellationToken)
+                .ConfigureAwait(false);
+            if (team is null)
+            {
+                // Disconnected: names stay as they are, which is exactly the pre-existing behaviour.
+                return;
+            }
+
+            var roster = snapshot.Members.Select(m => m.SteamId).ToHashSet();
+            var candidates = team.Members
+                .Where(m => roster.Contains(m.SteamId) && !string.IsNullOrWhiteSpace(m.Name))
+                .ToList();
+            if (candidates.Count == 0)
+            {
+                return;
+            }
+
+            var known = await store
+                .GetNamesAsync(evt.GuildId, evt.ServerId, candidates.ConvertAll(m => m.SteamId), cancellationToken)
+                .ConfigureAwait(false);
+
+            foreach (var member in candidates.Where(m => !known.ContainsKey(m.SteamId)))
+            {
+                await store.RecordNameAsync(evt.GuildId, evt.ServerId, member.SteamId, member.Name,
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down: the caller's own awaits will observe this too.
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: name harvesting is cosmetic and must never block persistence.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogNameHarvestFailed(logger, evt.GuildId, evt.ServerId, ex);
         }
     }
 
@@ -240,4 +304,11 @@ internal sealed partial class ClanStateService(
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "A HasClan clan state change for guild {GuildId} server {ServerId} carried no snapshot.")]
     private static partial void LogMissingSnapshot(ILogger logger, ulong guildId, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Debug,
+        Message = "Harvesting clan member names from the team snapshot for guild {GuildId} server {ServerId} failed.")]
+    private static partial void LogNameHarvestFailed(ILogger logger,
+        ulong guildId,
+        Guid serverId,
+        Exception exception);
 }
