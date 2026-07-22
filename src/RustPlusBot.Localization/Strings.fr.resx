@@ -84,6 +84,12 @@
   <data name="channel.alarms.name" xml:space="preserve">
     <value>alarmes</value>
   </data>
+  <data name="channel.clanchat.name" xml:space="preserve">
+    <value>tchat-clan</value>
+  </data>
+  <data name="channel.claninfo.name" xml:space="preserve">
+    <value>info-clan</value>
+  </data>
   <data name="channel.events.name" xml:space="preserve">
     <value>evenements</value>
   </data>
@@ -110,6 +116,150 @@
   </data>
   <data name="channel.teamchat.name" xml:space="preserve">
     <value>tchat-equipe</value>
+  </data>
+  <data name="clan.event.color" xml:space="preserve">
+    <value>Le clan a changé de couleur</value>
+  </data>
+  <data name="clan.event.demoted" xml:space="preserve">
+    <value>{0} a été rétrogradé à {1}</value>
+  </data>
+  <data name="clan.event.dissolved" xml:space="preserve">
+    <value>{0} a été dissous</value>
+  </data>
+  <data name="clan.event.inviteaccepted" xml:space="preserve">
+    <value>{0} a accepté son invitation</value>
+  </data>
+  <data name="clan.event.invited" xml:space="preserve">
+    <value>{0} a été invité par {1}</value>
+  </data>
+  <data name="clan.event.inviterevoked" xml:space="preserve">
+    <value>L'invitation de {0} a été révoquée</value>
+  </data>
+  <data name="clan.event.joined" xml:space="preserve">
+    <value>{0} a rejoint le clan</value>
+  </data>
+  <data name="clan.event.left" xml:space="preserve">
+    <value>{0} a quitté le clan</value>
+  </data>
+  <data name="clan.event.logo" xml:space="preserve">
+    <value>Le clan a changé de logo</value>
+  </data>
+  <data name="clan.event.motd" xml:space="preserve">
+    <value>{0} a défini le MOTD : {1}</value>
+  </data>
+  <data name="clan.event.motdcleared" xml:space="preserve">
+    <value>Le MOTD a été effacé</value>
+  </data>
+  <data name="clan.event.promoted" xml:space="preserve">
+    <value>{0} a été promu {1}</value>
+  </data>
+  <data name="clan.event.renamed" xml:space="preserve">
+    <value>Le clan a été renommé en {0}</value>
+  </data>
+  <data name="clan.event.score" xml:space="preserve">
+    <value>Le score du clan est maintenant de {0}</value>
+  </data>
+  <data name="clan.invites.line" xml:space="preserve">
+    <value>{0} — invité par {1} · {2}</value>
+  </data>
+  <data name="clan.invites.none" xml:space="preserve">
+    <value>Aucune invitation en attente.</value>
+  </data>
+  <data name="clan.invites.title" xml:space="preserve">
+    <value>📨 Invitations en attente ({0})</value>
+  </data>
+  <data name="clan.motd.failed" xml:space="preserve">
+    <value>Impossible de mettre à jour le MOTD. Réessayez plus tard.</value>
+  </data>
+  <data name="clan.motd.notpermitted" xml:space="preserve">
+    <value>Vous n'avez pas la permission de définir le MOTD du clan.</value>
+  </data>
+  <data name="clan.motd.ok" xml:space="preserve">
+    <value>MOTD mis à jour.</value>
+  </data>
+  <data name="clan.overview.created" xml:space="preserve">
+    <value>Créé</value>
+  </data>
+  <data name="clan.overview.creator" xml:space="preserve">
+    <value>Créateur</value>
+  </data>
+  <data name="clan.overview.leader" xml:space="preserve">
+    <value>Chef</value>
+  </data>
+  <data name="clan.overview.members" xml:space="preserve">
+    <value>Membres</value>
+  </data>
+  <data name="clan.overview.motd" xml:space="preserve">
+    <value>Message du jour</value>
+  </data>
+  <data name="clan.overview.motdby" xml:space="preserve">
+    <value>— {0} · {1}</value>
+  </data>
+  <data name="clan.overview.nomotd" xml:space="preserve">
+    <value>Aucun message du jour défini.</value>
+  </data>
+  <data name="clan.overview.score" xml:space="preserve">
+    <value>Score</value>
+  </data>
+  <data name="clan.overview.setmotd" xml:space="preserve">
+    <value>Définir le MOTD</value>
+  </data>
+  <data name="clan.overview.title" xml:space="preserve">
+    <value>🛡️ {0}</value>
+  </data>
+  <data name="clan.overview.unknown" xml:space="preserve">
+    <value>Inconnu</value>
+  </data>
+  <data name="clan.roster.empty" xml:space="preserve">
+    <value>Aucun membre.</value>
+  </data>
+  <data name="clan.roster.joined" xml:space="preserve">
+    <value>membre depuis {0}</value>
+  </data>
+  <data name="clan.roster.lastseen" xml:space="preserve">
+    <value>vu pour la dernière fois {0}</value>
+  </data>
+  <data name="clan.roster.notes" xml:space="preserve">
+    <value>· {0}</value>
+  </data>
+  <data name="clan.roster.omitted" xml:space="preserve">
+    <value>…et {0} groupe(s) de rôles omis pour respecter la limite de taille des embeds Discord</value>
+  </data>
+  <data name="clan.roster.perm.accesslogs" xml:space="preserve">
+    <value>Voir les journaux</value>
+  </data>
+  <data name="clan.roster.perm.accessscoreevents" xml:space="preserve">
+    <value>Voir les événements de score</value>
+  </data>
+  <data name="clan.roster.perm.demote" xml:space="preserve">
+    <value>Rétrograder</value>
+  </data>
+  <data name="clan.roster.perm.invite" xml:space="preserve">
+    <value>Inviter</value>
+  </data>
+  <data name="clan.roster.perm.kick" xml:space="preserve">
+    <value>Exclure</value>
+  </data>
+  <data name="clan.roster.perm.promote" xml:space="preserve">
+    <value>Promouvoir</value>
+  </data>
+  <data name="clan.roster.perm.setlogo" xml:space="preserve">
+    <value>Définir le logo</value>
+  </data>
+  <data name="clan.roster.perm.setmotd" xml:space="preserve">
+    <value>Définir le MOTD</value>
+  </data>
+  <data name="clan.roster.perm.setplayernotes" xml:space="preserve">
+    <value>Définir les notes</value>
+  </data>
+  <data name="clan.roster.title" xml:space="preserve">
+    <value>👥 Effectif ({0})</value>
+  </data>
+  <data name="clan.roster.truncated" xml:space="preserve">
+    <value>…et {0} de plus</value>
+  </data>
+  <data name="clan.roster.unknownrole" xml:space="preserve">
+    <value>Rôle inconnu</value>
   </data>
   <data name="command.afk.member" xml:space="preserve">
     <value>{0} ({1})</value>

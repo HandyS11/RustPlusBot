@@ -15,7 +15,7 @@ namespace RustPlusBot.Persistence.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
             modelBuilder.Entity("Persistord.Core.Entities.ChannelEntity", b =>
                 {
@@ -176,6 +176,95 @@ namespace RustPlusBot.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("SmartAlarms");
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Clans.ClanPlayerName", b =>
+                {
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SteamId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ServerId", "SteamId");
+
+                    b.ToTable("ClanPlayerNames");
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Clans.ClanState", b =>
+                {
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ClanId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Color")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("Created")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Creator")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("InvitesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("LastSeenUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LogoHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("MaxMemberCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MembersJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Motd")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("MotdAuthor")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("MotdTimestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RolesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("Score")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("ServerId");
+
+                    b.ToTable("ClanStates");
                 });
 
             modelBuilder.Entity("RustPlusBot.Domain.Commands.ServerCommandSettings", b =>
@@ -651,6 +740,24 @@ namespace RustPlusBot.Persistence.Migrations
                     b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
                         .WithMany()
                         .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Clans.ClanPlayerName", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Clans.ClanState", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithOne()
+                        .HasForeignKey("RustPlusBot.Domain.Clans.ClanState", "ServerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

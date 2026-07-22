@@ -15,8 +15,8 @@
     <PackageVersion Include="Persistord.Core" Version="1.0.0-beta2" />
     <PackageVersion Include="RustMapsApi" Version="1.0.0-beta.3" />
     <PackageVersion Include="RustMapsApi.Assets" Version="1.0.0-beta.3" />
-    <PackageVersion Include="RustPlusApi" Version="2.0.0-beta.4" />
-    <PackageVersion Include="RustPlusApi.Fcm" Version="2.0.0-beta.4" />
+    <PackageVersion Include="RustPlusApi" Version="2.0.0-beta.5" />
+    <PackageVersion Include="RustPlusApi.Fcm" Version="2.0.0-beta.5" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Persistord.Core;
 using RustPlusBot.Domain.Alarms;
+using RustPlusBot.Domain.Clans;
 using RustPlusBot.Domain.Commands;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
@@ -68,6 +69,12 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Anchored bot messages, edited in place.</summary>
     public DbSet<ProvisionedMessage> ProvisionedMessages => Set<ProvisionedMessage>();
 
+    /// <summary>The latest known clan snapshot per server.</summary>
+    public DbSet<ClanState> ClanStates => Set<ClanState>();
+
+    /// <summary>Cached Steam id to display-name mappings for clan members.</summary>
+    public DbSet<ClanPlayerName> ClanPlayerNames => Set<ClanPlayerName>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +96,8 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new EventSubscriptionConfiguration())
             .ApplyConfiguration(new ProvisionedCategoryConfiguration())
             .ApplyConfiguration(new ProvisionedChannelConfiguration())
-            .ApplyConfiguration(new ProvisionedMessageConfiguration());
+            .ApplyConfiguration(new ProvisionedMessageConfiguration())
+            .ApplyConfiguration(new ClanStateConfiguration())
+            .ApplyConfiguration(new ClanPlayerNameConfiguration());
     }
 }

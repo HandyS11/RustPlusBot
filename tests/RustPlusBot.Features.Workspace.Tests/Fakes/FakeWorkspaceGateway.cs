@@ -13,12 +13,18 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     private readonly ConcurrentDictionary<ulong, Message> _messages = new();
     private readonly List<MessagePayload> _postedPayloads = [];
     private ulong _nextId = 1000;
+    private int _nextPosition;
 
     public IReadOnlyList<string> MissingPermissions { get; set; } = [];
+
     public int CreatedCategories { get; private set; }
     public int CreatedChannels { get; private set; }
     public int PostedMessages { get; private set; }
     public int EditedMessages { get; private set; }
+
+    /// <summary>How many <see cref="EnsureChannelOrderAsync"/> calls actually moved channels.</summary>
+    public int ReorderCalls { get; private set; }
+
     public IReadOnlyCollection<ulong> ChannelIds => [.. _channels.Keys];
     public IReadOnlyCollection<ulong> CategoryIds => [.. _categories.Keys];
 
@@ -64,7 +70,8 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         CancellationToken cancellationToken)
     {
         var id = NextId();
-        _channels[id] = new Channel(id, categoryId, name, profile);
+        // Mirrors Discord: a new channel is appended at the bottom of its category.
+        _channels[id] = new Channel(id, categoryId, name, profile, _nextPosition++);
         CreatedChannels++;
         return Task.FromResult(id);
     }
@@ -76,7 +83,8 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         ChannelPermissionProfile profile,
         CancellationToken cancellationToken)
     {
-        _channels[channelId] = new Channel(channelId, categoryId, name, profile);
+        var position = _channels.TryGetValue(channelId, out var existing) ? existing.Position : _nextPosition++;
+        _channels[channelId] = new Channel(channelId, categoryId, name, profile, position);
         return Task.CompletedTask;
     }
 
@@ -121,6 +129,41 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         return Task.CompletedTask;
     }
 
+    public Task EnsureChannelOrderAsync(ulong guildId,
+        ulong categoryId,
+        IReadOnlyList<ulong> orderedChannelIds,
+        CancellationToken cancellationToken)
+    {
+        var live = orderedChannelIds
+            .Select(id => _channels.TryGetValue(id, out var c) && c.CategoryId == categoryId ? c : null)
+            .OfType<Channel>()
+            .ToList();
+        if (live.Count < 2)
+        {
+            return Task.CompletedTask;
+        }
+
+        var current = live.OrderBy(c => c.Position).ThenBy(c => c.Id).Select(c => c.Id);
+        if (current.SequenceEqual(live.Select(c => c.Id)))
+        {
+            return Task.CompletedTask;
+        }
+
+        // Same permutation semantics as the Discord gateway: reuse the channels' existing position
+        // values so everything else keeps its place.
+        var slots = live.Select(c => c.Position).Order().ToList();
+        for (var i = 0; i < live.Count; i++)
+        {
+            _channels[live[i].Id] = live[i] with
+            {
+                Position = slots[i]
+            };
+        }
+
+        ReorderCalls++;
+        return Task.CompletedTask;
+    }
+
     public Task DeleteChannelAsync(ulong guildId, ulong channelId, CancellationToken cancellationToken)
     {
         _channels.TryRemove(channelId, out _);
@@ -135,6 +178,16 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
 
     public IReadOnlyList<string> GetMissingBotPermissions(ulong guildId) => MissingPermissions;
 
+    /// <summary>The category's channel ids in on-screen order (position, then snowflake).</summary>
+    /// <param name="categoryId">The category whose channels to list.</param>
+    public IReadOnlyList<ulong> ChannelOrder(ulong categoryId) =>
+    [
+        .. _channels.Values.Where(c => c.CategoryId == categoryId)
+            .OrderBy(c => c.Position)
+            .ThenBy(c => c.Id)
+            .Select(c => c.Id),
+    ];
+
     private ulong NextId() => Interlocked.Increment(ref _nextId);
 
     public void ExternallyDeleteChannel(ulong channelId) => _channels.TryRemove(channelId, out _);
@@ -148,7 +201,12 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
 
     private sealed record Category(ulong Id, string Name);
 
-    private sealed record Channel(ulong Id, ulong CategoryId, string Name, ChannelPermissionProfile Profile);
+    private sealed record Channel(
+        ulong Id,
+        ulong CategoryId,
+        string Name,
+        ChannelPermissionProfile Profile,
+        int Position);
 
     private sealed record Message(ulong Id, ulong ChannelId, MessagePayload Payload);
 }

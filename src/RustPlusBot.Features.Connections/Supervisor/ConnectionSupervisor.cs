@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
@@ -40,7 +41,7 @@ internal sealed partial class ConnectionSupervisor(
     IClock clock,
     IOptions<ConnectionOptions> options,
     ILogger<ConnectionSupervisor> logger)
-    : IConnectionSupervisor, ITeamChatSender, IRustServerQuery, IAfkState, IAsyncDisposable
+    : IConnectionSupervisor, IChatSender, IRustServerQuery, IAfkState, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), Handle> _connections = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -76,7 +77,7 @@ internal sealed partial class ConnectionSupervisor(
     public async ValueTask DisposeAsync()
     {
         // The supervisor is registered as one singleton backing three service types (IConnectionSupervisor,
-        // ITeamChatSender, and the concrete type), so the DI container may invoke DisposeAsync more than once.
+        // IChatSender, and the concrete type), so the DI container may invoke DisposeAsync more than once.
         if (_disposed)
         {
             return;
@@ -86,6 +87,48 @@ internal sealed partial class ConnectionSupervisor(
         await StopAllAsync().ConfigureAwait(false);
         _shutdown.Dispose();
         _gate.Dispose();
+    }
+
+    /// <inheritdoc />
+    public async Task<ChatSendResult> SendAsync(
+        ChatChannelKind kind,
+        ulong guildId,
+        Guid serverId,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
+        {
+            return ChatSendResult.NotConnected;
+        }
+
+        try
+        {
+            switch (kind)
+            {
+                case ChatChannelKind.Team:
+                    await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    break;
+                case ChatChannelKind.Clan:
+                    await live.Connection.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    break;
+                default:
+                    return ChatSendResult.Failed;
+            }
+
+            return ChatSendResult.Sent;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogSendFailed(logger, ex, serverId);
+            return ChatSendResult.Failed;
+        }
     }
 
     /// <inheritdoc />
@@ -363,33 +406,20 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
-    public async Task<TeamChatSendResult> SendAsync(
+    public async Task<bool> SetClanMotdAsync(
         ulong guildId,
         Guid serverId,
-        string message,
+        string motd,
         CancellationToken cancellationToken)
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return TeamChatSendResult.NotConnected;
+            return false;
         }
 
-        try
-        {
-            await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
-            return TeamChatSendResult.Sent;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-#pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
-        catch (Exception ex)
-#pragma warning restore CA1031
-        {
-            LogSendFailed(logger, ex, serverId);
-            return TeamChatSendResult.Failed;
-        }
+        return await live.Connection
+            .SetClanMotdAsync(motd, _options.HeartbeatTimeout, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]
@@ -547,12 +577,35 @@ internal sealed partial class ConnectionSupervisor(
         }
 #pragma warning restore RCS1163
 
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<ClanChatLine> delegate shape.
+        void OnClanMessage(object? sender, ClanChatLine line)
+        {
+            _ = PublishClanMessageAsync(key, activeSteamId, line);
+        }
+#pragma warning restore RCS1163
+
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<ClanProbeResult> delegate shape.
+        void OnClanChanged(object? sender, ClanProbeResult probe)
+        {
+            _ = PublishClanStateAsync(key, probe);
+        }
+#pragma warning restore RCS1163
+
         var tracker = new TeamStateTracker();
         connection.TeamMessageReceived += OnTeamMessage;
         connection.SmartDeviceTriggered += OnSmartDevice;
         connection.StorageMonitorTriggered += OnStorage;
+        connection.ClanMessageReceived += OnClanMessage;
+        connection.ClanChanged += OnClanChanged;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
         await PrimeDevicesAsync(key, connection, ct).ConfigureAwait(false);
+
+        // Probe once on connect so clan state is correct after a bot restart, not only after the
+        // next in-game change. An Unavailable result publishes too: the consumer preserves state.
+        var clanProbe = await connection.GetClanInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        LogClanPrimeProbed(logger, key.Server, clanProbe.Status);
+        await PublishClanStateAsync(key, clanProbe).ConfigureAwait(false);
+
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
             CancellationToken.None);
@@ -580,6 +633,8 @@ internal sealed partial class ConnectionSupervisor(
             connection.TeamMessageReceived -= OnTeamMessage;
             connection.SmartDeviceTriggered -= OnSmartDevice;
             connection.StorageMonitorTriggered -= OnStorage;
+            connection.ClanMessageReceived -= OnClanMessage;
+            connection.ClanChanged -= OnClanChanged;
         }
     }
 
@@ -1033,6 +1088,57 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
+    private async Task PublishClanMessageAsync((ulong Guild, Guid Server) key, ulong activeSteamId, ClanChatLine line)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            var evt = new ClanMessageReceivedEvent(
+                key.Guild, key.Server, line.SteamId, line.Name, line.Message, line.SteamId == activeSteamId);
+            // Supervisor-wide shutdown token, not a per-connection ct: an inbound line should publish
+            // regardless of one connection's reconnect cycle.
+            await eventBus.PublishAsync(evt, _shutdown.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a publish failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogPublishClanMessageFailed(logger, ex, key.Server);
+        }
+    }
+
+    private async Task PublishClanStateAsync((ulong Guild, Guid Server) key, ClanProbeResult probe)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            var evt = new ClanStateChangedEvent(key.Guild, key.Server, probe.Status, probe.Snapshot);
+            await eventBus.PublishAsync(evt, _shutdown.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a publish failure must not crash the socket callback.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogPublishClanStateFailed(logger, ex, key.Server);
+        }
+    }
+
     private async Task PrimeDevicesAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
@@ -1340,6 +1446,18 @@ internal sealed partial class ConnectionSupervisor(
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Publishing a received team message for server {ServerId} failed.")]
     private static partial void LogPublishTeamMessageFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Publishing a clan message for server {ServerId} failed.")]
+    private static partial void LogPublishClanMessageFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Publishing clan state for server {ServerId} failed.")]
+    private static partial void LogPublishClanStateFailed(ILogger logger, Exception exception, Guid serverId);
+
+    // Information, once per connect: an Unavailable prime is deliberately ignored downstream, so
+    // without this line a clan-probe failure is completely invisible in the logs.
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Connect-time clan probe for server {ServerId} returned {Status}.")]
+    private static partial void LogClanPrimeProbed(ILogger logger, Guid serverId, ClanProbeStatus status);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Listing smart devices to prime on server {ServerId} failed; priming skipped for this connection.")]

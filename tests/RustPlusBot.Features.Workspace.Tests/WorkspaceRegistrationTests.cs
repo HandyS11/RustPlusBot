@@ -1,11 +1,13 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Features.Workspace.Reconciler;
+using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Features.Workspace.Teardown;
 using RustPlusBot.Persistence;
 
@@ -25,6 +27,11 @@ public sealed class WorkspaceRegistrationTests
         services.AddBotPersistence("DataSource=:memory:");
         services.AddWorkspace();
 
+        // AddWorkspace() contributes the clan-gated channel specs but not the provider that answers
+        // for them; the registry now refuses to build without it. Features.Clans supplies the real
+        // one in the host — see WorkspaceRegistryTests for the guard itself.
+        services.AddSingleton<IWorkspaceCapabilityProvider>(new StubClanCapability());
+
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateScopes = true
@@ -42,12 +49,54 @@ public sealed class WorkspaceRegistrationTests
         var services = new ServiceCollection();
         services.AddWorkspace();
 
-        Assert.Contains(services, d => d.ServiceType == typeof(ITeamChatChannelLocator));
+        Assert.Equal(2, services.Count(d => d.ServiceType == typeof(IChatChannelLocator)));
         Assert.Contains(services, d => d.ServiceType == typeof(IEventChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(IMapChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(ISwitchChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(IAlarmChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(IStorageMonitorChannelLocator));
         Assert.Contains(services, d => d.ServiceType == typeof(ISetupChannelLocator));
+    }
+
+    [Fact]
+    public void AddWorkspace_registers_one_chat_channel_locator_per_kind_with_matching_concrete_type()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(new DiscordSocketClient());
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<IEventBus, InMemoryEventBus>();
+        services.AddSingleton(Substitute.For<IRustServerQuery>());
+        services.AddLogging();
+        services.AddBotPersistence("DataSource=:memory:");
+        services.AddWorkspace();
+
+        // AddWorkspace() contributes the clan-gated channel specs but not the provider that answers
+        // for them; the registry now refuses to build without it. Features.Clans supplies the real
+        // one in the host — see WorkspaceRegistryTests for the guard itself.
+        services.AddSingleton<IWorkspaceCapabilityProvider>(new StubClanCapability());
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true
+        });
+        using var scope = provider.CreateScope();
+
+        var locators = scope.ServiceProvider.GetServices<IChatChannelLocator>().ToList();
+
+        Assert.Equal(2, locators.Count);
+
+        var teamLocator = Assert.Single(locators, l => l.Kind == ChatChannelKind.Team);
+        Assert.IsType<TeamChatChannelLocator>(teamLocator);
+
+        var clanLocator = Assert.Single(locators, l => l.Kind == ChatChannelKind.Clan);
+        Assert.IsType<ClanChatChannelLocator>(clanLocator);
+    }
+
+    private sealed class StubClanCapability : IWorkspaceCapabilityProvider
+    {
+        public string Capability => WorkspaceCapabilities.Clan;
+
+        public ValueTask<bool> IsAvailableAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(false);
     }
 }

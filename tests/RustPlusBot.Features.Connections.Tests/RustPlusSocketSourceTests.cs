@@ -8,7 +8,7 @@ public sealed class RustPlusSocketSourceTests
     [Fact]
     public async Task Create_ReturnsADisposableConnection()
     {
-        var source = new RustPlusSocketSource(NullLogger<RustPlusSocketSource>.Instance);
+        var source = new RustPlusSocketSource(NullLogger<RustPlusSocketSource>.Instance, NullLoggerFactory.Instance);
 
         var connection = source.Create("127.0.0.1", 28015, 100UL, "12345");
         await using var _ = connection;
@@ -19,7 +19,7 @@ public sealed class RustPlusSocketSourceTests
     [Fact]
     public async Task Create_NonNumericToken_YieldsAuthRejectedConnection()
     {
-        var source = new RustPlusSocketSource(NullLogger<RustPlusSocketSource>.Instance);
+        var source = new RustPlusSocketSource(NullLogger<RustPlusSocketSource>.Instance, NullLoggerFactory.Instance);
 
         var connection = source.Create("127.0.0.1", 28015, 100UL, "not-a-number");
         await using var _ = connection;

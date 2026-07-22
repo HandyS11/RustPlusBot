@@ -27,6 +27,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private int _createCount;
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
+    private ClanProbeResult? _pendingClanProbe;
     private IReadOnlyList<MonumentSnapshot> _pendingMonuments = [];
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
@@ -83,6 +84,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         _pendingDeviceStates.Clear();
 
+        // Transfer any pre-staged clan probe so it is in place before the supervisor's connect-time probe
+        // reads it. Reset after transfer so the staging applies to the NEXT connection only.
+        if (_pendingClanProbe is { } clanProbe)
+        {
+            connection.ClanProbe = clanProbe;
+            _pendingClanProbe = null;
+        }
+
         LastConnection = connection;
         return connection;
     }
@@ -109,6 +118,16 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// </summary>
     /// <param name="monuments">The monument list to return from <see cref="IRustServerConnection.GetMonumentsAsync"/>.</param>
     public void SetMonuments(IReadOnlyList<MonumentSnapshot> monuments) => _pendingMonuments = monuments;
+
+    /// <summary>
+    /// Pre-stages the probe result returned by <see cref="FakeConnection.GetClanInfoAsync"/> for the NEXT
+    /// connection created by <see cref="Create"/>. Transferred to the new connection at creation time, before
+    /// the supervisor's connect-time clan probe runs, eliminating the setup race between the test assigning
+    /// <see cref="FakeConnection.ClanProbe"/> and the supervisor reading it. Call this before
+    /// <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    /// <param name="probe">The probe result to return from <see cref="IRustServerConnection.GetClanInfoAsync"/>.</param>
+    public void SetClanProbe(ClanProbeResult probe) => _pendingClanProbe = probe;
 
     /// <summary>
     /// Pre-stages storage contents for a given entity, to be transferred to the NEXT connection created by
@@ -228,8 +247,20 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The bytes returned by <see cref="GetMapImageAsync"/>. Defaults to null.</summary>
         public byte[]? MapImageResult { get; set; }
 
+        /// <summary>The probe result this fake returns; defaults to no clan.</summary>
+        public ClanProbeResult ClanProbe { get; set; } = ClanProbeResult.NoClan;
+
+        /// <summary>Messages sent to in-game clan chat through this fake.</summary>
+        public List<string> SentClanMessages { get; } = [];
+
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
+
+        /// <summary>Raised when a clan chat message arrives on this connection.</summary>
+        public event EventHandler<ClanChatLine>? ClanMessageReceived;
+
+        /// <summary>Raised when the clan snapshot changes on this connection.</summary>
+        public event EventHandler<ClanProbeResult>? ClanChanged;
 
         /// <summary>Raised by <see cref="RaiseSmartDeviceTriggered"/>.</summary>
         public event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
@@ -257,6 +288,18 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             SentMessages.Add(message);
             return Task.CompletedTask;
         }
+
+        public Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(ClanProbe);
+
+        public Task SendClanMessageAsync(string message, CancellationToken cancellationToken)
+        {
+            SentClanMessages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
 
 #pragma warning disable RCS1163 // Unused parameters for fake implementation
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken)
@@ -369,6 +412,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>Raises <see cref="TeamMessageReceived"/> to simulate an inbound team chat line.</summary>
         /// <param name="line">The team chat line to raise.</param>
         public void RaiseTeamMessage(TeamChatLine line) => TeamMessageReceived?.Invoke(this, line);
+
+        /// <summary>Raises <see cref="ClanMessageReceived"/> to simulate an inbound clan chat line.</summary>
+        /// <param name="line">The clan chat line to raise.</param>
+        public void RaiseClanMessage(ClanChatLine line) => ClanMessageReceived?.Invoke(this, line);
+
+        /// <summary>Raises <see cref="ClanChanged"/> to simulate a clan snapshot change.</summary>
+        /// <param name="result">The probe result to raise.</param>
+        public void RaiseClanChanged(ClanProbeResult result) => ClanChanged?.Invoke(this, result);
 
         /// <summary>Simulates an in-game smart-device state change.</summary>
         /// <param name="entityId">The smart-device entity id to raise the event for.</param>

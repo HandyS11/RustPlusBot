@@ -42,7 +42,7 @@ public sealed class AlarmStateRelayTests
         var teamChatSender = Substitute.For<IBotTeamChatSender>();
         teamChatSender
             .SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(TeamChatSendResult.Sent);
+            .Returns(ChatSendResult.Sent);
 
         var alarmLocalizer = new ResxLocalizer();
         var clock = Substitute.For<IClock>();

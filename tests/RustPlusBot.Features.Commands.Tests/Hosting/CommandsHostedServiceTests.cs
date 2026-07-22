@@ -18,7 +18,7 @@ public sealed class CommandsHostedServiceTests
     {
         var sender = Substitute.For<IBotTeamChatSender>();
         sender.SendAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(TeamChatSendResult.Sent);
+            .Returns(ChatSendResult.Sent);
 
         var muteStore = Substitute.For<IMuteStore>();
         muteStore.GetMutedAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(false);

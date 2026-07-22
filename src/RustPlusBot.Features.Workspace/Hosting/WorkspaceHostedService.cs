@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Workspace.Reconciler;
+using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Workspace.Hosting;
@@ -32,6 +33,17 @@ internal sealed class WorkspaceHostedService(
     /// <inheritdoc />
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        // Force the workspace registry's construction now, synchronously, before any heal work is
+        // queued. Its constructor throws when a channel spec names a capability with no registered
+        // provider. Every other place below resolves it lazily inside a broad catch, so a misconfigured
+        // host would otherwise start cleanly and only fault quietly on the first reconcile. Resolving it
+        // here, outside any try or catch, lets that exception propagate out of this method so the host
+        // genuinely fails to start instead.
+        using (var scope = scopeFactory.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<IWorkspaceRegistry>();
+        }
+
         client.Ready += OnReadyAsync;
         client.ChannelDestroyed += OnChannelDestroyedAsync;
         _serverRegisteredLoop = Task.Run(() => ConsumeServerRegisteredAsync(_cts.Token), CancellationToken.None);

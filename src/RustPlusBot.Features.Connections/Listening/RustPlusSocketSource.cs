@@ -1,13 +1,19 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using RustPlusApi;
+using RustPlusApi.Data.Events;
 using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Features.Connections.Listening;
 
 /// <summary>Real <see cref="IRustSocketSource"/> backed by RustPlusApi. Untested integration shim.</summary>
 /// <param name="logger">The logger.</param>
-internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource> logger) : IRustSocketSource
+/// <param name="loggerFactory">Routes RustPlusApi's own diagnostics (e.g. mapping failures) into the
+/// host's logging stack; without it the library logs to a <c>NullLogger</c> and every client-side
+/// failure it downgrades to a failed response is invisible.</param>
+internal sealed partial class RustPlusSocketSource(
+    ILogger<RustPlusSocketSource> logger,
+    ILoggerFactory loggerFactory) : IRustSocketSource
 {
     /// <inheritdoc />
     public IRustServerConnection Create(string ip, int port, ulong steamId, string playerToken)
@@ -18,7 +24,7 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             return new RejectedConnection();
         }
 
-        return new RustPlusServerConnection(ip, port, steamId, token, logger);
+        return new RustPlusServerConnection(ip, port, steamId, token, logger, loggerFactory);
     }
 
     [LoggerMessage(Level = LogLevel.Warning,
@@ -45,6 +51,15 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
         public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(ClanProbeResult.Unavailable);
+
+        public Task SendClanMessageAsync(string message, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
 
         public Task<bool> PromoteToLeaderAsync(ulong steamId, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(false);
@@ -97,6 +112,18 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             remove { _ = value; }
         }
 
+        public event EventHandler<ClanChatLine>? ClanMessageReceived
+        {
+            add { _ = value; }
+            remove { _ = value; }
+        }
+
+        public event EventHandler<ClanProbeResult>? ClanChanged
+        {
+            add { _ = value; }
+            remove { _ = value; }
+        }
+
         public event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered
         {
             add { _ = value; }
@@ -125,15 +152,22 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
         private readonly ILogger _logger;
         private readonly RustPlus _rustPlus;
 
-        public RustPlusServerConnection(string ip, int port, ulong steamId, int playerToken, ILogger logger)
+        public RustPlusServerConnection(string ip,
+            int port,
+            ulong steamId,
+            int playerToken,
+            ILogger logger,
+            ILoggerFactory loggerFactory)
         {
             _logger = logger;
             // CONFIRMED: RustPlusConnection(string Server, int Port, ulong PlayerId, int PlayerToken, bool UseFacepunchProxy).
             var connection = new RustPlusConnection(ip, port, steamId, playerToken, UseFacepunchProxy: false);
-            _rustPlus = new RustPlus(connection);
+            _rustPlus = new RustPlus(connection, loggerFactory: loggerFactory);
             _rustPlus.OnTeamChatReceived += OnTeamChatReceived;
             _rustPlus.OnSmartDeviceTriggered += OnSmartDeviceTriggered;
             _rustPlus.OnStorageMonitorTriggered += OnStorageMonitorTriggered;
+            _rustPlus.OnClanChatReceived += OnClanChatReceived;
+            _rustPlus.OnClanChanged += OnClanChanged;
         }
 
         public async Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
@@ -326,12 +360,68 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
         public event EventHandler<TeamChatLine>? TeamMessageReceived;
 
+        public event EventHandler<ClanChatLine>? ClanMessageReceived;
+
+        public event EventHandler<ClanProbeResult>? ClanChanged;
+
         public async Task SendTeamMessageAsync(string message, CancellationToken cancellationToken)
         {
             // CONFIRMED: SendTeamMessageAsync(string, CancellationToken) in 2.0.0-beta.1 returns Task<Response<T>>.
             // Awaiting it discards the response; the interface contract is bare Task.
             // Intentional: send failures propagate to the caller (the supervisor classifies them), unlike the broad-catch probes.
             await _rustPlus.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                // CONFIRMED (2.0.0-beta.4): GetClanInfoAsync returns Task<Response<ClanInfo>>, exposing
+                // IsSuccess, Data, and Error?.Code as the response accessors.
+                var response = await _rustPlus.GetClanInfoAsync(timeoutCts.Token).ConfigureAwait(false);
+                return ClanMapping.FromResponse(response.IsSuccess, response.Error?.Code, response.Data);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return ClanProbeResult.Unavailable;
+            }
+#pragma warning disable CA1031 // Broad catch: a failed clan probe must degrade to Unavailable, never crash the caller.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return ClanProbeResult.Unavailable;
+            }
+        }
+
+        public async Task SendClanMessageAsync(string message, CancellationToken cancellationToken)
+        {
+            // Intentional: send failures propagate to the caller (the supervisor classifies them).
+            await _rustPlus.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            try
+            {
+                var response = await _rustPlus.SetClanMotdAsync(motd, timeoutCts.Token).ConfigureAwait(false);
+                return response.IsSuccess;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+#pragma warning disable CA1031 // Broad catch: a failed MOTD write is reported to the user, not thrown.
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+            {
+                LogQueryFailed(_logger, ex);
+                return false;
+            }
         }
 
         public async Task<bool> PromoteToLeaderAsync(ulong steamId,
@@ -660,6 +750,8 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
             _rustPlus.OnTeamChatReceived -= OnTeamChatReceived;
             _rustPlus.OnSmartDeviceTriggered -= OnSmartDeviceTriggered;
             _rustPlus.OnStorageMonitorTriggered -= OnStorageMonitorTriggered;
+            _rustPlus.OnClanChatReceived -= OnClanChatReceived;
+            _rustPlus.OnClanChanged -= OnClanChanged;
             try
             {
                 // CONFIRMED: RustPlusSocket implements IAsyncDisposable in 2.0.0-beta.1.
@@ -719,6 +811,15 @@ internal sealed partial class RustPlusSocketSource(ILogger<RustPlusSocketSource>
 
         private void OnTeamChatReceived(object? sender, RustPlusApi.Data.Events.TeamMessageEventArg e) =>
             TeamMessageReceived?.Invoke(this, new TeamChatLine(e.SteamId, e.Name, e.Message));
+
+        private void OnClanChatReceived(object? sender, ClanMessageEventArg e) =>
+            ClanMessageReceived?.Invoke(this,
+                new ClanChatLine(e.SteamId, e.Name ?? string.Empty, e.Message ?? string.Empty,
+                    new DateTimeOffset(DateTime.SpecifyKind(e.Time, DateTimeKind.Utc), TimeSpan.Zero)));
+
+        private void OnClanChanged(object? sender, ClanChangedEventArg e) =>
+            ClanChanged?.Invoke(this,
+                e.ClanInfo is { } info ? ClanProbeResult.From(ClanMapping.ToSnapshot(info)) : ClanProbeResult.NoClan);
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "Rust+ socket connect failed.")]
         private static partial void LogConnectFailed(ILogger logger, Exception ex);

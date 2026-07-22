@@ -42,6 +42,26 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <remarks>Unlike the probe methods, this surfaces send failures to the caller (the supervisor maps them to a failed send result).</remarks>
     Task SendTeamMessageAsync(string message, CancellationToken cancellationToken);
 
+    /// <summary>Probes the authenticated player's clan, distinguishing "no clan" from "could not ask".</summary>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The classified probe result.</returns>
+    Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken);
+
+    /// <summary>Sends a message to in-game clan chat.</summary>
+    /// <param name="message">The message text to send.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the send has been issued.</returns>
+    /// <remarks>Like <see cref="SendTeamMessageAsync"/>, this surfaces failures to the caller.</remarks>
+    Task SendClanMessageAsync(string message, CancellationToken cancellationToken);
+
+    /// <summary>Sets the clan message of the day; returns true on success.</summary>
+    /// <param name="motd">The new message of the day.</param>
+    /// <param name="timeout">How long to wait for the response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>True if the MOTD was set; false on failure/timeout.</returns>
+    Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken cancellationToken);
+
     /// <summary>Promotes a team member to team leader; returns true on success.</summary>
     /// <param name="steamId">Steam64 id of the member to promote.</param>
     /// <param name="timeout">How long to wait for the response.</param>
@@ -127,6 +147,15 @@ internal interface IRustServerConnection : IAsyncDisposable
 
     /// <summary>Raised for every in-game team chat line received on this socket.</summary>
     event EventHandler<TeamChatLine>? TeamMessageReceived;
+
+    /// <summary>Raised for every in-game clan chat line received on this socket.</summary>
+    event EventHandler<ClanChatLine>? ClanMessageReceived;
+
+    /// <summary>
+    /// Raised when the clan snapshot changes in game. A dissolved or departed clan arrives as
+    /// <see cref="ClanProbeStatus.NoClan"/> — a definitive signal, never <see cref="ClanProbeStatus.Unavailable"/>.
+    /// </summary>
+    event EventHandler<ClanProbeResult>? ClanChanged;
 
     /// <summary>Raised when a managed smart device's state changes in-game; carries the entity id and new state.</summary>
     event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;

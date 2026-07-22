@@ -173,6 +173,31 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
     }
 
     /// <inheritdoc />
+    public async Task DeleteChannelAsync(ulong guildId,
+        Guid? serverId,
+        string channelKey,
+        CancellationToken cancellationToken = default)
+    {
+        var channel = await context.ProvisionedChannels
+            .SingleOrDefaultAsync(c => c.GuildId == guildId && c.RustServerId == serverId && c.ChannelKey == channelKey,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (channel is null)
+        {
+            return;
+        }
+
+        // A message row left pointing at a deleted channel would make the next reconcile try to edit
+        // a message in a channel that no longer exists.
+        await context.ProvisionedMessages
+            .Where(m => m.GuildId == guildId && m.RustServerId == serverId &&
+                        m.DiscordChannelId == channel.DiscordChannelId)
+            .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        context.ProvisionedChannels.Remove(channel);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task DeleteScopeAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken = default)
     {
         await context.ProvisionedMessages

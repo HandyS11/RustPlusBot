@@ -26,6 +26,7 @@
     <ProjectReference Include="..\RustPlusBot.Features.Pairing\RustPlusBot.Features.Pairing.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Connections\RustPlusBot.Features.Connections.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Chat\RustPlusBot.Features.Chat.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.Clans\RustPlusBot.Features.Clans.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Commands\RustPlusBot.Features.Commands.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Events\RustPlusBot.Features.Events.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Switches\RustPlusBot.Features.Switches.csproj" />

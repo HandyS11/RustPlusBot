@@ -171,9 +171,19 @@ internal sealed class WorkspaceReconciler(
             .ToDictionary(c => c.ChannelKey, StringComparer.Ordinal);
         var result = new Dictionary<string, ulong>(StringComparer.Ordinal);
         var specs = backends.Registry.GetChannelSpecs(scope);
+        var gatedOff = new List<string>();
 
         foreach (var spec in specs)
         {
+            if (spec.Capability is { } capability &&
+                !await backends.Registry
+                    .IsCapabilityAvailableAsync(capability, guildId, serverId, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                gatedOff.Add(spec.Key);
+                continue;
+            }
+
             var name = localizer.Get(spec.NameKey, culture);
             ulong channelId;
 
@@ -214,6 +224,28 @@ internal sealed class WorkspaceReconciler(
             result[spec.Key] = channelId;
         }
 
+        // A capability that has gone away is an explicit removal, distinct from a spec merely
+        // disappearing from the registry (which is retained, below).
+        foreach (var key in gatedOff)
+        {
+            if (!existing.TryGetValue(key, out var stale))
+            {
+                continue;
+            }
+
+            await backends.Gateway.DeleteChannelAsync(guildId, stale.DiscordChannelId, cancellationToken)
+                .ConfigureAwait(false);
+            await backends.Store.DeleteChannelAsync(guildId, serverId, key, cancellationToken).ConfigureAwait(false);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation(
+                    "Removed channel '{Key}' for guild {GuildId}: its capability is no longer available.", key,
+                    guildId);
+            }
+        }
+
+        // Gated-off keys are still in specs, so the retention log below never reports a channel this
+        // pass deliberately removed.
         var registryKeys = specs.Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
         if (logger.IsEnabled(LogLevel.Information))
         {
@@ -223,6 +255,19 @@ internal sealed class WorkspaceReconciler(
                     "Retaining provisioned channel '{Key}' no longer in the registry (guild {GuildId}).", orphan,
                     guildId);
             }
+        }
+
+        // A capability-gated channel created after the rest of the category is appended at the
+        // bottom by Discord; restore the declared order. The gateway only issues a reorder call
+        // when the live order actually differs, so this is a cache read on the steady state.
+        var ordered = specs.Where(s => result.ContainsKey(s.Key))
+            .OrderBy(s => s.Order)
+            .Select(s => result[s.Key])
+            .ToList();
+        if (ordered.Count > 1)
+        {
+            await backends.Gateway.EnsureChannelOrderAsync(guildId, categoryId, ordered, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return result;

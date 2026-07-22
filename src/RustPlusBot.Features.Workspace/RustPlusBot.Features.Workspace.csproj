@@ -2,6 +2,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="RustPlusBot.Features.Workspace.Tests" />
+    <InternalsVisibleTo Include="RustPlusBot.Features.Clans" />
+    <!-- The clan tests substitute internal Workspace seams (IWorkspaceReconciler) that Features.Clans consumes. -->
+    <InternalsVisibleTo Include="RustPlusBot.Features.Clans.Tests" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
