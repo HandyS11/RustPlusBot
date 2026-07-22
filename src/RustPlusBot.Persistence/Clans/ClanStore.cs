@@ -53,18 +53,19 @@ internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
         ArgumentNullException.ThrowIfNull(snapshot);
 
         var row = await db.ClanStates
-            .FirstOrDefaultAsync(s => s.ServerId == serverId && s.GuildId == guildId, cancellationToken)
+            .FirstOrDefaultAsync(s => s.ServerId == serverId, cancellationToken)
             .ConfigureAwait(false);
 
         if (row is null)
         {
             row = new ClanState
             {
-                GuildId = guildId, ServerId = serverId
+                ServerId = serverId
             };
             db.ClanStates.Add(row);
         }
 
+        row.GuildId = guildId;
         row.ClanId = snapshot.ClanId;
         row.Name = snapshot.Name;
         row.Created = snapshot.Created;
@@ -127,7 +128,7 @@ internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
 
         return await db.ClanPlayerNames
             .AsNoTracking()
-            .Where(n => n.ServerId == serverId && steamIds.Contains(n.SteamId))
+            .Where(n => n.GuildId == guildId && n.ServerId == serverId && steamIds.Contains(n.SteamId))
             .ToDictionaryAsync(n => n.SteamId, n => n.Name, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -148,7 +149,7 @@ internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
                 cancellationToken)
             .ConfigureAwait(false);
 
-        if (row is not null && string.Equals(row.Name, name, StringComparison.Ordinal))
+        if (row is not null && row.GuildId == guildId && string.Equals(row.Name, name, StringComparison.Ordinal))
         {
             return;
         }
@@ -157,11 +158,12 @@ internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
         {
             row = new ClanPlayerName
             {
-                GuildId = guildId, ServerId = serverId, SteamId = steamId
+                ServerId = serverId, SteamId = steamId
             };
             db.ClanPlayerNames.Add(row);
         }
 
+        row.GuildId = guildId;
         row.Name = name;
         row.UpdatedUtc = clock.UtcNow;
 

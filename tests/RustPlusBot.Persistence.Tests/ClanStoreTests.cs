@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Domain.Clans;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Clans;
 
@@ -289,5 +290,75 @@ public sealed class ClanStoreTests
         var row = await context.ClanPlayerNames.SingleAsync(n => n.SteamId == 111UL);
         Assert.Equal(firstUpdatedUtc, row.UpdatedUtc);
         Assert.Single(await context.ClanPlayerNames.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Name_lookup_ignores_a_row_whose_guild_id_belongs_to_another_guild()
+    {
+        var (store, context, conn, _) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+        var serverId = await SeedServerAsync(context);
+        context.ClanPlayerNames.Add(new ClanPlayerName
+        {
+            GuildId = 999UL,
+            ServerId = serverId,
+            SteamId = 111UL,
+            Name = "Alice",
+            UpdatedUtc = DateTimeOffset.UnixEpoch
+        });
+        await context.SaveChangesAsync();
+
+        var names = await store.GetNamesAsync(10UL, serverId, [111UL]);
+
+        Assert.Empty(names);
+    }
+
+    [Fact]
+    public async Task Recording_a_name_heals_a_stale_guild_id_even_when_the_name_is_unchanged()
+    {
+        var (store, context, conn, clock) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+        var serverId = await SeedServerAsync(context);
+        context.ClanPlayerNames.Add(new ClanPlayerName
+        {
+            GuildId = 999UL,
+            ServerId = serverId,
+            SteamId = 111UL,
+            Name = "Alice",
+            UpdatedUtc = DateTimeOffset.UnixEpoch
+        });
+        await context.SaveChangesAsync();
+
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch.AddMinutes(5));
+        await store.RecordNameAsync(10UL, serverId, 111UL, "Alice");
+
+        var row = await context.ClanPlayerNames.SingleAsync(n => n.SteamId == 111UL);
+        Assert.Equal(10UL, row.GuildId);
+        Assert.Equal(DateTimeOffset.UnixEpoch.AddMinutes(5), row.UpdatedUtc);
+        Assert.Single(await context.ClanPlayerNames.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Saving_a_clan_state_heals_a_stale_guild_id_instead_of_throwing()
+    {
+        var (store, context, conn, clock) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+        var serverId = await SeedServerAsync(context);
+        context.ClanStates.Add(new ClanState
+        {
+            GuildId = 999UL, ServerId = serverId, LastSeenUtc = DateTimeOffset.UnixEpoch
+        });
+        await context.SaveChangesAsync();
+
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch.AddMinutes(5));
+        await store.SaveAsync(10UL, serverId, CreateSnapshot());
+
+        var row = await context.ClanStates.SingleAsync(s => s.ServerId == serverId);
+        Assert.Equal(10UL, row.GuildId);
+        Assert.Equal(CreateSnapshot().Name, row.Name);
+        Assert.Single(await context.ClanStates.ToListAsync());
     }
 }
