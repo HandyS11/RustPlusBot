@@ -46,6 +46,18 @@ public sealed class MonumentIconSourceTests
         Assert.Equal(1, logger.Count(LogLevel.Information));
     }
 
+    [Fact]
+    public void Monument_returns_null_silently_for_ignored_lab_module_tokens()
+    {
+        var logger = new RecordingLogger<MonumentIconSource>();
+        var source = new MonumentIconSource(new MonumentAssetSource(), logger);
+
+        Assert.Null(source.Monument(
+            "assets/bundled/prefabs/autospawn/underwater-lab-base/module_900x900_2way_moonpool.prefab", 30));
+
+        Assert.Equal(0, logger.Count(LogLevel.Information));
+    }
+
     [Theory]
     [InlineData(RigKind.Small)]
     [InlineData(RigKind.Large)]

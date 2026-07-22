@@ -41,11 +41,29 @@ public sealed class MonumentTokenMapTests
         Assert.Equal(MonumentType.UnderwaterA, MonumentTokenMap.TypeFor(token));
 
     [Theory]
+    [InlineData("assets/bundled/prefabs/autospawn/monument/underwater_lab/underwater_lab_d.prefab",
+        MonumentType.UnderwaterA)]
+    [InlineData("assets/bundled/prefabs/autospawn/monument/medium/swamp_a.prefab", MonumentType.SwampC)]
+    public void TypeFor_maps_path_qualified_prefab_tokens(string token, MonumentType expected) =>
+        Assert.Equal(expected, MonumentTokenMap.TypeFor(token));
+
+    [Theory]
     [InlineData("definitely_not_a_monument")]
+    [InlineData("assets/bundled/prefabs/autospawn/underwater-lab-base/module_900x900_2way_moonpool.prefab")]
     [InlineData("")]
     [InlineData(null)]
     public void TypeFor_returns_null_for_unknown_or_empty(string? token) =>
         Assert.Null(MonumentTokenMap.TypeFor(token));
+
+    [Theory]
+    [InlineData("assets/bundled/prefabs/autospawn/underwater-lab-base/module_900x900_2way_moonpool.prefab", true)]
+    [InlineData("assets/bundled/prefabs/autospawn/underwater-lab-base/module_1200x1200_a.prefab", true)]
+    [InlineData("assets/bundled/prefabs/autospawn/monument/underwater_lab/underwater_lab_d.prefab", false)]
+    [InlineData("definitely_not_a_monument", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsIgnored_flags_only_underwater_lab_interior_modules(string? token, bool expected) =>
+        Assert.Equal(expected, MonumentTokenMap.IsIgnored(token));
 
     [Fact]
     public void Every_mapped_type_has_a_package_asset()

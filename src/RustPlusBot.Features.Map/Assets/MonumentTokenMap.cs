@@ -59,27 +59,53 @@ public static class MonumentTokenMap
     /// <summary>All exactly-mapped tokens (excludes the prefix families); exposed for drift-guard tests.</summary>
     internal static IReadOnlyCollection<string> KnownTokens => Map.Keys;
 
+    /// <summary>Indicates whether a token is a known non-monument that should be skipped silently.</summary>
+    /// <param name="token">The Rust+ monument protobuf token (or prefab name).</param>
+    /// <returns>True when the token is deliberately iconless; false otherwise.</returns>
+    /// <remarks>
+    /// Underwater labs are assembled from interior module prefabs (moonpools, corridors, …) that
+    /// Rust+ lists alongside the lab itself; only the lab warrants an icon, so the module family is
+    /// skipped without the unknown-token log.
+    /// </remarks>
+    public static bool IsIgnored(string? token) =>
+        token?.Contains("underwater-lab-base/", StringComparison.Ordinal) == true;
+
     /// <summary>Gets the RustMaps monument type for a Rust+ token, or null when unmapped.</summary>
     /// <param name="token">The Rust+ monument protobuf token (or prefab name).</param>
     /// <returns>The monument type whose asset represents the token, or null.</returns>
     public static MonumentType? TypeFor(string? token)
     {
-        if (string.IsNullOrEmpty(token))
+        var name = PrefabName(token);
+        if (string.IsNullOrEmpty(name))
         {
             return null;
         }
 
-        if (Map.TryGetValue(token, out var type))
+        if (Map.TryGetValue(name, out var type))
         {
             return type;
         }
 
         // Rust+ sends prefab names (not fixed tokens) for these families.
-        if (token.StartsWith("swamp", StringComparison.Ordinal))
+        if (name.StartsWith("swamp", StringComparison.Ordinal))
         {
             return MonumentType.SwampC;
         }
 
-        return token.StartsWith("underwater_lab", StringComparison.Ordinal) ? MonumentType.UnderwaterA : null;
+        return name.StartsWith("underwater_lab", StringComparison.Ordinal) ? MonumentType.UnderwaterA : null;
+    }
+
+    /// <summary>Reduces a path-qualified prefab token ("assets/.../swamp_a.prefab") to its bare name.</summary>
+    /// <param name="token">The raw Rust+ token: a bare display-name token or a full prefab path.</param>
+    /// <returns>The last path segment with any ".prefab" suffix removed; bare tokens come back unchanged.</returns>
+    private static string? PrefabName(string? token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return token;
+        }
+
+        var name = token[(token.LastIndexOf('/') + 1)..];
+        return name.EndsWith(".prefab", StringComparison.Ordinal) ? name[..^".prefab".Length] : name;
     }
 }

@@ -33,7 +33,11 @@ public sealed partial class MonumentIconSource(IMonumentAssetSource assets, ILog
         var type = MonumentTokenMap.TypeFor(token);
         if (type is null)
         {
-            ReportOnce(token, type: null);
+            if (!MonumentTokenMap.IsIgnored(token))
+            {
+                ReportOnce(token, type: null);
+            }
+
             return null;
         }
 
