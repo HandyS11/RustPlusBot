@@ -93,6 +93,9 @@
   <data name="channel.events.name" xml:space="preserve">
     <value>evenements</value>
   </data>
+  <data name="channel.playerevents.name" xml:space="preserve">
+    <value>evenements-joueurs</value>
+  </data>
   <data name="channel.info.name" xml:space="preserve">
     <value>info</value>
   </data>

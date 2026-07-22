@@ -27,6 +27,9 @@ internal static class WorkspaceChannelKeys
     /// <summary>Key for the per-server #events channel.</summary>
     public const string ServerEvents = "events";
 
+    /// <summary>Key for the per-server #player-events channel (team presence: join, leave, death, AFK).</summary>
+    public const string ServerPlayerEvents = "playerevents";
+
     /// <summary>The per-server rendered-map channel.</summary>
     public const string ServerMap = "map";
 
