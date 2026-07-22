@@ -85,10 +85,10 @@
     <value>alarmes</value>
   </data>
   <data name="channel.clanchat.name" xml:space="preserve">
-    <value>clanchat</value>
+    <value>tchat-clan</value>
   </data>
   <data name="channel.claninfo.name" xml:space="preserve">
-    <value>clan-info</value>
+    <value>infos-clan</value>
   </data>
   <data name="channel.events.name" xml:space="preserve">
     <value>evenements</value>
