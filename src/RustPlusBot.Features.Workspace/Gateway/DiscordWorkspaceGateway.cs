@@ -163,24 +163,43 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
     }
 
     /// <inheritdoc />
-    public async Task PinMessageAsync(ulong guildId,
-        ulong channelId,
-        ulong messageId,
+    public async Task EnsureChannelOrderAsync(ulong guildId,
+        ulong categoryId,
+        IReadOnlyList<ulong> orderedChannelIds,
         CancellationToken cancellationToken)
     {
-        var channel = client.GetGuild(guildId)?.GetTextChannel(channelId);
-        if (channel is null)
+        ArgumentNullException.ThrowIfNull(orderedChannelIds);
+        var guild = client.GetGuild(guildId);
+        if (guild is null)
         {
             return;
         }
 
-        if (await channel.GetMessageAsync(messageId).ConfigureAwait(false) is IUserMessage message)
+        var live = orderedChannelIds
+            .Select(id => guild.GetTextChannel(id))
+            .Where(c => c is not null && c.CategoryId == categoryId)
+            .ToList();
+        if (live.Count < 2)
         {
-            await message.PinAsync(new RequestOptions
+            return;
+        }
+
+        // Discord sorts a category's channels by position, ties by snowflake.
+        var current = live.OrderBy(c => c.Position).ThenBy(c => c.Id).Select(c => c.Id);
+        if (current.SequenceEqual(live.Select(c => c.Id)))
+        {
+            return;
+        }
+
+        // Permute the channels' existing position values rather than assigning fresh ones, so every
+        // channel outside the list keeps its place relative to the reordered block.
+        var slots = live.Select(c => c.Position).Order().ToList();
+        await guild.ReorderChannelsAsync(
+            live.Select((c, i) => new ReorderChannelProperties(c.Id, slots[i])),
+            new RequestOptions
             {
                 CancelToken = cancellationToken
             }).ConfigureAwait(false);
-        }
     }
 
     /// <inheritdoc />

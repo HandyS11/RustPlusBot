@@ -39,10 +39,8 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerTeam, WorkspaceChannelKeys.ServerInfo),
         new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ServerMap, WorkspaceChannelKeys.ServerMap),
 
-        // #claninfo also carries a transient change feed, so the anchored embeds are pinned to stay
-        // reachable once the feed pushes them up.
-        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanOverview, WorkspaceChannelKeys.ServerClanInfo, true),
-        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanRoster, WorkspaceChannelKeys.ServerClanInfo, true),
-        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanInvites, WorkspaceChannelKeys.ServerClanInfo, true),
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanOverview, WorkspaceChannelKeys.ServerClanInfo),
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanRoster, WorkspaceChannelKeys.ServerClanInfo),
+        new(WorkspaceScope.PerServer, WorkspaceMessageKeys.ClanInvites, WorkspaceChannelKeys.ServerClanInfo),
     ];
 }

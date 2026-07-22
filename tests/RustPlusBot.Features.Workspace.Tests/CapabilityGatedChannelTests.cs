@@ -85,57 +85,6 @@ public sealed class CapabilityGatedChannelTests
         Assert.True(harness.Gateway.ChannelExists(1, info.DiscordChannelId));
     }
 
-    [Fact]
-    public async Task Pins_a_pinned_message_only_when_it_is_newly_posted()
-    {
-        var harness = NewHarness()
-            .WithChannel(WorkspaceScope.PerServer, "info", "channel.info.name")
-            .WithMessage(WorkspaceScope.PerServer, "clan.overview", "info", "overview", pinned: true);
-        var sut = harness.Build();
-
-        await sut.ReconcileServerAsync(1, ServerId);
-
-        var (pinnedChannelId, pinnedMessageId) = Assert.Single(harness.Gateway.PinnedMessages);
-        var record = await harness.Store.GetMessageAsync(1, ServerId, "clan.overview");
-        Assert.NotNull(record);
-        Assert.Equal(record!.DiscordMessageId, pinnedMessageId);
-        Assert.Equal(record.DiscordChannelId, pinnedChannelId);
-
-        // Second reconcile: the message is still live, so it is edited — and not pinned again.
-        await sut.ReconcileServerAsync(1, ServerId);
-
-        Assert.Single(harness.Gateway.PinnedMessages);
-        Assert.Equal(1, harness.Gateway.EditedMessages);
-    }
-
-    [Fact]
-    public async Task Does_not_pin_messages_that_are_not_marked_pinned()
-    {
-        var harness = NewHarness()
-            .WithChannel(WorkspaceScope.PerServer, "info", "channel.info.name")
-            .WithMessage(WorkspaceScope.PerServer, "server.info", "info", "info-text");
-        var sut = harness.Build();
-
-        await sut.ReconcileServerAsync(1, ServerId);
-
-        Assert.Empty(harness.Gateway.PinnedMessages);
-    }
-
-    [Fact]
-    public async Task A_failed_pin_does_not_fail_the_reconcile()
-    {
-        var harness = NewHarness()
-            .WithChannel(WorkspaceScope.PerServer, "info", "channel.info.name")
-            .WithMessage(WorkspaceScope.PerServer, "clan.overview", "info", "overview", pinned: true);
-        harness.Gateway.ThrowOnPin = true;
-        var sut = harness.Build();
-
-        await sut.ReconcileServerAsync(1, ServerId);
-
-        Assert.Empty(harness.Gateway.PinnedMessages);
-        Assert.NotNull(await harness.Store.GetMessageAsync(1, ServerId, "clan.overview"));
-    }
-
     private static ReconcilerHarness GatedHarness(bool available) => NewHarness()
         .WithChannel(WorkspaceScope.PerServer, "info", "channel.info.name")
         .WithChannel(WorkspaceScope.PerServer, "clanchat", "channel.teamchat.name", 1, "clan")

@@ -35,10 +35,9 @@ internal sealed class ReconcilerHarness
     public ReconcilerHarness WithMessage(WorkspaceScope scope,
         string key,
         string channelKey,
-        string text,
-        bool pinned = false)
+        string text)
     {
-        _messageProviders.Add(new StubMessageProvider([new MessageSpec(scope, key, channelKey, pinned)]));
+        _messageProviders.Add(new StubMessageProvider([new MessageSpec(scope, key, channelKey)]));
         _renderers.Add(new StubRenderer(key, text));
         return this;
     }
@@ -108,10 +107,9 @@ internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)
     public ReconcilerBuilderReusing WithMessage(WorkspaceScope scope,
         string key,
         string channelKey,
-        string text,
-        bool pinned = false)
+        string text)
     {
-        _messageProviders.Add(new ListMessageProvider([new MessageSpec(scope, key, channelKey, pinned)]));
+        _messageProviders.Add(new ListMessageProvider([new MessageSpec(scope, key, channelKey)]));
         _renderers.Add(new ListMessageRenderer(key, text));
         return this;
     }

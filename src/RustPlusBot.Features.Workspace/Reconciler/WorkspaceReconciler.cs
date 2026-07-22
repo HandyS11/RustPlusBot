@@ -257,6 +257,19 @@ internal sealed class WorkspaceReconciler(
             }
         }
 
+        // A capability-gated channel created after the rest of the category is appended at the
+        // bottom by Discord; restore the declared order. The gateway only issues a reorder call
+        // when the live order actually differs, so this is a cache read on the steady state.
+        var ordered = specs.Where(s => result.ContainsKey(s.Key))
+            .OrderBy(s => s.Order)
+            .Select(s => result[s.Key])
+            .ToList();
+        if (ordered.Count > 1)
+        {
+            await backends.Gateway.EnsureChannelOrderAsync(guildId, categoryId, ordered, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         return result;
     }
 
@@ -334,7 +347,6 @@ internal sealed class WorkspaceReconciler(
                 }
 
                 ulong messageId;
-                var newlyPosted = false;
                 if (item.LiveId is { } liveId)
                 {
                     await backends.Gateway
@@ -347,25 +359,6 @@ internal sealed class WorkspaceReconciler(
                     messageId = await backends.Gateway
                         .PostMessageAsync(guildId, channelId, item.Payload, cancellationToken)
                         .ConfigureAwait(false);
-                    newlyPosted = true;
-                }
-
-                // Pin only on first post: pinning is idempotent but costs an API call, and a
-                // re-posted message (declaration-order repair) also lands here as newly posted.
-                if (newlyPosted && item.Spec.Pinned)
-                {
-                    try
-                    {
-                        await backends.Gateway.PinMessageAsync(guildId, channelId, messageId, cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-#pragma warning disable CA1031 // Broad catch: an unpinned embed is still correct; never fail a reconcile over it.
-                    catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-#pragma warning restore CA1031
-                    {
-                        logger.LogWarning(ex, "Pinning message '{Key}' in guild {GuildId} failed.", item.Spec.Key,
-                            guildId);
-                    }
                 }
 
                 await backends.Store.SaveMessageAsync(

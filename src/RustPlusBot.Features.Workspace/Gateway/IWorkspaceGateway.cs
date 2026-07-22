@@ -105,12 +105,17 @@ internal interface IWorkspaceGateway
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     Task DeleteMessageAsync(ulong guildId, ulong channelId, ulong messageId, CancellationToken cancellationToken);
 
-    /// <summary>Pins a message. A no-op if it is already pinned or already gone.</summary>
+    /// <summary>Puts the given channels of a category into the given on-screen order. A cache-read
+    /// no-op when they already are; otherwise one bulk reorder call that permutes the channels'
+    /// existing position values, so channels outside the list keep their place.</summary>
     /// <param name="guildId">The snowflake ID of the guild.</param>
-    /// <param name="channelId">The snowflake ID of the channel containing the message.</param>
-    /// <param name="messageId">The snowflake ID of the message to pin.</param>
+    /// <param name="categoryId">The snowflake ID of the category the channels live under.</param>
+    /// <param name="orderedChannelIds">The channel snowflakes in desired top-to-bottom order.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    Task PinMessageAsync(ulong guildId, ulong channelId, ulong messageId, CancellationToken cancellationToken);
+    Task EnsureChannelOrderAsync(ulong guildId,
+        ulong categoryId,
+        IReadOnlyList<ulong> orderedChannelIds,
+        CancellationToken cancellationToken);
 
     /// <summary>Deletes a channel by snowflake (no-op if already gone).</summary>
     /// <param name="guildId">The snowflake ID of the guild.</param>
