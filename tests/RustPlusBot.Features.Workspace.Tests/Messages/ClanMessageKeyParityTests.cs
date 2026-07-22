@@ -3,10 +3,12 @@ using RustPlusBot.Features.Clans.Messages;
 namespace RustPlusBot.Features.Workspace.Tests.Messages;
 
 /// <summary>
-///     Pins that the clan renderers' key literals (declared in Features.Clans, which cannot see
-///     Features.Workspace's internal <see cref="WorkspaceMessageKeys" />) still match the keys the
-///     reconciler looks renderers up by. The reconciler compares with <c>StringComparer.Ordinal</c>,
-///     so a silent rename on either side would unhook a renderer without any other test catching it.
+///     Pins that the clan renderers' key literals still match the keys the reconciler looks renderers
+///     up by. Features.Clans can see Features.Workspace's internal <see cref="WorkspaceMessageKeys" />
+///     (it is granted <c>InternalsVisibleTo</c>) but deliberately declares its own public constants
+///     instead, so the two sides are independent literals. The reconciler compares them with
+///     <c>StringComparer.Ordinal</c>, so a silent rename on either side would unhook a renderer
+///     without any other test catching it.
 /// </summary>
 public sealed class ClanMessageKeyParityTests
 {

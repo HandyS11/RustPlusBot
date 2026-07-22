@@ -17,9 +17,11 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory, 
     : IWorkspaceCapabilityProvider
 {
     /// <summary>
-    /// How long an answer is reused. Two gated specs mean two probes per server per reconcile, and
-    /// the heal path reconciles every server on a timer; this is kept well under the reconcile
-    /// interval so a clan transition is still picked up promptly.
+    /// How long an answer is reused. Two gated specs mean two probes per server per reconcile, so a
+    /// short reuse window collapses them into one store read. It stays short because reconciles are
+    /// event-driven (startup, channel deletion, server registration, clan transition) rather than
+    /// timed: a cached answer must never outlive the transition that prompted the reconcile, and
+    /// <see cref="Invalidate"/> — not expiry — is what guarantees a transition is seen.
     /// </summary>
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(5);
 
