@@ -154,6 +154,17 @@ internal sealed partial class ClanStateService(
     {
         try
         {
+            var roster = snapshot.Members.Select(m => m.SteamId).ToHashSet();
+            var known = await store.GetNamesAsync(evt.GuildId, evt.ServerId, roster, cancellationToken)
+                .ConfigureAwait(false);
+            if (roster.All(known.ContainsKey))
+            {
+                // Every roster member already has a cached name: skip the companion-API round trip
+                // entirely. OnClanChanged fires on any clan edit, including score changes, and score
+                // moves on every kill — without this check that would be one RPC per kill per server.
+                return;
+            }
+
             var query = services.GetRequiredService<IRustServerQuery>();
             var team = await query.GetTeamInfoAsync(evt.GuildId, evt.ServerId, cancellationToken)
                 .ConfigureAwait(false);
@@ -163,18 +174,8 @@ internal sealed partial class ClanStateService(
                 return;
             }
 
-            var roster = snapshot.Members.Select(m => m.SteamId).ToHashSet();
             var candidates = team.Members
-                .Where(m => roster.Contains(m.SteamId) && !string.IsNullOrWhiteSpace(m.Name))
-                .ToList();
-            if (candidates.Count == 0)
-            {
-                return;
-            }
-
-            var known = await store
-                .GetNamesAsync(evt.GuildId, evt.ServerId, candidates.ConvertAll(m => m.SteamId), cancellationToken)
-                .ConfigureAwait(false);
+                .Where(m => roster.Contains(m.SteamId) && !string.IsNullOrWhiteSpace(m.Name));
 
             foreach (var member in candidates.Where(m => !known.ContainsKey(m.SteamId)))
             {

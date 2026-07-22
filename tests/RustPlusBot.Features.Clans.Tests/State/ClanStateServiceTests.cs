@@ -267,6 +267,8 @@ public sealed class ClanStateServiceTests
                 Snapshot(members: [Member(111UL), Member(222UL)])),
             CancellationToken.None);
 
+        // 111 is missing from the cache, so the socket call must happen and its answer recorded.
+        await _query.Received(1).GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>());
         await _store.Received(1).RecordNameAsync(Guild, Server, 111UL, "Alice", Arg.Any<CancellationToken>());
 
         // 222 is already cached, and 333 is on the team but not in the clan.
@@ -277,17 +279,45 @@ public sealed class ClanStateServiceTests
     }
 
     [Fact]
+    public async Task Skips_the_team_query_when_every_roster_member_already_has_a_cached_name()
+    {
+        // OnClanChanged fires on any clan edit, including score changes, and score moves on every
+        // kill: once the whole roster's names are cached this must cost zero companion-API RPCs.
+        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns((ClanSnapshot?)null);
+        _store.GetNamesAsync(Guild, Server, Arg.Any<IReadOnlyCollection<ulong>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<ulong, string>
+            {
+                [111UL] = "Alice", [222UL] = "Bob"
+            });
+        var service = Build();
+
+        await service.ApplyAsync(
+            new ClanStateChangedEvent(Guild, Server, ClanProbeStatus.HasClan,
+                Snapshot(members: [Member(111UL), Member(222UL)])),
+            CancellationToken.None);
+
+        await _query.DidNotReceive()
+            .GetTeamInfoAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _store.DidNotReceive().RecordNameAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task A_null_team_snapshot_records_nothing_and_changes_nothing_else()
     {
         _query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>())
             .Returns((TeamInfoSnapshot?)null);
-        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Snapshot());
-        var renamed = Snapshot("Bears");
+        // A non-empty, uncached roster so the harvest actually reaches the socket call whose
+        // null answer this test is meant to prove is harmless.
+        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns(Snapshot(members: [Member(111UL)]));
+        var renamed = Snapshot("Bears", members: [Member(111UL)]);
         var service = Build();
 
         await service.ApplyAsync(new ClanStateChangedEvent(Guild, Server, ClanProbeStatus.HasClan, renamed),
             CancellationToken.None);
 
+        await _query.Received(1).GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>());
         await _store.DidNotReceive().RecordNameAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _store.Received(1).SaveAsync(Guild, Server, renamed, Arg.Any<CancellationToken>());
@@ -299,13 +329,16 @@ public sealed class ClanStateServiceTests
     {
         _query.GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>())
             .Returns<TeamInfoSnapshot?>(_ => throw new InvalidOperationException("socket gone"));
-        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Snapshot());
-        var renamed = Snapshot("Bears");
+        // A non-empty, uncached roster so the harvest actually reaches the socket call that throws.
+        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns(Snapshot(members: [Member(111UL)]));
+        var renamed = Snapshot("Bears", members: [Member(111UL)]);
         var service = Build();
 
         await service.ApplyAsync(new ClanStateChangedEvent(Guild, Server, ClanProbeStatus.HasClan, renamed),
             CancellationToken.None);
 
+        await _query.Received(1).GetTeamInfoAsync(Guild, Server, Arg.Any<CancellationToken>());
         await _store.Received(1).SaveAsync(Guild, Server, renamed, Arg.Any<CancellationToken>());
         await _poster.Received(1).PostAsync(Channel, "clan.event.renamed", Arg.Any<CancellationToken>());
     }
