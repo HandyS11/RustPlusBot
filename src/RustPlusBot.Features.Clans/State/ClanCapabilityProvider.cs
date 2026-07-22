@@ -26,6 +26,13 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory, 
     private readonly ConcurrentDictionary<(ulong GuildId, Guid ServerId), (DateTimeOffset At, bool Available)> _cache =
         new();
 
+    /// <summary>
+    /// Bumped by every <see cref="Invalidate"/>. A read captures it before querying the store and
+    /// declines to cache its result if it changed meanwhile, so a read that raced a transition can
+    /// never resurrect a stale answer after the invalidation.
+    /// </summary>
+    private long _epoch;
+
     /// <inheritdoc />
     public string Capability => WorkspaceCapabilities.Clan;
 
@@ -36,7 +43,12 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory, 
     /// </summary>
     /// <param name="guildId">The guild snowflake.</param>
     /// <param name="serverId">The server id.</param>
-    public void Invalidate(ulong guildId, Guid serverId) => _cache.TryRemove((guildId, serverId), out _);
+    public void Invalidate(ulong guildId, Guid serverId)
+    {
+        // Bump first: an in-flight read that observes the new epoch after its query will not cache.
+        Interlocked.Increment(ref _epoch);
+        _cache.TryRemove((guildId, serverId), out _);
+    }
 
     /// <inheritdoc />
     public async ValueTask<bool> IsAvailableAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken)
@@ -53,6 +65,8 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory, 
             return cached.Available;
         }
 
+        var epoch = Interlocked.Read(ref _epoch);
+
         // No try/catch: a store failure must fault the reconcile rather than be swallowed into a
         // "false" that would delete the clan channels and their history.
         var scope = scopeFactory.CreateAsyncScope();
@@ -60,7 +74,15 @@ internal sealed class ClanCapabilityProvider(IServiceScopeFactory scopeFactory, 
         {
             var store = scope.ServiceProvider.GetRequiredService<IClanStore>();
             var available = await store.HasClanAsync(guildId, id, cancellationToken).ConfigureAwait(false);
-            _cache[(guildId, id)] = (now, available);
+
+            // Only publish an answer that no invalidation overtook: a read that started before a
+            // transition committed would otherwise land its stale value after Invalidate returned,
+            // and the transition reconcile would then create or delete nothing.
+            if (Interlocked.Read(ref _epoch) == epoch)
+            {
+                _cache[(guildId, id)] = (now, available);
+            }
+
             return available;
         }
     }

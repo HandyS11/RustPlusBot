@@ -5,8 +5,10 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Discord;
 using RustPlusBot.Features.Clans.Hosting;
 using RustPlusBot.Features.Clans.Messages;
+using RustPlusBot.Features.Clans.Modules;
 using RustPlusBot.Features.Clans.Names;
 using RustPlusBot.Features.Clans.Posting;
 using RustPlusBot.Features.Clans.State;
@@ -65,6 +67,18 @@ public sealed class ClansRegistrationTests
         Assert.Contains("clan.overview", keys, StringComparer.Ordinal);
         Assert.Contains("clan.roster", keys, StringComparer.Ordinal);
         Assert.Contains("clan.invites", keys, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task Registers_the_assembly_that_carries_the_clan_interaction_modules()
+    {
+        await using var provider = BuildProvider();
+
+        // Without this the interaction service never discovers ClanMotdModule and the Set MOTD
+        // button silently stops responding.
+        Assert.Contains(
+            provider.GetServices<InteractionModuleAssembly>(),
+            a => a.Assembly == typeof(ClanMotdModule).Assembly);
     }
 
     [Fact]

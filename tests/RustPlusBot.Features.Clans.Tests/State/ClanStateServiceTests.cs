@@ -59,6 +59,84 @@ public sealed class ClanStateServiceTests
     }
 
     [Fact]
+    public async Task Unavailable_carrying_a_snapshot_still_changes_nothing()
+    {
+        // The null-snapshot case above is also caught by the missing-snapshot guard, so it does not
+        // prove the Unavailable early-return exists. A transient probe failure that happens to carry
+        // the last known payload must still not be persisted, posted or reconciled.
+        var service = Build();
+
+        await service.ApplyAsync(
+            new ClanStateChangedEvent(Guild, Server, ClanProbeStatus.Unavailable, Snapshot()),
+            CancellationToken.None);
+
+        await _store.DidNotReceive().ClearAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _store.DidNotReceive().SaveAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ClanSnapshot>(),
+            Arg.Any<CancellationToken>());
+        await _store.DidNotReceive().GetAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _reconciler.DidNotReceive()
+            .ReconcileServerAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _poster.DidNotReceive().PostAsync(Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_transition_invalidates_the_real_capability_cache_before_reconciling()
+    {
+        // The real provider, not a substitute: this pins that Invalidate is called, with the right
+        // key, and before the reconcile — the whole justification for the cache existing.
+        var clock = new FakeClock(DateTimeOffset.UnixEpoch);
+        var services = new ServiceCollection();
+        services.AddScoped(_ => _store);
+        services.AddScoped(_ => _workspace);
+        services.AddScoped(_ => _names);
+        services.AddScoped(_ => _reconciler);
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true
+        });
+        var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
+        var capability = new ClanCapabilityProvider(scopeFactory, clock);
+
+        // Prime the cache while the clan still exists.
+        _store.HasClanAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(true);
+        Assert.True(await capability.IsAvailableAsync(Guild, Server, CancellationToken.None));
+
+        _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Snapshot());
+        _store.ClearAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(true);
+        _store.HasClanAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(false);
+
+        // What the reconciler sees is the point: an invalidation that lands after it runs is as
+        // useless as none at all, so the answer is sampled from inside the reconcile.
+        bool? seenByReconcile = null;
+
+        async Task<ReconcileResult> SampleAsync()
+        {
+            seenByReconcile = await capability.IsAvailableAsync(Guild, Server, CancellationToken.None);
+            return ReconcileResult.Provisioned;
+        }
+
+        _reconciler.ReconcileServerAsync(Guild, Server, Arg.Any<CancellationToken>())
+            .Returns(_ => SampleAsync());
+
+        var service = new ClanStateService(
+            scopeFactory,
+            _locator,
+            _poster,
+            new ClanChangeRenderer(_localizer),
+            capability,
+            clock,
+            NullLogger<ClanStateService>.Instance);
+
+        await service.ApplyAsync(new ClanStateChangedEvent(Guild, Server, ClanProbeStatus.NoClan, null),
+            CancellationToken.None);
+
+        // Still inside the 5s TTL: only a correctly keyed invalidation, made before the reconcile,
+        // can produce the fresh answer.
+        Assert.Equal(false, seenByReconcile);
+        Assert.False(await capability.IsAvailableAsync(Guild, Server, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task NoClan_clears_the_state_and_reconciles()
     {
         _store.GetAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Snapshot());
