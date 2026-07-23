@@ -558,9 +558,6 @@ internal sealed partial class ConnectionSupervisor(
         }
 #pragma warning restore RCS1163
 
-        var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-        var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
-
 #pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<SmartDeviceTrigger> delegate shape.
         void OnSmartDevice(object? sender, SmartDeviceTrigger trigger)
         {
@@ -607,7 +604,7 @@ internal sealed partial class ConnectionSupervisor(
         await PublishClanStateAsync(key, clanProbe).ConfigureAwait(false);
 
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
+        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, tracker, pollCts.Token),
             CancellationToken.None);
         var reachabilityPoll = Task.Run(() => PollReachabilityAsync(key, connection, pollCts.Token),
             CancellationToken.None);
@@ -703,11 +700,17 @@ internal sealed partial class ConnectionSupervisor(
     private async Task PollMarkersAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
-        MapDimensions? dims,
-        IReadOnlyList<RigPosition> rigs,
         TeamStateTracker tracker,
         CancellationToken ct)
     {
+        // Fetch map dimensions and oil-rig positions here, off the critical connect path: these are the two
+        // heavy full-map downloads, and on a degraded map endpoint they can stall for seconds. Doing them in
+        // this background poll means a slow map no longer delays the connection going live (heartbeat + chat
+        // relay start immediately); marker/rig detection simply activates once these resolve. Both degrade
+        // safely on timeout (dims -> null, rigs -> empty) without ending the poll.
+        var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
+
         IReadOnlyList<MapMarkerSnapshot>? previous = null;
         var rigsInRadius = new HashSet<RigKind>();
         while (!ct.IsCancellationRequested)
