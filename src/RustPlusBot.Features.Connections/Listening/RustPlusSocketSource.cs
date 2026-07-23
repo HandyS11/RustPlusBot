@@ -34,6 +34,8 @@ internal sealed partial class RustPlusSocketSource(
     /// <summary>Returned when the player token is unusable; reports the credential as rejected and does nothing else.</summary>
     private sealed class RejectedConnection : IRustServerConnection
     {
+        public bool IsConnected => false;
+
         public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(SocketConnectOutcome.AuthRejected);
 
@@ -151,6 +153,11 @@ internal sealed partial class RustPlusSocketSource(
     {
         private readonly ILogger _logger;
         private readonly RustPlus _rustPlus;
+
+        /// <inheritdoc />
+        // CONFIRMED (2.0.0-beta.5): RustPlusSocket.IsConnected == (_webSocket?.State == WebSocketState.Open),
+        // so it flips to false as soon as the server closes the socket (the library raises no event for that).
+        public bool IsConnected => _rustPlus.IsConnected;
 
         public RustPlusServerConnection(string ip,
             int port,

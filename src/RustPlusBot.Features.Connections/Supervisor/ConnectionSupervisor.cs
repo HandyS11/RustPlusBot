@@ -611,17 +611,25 @@ internal sealed partial class ConnectionSupervisor(
             CancellationToken.None);
         var reachabilityPoll = Task.Run(() => PollReachabilityAsync(key, connection, pollCts.Token),
             CancellationToken.None);
+        // Race the heartbeat against a liveness watchdog: the Rust+ library raises no event when the SERVER
+        // closes the socket, so without the watchdog a silent drop goes unnoticed until the next heartbeat
+        // (up to a minute). Whichever signals a reason first wins; the finally cancels and joins the rest.
+        var heartbeat = RunHeartbeatLoopAsync(key, connection, credentialId, pollCts.Token);
+        var liveness = WatchLivenessAsync(key, connection, pollCts.Token);
         try
         {
-            return await RunHeartbeatLoopAsync(key, connection, credentialId, ct).ConfigureAwait(false);
+#pragma warning disable VSTHRD003 // Suppress: heartbeat and liveness are owned by this connected window and joined below.
+            var winner = await Task.WhenAny(heartbeat, liveness).ConfigureAwait(false);
+            return await winner.ConfigureAwait(false);
+#pragma warning restore VSTHRD003
         }
         finally
         {
             await pollCts.CancelAsync().ConfigureAwait(false);
             try
             {
-#pragma warning disable VSTHRD003 // Suppress: markerPoll and reachabilityPoll are owned by this connected window and explicitly joined on exit.
-                await Task.WhenAll(markerPoll, reachabilityPoll).ConfigureAwait(false);
+#pragma warning disable VSTHRD003 // Suppress: all four tasks are owned by this connected window and explicitly joined on exit.
+                await Task.WhenAll(markerPoll, reachabilityPoll, heartbeat, liveness).ConfigureAwait(false);
 #pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)
@@ -636,6 +644,34 @@ internal sealed partial class ConnectionSupervisor(
             connection.ClanMessageReceived -= OnClanMessage;
             connection.ClanChanged -= OnClanChanged;
         }
+    }
+
+    /// <summary>
+    /// Polls <see cref="IRustServerConnection.IsConnected"/> while connected and returns
+    /// <see cref="ReconnectReason.Unreachable"/> as soon as the socket is no longer open. This is the only
+    /// prompt signal for a server-initiated close, which the Rust+ library does not surface as an event.
+    /// </summary>
+    /// <param name="key">The (guild, server) routing key.</param>
+    /// <param name="connection">The live connection whose liveness is watched.</param>
+    /// <param name="ct">Cancels when the connected window ends.</param>
+    /// <returns><see cref="ReconnectReason.Unreachable"/> on a detected drop, else
+    /// <see cref="ReconnectReason.Stopped"/> when cancelled.</returns>
+    private async Task<ReconnectReason> WatchLivenessAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            await Task.Delay(_options.LivenessPollInterval, ct).ConfigureAwait(false);
+            if (!connection.IsConnected)
+            {
+                LogSocketDropped(logger, key.Server);
+                return ReconnectReason.Unreachable;
+            }
+        }
+
+        return ReconnectReason.Stopped;
     }
 
     private async Task<ReconnectReason> RunHeartbeatLoopAsync(
@@ -1441,6 +1477,10 @@ internal sealed partial class ConnectionSupervisor(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reachability poll for server {ServerId} failed.")]
     private static partial void LogReachabilityPollFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Socket for server {ServerId} closed by the server; reconnecting.")]
+    private static partial void LogSocketDropped(ILogger logger, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message =
