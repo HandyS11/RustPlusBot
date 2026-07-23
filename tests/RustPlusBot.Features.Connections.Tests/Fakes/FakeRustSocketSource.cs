@@ -61,7 +61,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         connection.MonumentsResult = _pendingMonuments;
         _pendingMonuments = [];
 
-        // Transfer any pre-staged monuments timeout so the connect-time rig fetch throws for the NEXT
+        // Transfer any pre-staged monuments timeout so the marker poll's rig fetch throws for the NEXT
         // connection only (mimicking a real per-request timeout, which surfaces as OperationCanceledException).
         connection.MonumentsTimeout = _pendingMonumentsTimeout;
         _pendingMonumentsTimeout = false;
@@ -126,10 +126,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     public void SetMonuments(IReadOnlyList<MonumentSnapshot> monuments) => _pendingMonuments = monuments;
 
     /// <summary>
-    /// Makes the NEXT connection's connect-time <see cref="FakeConnection.GetMonumentsAsync"/> throw
+    /// Makes the NEXT connection's <see cref="FakeConnection.GetMonumentsAsync"/> throw
     /// <see cref="OperationCanceledException"/>, simulating a per-request timeout (the outer connection
-    /// token is NOT cancelled). Applies to the next connection only. Call before
-    /// <see cref="EnsureConnectionAsync"/>.
+    /// token is NOT cancelled). The supervisor issues this fetch from its background marker poll, not the
+    /// connect path. Applies to the next connection only. Call before <see cref="EnsureConnectionAsync"/>.
     /// </summary>
     public void TimeoutOnMonumentsOnce() => _pendingMonumentsTimeout = true;
 

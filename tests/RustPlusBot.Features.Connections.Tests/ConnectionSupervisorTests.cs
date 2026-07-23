@@ -233,9 +233,9 @@ public sealed class ConnectionSupervisorTests
     }
 
     /// <summary>
-    /// A per-request timeout during connect-time setup (here the oil-rig monuments fetch) surfaces as an
-    /// <see cref="OperationCanceledException"/> even though the connection token is not cancelled. It must
-    /// degrade rig detection for this window, NOT terminate the whole connection loop — otherwise a
+    /// A per-request timeout in a connected window (here the marker poll's oil-rig monuments fetch) surfaces
+    /// as an <see cref="OperationCanceledException"/> even though the connection token is not cancelled. It
+    /// must degrade rig detection for this window, NOT terminate the whole connection loop — otherwise a
     /// transient slow map endpoint permanently kills the connection with no reconnect (the real-world bug).
     /// </summary>
     [Fact]
@@ -243,7 +243,7 @@ public sealed class ConnectionSupervisorTests
     {
         var source = new FakeRustSocketSource();
         source.EnqueueConnect(SocketConnectOutcome.Connected);
-        source.TimeoutOnMonumentsOnce(); // connect-time rig fetch times out on the FIRST connection only
+        source.TimeoutOnMonumentsOnce(); // the marker poll's rig fetch times out on the FIRST connection only
         source.EnqueueHeartbeat(HeartbeatResult.Ok(2)); // first heartbeat -> Connected
         source.EnqueueHeartbeat(HeartbeatResult.Unreachable); // next heartbeat -> drop
         source.EnqueueConnect(SocketConnectOutcome.Connected); // reconnect

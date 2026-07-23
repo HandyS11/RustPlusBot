@@ -658,14 +658,22 @@ internal sealed partial class ConnectionSupervisor(
         IRustServerConnection connection,
         CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        try
         {
-            await Task.Delay(_options.LivenessPollInterval, ct).ConfigureAwait(false);
-            if (!connection.IsConnected)
+            while (!ct.IsCancellationRequested)
             {
-                LogSocketDropped(logger, key.Server);
-                return ReconnectReason.Unreachable;
+                await Task.Delay(_options.LivenessPollInterval, ct).ConfigureAwait(false);
+                if (!connection.IsConnected)
+                {
+                    LogSocketDropped(logger, key.Server);
+                    return ReconnectReason.Unreachable;
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // The connected window is ending (stop/reconnect): Task.Delay throws on cancellation.
+            // Return Stopped so the WhenAny winner is a clean reason rather than a faulted task.
         }
 
         return ReconnectReason.Stopped;
