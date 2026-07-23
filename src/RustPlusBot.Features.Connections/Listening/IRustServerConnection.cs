@@ -5,6 +5,13 @@ namespace RustPlusBot.Features.Connections.Listening;
 /// <summary>One live Rust+ socket to a single server, driven by one player credential.</summary>
 internal interface IRustServerConnection : IAsyncDisposable
 {
+    /// <summary>
+    /// Whether the underlying socket is currently open. Cheap and synchronous: the Rust+ library raises no
+    /// event when the <em>server</em> closes the socket, so a liveness watchdog polls this to detect a drop
+    /// promptly instead of waiting for the next (up to a minute apart) heartbeat.
+    /// </summary>
+    bool IsConnected { get; }
+
     /// <summary>Connects within <paramref name="timeout"/>.</summary>
     /// <param name="timeout">How long to wait for the connection.</param>
     /// <param name="cancellationToken">A cancellation token.</param>

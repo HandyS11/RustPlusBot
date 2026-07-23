@@ -558,9 +558,6 @@ internal sealed partial class ConnectionSupervisor(
         }
 #pragma warning restore RCS1163
 
-        var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-        var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
-
 #pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<SmartDeviceTrigger> delegate shape.
         void OnSmartDevice(object? sender, SmartDeviceTrigger trigger)
         {
@@ -607,21 +604,29 @@ internal sealed partial class ConnectionSupervisor(
         await PublishClanStateAsync(key, clanProbe).ConfigureAwait(false);
 
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, rigs, tracker, pollCts.Token),
+        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, tracker, pollCts.Token),
             CancellationToken.None);
         var reachabilityPoll = Task.Run(() => PollReachabilityAsync(key, connection, pollCts.Token),
             CancellationToken.None);
+        // Race the heartbeat against a liveness watchdog: the Rust+ library raises no event when the SERVER
+        // closes the socket, so without the watchdog a silent drop goes unnoticed until the next heartbeat
+        // (up to a minute). Whichever signals a reason first wins; the finally cancels and joins the rest.
+        var heartbeat = RunHeartbeatLoopAsync(key, connection, credentialId, pollCts.Token);
+        var liveness = WatchLivenessAsync(key, connection, pollCts.Token);
         try
         {
-            return await RunHeartbeatLoopAsync(key, connection, credentialId, ct).ConfigureAwait(false);
+#pragma warning disable VSTHRD003 // Suppress: heartbeat and liveness are owned by this connected window and joined below.
+            var winner = await Task.WhenAny(heartbeat, liveness).ConfigureAwait(false);
+            return await winner.ConfigureAwait(false);
+#pragma warning restore VSTHRD003
         }
         finally
         {
             await pollCts.CancelAsync().ConfigureAwait(false);
             try
             {
-#pragma warning disable VSTHRD003 // Suppress: markerPoll and reachabilityPoll are owned by this connected window and explicitly joined on exit.
-                await Task.WhenAll(markerPoll, reachabilityPoll).ConfigureAwait(false);
+#pragma warning disable VSTHRD003 // Suppress: all four tasks are owned by this connected window and explicitly joined on exit.
+                await Task.WhenAll(markerPoll, reachabilityPoll, heartbeat, liveness).ConfigureAwait(false);
 #pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)
@@ -636,6 +641,42 @@ internal sealed partial class ConnectionSupervisor(
             connection.ClanMessageReceived -= OnClanMessage;
             connection.ClanChanged -= OnClanChanged;
         }
+    }
+
+    /// <summary>
+    /// Polls <see cref="IRustServerConnection.IsConnected"/> while connected and returns
+    /// <see cref="ReconnectReason.Unreachable"/> as soon as the socket is no longer open. This is the only
+    /// prompt signal for a server-initiated close, which the Rust+ library does not surface as an event.
+    /// </summary>
+    /// <param name="key">The (guild, server) routing key.</param>
+    /// <param name="connection">The live connection whose liveness is watched.</param>
+    /// <param name="ct">Cancels when the connected window ends.</param>
+    /// <returns><see cref="ReconnectReason.Unreachable"/> on a detected drop, else
+    /// <see cref="ReconnectReason.Stopped"/> when cancelled.</returns>
+    private async Task<ReconnectReason> WatchLivenessAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(_options.LivenessPollInterval, ct).ConfigureAwait(false);
+                if (!connection.IsConnected)
+                {
+                    LogSocketDropped(logger, key.Server);
+                    return ReconnectReason.Unreachable;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The connected window is ending (stop/reconnect): Task.Delay throws on cancellation.
+            // Return Stopped so the WhenAny winner is a clean reason rather than a faulted task.
+        }
+
+        return ReconnectReason.Stopped;
     }
 
     private async Task<ReconnectReason> RunHeartbeatLoopAsync(
@@ -667,11 +708,17 @@ internal sealed partial class ConnectionSupervisor(
     private async Task PollMarkersAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
-        MapDimensions? dims,
-        IReadOnlyList<RigPosition> rigs,
         TeamStateTracker tracker,
         CancellationToken ct)
     {
+        // Fetch map dimensions and oil-rig positions here, off the critical connect path: these are the two
+        // heavy full-map downloads, and on a degraded map endpoint they can stall for seconds. Doing them in
+        // this background poll means a slow map no longer delays the connection going live (heartbeat + chat
+        // relay start immediately); marker/rig detection simply activates once these resolve. Both degrade
+        // safely on timeout (dims -> null, rigs -> empty) without ending the poll.
+        var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
+
         IReadOnlyList<MapMarkerSnapshot>? previous = null;
         var rigsInRadius = new HashSet<RigKind>();
         while (!ct.IsCancellationRequested)
@@ -703,14 +750,16 @@ internal sealed partial class ConnectionSupervisor(
                         .ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 return; // stopping
             }
-#pragma warning disable CA1031 // Broad catch: a failed poll is logged and skipped; the previous snapshot is retained.
+#pragma warning disable CA1031 // Broad catch: a failed poll (incl. a per-request timeout) is logged and skipped; the previous snapshot is retained.
             catch (Exception ex)
 #pragma warning restore CA1031
             {
+                // A per-request timeout (OperationCanceledException with ct NOT cancelled) must NOT end the
+                // poll loop — that would silently stop marker/rig/AFK detection for the rest of the connection.
                 LogMarkerPollFailed(logger, ex, key.Server);
             }
 
@@ -767,14 +816,16 @@ internal sealed partial class ConnectionSupervisor(
             {
                 current = await ReadAllReachabilityAsync(key, connection, ct).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
-#pragma warning disable CA1031 // Broad catch: a failed reachability sweep is logged and retried next cycle.
+#pragma warning disable CA1031 // Broad catch: a failed reachability sweep (incl. a per-request timeout) is logged and retried next cycle.
             catch (Exception ex)
 #pragma warning restore CA1031
             {
+                // A per-request timeout (OperationCanceledException with ct NOT cancelled) must be retried next
+                // cycle, not rethrown — rethrowing would tear the sweep down for the rest of the connection.
                 LogReachabilityPollFailed(logger, ex, key.Server);
                 continue;
             }
@@ -942,14 +993,17 @@ internal sealed partial class ConnectionSupervisor(
 
             return rigs;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
+            // Real shutdown/reconnect of THIS connection: propagate so the loop tears down.
             throw;
         }
-#pragma warning disable CA1031 // Broad catch: a monuments-fetch failure just disables rig detection this window.
+#pragma warning disable CA1031 // Broad catch: a monuments-fetch failure (incl. a per-request timeout) just disables rig detection this window.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
+            // A per-request timeout surfaces as OperationCanceledException with ct NOT cancelled; it must
+            // degrade rig detection for this window, never terminate the connection loop.
             LogMonumentsFetchFailed(logger, ex, serverId); // rig detection degrades gracefully for this window
             return [];
         }
@@ -1434,6 +1488,10 @@ internal sealed partial class ConnectionSupervisor(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reachability poll for server {ServerId} failed.")]
     private static partial void LogReachabilityPollFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Socket for server {ServerId} closed by the server; reconnecting.")]
+    private static partial void LogSocketDropped(ILogger logger, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning,
         Message =

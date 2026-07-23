@@ -44,4 +44,11 @@ public sealed class ConnectionOptions
 
     /// <summary>How often to poll managed devices for reachability changes while connected. Default 5m.</summary>
     public TimeSpan ReachabilityPollInterval { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// How often the liveness watchdog checks whether the socket is still open while connected. The Rust+
+    /// library raises no event when the server closes the socket, so this bounds how long a silent drop goes
+    /// unnoticed (independently of <see cref="HeartbeatInterval"/>). Default 5s.
+    /// </summary>
+    public TimeSpan LivenessPollInterval { get; set; } = TimeSpan.FromSeconds(5);
 }

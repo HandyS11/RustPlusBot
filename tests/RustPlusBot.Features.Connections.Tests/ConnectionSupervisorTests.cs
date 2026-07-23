@@ -67,6 +67,7 @@ public sealed class ConnectionSupervisorTests
             HeartbeatTimeout = TimeSpan.FromMilliseconds(200),
             MarkerPollInterval = TimeSpan.FromMilliseconds(20),
             MarkerPollFastInterval = TimeSpan.FromMilliseconds(20),
+            LivenessPollInterval = TimeSpan.FromMilliseconds(20),
         }));
         services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
@@ -229,6 +230,68 @@ public sealed class ConnectionSupervisorTests
             h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 4);
         Assert.NotNull(recovered);
         Assert.True(source.CreateCount >= 2);
+    }
+
+    /// <summary>
+    /// A per-request timeout in a connected window (here the marker poll's oil-rig monuments fetch) surfaces
+    /// as an <see cref="OperationCanceledException"/> even though the connection token is not cancelled. It
+    /// must degrade rig detection for this window, NOT terminate the whole connection loop — otherwise a
+    /// transient slow map endpoint permanently kills the connection with no reconnect (the real-world bug).
+    /// </summary>
+    [Fact]
+    public async Task Connect_MonumentsTimeout_DoesNotKillLoop_AndStillReconnects()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.TimeoutOnMonumentsOnce(); // the marker poll's rig fetch times out on the FIRST connection only
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(2)); // first heartbeat -> Connected
+        source.EnqueueHeartbeat(HeartbeatResult.Unreachable); // next heartbeat -> drop
+        source.EnqueueConnect(SocketConnectOutcome.Connected); // reconnect
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(4));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        var recovered = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 4);
+        Assert.NotNull(recovered);
+        Assert.True(source.CreateCount >= 2);
+    }
+
+    /// <summary>
+    /// The Rust+ library raises no event when the SERVER closes the socket; only
+    /// <see cref="IRustServerConnection.IsConnected"/> flips. The liveness watchdog must notice that and
+    /// drive a reconnect promptly, without waiting for the (up to a minute apart) heartbeat — here the fake's
+    /// heartbeat keeps reporting Ok, so only the watchdog can detect the drop.
+    /// </summary>
+    [Fact]
+    public async Task ServerClosesSocket_LivenessWatchdog_DrivesReconnect()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(2)); // first heartbeat -> Connected; held thereafter
+        source.EnqueueConnect(SocketConnectOutcome.Connected); // reconnect after the watchdog fires
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+        var connected = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 2);
+        Assert.NotNull(connected);
+        var live = source.LastConnection;
+        Assert.NotNull(live);
+
+        // Simulate a server-initiated close: the socket is no longer open, but the heartbeat still answers Ok.
+        live.IsConnected = false;
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (source.CreateCount < 2 && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(15);
+        }
+
+        Assert.True(source.CreateCount >= 2, "the liveness watchdog should have driven a reconnect");
     }
 
     /// <summary>

@@ -34,6 +34,8 @@ internal sealed partial class RustPlusSocketSource(
     /// <summary>Returned when the player token is unusable; reports the credential as rejected and does nothing else.</summary>
     private sealed class RejectedConnection : IRustServerConnection
     {
+        public bool IsConnected => false;
+
         public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(SocketConnectOutcome.AuthRejected);
 
@@ -169,6 +171,11 @@ internal sealed partial class RustPlusSocketSource(
             _rustPlus.OnClanChatReceived += OnClanChatReceived;
             _rustPlus.OnClanChanged += OnClanChanged;
         }
+
+        /// <inheritdoc />
+        // CONFIRMED (2.0.0-beta.5): RustPlusSocket.IsConnected == (_webSocket?.State == WebSocketState.Open),
+        // so it flips to false as soon as the server closes the socket (the library raises no event for that).
+        public bool IsConnected => _rustPlus.IsConnected;
 
         public async Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
         {
@@ -380,7 +387,10 @@ internal sealed partial class RustPlusSocketSource(
             {
                 // CONFIRMED (2.0.0-beta.4): GetClanInfoAsync returns Task<Response<ClanInfo>>, exposing
                 // IsSuccess, Data, and Error?.Code as the response accessors.
-                var response = await _rustPlus.GetClanInfoAsync(timeoutCts.Token).ConfigureAwait(false);
+                // .WaitAsync guards the timeout even if the beta call doesn't internally honor the token
+                // (matching the other probes): on a dead socket this must never block the connect path.
+                var response = await _rustPlus.GetClanInfoAsync(timeoutCts.Token)
+                    .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
                 return ClanMapping.FromResponse(response.IsSuccess, response.Error?.Code, response.Data);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
