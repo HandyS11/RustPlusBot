@@ -69,6 +69,7 @@ public static class WorkspaceServiceCollectionExtensions
         services.AddSingleton<IChatChannelLocator, ClanChatChannelLocator>();
         services.AddSingleton<IClanInfoChannelLocator, ClanInfoChannelLocator>();
         services.AddSingleton<IEventChannelLocator, EventChannelLocator>();
+        services.AddSingleton<IPlayerEventChannelLocator, PlayerEventChannelLocator>();
         services.AddSingleton<IMapChannelLocator, MapChannelLocator>();
         services.AddSingleton<ISwitchChannelLocator, SwitchChannelLocator>();
         services.AddSingleton<IAlarmChannelLocator, AlarmChannelLocator>();

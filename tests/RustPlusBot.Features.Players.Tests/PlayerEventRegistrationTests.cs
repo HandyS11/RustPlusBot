@@ -31,7 +31,7 @@ public sealed class PlayerEventRegistrationTests
         services.AddSingleton(new DiscordSocketClient());
         services.AddSingleton<RenderGate>();
         services.AddSingleton<DiscordChannelMessenger>();
-        services.AddSingleton<IEventChannelLocator>(Substitute.For<IEventChannelLocator>());
+        services.AddSingleton<IPlayerEventChannelLocator>(Substitute.For<IPlayerEventChannelLocator>());
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IMapSettingsStore>(_ => Substitute.For<IMapSettingsStore>());
         services.AddSingleton<IBotTeamChatSender>(Substitute.For<IBotTeamChatSender>());

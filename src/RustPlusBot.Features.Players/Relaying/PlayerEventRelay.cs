@@ -10,15 +10,15 @@ using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Players.Relaying;
 
-/// <summary>Posts every player transition to #events AND in-game team chat.</summary>
+/// <summary>Posts every player transition to #player-events AND in-game team chat.</summary>
 /// <param name="renderer">Renders transitions as embeds and in-game lines.</param>
-/// <param name="locator">Resolves the #events Discord channel id.</param>
+/// <param name="locator">Resolves the #player-events Discord channel id.</param>
 /// <param name="poster">Posts embeds to the Discord channel.</param>
 /// <param name="teamChatSender">Broadcasts the in-game team-chat line.</param>
 /// <param name="scopeFactory">Opens scopes to read guild culture.</param>
 internal sealed class PlayerEventRelay(
     PlayerEventRenderer renderer,
-    IEventChannelLocator locator,
+    IPlayerEventChannelLocator locator,
     IPlayerChannelPoster poster,
     IBotTeamChatSender teamChatSender,
     IServiceScopeFactory scopeFactory)

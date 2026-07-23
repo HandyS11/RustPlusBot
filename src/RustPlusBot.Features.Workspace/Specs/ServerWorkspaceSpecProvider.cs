@@ -18,14 +18,16 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
             ChannelPermissionProfile.ReadOnly, 3, WorkspaceCapabilities.Clan),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerEvents, "channel.events.name",
             ChannelPermissionProfile.ReadOnly, 4),
-        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerMap, "channel.map.name",
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerPlayerEvents, "channel.playerevents.name",
             ChannelPermissionProfile.ReadOnly, 5),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerMap, "channel.map.name",
+            ChannelPermissionProfile.ReadOnly, 6),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerSwitches, "channel.switches.name",
-            ChannelPermissionProfile.Interactive, 6),
-        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerAlarms, "channel.alarms.name",
             ChannelPermissionProfile.Interactive, 7),
-        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerStorageMonitors, "channel.storagemonitors.name",
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerAlarms, "channel.alarms.name",
             ChannelPermissionProfile.Interactive, 8),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerStorageMonitors, "channel.storagemonitors.name",
+            ChannelPermissionProfile.Interactive, 9),
     ];
 
     /// <inheritdoc />

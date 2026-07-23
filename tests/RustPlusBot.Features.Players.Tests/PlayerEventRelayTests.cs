@@ -15,7 +15,7 @@ namespace RustPlusBot.Features.Players.Tests;
 
 public sealed class PlayerEventRelayTests
 {
-    private readonly IEventChannelLocator _locator = Substitute.For<IEventChannelLocator>();
+    private readonly IPlayerEventChannelLocator _locator = Substitute.For<IPlayerEventChannelLocator>();
     private readonly IPlayerChannelPoster _poster = Substitute.For<IPlayerChannelPoster>();
     private readonly IBotTeamChatSender _sender = Substitute.For<IBotTeamChatSender>();
     private readonly IWorkspaceStore _workspace = Substitute.For<IWorkspaceStore>();
