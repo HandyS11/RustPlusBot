@@ -232,6 +232,33 @@ public sealed class ConnectionSupervisorTests
     }
 
     /// <summary>
+    /// A per-request timeout during connect-time setup (here the oil-rig monuments fetch) surfaces as an
+    /// <see cref="OperationCanceledException"/> even though the connection token is not cancelled. It must
+    /// degrade rig detection for this window, NOT terminate the whole connection loop — otherwise a
+    /// transient slow map endpoint permanently kills the connection with no reconnect (the real-world bug).
+    /// </summary>
+    [Fact]
+    public async Task Connect_MonumentsTimeout_DoesNotKillLoop_AndStillReconnects()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.TimeoutOnMonumentsOnce(); // connect-time rig fetch times out on the FIRST connection only
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(2)); // first heartbeat -> Connected
+        source.EnqueueHeartbeat(HeartbeatResult.Unreachable); // next heartbeat -> drop
+        source.EnqueueConnect(SocketConnectOutcome.Connected); // reconnect
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(4));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        var recovered = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 4);
+        Assert.NotNull(recovered);
+        Assert.True(source.CreateCount >= 2);
+    }
+
+    /// <summary>
     /// WasConnected must be computed from in-process state (the DB status survives restarts and
     /// would claim Connected at boot): statuses before the first Connected carry false; the drop
     /// after a Connected carries true.

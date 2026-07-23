@@ -703,14 +703,16 @@ internal sealed partial class ConnectionSupervisor(
                         .ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 return; // stopping
             }
-#pragma warning disable CA1031 // Broad catch: a failed poll is logged and skipped; the previous snapshot is retained.
+#pragma warning disable CA1031 // Broad catch: a failed poll (incl. a per-request timeout) is logged and skipped; the previous snapshot is retained.
             catch (Exception ex)
 #pragma warning restore CA1031
             {
+                // A per-request timeout (OperationCanceledException with ct NOT cancelled) must NOT end the
+                // poll loop — that would silently stop marker/rig/AFK detection for the rest of the connection.
                 LogMarkerPollFailed(logger, ex, key.Server);
             }
 
@@ -767,14 +769,16 @@ internal sealed partial class ConnectionSupervisor(
             {
                 current = await ReadAllReachabilityAsync(key, connection, ct).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
             }
-#pragma warning disable CA1031 // Broad catch: a failed reachability sweep is logged and retried next cycle.
+#pragma warning disable CA1031 // Broad catch: a failed reachability sweep (incl. a per-request timeout) is logged and retried next cycle.
             catch (Exception ex)
 #pragma warning restore CA1031
             {
+                // A per-request timeout (OperationCanceledException with ct NOT cancelled) must be retried next
+                // cycle, not rethrown — rethrowing would tear the sweep down for the rest of the connection.
                 LogReachabilityPollFailed(logger, ex, key.Server);
                 continue;
             }
@@ -942,14 +946,17 @@ internal sealed partial class ConnectionSupervisor(
 
             return rigs;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
+            // Real shutdown/reconnect of THIS connection: propagate so the loop tears down.
             throw;
         }
-#pragma warning disable CA1031 // Broad catch: a monuments-fetch failure just disables rig detection this window.
+#pragma warning disable CA1031 // Broad catch: a monuments-fetch failure (incl. a per-request timeout) just disables rig detection this window.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
+            // A per-request timeout surfaces as OperationCanceledException with ct NOT cancelled; it must
+            // degrade rig detection for this window, never terminate the connection loop.
             LogMonumentsFetchFailed(logger, ex, serverId); // rig detection degrades gracefully for this window
             return [];
         }

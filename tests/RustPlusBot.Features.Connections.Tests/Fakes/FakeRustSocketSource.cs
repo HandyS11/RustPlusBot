@@ -29,6 +29,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
     private ClanProbeResult? _pendingClanProbe;
     private IReadOnlyList<MonumentSnapshot> _pendingMonuments = [];
+    private bool _pendingMonumentsTimeout;
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
@@ -59,6 +60,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         // Reset after transfer so the staging applies to the NEXT connection only (no leak across connections).
         connection.MonumentsResult = _pendingMonuments;
         _pendingMonuments = [];
+
+        // Transfer any pre-staged monuments timeout so the connect-time rig fetch throws for the NEXT
+        // connection only (mimicking a real per-request timeout, which surfaces as OperationCanceledException).
+        connection.MonumentsTimeout = _pendingMonumentsTimeout;
+        _pendingMonumentsTimeout = false;
 
         // Transfer any pre-staged storage contents so they are in place before the prime loop starts.
         foreach (var (entityId, contents) in _pendingStorageContents)
@@ -118,6 +124,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// </summary>
     /// <param name="monuments">The monument list to return from <see cref="IRustServerConnection.GetMonumentsAsync"/>.</param>
     public void SetMonuments(IReadOnlyList<MonumentSnapshot> monuments) => _pendingMonuments = monuments;
+
+    /// <summary>
+    /// Makes the NEXT connection's connect-time <see cref="FakeConnection.GetMonumentsAsync"/> throw
+    /// <see cref="OperationCanceledException"/>, simulating a per-request timeout (the outer connection
+    /// token is NOT cancelled). Applies to the next connection only. Call before
+    /// <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    public void TimeoutOnMonumentsOnce() => _pendingMonumentsTimeout = true;
 
     /// <summary>
     /// Pre-stages the probe result returned by <see cref="FakeConnection.GetClanInfoAsync"/> for the NEXT
@@ -243,6 +257,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         /// <summary>The monuments returned by <see cref="GetMonumentsAsync"/>. Defaults to empty.</summary>
         public IReadOnlyList<MonumentSnapshot> MonumentsResult { get; set; } = [];
+
+        /// <summary>When true, <see cref="GetMonumentsAsync"/> throws <see cref="OperationCanceledException"/>
+        /// (a per-request timeout) instead of returning <see cref="MonumentsResult"/>.</summary>
+        public bool MonumentsTimeout { get; set; }
 
         /// <summary>The bytes returned by <see cref="GetMapImageAsync"/>. Defaults to null.</summary>
         public byte[]? MapImageResult { get; set; }
@@ -393,7 +411,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(MonumentsResult);
+            MonumentsTimeout
+                ? Task.FromException<IReadOnlyList<MonumentSnapshot>>(new OperationCanceledException())
+                : Task.FromResult(MonumentsResult);
 
         public Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
             Task.FromResult(MapImageResult);
