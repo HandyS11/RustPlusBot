@@ -195,10 +195,6 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         private IReadOnlyList<MapMarkerSnapshot> _lastMarkers = [];
         private bool _markerScriptStarted;
 
-        /// <summary>Liveness flag consulted by the supervisor's watchdog. Set false to simulate a
-        /// server-initiated socket close (which the real library signals via <c>IsConnected</c>, not an event).</summary>
-        public bool IsConnected { get; set; } = true;
-
         /// <summary>Gets the messages sent via <see cref="SendTeamMessageAsync"/>.</summary>
         public List<string> SentMessages { get; } = [];
 
@@ -274,6 +270,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         /// <summary>Messages sent to in-game clan chat through this fake.</summary>
         public List<string> SentClanMessages { get; } = [];
+
+        /// <summary>Liveness flag consulted by the supervisor's watchdog. Set false to simulate a
+        /// server-initiated socket close (which the real library signals via <c>IsConnected</c>, not an event).</summary>
+        public bool IsConnected { get; set; } = true;
 
         /// <summary>Raised when a team chat message arrives on this connection.</summary>
         public event EventHandler<TeamChatLine>? TeamMessageReceived;

@@ -154,11 +154,6 @@ internal sealed partial class RustPlusSocketSource(
         private readonly ILogger _logger;
         private readonly RustPlus _rustPlus;
 
-        /// <inheritdoc />
-        // CONFIRMED (2.0.0-beta.5): RustPlusSocket.IsConnected == (_webSocket?.State == WebSocketState.Open),
-        // so it flips to false as soon as the server closes the socket (the library raises no event for that).
-        public bool IsConnected => _rustPlus.IsConnected;
-
         public RustPlusServerConnection(string ip,
             int port,
             ulong steamId,
@@ -176,6 +171,11 @@ internal sealed partial class RustPlusSocketSource(
             _rustPlus.OnClanChatReceived += OnClanChatReceived;
             _rustPlus.OnClanChanged += OnClanChanged;
         }
+
+        /// <inheritdoc />
+        // CONFIRMED (2.0.0-beta.5): RustPlusSocket.IsConnected == (_webSocket?.State == WebSocketState.Open),
+        // so it flips to false as soon as the server closes the socket (the library raises no event for that).
+        public bool IsConnected => _rustPlus.IsConnected;
 
         public async Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
         {
