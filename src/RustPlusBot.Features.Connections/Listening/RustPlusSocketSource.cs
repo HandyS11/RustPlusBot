@@ -138,6 +138,12 @@ internal sealed partial class RustPlusSocketSource(
             remove { _ = value; }
         }
 
+        public event EventHandler<TeamInfoSnapshot>? TeamChanged
+        {
+            add { _ = value; }
+            remove { _ = value; }
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -170,6 +176,7 @@ internal sealed partial class RustPlusSocketSource(
             _rustPlus.OnStorageMonitorTriggered += OnStorageMonitorTriggered;
             _rustPlus.OnClanChatReceived += OnClanChatReceived;
             _rustPlus.OnClanChanged += OnClanChanged;
+            _rustPlus.OnTeamChanged += OnTeamChanged;
         }
 
         /// <inheritdoc />
@@ -336,21 +343,7 @@ internal sealed partial class RustPlusSocketSource(
                     return null;
                 }
 
-                var members = (response.Data.Members ?? [])
-                    .Select(m => new TeamMemberSnapshot(
-                        m.SteamId,
-                        m.Name ?? string.Empty,
-                        m.X,
-                        m.Y,
-                        m.IsOnline,
-                        m.IsAlive,
-                        new DateTimeOffset(DateTime.SpecifyKind(m.LastSpawnTime, DateTimeKind.Utc)),
-                        new DateTimeOffset(DateTime.SpecifyKind(m.LastDeathTime, DateTimeKind.Utc))))
-                    .ToList();
-                var deathNote = response.Data.DeathNote is { } dn
-                    ? ((float X, float Y)?)(dn.X, dn.Y)
-                    : null;
-                return new TeamInfoSnapshot(response.Data.LeaderSteamId, members, deathNote);
+                return TeamInfoMapping.ToSnapshot(response.Data);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
@@ -465,6 +458,8 @@ internal sealed partial class RustPlusSocketSource(
         public event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
 
         public event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
+
+        public event EventHandler<TeamInfoSnapshot>? TeamChanged;
 
         public async Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
             SmartDeviceKind kind,
@@ -766,6 +761,7 @@ internal sealed partial class RustPlusSocketSource(
             _rustPlus.OnStorageMonitorTriggered -= OnStorageMonitorTriggered;
             _rustPlus.OnClanChatReceived -= OnClanChatReceived;
             _rustPlus.OnClanChanged -= OnClanChanged;
+            _rustPlus.OnTeamChanged -= OnTeamChanged;
             try
             {
                 // CONFIRMED: RustPlusSocket implements IAsyncDisposable in 2.0.0-beta.1.
@@ -834,6 +830,14 @@ internal sealed partial class RustPlusSocketSource(
         private void OnClanChanged(object? sender, ClanChangedEventArg e) =>
             ClanChanged?.Invoke(this,
                 e.ClanInfo is { } info ? ClanProbeResult.From(ClanMapping.ToSnapshot(info)) : ClanProbeResult.NoClan);
+
+        private void OnTeamChanged(object? sender, RustPlusApi.Data.Events.TeamChangedEventArg e)
+        {
+            if (e.TeamInfo is { } teamInfo)
+            {
+                TeamChanged?.Invoke(this, TeamInfoMapping.ToSnapshot(teamInfo));
+            }
+        }
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "Rust+ socket connect failed.")]
         private static partial void LogConnectFailed(ILogger logger, Exception ex);

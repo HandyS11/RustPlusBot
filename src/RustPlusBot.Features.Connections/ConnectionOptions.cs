@@ -42,6 +42,14 @@ public sealed class ConnectionOptions
     /// <summary>Movement tolerance (world units) below which a member is considered still. Default 1.</summary>
     public float AfkEpsilon { get; set; } = 1f;
 
+    /// <summary>
+    /// How often to poll team info as an AFK safety tick and self-heal, now that live team changes arrive
+    /// via the pushed <c>team_changed</c> event. Presence/death events are instant; this only bounds how long
+    /// a still player in a broadcast-silent team can take to be flagged AFK (worst case AfkThreshold + this).
+    /// Default 30s.
+    /// </summary>
+    public TimeSpan TeamPollInterval { get; set; } = TimeSpan.FromSeconds(30);
+
     /// <summary>How often to poll managed devices for reachability changes while connected. Default 5m.</summary>
     public TimeSpan ReachabilityPollInterval { get; set; } = TimeSpan.FromMinutes(5);
 

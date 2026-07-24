@@ -15,6 +15,7 @@ public sealed class ConnectionOptionsTests
         Assert.Equal(TimeSpan.FromMinutes(15), o.RigActiveWindow);
         Assert.Equal(TimeSpan.FromMinutes(15), o.RigOfflineWindow);
         Assert.Equal(TimeSpan.FromSeconds(30), o.RigTickInterval);
+        Assert.Equal(TimeSpan.FromSeconds(30), o.TeamPollInterval);
     }
 
     /// <summary>Verifies that the reachability poll interval defaults to 5 minutes.</summary>

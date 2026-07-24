@@ -21,7 +21,7 @@ namespace RustPlusBot.Features.Connections.Tests;
 
 public sealed class ConnectionSupervisorTests
 {
-    private static Harness CreateHarness(FakeRustSocketSource source)
+    private static Harness CreateHarness(FakeRustSocketSource source, TimeSpan? teamPollInterval = null)
     {
         var protector = Substitute.For<ICredentialProtector>();
         protector.Unprotect(Arg.Any<string>()).Returns(c => c.Arg<string>());
@@ -68,6 +68,7 @@ public sealed class ConnectionSupervisorTests
             MarkerPollInterval = TimeSpan.FromMilliseconds(20),
             MarkerPollFastInterval = TimeSpan.FromMilliseconds(20),
             LivenessPollInterval = TimeSpan.FromMilliseconds(20),
+            TeamPollInterval = teamPollInterval ?? TimeSpan.FromMilliseconds(20),
         }));
         services.AddSingleton<ConnectionSecurity>();
         services.AddSingleton<ConnectionSupervisor>();
@@ -735,6 +736,193 @@ public sealed class ConnectionSupervisorTests
         {
             await rigSub;
         }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task TeamChanged_push_publishes_player_state_transition()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        // Make the slow poll inert: TeamResult = null means Diff(null) is a no-op, so the tracker's baseline
+        // is driven ONLY by the pushed snapshots below — no race between the priming poll and the pushes.
+        source.LastConnectionSetup = c => c.TeamResult = null;
+        // Large team-poll interval too, belt-and-suspenders.
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromSeconds(30));
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<PlayerStateChangedEvent>();
+        var stream = h.Bus.SubscribeAsync<PlayerStateChangedEvent>(cts.Token);
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in stream)
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        var state = await WaitForStateAsync(h.Provider, serverId, s => s.Status == ConnectionStatus.Connected);
+        Assert.NotNull(state);
+        var conn = source.LastConnection!;
+
+        var online = new TeamMemberSnapshot(
+            100UL, "Alice", 1f, 1f, IsOnline: true, IsAlive: true, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+        var offline = online with
+        {
+            IsOnline = false
+        };
+
+        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [online])); // prime (silent)
+        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [offline])); // -> Disconnect
+
+        await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
+
+        Assert.True(captured.TryDequeue(out var evt));
+        var transition = Assert.Single(evt!.Transitions);
+        Assert.Equal(PlayerTransitionKind.Disconnect, transition.Kind);
+        Assert.Equal(100UL, transition.SteamId);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task TeamPoll_tick_publishes_transition_without_any_push()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        // Fast team poll so the tick drives the transition quickly.
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromMilliseconds(20));
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        var online = new TeamMemberSnapshot(
+            100UL, "Alice", 1f, 1f, IsOnline: true, IsAlive: true, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+        source.LastConnectionSetup = c => c.TeamResult = new TeamInfoSnapshot(100UL, [online]);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<PlayerStateChangedEvent>();
+        var stream = h.Bus.SubscribeAsync<PlayerStateChangedEvent>(cts.Token);
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in stream)
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        var state = await WaitForStateAsync(h.Provider, serverId, s => s.Status == ConnectionStatus.Connected);
+        Assert.NotNull(state);
+        var conn = source.LastConnection!;
+
+        // Wait for at least one poll to prime the baseline with the online snapshot, then flip to offline.
+        await WaitUntilAsync(() => conn.TeamInfoCallCount >= 1, cts.Token);
+        conn.TeamResult = new TeamInfoSnapshot(100UL, [
+            online with
+            {
+                IsOnline = false
+            }
+        ]);
+
+        await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
+        Assert.True(captured.TryDequeue(out var evt));
+        Assert.Contains(evt!.Transitions, t => t.Kind == PlayerTransitionKind.Disconnect && t.SteamId == 100UL);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
+    public async Task TeamInfo_is_not_polled_on_the_fast_marker_cadence()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        // Marker cadence stays fast (20ms from the harness); team poll is slow.
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromSeconds(10));
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        var state = await WaitForStateAsync(h.Provider, serverId, s => s.Status == ConnectionStatus.Connected);
+        Assert.NotNull(state);
+        var conn = source.LastConnection!;
+
+        // Wait for the team poll's immediate first (priming) call, then let ~10 marker intervals elapse.
+        await WaitUntilAsync(() => conn.TeamInfoCallCount >= 1, cts.Token);
+        await Task.Delay(200, cts.Token);
+
+        // Only the single priming poll ran; the 10s team interval hasn't elapsed, so the fast marker
+        // cadence did NOT trigger any further team-info reads.
+        Assert.Equal(1, conn.TeamInfoCallCount);
+
+        await h.Supervisor.StopAllAsync();
+    }
+
+    [Fact]
+    public async Task TeamPoll_flags_afk_during_broadcast_silence()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        // A stationary, online, alive member — never moves, so it must become AFK once enough time passes.
+        var online = new TeamMemberSnapshot(
+            100UL, "Alice", 1f, 1f, IsOnline: true, IsAlive: true, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+        source.LastConnectionSetup = c => c.TeamResult = new TeamInfoSnapshot(100UL, [online]);
+        // Fast tick so AFK is re-evaluated promptly once the clock advances. No team_changed push is ever raised.
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromMilliseconds(20));
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<PlayerStateChangedEvent>();
+        var stream = h.Bus.SubscribeAsync<PlayerStateChangedEvent>(cts.Token);
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in stream)
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        var state = await WaitForStateAsync(h.Provider, serverId, s => s.Status == ConnectionStatus.Connected);
+        Assert.NotNull(state);
+        var conn = source.LastConnection!;
+
+        // Let the poll prime the baseline at t=epoch (member still, not yet AFK).
+        await WaitUntilAsync(() => conn.TeamInfoCallCount >= 1, cts.Token);
+
+        // Advance the fake clock past AfkThreshold (default 5m) WITHOUT any team_changed push.
+        var clock = h.Provider.GetRequiredService<RustPlusBot.Abstractions.Time.IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch + TimeSpan.FromMinutes(6));
+
+        await WaitUntilAsync(
+            () => captured.SelectMany(e => e.Transitions).Any(t => t.Kind == PlayerTransitionKind.BecameAfk),
+            cts.Token);
+        Assert.Contains(
+            captured.SelectMany(e => e.Transitions),
+            t => t.Kind == PlayerTransitionKind.BecameAfk && t.SteamId == 100UL);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; }
         catch (OperationCanceledException)
         {
             /* expected */

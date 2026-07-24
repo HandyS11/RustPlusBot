@@ -606,11 +606,22 @@ internal sealed partial class ConnectionSupervisor(
 #pragma warning restore RCS1163
 
         var tracker = new TeamStateTracker();
+        var dims = new DimensionsHolder();
+
+#pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<TeamInfoSnapshot> delegate shape.
+        void OnTeamChanged(object? sender, TeamInfoSnapshot snapshot)
+        {
+            // Fire-and-forget: PublishTeamStateAsync catches everything internally.
+            _ = PublishTeamStateAsync(key, tracker, dims, snapshot);
+        }
+#pragma warning restore RCS1163
+
         connection.TeamMessageReceived += OnTeamMessage;
         connection.SmartDeviceTriggered += OnSmartDevice;
         connection.StorageMonitorTriggered += OnStorage;
         connection.ClanMessageReceived += OnClanMessage;
         connection.ClanChanged += OnClanChanged;
+        connection.TeamChanged += OnTeamChanged;
         _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
         await PrimeDevicesAsync(key, connection, ct).ConfigureAwait(false);
 
@@ -621,9 +632,11 @@ internal sealed partial class ConnectionSupervisor(
         await PublishClanStateAsync(key, clanProbe).ConfigureAwait(false);
 
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, tracker, pollCts.Token),
+        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, pollCts.Token),
             CancellationToken.None);
         var reachabilityPoll = Task.Run(() => PollReachabilityAsync(key, connection, pollCts.Token),
+            CancellationToken.None);
+        var teamPoll = Task.Run(() => PollTeamAsync(key, connection, tracker, dims, pollCts.Token),
             CancellationToken.None);
         // Race the heartbeat against a liveness watchdog: the Rust+ library raises no event when the SERVER
         // closes the socket, so without the watchdog a silent drop goes unnoticed until the next heartbeat
@@ -642,8 +655,8 @@ internal sealed partial class ConnectionSupervisor(
             await pollCts.CancelAsync().ConfigureAwait(false);
             try
             {
-#pragma warning disable VSTHRD003 // Suppress: all four tasks are owned by this connected window and explicitly joined on exit.
-                await Task.WhenAll(markerPoll, reachabilityPoll, heartbeat, liveness).ConfigureAwait(false);
+#pragma warning disable VSTHRD003 // Suppress: all five tasks are owned by this connected window and explicitly joined on exit.
+                await Task.WhenAll(markerPoll, reachabilityPoll, teamPoll, heartbeat, liveness).ConfigureAwait(false);
 #pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)
@@ -657,6 +670,7 @@ internal sealed partial class ConnectionSupervisor(
             connection.StorageMonitorTriggered -= OnStorage;
             connection.ClanMessageReceived -= OnClanMessage;
             connection.ClanChanged -= OnClanChanged;
+            connection.TeamChanged -= OnTeamChanged;
         }
     }
 
@@ -725,7 +739,7 @@ internal sealed partial class ConnectionSupervisor(
     private async Task PollMarkersAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
-        TeamStateTracker tracker,
+        DimensionsHolder dims,
         CancellationToken ct)
     {
         // Fetch map dimensions and oil-rig positions here, off the critical connect path: these are the two
@@ -733,7 +747,8 @@ internal sealed partial class ConnectionSupervisor(
         // this background poll means a slow map no longer delays the connection going live (heartbeat + chat
         // relay start immediately); marker/rig detection simply activates once these resolve. Both degrade
         // safely on timeout (dims -> null, rigs -> empty) without ending the poll.
-        var dims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        var localDims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+        dims.Value = localDims;
         var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
 
         IReadOnlyList<MapMarkerSnapshot>? previous = null;
@@ -752,20 +767,11 @@ internal sealed partial class ConnectionSupervisor(
                 }
                 else
                 {
-                    await PublishMarkerDeltaAsync(key, dims, previous, current, ct).ConfigureAwait(false);
+                    await PublishMarkerDeltaAsync(key, localDims, previous, current, ct).ConfigureAwait(false);
                     previous = current;
                 }
 
-                await DetectRigActivationsAsync(key, current, rigs, dims, rigsInRadius, ct).ConfigureAwait(false);
-
-                var team = await connection.GetTeamInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-                var transitions = tracker.Diff(team, clock.UtcNow, _options.AfkThreshold, _options.AfkEpsilon);
-                if (transitions.Count > 0)
-                {
-                    await eventBus.PublishAsync(
-                            new PlayerStateChangedEvent(key.Guild, key.Server, dims, transitions), ct)
-                        .ConfigureAwait(false);
-                }
+                await DetectRigActivationsAsync(key, current, rigs, localDims, rigsInRadius, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -782,6 +788,48 @@ internal sealed partial class ConnectionSupervisor(
 
             var delay = anyCh47 ? _options.MarkerPollFastInterval : _options.MarkerPollInterval;
             await Task.Delay(delay, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Low-frequency team poll that runs the same <see cref="TeamStateTracker.Diff"/> as the pushed
+    /// team_changed handler. Live changes arrive via the push event; this loop exists solely to (a) prime the
+    /// baseline on connect and (b) guarantee <c>Diff</c> runs periodically so a still player in a
+    /// broadcast-silent team is still flagged AFK. Its first iteration runs immediately (prime), then it waits
+    /// <see cref="ConnectionOptions.TeamPollInterval"/> between iterations. Degrades safely: a failed poll is
+    /// logged and skipped, never ending the loop.
+    /// </summary>
+    /// <param name="key">The (guild, server) routing key.</param>
+    /// <param name="connection">The live connection to poll.</param>
+    /// <param name="tracker">The shared AFK/online tracker whose baseline this poll also primes/diffs.</param>
+    /// <param name="dims">The connected window's dimensions holder, read for the published event.</param>
+    /// <param name="ct">Cancels when the connected window ends.</param>
+    private async Task PollTeamAsync(
+        (ulong Guild, Guid Server) key,
+        IRustServerConnection connection,
+        TeamStateTracker tracker,
+        DimensionsHolder dims,
+        CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var team = await connection.GetTeamInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+                await PublishTeamStateAsync(key, tracker, dims, team).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return; // stopping
+            }
+#pragma warning disable CA1031 // Broad catch: a failed team poll is logged and skipped; the loop survives.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogTeamPollFailed(logger, ex, key.Server);
+            }
+
+            await Task.Delay(_options.TeamPollInterval, ct).ConfigureAwait(false);
         }
     }
 
@@ -1210,6 +1258,42 @@ internal sealed partial class ConnectionSupervisor(
         }
     }
 
+    private async Task PublishTeamStateAsync(
+        (ulong Guild, Guid Server) key,
+        TeamStateTracker tracker,
+        DimensionsHolder dims,
+        TeamInfoSnapshot? snapshot)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            var transitions = tracker.Diff(snapshot, clock.UtcNow, _options.AfkThreshold, _options.AfkEpsilon);
+            if (transitions.Count == 0)
+            {
+                return;
+            }
+
+            var evt = new PlayerStateChangedEvent(key.Guild, key.Server, dims.Value, transitions);
+            // Supervisor-wide shutdown token, not a per-connection ct: a pushed team change should publish
+            // regardless of one connection's reconnect cycle (mirrors the chat/clan handlers).
+            await eventBus.PublishAsync(evt, _shutdown.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a publish failure must not crash the socket callback or poll.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogPublishTeamStateFailed(logger, ex, key.Server);
+        }
+    }
+
     private async Task PrimeDevicesAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
@@ -1503,6 +1587,12 @@ internal sealed partial class ConnectionSupervisor(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Marker poll for server {ServerId} failed.")]
     private static partial void LogMarkerPollFailed(ILogger logger, Exception exception, Guid serverId);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Team poll for server {ServerId} failed.")]
+    private static partial void LogTeamPollFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Publishing team state for server {ServerId} failed.")]
+    private static partial void LogPublishTeamStateFailed(ILogger logger, Exception exception, Guid serverId);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reachability poll for server {ServerId} failed.")]
     private static partial void LogReachabilityPollFailed(ILogger logger, Exception exception, Guid serverId);
 
@@ -1577,6 +1667,20 @@ internal sealed partial class ConnectionSupervisor(
         string PlayerToken);
 
     private sealed record LiveSocket(IRustServerConnection Connection, ulong ActiveSteamId, TeamStateTracker Tracker);
+
+    /// <summary>Mutable, thread-visible holder for the per-connected-window map dimensions. The marker poll
+    /// resolves these once off the critical path; the team push handler and team poll read them (possibly
+    /// null before resolution — PlayerStateChangedEvent tolerates a null and renders without a grid ref).</summary>
+    private sealed class DimensionsHolder
+    {
+        private volatile MapDimensions? _value;
+
+        public MapDimensions? Value
+        {
+            get => _value;
+            set => _value = value;
+        }
+    }
 
     private sealed class Handle(CancellationTokenSource cts, Task runTask) : IAsyncDisposable
     {

@@ -43,6 +43,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// <summary>The connection produced by the most recent <see cref="Create"/> call (for driving inbound/inspecting sends).</summary>
     internal FakeConnection? LastConnection { get; private set; }
 
+    /// <summary>Optional hook invoked on each new <see cref="FakeConnection"/> at creation time, before it is
+    /// returned and the poll loops start. Lets a test stage <see cref="FakeConnection.TeamResult"/> (or null)
+    /// without racing the immediate priming team poll.</summary>
+    internal Action<FakeConnection>? LastConnectionSetup { get; set; }
+
     public IRustServerConnection Create(string ip, int port, ulong steamId, string playerToken)
     {
         Interlocked.Increment(ref _createCount);
@@ -97,6 +102,8 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             connection.ClanProbe = clanProbe;
             _pendingClanProbe = null;
         }
+
+        LastConnectionSetup?.Invoke(connection);
 
         LastConnection = connection;
         return connection;
@@ -207,6 +214,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The snapshot returned by <see cref="GetTeamInfoAsync"/>. Defaults to a non-null empty snapshot.</summary>
         public TeamInfoSnapshot? TeamResult { get; set; } = new(0UL, []);
 
+        /// <summary>Number of times <see cref="GetTeamInfoAsync"/> has been called (to assert team info is
+        /// no longer polled on the fast marker cadence).</summary>
+        public int TeamInfoCallCount { get; private set; }
+
         /// <summary>The result returned by <see cref="PromoteToLeaderAsync"/>. Defaults to true.</summary>
         public bool PromoteResult { get; set; } = true;
 
@@ -295,6 +306,9 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>Raised by <see cref="RaiseStorageMonitorTriggered"/>.</summary>
         public event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
 
+        /// <summary>Raised by <see cref="RaiseTeamChanged"/> to simulate a pushed team_changed broadcast.</summary>
+        public event EventHandler<TeamInfoSnapshot>? TeamChanged;
+
         public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(outcome);
 
@@ -307,8 +321,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public Task<ServerTimeSnapshot?> GetTimeAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(TimeResult);
 
-        public Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
-            Task.FromResult(TeamResult);
+        public Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            TeamInfoCallCount++;
+            return Task.FromResult(TeamResult);
+        }
 
         public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken)
         {
@@ -452,6 +469,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>Raises <see cref="ClanChanged"/> to simulate a clan snapshot change.</summary>
         /// <param name="result">The probe result to raise.</param>
         public void RaiseClanChanged(ClanProbeResult result) => ClanChanged?.Invoke(this, result);
+
+        /// <summary>Raises <see cref="TeamChanged"/> to simulate a pushed team_changed broadcast.</summary>
+        /// <param name="snapshot">The team snapshot to deliver.</param>
+        public void RaiseTeamChanged(TeamInfoSnapshot snapshot) => TeamChanged?.Invoke(this, snapshot);
 
         /// <summary>Simulates an in-game smart-device state change.</summary>
         /// <param name="entityId">The smart-device entity id to raise the event for.</param>

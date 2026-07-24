@@ -169,4 +169,11 @@ internal interface IRustServerConnection : IAsyncDisposable
 
     /// <summary>Raised when a managed storage monitor's contents change in-game; carries the entity id and the new contents.</summary>
     event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
+
+    /// <summary>
+    /// Raised when the server pushes a <c>team_changed</c> broadcast (member join/leave, online/offline,
+    /// death/respawn, movement, leader change). Carries the full team snapshot — the same shape a
+    /// <see cref="GetTeamInfoAsync"/> poll returns.
+    /// </summary>
+    event EventHandler<TeamInfoSnapshot>? TeamChanged;
 }
