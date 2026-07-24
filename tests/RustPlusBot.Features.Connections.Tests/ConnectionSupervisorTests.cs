@@ -860,6 +860,55 @@ public sealed class ConnectionSupervisorTests
         await h.Supervisor.StopAllAsync();
     }
 
+    [Fact]
+    public async Task TeamPoll_flags_afk_during_broadcast_silence()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        // A stationary, online, alive member — never moves, so it must become AFK once enough time passes.
+        var online = new TeamMemberSnapshot(
+            100UL, "Alice", 1f, 1f, IsOnline: true, IsAlive: true, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+        source.LastConnectionSetup = c => c.TeamResult = new TeamInfoSnapshot(100UL, [online]);
+        // Fast tick so AFK is re-evaluated promptly once the clock advances. No team_changed push is ever raised.
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromMilliseconds(20));
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<PlayerStateChangedEvent>();
+        var stream = h.Bus.SubscribeAsync<PlayerStateChangedEvent>(cts.Token);
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in stream)
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        var state = await WaitForStateAsync(h.Provider, serverId, s => s.Status == ConnectionStatus.Connected);
+        Assert.NotNull(state);
+        var conn = source.LastConnection!;
+
+        // Let the poll prime the baseline at t=epoch (member still, not yet AFK).
+        await WaitUntilAsync(() => conn.TeamInfoCallCount >= 1, cts.Token);
+
+        // Advance the fake clock past AfkThreshold (default 5m) WITHOUT any team_changed push.
+        var clock = h.Provider.GetRequiredService<RustPlusBot.Abstractions.Time.IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch + TimeSpan.FromMinutes(6));
+
+        await WaitUntilAsync(
+            () => captured.SelectMany(e => e.Transitions).Any(t => t.Kind == PlayerTransitionKind.BecameAfk),
+            cts.Token);
+        Assert.Contains(
+            captured.SelectMany(e => e.Transitions),
+            t => t.Kind == PlayerTransitionKind.BecameAfk && t.SteamId == 100UL);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try { await subTask; } catch (OperationCanceledException) { /* expected */ }
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
     {
         while (!condition())

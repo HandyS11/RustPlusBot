@@ -1588,10 +1588,10 @@ internal sealed partial class ConnectionSupervisor(
     private static partial void LogMarkerPollFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Team poll for server {ServerId} failed.")]
-    private static partial void LogTeamPollFailed(ILogger logger, Exception ex, Guid serverId);
+    private static partial void LogTeamPollFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Publishing team state for server {ServerId} failed.")]
-    private static partial void LogPublishTeamStateFailed(ILogger logger, Exception ex, Guid serverId);
+    private static partial void LogPublishTeamStateFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reachability poll for server {ServerId} failed.")]
     private static partial void LogReachabilityPollFailed(ILogger logger, Exception exception, Guid serverId);

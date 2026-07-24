@@ -831,8 +831,13 @@ internal sealed partial class RustPlusSocketSource(
             ClanChanged?.Invoke(this,
                 e.ClanInfo is { } info ? ClanProbeResult.From(ClanMapping.ToSnapshot(info)) : ClanProbeResult.NoClan);
 
-        private void OnTeamChanged(object? sender, RustPlusApi.Data.Events.TeamChangedEventArg e) =>
-            TeamChanged?.Invoke(this, TeamInfoMapping.ToSnapshot(e.TeamInfo!));
+        private void OnTeamChanged(object? sender, RustPlusApi.Data.Events.TeamChangedEventArg e)
+        {
+            if (e.TeamInfo is { } teamInfo)
+            {
+                TeamChanged?.Invoke(this, TeamInfoMapping.ToSnapshot(teamInfo));
+            }
+        }
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "Rust+ socket connect failed.")]
         private static partial void LogConnectFailed(ILogger logger, Exception ex);

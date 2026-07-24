@@ -856,7 +856,7 @@ git commit -m "feat(connections): drive team state from team_changed push + slow
 
 ## Notes for the implementer
 
-- **Concurrency:** `PublishTeamStateAsync` is now called from two threads — the RustPlusApi dispatch thread (push) and the `PollTeamAsync` thread. `TeamStateTracker.Diff` is lock-guarded and swaps its baseline atomically, so this is safe and cannot double-publish a transition (the second caller diffs against the first's committed baseline).
+- **Concurrency:** `PublishTeamStateAsync` is called from the RustPlusApi dispatch thread (push) and the `PollTeamAsync` thread. `TeamStateTracker.Diff` is lock-guarded and swaps its baseline atomically, so the two never corrupt shared state. Ordering is NOT guaranteed, though: `PollTeamAsync` captures its snapshot before an `await` spanning a network round-trip, so a concurrent push can commit a newer baseline first and the poll's stale snapshot may then emit a rare, self-healing spurious presence transition (corrected on the next tick). This is the accepted cost of the slow-poll (Approach B) design; AFK timing is unaffected.
 - **Do not** reintroduce a `GetTeamInfoAsync` call inside `PollMarkersAsync`; team state is now exclusively push + `PollTeamAsync`.
 - **Line numbers** in this plan are from the pre-change tree; after early tasks they will drift. Anchor edits on the quoted code, not the numbers.
 - **Out of scope:** the `GetMapMarkers returned no data` diagnostic-message gap noted in the design's §7 is a separate change — do not bundle it here.

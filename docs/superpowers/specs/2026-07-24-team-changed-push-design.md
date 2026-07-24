@@ -93,9 +93,13 @@ and rig-activation work is unchanged. This is therefore a *partial* migration â€
 
 - `TeamStateTracker.Diff` is now invoked from two threads: the RustPlusApi dispatch
   thread (push) and the `PollTeamAsync` thread (tick). `TeamStateTracker` is already
-  guarded by `_gate` and swaps `_baseline` atomically, so concurrent calls serialize.
-  Each snapshot carries full team state, so the second caller diffs against the
-  first's baseline â€” no double-published transitions.
+  guarded by `_gate` and swaps `_baseline` atomically, so concurrent calls serialize
+  and never corrupt shared state. Ordering is NOT guaranteed, though:
+  `PollTeamAsync` captures its snapshot before an `await` spanning a network
+  round-trip, so a concurrent push can commit a newer baseline first and the poll's
+  stale snapshot may then emit a rare, self-healing spurious presence transition
+  (corrected on the next tick). This is the accepted cost of the slow-poll
+  (Approach B) design; AFK timing is unaffected.
 - **No change to the AFK model.** `UpdateAfk` still flags `BecameAfk` when
   `Clock - stillSince >= Threshold`, evaluated whenever `Diff` runs. The slow poll
   exists solely to guarantee `Diff` runs periodically, so "became AFK" cannot stall
