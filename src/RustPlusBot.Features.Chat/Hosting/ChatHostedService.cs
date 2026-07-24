@@ -76,13 +76,12 @@ internal sealed partial class ChatHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<TeamMessageReceivedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.RelayAsync(
-                    new RelayedChatLine(ChatChannelKind.Team, evt.GuildId, evt.ServerId, evt.SenderName,
-                        evt.Message, evt.FromActivePlayer), cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<TeamMessageReceivedEvent>(
+                    (evt, ct) => relay.RelayAsync(
+                        new RelayedChatLine(ChatChannelKind.Team, evt.GuildId, evt.ServerId, evt.SenderName,
+                            evt.Message, evt.FromActivePlayer), ct),
+                    ex => LogHandlerFailed(logger, ex, nameof(TeamMessageReceivedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -100,33 +99,9 @@ internal sealed partial class ChatHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ClanMessageReceivedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                // Clan members arrive as Steam ids only; chat is where we learn their names. A failure here
-                // is isolated so it cannot take down the relay loop below: a missed name is cosmetic, a
-                // dead relay loop silences clan chat until the process restarts.
-                try
-                {
-                    var scope = scopeFactory.CreateAsyncScope();
-                    await using (scope.ConfigureAwait(false))
-                    {
-                        var store = scope.ServiceProvider.GetRequiredService<IClanStore>();
-                        await store.RecordNameAsync(evt.GuildId, evt.ServerId, evt.SenderSteamId, evt.SenderName,
-                            cancellationToken).ConfigureAwait(false);
-                    }
-                }
-#pragma warning disable CA1031 // Broad catch: a name-recording failure must not kill the clan relay loop.
-                catch (Exception ex)
-#pragma warning restore CA1031
-                {
-                    LogClanNameRecordFailed(logger, ex);
-                }
-
-                await relay.RelayAsync(
-                    new RelayedChatLine(ChatChannelKind.Clan, evt.GuildId, evt.ServerId, evt.SenderName,
-                        evt.Message, evt.FromActivePlayer), cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ClanMessageReceivedEvent>(HandleClanMessageAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ClanMessageReceivedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -138,6 +113,32 @@ internal sealed partial class ChatHostedService(
         {
             LogClanRelayLoopFaulted(logger, ex);
         }
+    }
+
+    private async Task HandleClanMessageAsync(ClanMessageReceivedEvent evt, CancellationToken cancellationToken)
+    {
+        // Clan members arrive as Steam ids only; chat is where we learn their names. A failure here is
+        // isolated so it cannot cost the relay below: a missed name is cosmetic, a dropped clan line is not.
+        try
+        {
+            var scope = scopeFactory.CreateAsyncScope();
+            await using (scope.ConfigureAwait(false))
+            {
+                var store = scope.ServiceProvider.GetRequiredService<IClanStore>();
+                await store.RecordNameAsync(evt.GuildId, evt.ServerId, evt.SenderSteamId, evt.SenderName,
+                    cancellationToken).ConfigureAwait(false);
+            }
+        }
+#pragma warning disable CA1031 // Broad catch: a name-recording failure must not cost the relay.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogClanNameRecordFailed(logger, ex);
+        }
+
+        await relay.RelayAsync(
+            new RelayedChatLine(ChatChannelKind.Clan, evt.GuildId, evt.ServerId, evt.SenderName,
+                evt.Message, evt.FromActivePlayer), cancellationToken).ConfigureAwait(false);
     }
 
     private async Task OnMessageReceivedAsync(SocketMessage message)
@@ -168,6 +169,9 @@ internal sealed partial class ChatHostedService(
             LogListenerFaulted(logger, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Team message relay loop faulted.")]
     private static partial void LogTeamRelayLoopFaulted(ILogger logger, Exception exception);

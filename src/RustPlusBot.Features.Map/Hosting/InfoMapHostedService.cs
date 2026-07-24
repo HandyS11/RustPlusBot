@@ -163,11 +163,9 @@ internal sealed partial class InfoMapHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await OnConnectionStatusAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(OnConnectionStatusAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -208,6 +206,9 @@ internal sealed partial class InfoMapHostedService(
 
         coordinator.Register(new RustMapsMapKey((int)world.WorldSize, (int)world.Seed), evt.GuildId, evt.ServerId);
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Info-map tick loop faulted.")]
     private static partial void LogTickFaulted(ILogger logger, Exception exception);

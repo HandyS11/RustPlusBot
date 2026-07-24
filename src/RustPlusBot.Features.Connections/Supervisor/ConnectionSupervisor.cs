@@ -311,8 +311,25 @@ internal sealed partial class ConnectionSupervisor(
             return [];
         }
 
-        return await live.Connection.GetMonumentsAsync(_options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            return await live.Connection.GetMonumentsAsync(_options.HeartbeatTimeout, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: this seam promises degradation, so a failed fetch is "no monuments".
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // The connection-level call throws on a failed/timed-out GetMap (rate limit, no map, slow
+            // endpoint). Callers here are render paths that must degrade to an icon-less map, never fault:
+            // an escaping exception tears down the consuming loop for the rest of the process.
+            LogMonumentsFetchFailed(logger, ex, serverId);
+            return [];
+        }
     }
 
     /// <inheritdoc />

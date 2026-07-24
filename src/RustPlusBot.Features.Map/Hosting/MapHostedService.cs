@@ -98,11 +98,10 @@ internal sealed partial class MapHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<MapMarkersChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await RefreshAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<MapMarkersChangedEvent>(
+                    (evt, ct) => RefreshAsync(evt.GuildId, evt.ServerId, ct),
+                    ex => LogHandlerFailed(logger, ex, nameof(MapMarkersChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -128,11 +127,10 @@ internal sealed partial class MapHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<MapSettingsChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await RefreshAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<MapSettingsChangedEvent>(
+                    (evt, ct) => RefreshAsync(evt.GuildId, evt.ServerId, ct),
+                    ex => LogHandlerFailed(logger, ex, nameof(MapSettingsChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -162,7 +160,8 @@ internal sealed partial class MapHostedService(
                 await Task.Delay(options.Value.MapRefreshInterval, cancellationToken).ConfigureAwait(false);
                 foreach (var (guild, server) in _connected.Keys)
                 {
-                    await RefreshAsync(guild, server, cancellationToken).ConfigureAwait(false);
+                    await RunGuardedAsync(() => RefreshAsync(guild, server, cancellationToken),
+                        guild, server, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
@@ -175,6 +174,38 @@ internal sealed partial class MapHostedService(
 #pragma warning restore CA1031
         {
             LogTickLoopFaulted(logger, ex);
+        }
+    }
+
+    /// <summary>
+    /// Runs one unit of loop work, absorbing any failure so a single bad refresh degrades that refresh
+    /// only. Without this, an exception escaping into a consumer's <c>await foreach</c> ends the
+    /// subscription for the rest of the process — the #map then stays frozen until the bot restarts.
+    /// </summary>
+    /// <param name="work">The refresh (or status handling) to run.</param>
+    /// <param name="guildId">The owning guild snowflake, for the failure log.</param>
+    /// <param name="serverId">The target server id, for the failure log.</param>
+    /// <param name="cancellationToken">A cancellation token; a real shutdown still propagates.</param>
+    /// <returns>A task that completes when the work has run or failed.</returns>
+    private async Task RunGuardedAsync(
+        Func<Task> work,
+        ulong guildId,
+        Guid serverId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await work().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw; // Shutdown: let the loop's own handler end it.
+        }
+#pragma warning disable CA1031 // Broad catch: any refresh failure must cost one repaint, never the loop.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogRefreshFailed(logger, ex, guildId, serverId);
         }
     }
 
@@ -204,11 +235,9 @@ internal sealed partial class MapHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await OnConnectionStatusAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(OnConnectionStatusAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -244,6 +273,13 @@ internal sealed partial class MapHostedService(
         // Post an initial image as soon as the server connects, rather than waiting for the first tick.
         await RefreshAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that repaint.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Refreshing the map for guild {GuildId}, server {ServerId} failed; skipping this repaint.")]
+    private static partial void LogRefreshFailed(ILogger logger, Exception exception, ulong guildId, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Map marker loop faulted.")]
     private static partial void LogMarkerLoopFaulted(ILogger logger, Exception exception);

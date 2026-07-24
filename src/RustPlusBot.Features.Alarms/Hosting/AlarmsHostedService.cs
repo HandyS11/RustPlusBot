@@ -68,11 +68,9 @@ internal sealed partial class AlarmsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<AlarmPairedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await coordinator.HandlePairedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<AlarmPairedEvent>(coordinator.HandlePairedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(AlarmPairedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -90,11 +88,9 @@ internal sealed partial class AlarmsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<SmartDeviceTriggeredEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleTriggeredAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<SmartDeviceTriggeredEvent>(relay.HandleTriggeredAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(SmartDeviceTriggeredEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -112,11 +108,9 @@ internal sealed partial class AlarmsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleConnectionStatusAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(relay.HandleConnectionStatusAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -134,11 +128,9 @@ internal sealed partial class AlarmsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<DeviceReachabilityChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleReachabilityChangedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<DeviceReachabilityChangedEvent>(relay.HandleReachabilityChangedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(DeviceReachabilityChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -156,11 +148,9 @@ internal sealed partial class AlarmsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<SmartDeviceStateObservedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleStateObservedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<SmartDeviceStateObservedEvent>(relay.HandleStateObservedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(SmartDeviceStateObservedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -178,11 +168,9 @@ internal sealed partial class AlarmsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ServerWipedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await purger.HandleServerWipedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ServerWipedEvent>(purger.HandleServerWipedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ServerWipedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -195,6 +183,9 @@ internal sealed partial class AlarmsHostedService(
             LogWipedLoopFaulted(logger, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Alarm pairing loop faulted.")]
     private static partial void LogPairedLoopFaulted(ILogger logger, Exception exception);
