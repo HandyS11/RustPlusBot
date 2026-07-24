@@ -327,7 +327,7 @@ internal sealed partial class ConnectionSupervisor(
             // The connection-level call throws on a failed/timed-out GetMap (rate limit, no map, slow
             // endpoint). Callers here are render paths that must degrade to an icon-less map, never fault:
             // an escaping exception tears down the consuming loop for the rest of the process.
-            LogMonumentsFetchFailed(logger, ex, serverId);
+            LogMonumentsQueryFailed(logger, ex, serverId);
             return [];
         }
     }
@@ -1514,6 +1514,10 @@ internal sealed partial class ConnectionSupervisor(
         Message =
             "Fetching monuments for oil-rig detection on server {ServerId} failed; rig detection disabled for this connection.")]
     private static partial void LogMonumentsFetchFailed(ILogger logger, Exception exception, Guid serverId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Querying monuments for server {ServerId} failed; returning no monuments for this call.")]
+    private static partial void LogMonumentsQueryFailed(ILogger logger, Exception exception, Guid serverId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Relaying a message to team chat for server {ServerId} failed.")]
     private static partial void LogSendFailed(ILogger logger, Exception exception, Guid serverId);
