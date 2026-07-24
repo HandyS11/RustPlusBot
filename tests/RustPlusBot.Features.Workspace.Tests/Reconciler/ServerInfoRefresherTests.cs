@@ -43,7 +43,7 @@ public sealed class ServerInfoRefresherTests
         var gateway = Substitute.For<IWorkspaceGateway>();
         var reconciler = Substitute.For<IWorkspaceReconciler>();
         var refresher = new ServerInfoRefresher(StoreWith(WorkspaceMessageKeys.ServerInfo), gateway, [renderer],
-            new RenderGate(), reconciler);
+            new RenderGate(), reconciler, Pacer());
 
         await refresher.RefreshAsync(GuildId, ServerId, default);
 
@@ -58,7 +58,7 @@ public sealed class ServerInfoRefresherTests
         var gateway = Substitute.For<IWorkspaceGateway>();
         var reconciler = Substitute.For<IWorkspaceReconciler>();
         var refresher = new ServerInfoRefresher(StoreWith(WorkspaceMessageKeys.ServerInfo), gateway, [renderer],
-            new RenderGate(), reconciler);
+            new RenderGate(), reconciler, Pacer());
 
         await refresher.RefreshAsync(GuildId, ServerId, default);
         await refresher.RefreshAsync(GuildId, ServerId, default);
@@ -75,7 +75,7 @@ public sealed class ServerInfoRefresherTests
         var gateway = Substitute.For<IWorkspaceGateway>();
         var reconciler = Substitute.For<IWorkspaceReconciler>();
         var refresher = new ServerInfoRefresher(StoreWith(WorkspaceMessageKeys.ServerInfo), gateway, [renderer],
-            new RenderGate(), reconciler);
+            new RenderGate(), reconciler, Pacer());
 
         await refresher.RefreshAsync(GuildId, ServerId, default);
         renderer.Title = "v2";
@@ -95,7 +95,7 @@ public sealed class ServerInfoRefresherTests
             .Returns((ProvisionedMessage?)null);
         var gateway = Substitute.For<IWorkspaceGateway>();
         var reconciler = Substitute.For<IWorkspaceReconciler>();
-        var refresher = new ServerInfoRefresher(store, gateway, [renderer], new RenderGate(), reconciler);
+        var refresher = new ServerInfoRefresher(store, gateway, [renderer], new RenderGate(), reconciler, Pacer());
 
         await refresher.RefreshAsync(GuildId, ServerId, default);
 
@@ -122,7 +122,7 @@ public sealed class ServerInfoRefresherTests
         var reconciler = Substitute.For<IWorkspaceReconciler>();
         var gate = new RenderGate();
         var refresher = new ServerInfoRefresher(StoreWith(WorkspaceMessageKeys.ServerInfo), gateway, [renderer], gate,
-            reconciler);
+            reconciler, Pacer());
 
         await refresher.RefreshAsync(GuildId, ServerId, default);
 
@@ -141,7 +141,7 @@ public sealed class ServerInfoRefresherTests
         var gateway = Substitute.For<IWorkspaceGateway>();
         var reconciler = Substitute.For<IWorkspaceReconciler>();
         var refresher = new ServerInfoRefresher(StoreWith(WorkspaceMessageKeys.ServerInfo), gateway, [renderer],
-            new RenderGate(), reconciler);
+            new RenderGate(), reconciler, Pacer());
 
         await refresher.RefreshAsync(GuildId, ServerId, default);
 
@@ -164,12 +164,49 @@ public sealed class ServerInfoRefresherTests
             WorkspaceMessageKeys.ServerTeam);
         var gateway = Substitute.For<IWorkspaceGateway>();
         var refresher = new ServerInfoRefresher(store, gateway, renderers, new RenderGate(),
-            Substitute.For<IWorkspaceReconciler>());
+            Substitute.For<IWorkspaceReconciler>(), Pacer());
 
         await refresher.RefreshAsync(GuildId, ServerId, default);
 
         Assert.All(renderers.Cast<StubRenderer>(), r => Assert.Equal(1, r.Calls));
     }
+
+    [Fact]
+    public async Task Each_edit_is_paced_before_it_is_sent()
+    {
+        var renderer = new StubRenderer(WorkspaceMessageKeys.ServerInfo, "v1");
+        var gateway = Substitute.For<IWorkspaceGateway>();
+        var pacer = Pacer();
+        var refresher = new ServerInfoRefresher(StoreWith(WorkspaceMessageKeys.ServerInfo), gateway, [renderer],
+            new RenderGate(), Substitute.For<IWorkspaceReconciler>(), pacer);
+
+        await refresher.RefreshAsync(GuildId, ServerId, default);
+
+        Received.InOrder(() =>
+        {
+            _ = pacer.PaceAsync(ChannelId, Arg.Any<CancellationToken>());
+            _ = gateway.EditMessageAsync(GuildId, ChannelId, MessageId, Arg.Any<MessagePayload>(),
+                Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task A_skipped_unchanged_render_is_not_paced()
+    {
+        var renderer = new StubRenderer(WorkspaceMessageKeys.ServerInfo, "v1");
+        var gateway = Substitute.For<IWorkspaceGateway>();
+        var pacer = Pacer();
+        var refresher = new ServerInfoRefresher(StoreWith(WorkspaceMessageKeys.ServerInfo), gateway, [renderer],
+            new RenderGate(), Substitute.For<IWorkspaceReconciler>(), pacer);
+
+        await refresher.RefreshAsync(GuildId, ServerId, default);
+        await refresher.RefreshAsync(GuildId, ServerId, default);
+
+        // Second render is identical, so the gate suppresses the edit — and the pace with it.
+        await pacer.Received(1).PaceAsync(ChannelId, Arg.Any<CancellationToken>());
+    }
+
+    private static IChannelEditPacer Pacer() => Substitute.For<IChannelEditPacer>();
 
     private sealed class StubRenderer(string key, string title) : IMessageRenderer
     {
