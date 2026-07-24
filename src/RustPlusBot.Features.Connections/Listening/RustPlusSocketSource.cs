@@ -138,6 +138,12 @@ internal sealed partial class RustPlusSocketSource(
             remove { _ = value; }
         }
 
+        public event EventHandler<TeamInfoSnapshot>? TeamChanged
+        {
+            add { _ = value; }
+            remove { _ = value; }
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -170,6 +176,7 @@ internal sealed partial class RustPlusSocketSource(
             _rustPlus.OnStorageMonitorTriggered += OnStorageMonitorTriggered;
             _rustPlus.OnClanChatReceived += OnClanChatReceived;
             _rustPlus.OnClanChanged += OnClanChanged;
+            _rustPlus.OnTeamChanged += OnTeamChanged;
         }
 
         /// <inheritdoc />
@@ -451,6 +458,8 @@ internal sealed partial class RustPlusSocketSource(
         public event EventHandler<SmartDeviceTrigger>? SmartDeviceTriggered;
 
         public event EventHandler<StorageMonitorTrigger>? StorageMonitorTriggered;
+
+        public event EventHandler<TeamInfoSnapshot>? TeamChanged;
 
         public async Task<DeviceReading> GetSmartDeviceInfoAsync(ulong entityId,
             SmartDeviceKind kind,
@@ -752,6 +761,7 @@ internal sealed partial class RustPlusSocketSource(
             _rustPlus.OnStorageMonitorTriggered -= OnStorageMonitorTriggered;
             _rustPlus.OnClanChatReceived -= OnClanChatReceived;
             _rustPlus.OnClanChanged -= OnClanChanged;
+            _rustPlus.OnTeamChanged -= OnTeamChanged;
             try
             {
                 // CONFIRMED: RustPlusSocket implements IAsyncDisposable in 2.0.0-beta.1.
@@ -820,6 +830,9 @@ internal sealed partial class RustPlusSocketSource(
         private void OnClanChanged(object? sender, ClanChangedEventArg e) =>
             ClanChanged?.Invoke(this,
                 e.ClanInfo is { } info ? ClanProbeResult.From(ClanMapping.ToSnapshot(info)) : ClanProbeResult.NoClan);
+
+        private void OnTeamChanged(object? sender, RustPlusApi.Data.Events.TeamChangedEventArg e) =>
+            TeamChanged?.Invoke(this, TeamInfoMapping.ToSnapshot(e.TeamInfo!));
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "Rust+ socket connect failed.")]
         private static partial void LogConnectFailed(ILogger logger, Exception ex);
