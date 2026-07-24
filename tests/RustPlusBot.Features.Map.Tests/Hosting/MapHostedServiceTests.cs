@@ -24,12 +24,13 @@ public sealed class MapHostedServiceTests
     private const ulong Guild = 1UL;
     private static readonly Guid Server = Guid.NewGuid();
 
-    /// <summary>A clock that jumps a minute per read so the refresh throttle never gates a test refresh.</summary>
+    /// <summary>A clock that jumps an hour per read — past <see cref="MapOptions.MapRefreshInterval"/> below,
+    /// so the throttle passes every refresh and each consumed event reaches the counter (never gates).</summary>
     private static IClock AdvancingClock()
     {
         var ticks = 0;
         var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(_ => DateTimeOffset.UnixEpoch + TimeSpan.FromMinutes(ticks++));
+        clock.UtcNow.Returns(_ => DateTimeOffset.UnixEpoch + TimeSpan.FromHours(ticks++));
         return clock;
     }
 
