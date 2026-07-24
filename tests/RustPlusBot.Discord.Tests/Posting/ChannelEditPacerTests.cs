@@ -10,6 +10,22 @@ public sealed class ChannelEditPacerTests
     private static readonly TimeSpan Gap = TimeSpan.FromSeconds(1);
 
     [Fact]
+    public void A_negative_gap_is_rejected()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new ChannelEditPacer(new TestClock(), TimeSpan.FromSeconds(-1)));
+    }
+
+    [Fact]
+    public void A_zero_gap_disables_pacing_without_throwing()
+    {
+        var pacer = new ChannelEditPacer(new TestClock(), TimeSpan.Zero);
+
+        Assert.Equal(TimeSpan.Zero, pacer.Reserve(ChannelA));
+        Assert.Equal(TimeSpan.Zero, pacer.Reserve(ChannelA));
+    }
+
+    [Fact]
     public void First_edit_to_a_channel_waits_zero()
     {
         var pacer = new ChannelEditPacer(new TestClock(), Gap);
