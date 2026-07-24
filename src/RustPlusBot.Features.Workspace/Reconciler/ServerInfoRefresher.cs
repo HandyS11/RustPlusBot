@@ -11,12 +11,14 @@ namespace RustPlusBot.Features.Workspace.Reconciler;
 /// <param name="renderers">All registered message renderers.</param>
 /// <param name="gate">Suppresses PATCHes for renders that did not change.</param>
 /// <param name="reconciler">The full reconcile, used to self-heal a missing or stale message.</param>
+/// <param name="pacer">Spaces this tick's edits so the burst does not exhaust the channel's edit bucket.</param>
 internal sealed class ServerInfoRefresher(
     IWorkspaceStore store,
     IWorkspaceGateway gateway,
     IEnumerable<IMessageRenderer> renderers,
     RenderGate gate,
-    IWorkspaceReconciler reconciler) : IServerInfoRefresher
+    IWorkspaceReconciler reconciler,
+    IChannelEditPacer pacer) : IServerInfoRefresher
 {
     /// <summary>The #info message keys this path refreshes, in declaration order.</summary>
     private static readonly string[] Keys =
@@ -69,6 +71,9 @@ internal sealed class ServerInfoRefresher(
 
             try
             {
+                // Space this edit from the previous one to the same channel so the tick's burst of #info
+                // edits does not exhaust Discord's per-channel edit bucket (an idle channel is not delayed).
+                await pacer.PaceAsync(record.DiscordChannelId, cancellationToken).ConfigureAwait(false);
                 await gateway
                     .EditMessageAsync(guildId, record.DiscordChannelId, record.DiscordMessageId, payload,
                         cancellationToken)

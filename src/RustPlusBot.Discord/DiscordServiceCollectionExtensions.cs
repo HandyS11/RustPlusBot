@@ -33,6 +33,7 @@ public static class DiscordServiceCollectionExtensions
             }));
         services.AddSingleton<IUserDmSender, DiscordUserDmSender>();
         services.AddSingleton<RenderGate>();
+        services.AddSingleton<IChannelEditPacer, ChannelEditPacer>();
         services.AddSingleton<DiscordChannelMessenger>();
         services.AddHostedService<DiscordBotService>();
 
