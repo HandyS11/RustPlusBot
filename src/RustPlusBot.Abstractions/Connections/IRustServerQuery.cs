@@ -53,11 +53,12 @@ public interface IRustServerQuery
     /// <returns>The world snapshot, or null.</returns>
     Task<WorldSnapshot?> GetWorldAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
 
-    /// <summary>Gets the server's monuments, or an empty list when there is no live socket.</summary>
+    /// <summary>Gets the server's monuments, or an empty list when there is no live socket or the fetch
+    /// fails; never throws for a failed fetch.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The target server id.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The monuments, or an empty list when there is no live socket.</returns>
+    /// <returns>The monuments, or an empty list when there is no live socket or the fetch fails/times out.</returns>
     Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(
         ulong guildId,
         Guid serverId,

@@ -58,16 +58,12 @@ internal sealed partial class WipesHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                if (!evt.IsConnected || evt.WasConnected)
-                {
-                    continue;
-                }
-
-                await detector.CheckAsync(evt.GuildId, evt.ServerId, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(
+                    (evt, ct) => !evt.IsConnected || evt.WasConnected
+                        ? Task.CompletedTask
+                        : detector.CheckAsync(evt.GuildId, evt.ServerId, ct),
+                    ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -85,11 +81,9 @@ internal sealed partial class WipesHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ServerWipedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await announcer.HandleServerWipedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ServerWipedEvent>(announcer.HandleServerWipedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ServerWipedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -102,6 +96,9 @@ internal sealed partial class WipesHostedService(
             LogWipedLoopFaulted(logger, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Wipe connection-status loop faulted.")]
     private static partial void LogStatusLoopFaulted(ILogger logger, Exception exception);

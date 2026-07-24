@@ -68,11 +68,9 @@ internal sealed partial class SwitchesHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<SwitchPairedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await coordinator.HandlePairedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<SwitchPairedEvent>(coordinator.HandlePairedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(SwitchPairedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -90,11 +88,9 @@ internal sealed partial class SwitchesHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<SwitchStateChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleStateChangedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<SwitchStateChangedEvent>(relay.HandleStateChangedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(SwitchStateChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -112,11 +108,9 @@ internal sealed partial class SwitchesHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleConnectionStatusAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(relay.HandleConnectionStatusAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -134,11 +128,9 @@ internal sealed partial class SwitchesHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<SmartDeviceTriggeredEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleDeviceTriggeredAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<SmartDeviceTriggeredEvent>(relay.HandleDeviceTriggeredAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(SmartDeviceTriggeredEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -156,11 +148,9 @@ internal sealed partial class SwitchesHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<DeviceReachabilityChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleReachabilityChangedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<DeviceReachabilityChangedEvent>(relay.HandleReachabilityChangedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(DeviceReachabilityChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -178,11 +168,9 @@ internal sealed partial class SwitchesHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ServerWipedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await purger.HandleServerWipedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ServerWipedEvent>(purger.HandleServerWipedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ServerWipedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -195,6 +183,9 @@ internal sealed partial class SwitchesHostedService(
             LogWipedLoopFaulted(logger, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Switch device-triggered relay loop faulted.")]
     private static partial void LogDeviceLoopFaulted(ILogger logger, Exception exception);

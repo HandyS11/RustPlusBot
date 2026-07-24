@@ -144,23 +144,35 @@ internal sealed class WorkspaceHostedService(
         }
     }
 
+    /// <summary>
+    /// Reconciles one server in its own scope. Every consumer below runs this through
+    /// <see cref="EventBusConsumption.ConsumeAsync{TEvent}"/>, which absorbs its failures: the reconcile
+    /// talks to Discord over REST, where a timeout or a 5xx is routine, and one of those must never end
+    /// the subscription that drives the channels.
+    /// </summary>
+    /// <param name="guildId">The owning guild snowflake.</param>
+    /// <param name="serverId">The server to reconcile.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that completes when the reconcile has run.</returns>
+    private async Task ReconcileServerAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    {
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
+            await reconciler.ReconcileServerAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     private async Task ConsumeConnectionStatusAsync(CancellationToken cancellationToken)
     {
-        // If this loop faults (broad catch), the consumer exits permanently and info channels stop
-        // updating until the host restarts. Acceptable: the reconciler is idempotent and a restart heals.
         try
         {
-            await foreach (var changed in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                var scope = scopeFactory.CreateAsyncScope();
-                await using (scope.ConfigureAwait(false))
-                {
-                    var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                    await reconciler.ReconcileServerAsync(changed.GuildId, changed.ServerId, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
+            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(
+                (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct),
+                ex => logger.LogError(ex, "Handling {EventType} failed; skipping that reconcile.",
+                    nameof(ConnectionStatusChangedEvent)),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -176,17 +188,11 @@ internal sealed class WorkspaceHostedService(
     {
         try
         {
-            await foreach (var changed in eventBus.SubscribeAsync<ServerCredentialsChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                var scope = scopeFactory.CreateAsyncScope();
-                await using (scope.ConfigureAwait(false))
-                {
-                    var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                    await reconciler.ReconcileServerAsync(changed.GuildId, changed.ServerId, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
+            await eventBus.ConsumeAsync<ServerCredentialsChangedEvent>(
+                (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct),
+                ex => logger.LogError(ex, "Handling {EventType} failed; skipping that reconcile.",
+                    nameof(ServerCredentialsChangedEvent)),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -200,21 +206,13 @@ internal sealed class WorkspaceHostedService(
 
     private async Task ConsumeInfoMapReadyAsync(CancellationToken cancellationToken)
     {
-        // If this loop faults (broad catch), the consumer exits permanently and the #info map message stops
-        // updating until the host restarts. Acceptable: the reconciler is idempotent and a restart heals.
         try
         {
-            await foreach (var ready in eventBus.SubscribeAsync<InfoMapReadyEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                var scope = scopeFactory.CreateAsyncScope();
-                await using (scope.ConfigureAwait(false))
-                {
-                    var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                    await reconciler.ReconcileServerAsync(ready.GuildId, ready.ServerId, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
+            await eventBus.ConsumeAsync<InfoMapReadyEvent>(
+                (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct),
+                ex => logger.LogError(ex, "Handling {EventType} failed; skipping that reconcile.",
+                    nameof(InfoMapReadyEvent)),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -234,17 +232,11 @@ internal sealed class WorkspaceHostedService(
         // long after startup.
         try
         {
-            await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                var scope = scopeFactory.CreateAsyncScope();
-                await using (scope.ConfigureAwait(false))
-                {
-                    var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                    await reconciler.ReconcileServerAsync(registered.GuildId, registered.ServerId, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-            }
+            await eventBus.ConsumeAsync<ServerRegisteredEvent>(
+                (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct),
+                ex => logger.LogError(ex, "Handling {EventType} failed; skipping that reconcile.",
+                    nameof(ServerRegisteredEvent)),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

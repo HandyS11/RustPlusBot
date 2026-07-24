@@ -258,6 +258,27 @@ public sealed class ServerQueryTests
         Assert.Empty(result);
     }
 
+    [Fact]
+    public async Task GetMonumentsAsync_returns_empty_when_the_endpoint_fails()
+    {
+        // The query seam promises degradation ("or an empty list"), but the socket-level call throws on a
+        // failed GetMap. Left unguarded, that throw escapes into the map pipeline and kills its event loop.
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+        var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        source.LastConnection!.MonumentsFault = new InvalidOperationException("GetMap returned no data.");
+
+        var result = await supervisor.GetMonumentsAsync(10UL, serverId, cts.Token);
+
+        Assert.Empty(result);
+        await supervisor.StopAllAsync();
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
     {
         while (!condition())

@@ -50,11 +50,9 @@ internal sealed partial class PlayersHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<PlayerStateChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.RelayAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<PlayerStateChangedEvent>(relay.RelayAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(PlayerStateChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -67,6 +65,9 @@ internal sealed partial class PlayersHostedService(
             LogRelayLoopFaulted(logger, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Player relay loop faulted.")]
     private static partial void LogRelayLoopFaulted(ILogger logger, Exception exception);

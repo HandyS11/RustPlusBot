@@ -78,12 +78,10 @@ internal sealed partial class ConnectionHostedService(
     {
         try
         {
-            await foreach (var registered in eventBus.SubscribeAsync<ServerRegisteredEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await supervisor.EnsureConnectionAsync(registered.GuildId, registered.ServerId, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ServerRegisteredEvent>(
+                    (registered, ct) => supervisor.EnsureConnectionAsync(registered.GuildId, registered.ServerId, ct),
+                    ex => LogHandlerFailed(logger, ex, nameof(ServerRegisteredEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -101,12 +99,10 @@ internal sealed partial class ConnectionHostedService(
     {
         try
         {
-            await foreach (var changed in eventBus.SubscribeAsync<ServerCredentialsChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await supervisor.EnsureConnectionAsync(changed.GuildId, changed.ServerId, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ServerCredentialsChangedEvent>(
+                    (changed, ct) => supervisor.EnsureConnectionAsync(changed.GuildId, changed.ServerId, ct),
+                    ex => LogHandlerFailed(logger, ex, nameof(ServerCredentialsChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -119,6 +115,9 @@ internal sealed partial class ConnectionHostedService(
         }
 #pragma warning restore CA1031
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection hosted-service loop faulted.")]
     private static partial void LogLoopFaulted(ILogger logger, Exception exception);

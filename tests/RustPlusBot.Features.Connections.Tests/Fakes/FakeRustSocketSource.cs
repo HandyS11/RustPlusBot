@@ -262,6 +262,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// (a per-request timeout) instead of returning <see cref="MonumentsResult"/>.</summary>
         public bool MonumentsTimeout { get; set; }
 
+        /// <summary>When set, <see cref="GetMonumentsAsync"/> throws this instead of returning
+        /// <see cref="MonumentsResult"/> — models the real socket's "GetMap returned no data" throw when
+        /// the Rust+ endpoint answers with an error (rate limit, no map, …).</summary>
+        public Exception? MonumentsFault { get; set; }
+
         /// <summary>The bytes returned by <see cref="GetMapImageAsync"/>. Defaults to null.</summary>
         public byte[]? MapImageResult { get; set; }
 
@@ -414,10 +419,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             Task.FromResult(World);
 
         public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
-            CancellationToken cancellationToken = default) =>
-            MonumentsTimeout
-                ? Task.FromException<IReadOnlyList<MonumentSnapshot>>(new OperationCanceledException())
-                : Task.FromResult(MonumentsResult);
+            CancellationToken cancellationToken = default)
+        {
+            var fault = MonumentsFault ?? (MonumentsTimeout ? new OperationCanceledException() : null);
+            return fault is null
+                ? Task.FromResult(MonumentsResult)
+                : Task.FromException<IReadOnlyList<MonumentSnapshot>>(fault);
+        }
 
         public Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
             Task.FromResult(MapImageResult);

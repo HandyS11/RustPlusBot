@@ -714,7 +714,11 @@ internal sealed partial class RustPlusSocketSource(
                 .ConfigureAwait(false);
             if (!response.IsSuccess || response.Data is null)
             {
-                throw new InvalidOperationException("GetMap returned no data.");
+                // Name the reason: the caller only ever sees this message, and "rate_limit" (three heavy
+                // GetMap calls land back-to-back on connect) reads very differently from "no_map".
+                throw new InvalidOperationException(
+                    "GetMap returned no data; error: " + (response.Error?.Code.ToString() ?? "none") +
+                    " (" + (response.Error?.Message ?? "no message") + ").");
             }
 
             var monuments = new List<MonumentSnapshot>();

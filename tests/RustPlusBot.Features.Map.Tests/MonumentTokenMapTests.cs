@@ -13,6 +13,7 @@ public sealed class MonumentTokenMapTests
     [InlineData("bandit_camp", MonumentType.BanditTown)]
     [InlineData("radtown", MonumentType.Radtown)]
     [InlineData("jungle_ziggurat", MonumentType.JungleZigguratA)]
+    [InlineData("apartmentcomplex", MonumentType.ApartmentsComplex)]
     [InlineData("train_tunnel_display_name", MonumentType.TunnelEntrance)]
     [InlineData("train_tunnel_link_display_name", MonumentType.TunnelEntranceTransition)]
     [InlineData("arctic_base_b", MonumentType.ArcticResearchBaseA)]

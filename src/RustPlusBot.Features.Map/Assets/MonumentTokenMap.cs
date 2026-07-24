@@ -19,6 +19,7 @@ public static class MonumentTokenMap
     {
         ["AbandonedMilitaryBase"] = MonumentType.MilitaryBaseA,
         ["airfield_display_name"] = MonumentType.Airfield,
+        ["apartmentcomplex"] = MonumentType.ApartmentsComplex,
         ["arctic_base_a"] = MonumentType.ArcticResearchBaseA,
         ["arctic_base_b"] = MonumentType.ArcticResearchBaseA,
         ["bandit_camp"] = MonumentType.BanditTown,

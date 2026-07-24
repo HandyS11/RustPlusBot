@@ -66,11 +66,9 @@ internal sealed partial class StorageMonitorsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<StorageMonitorPairedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await coordinator.HandlePairedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<StorageMonitorPairedEvent>(coordinator.HandlePairedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(StorageMonitorPairedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -88,11 +86,9 @@ internal sealed partial class StorageMonitorsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<StorageMonitorTriggeredEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleTriggeredAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<StorageMonitorTriggeredEvent>(relay.HandleTriggeredAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(StorageMonitorTriggeredEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -110,11 +106,9 @@ internal sealed partial class StorageMonitorsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleConnectionStatusAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(relay.HandleConnectionStatusAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -132,11 +126,9 @@ internal sealed partial class StorageMonitorsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<DeviceReachabilityChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.HandleReachabilityChangedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<DeviceReachabilityChangedEvent>(relay.HandleReachabilityChangedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(DeviceReachabilityChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -154,11 +146,9 @@ internal sealed partial class StorageMonitorsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ServerWipedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await purger.HandleServerWipedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ServerWipedEvent>(purger.HandleServerWipedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ServerWipedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -171,6 +161,9 @@ internal sealed partial class StorageMonitorsHostedService(
             LogWipedLoopFaulted(logger, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Storage monitor pairing loop faulted.")]
     private static partial void LogPairedLoopFaulted(ILogger logger, Exception exception);

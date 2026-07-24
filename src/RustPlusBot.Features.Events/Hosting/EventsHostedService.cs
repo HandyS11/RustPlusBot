@@ -115,11 +115,9 @@ internal sealed partial class EventsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<MapMarkersChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.RelayAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<MapMarkersChangedEvent>(relay.RelayAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(MapMarkersChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -137,11 +135,9 @@ internal sealed partial class EventsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<RigStateChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await relay.RelayRigAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<RigStateChangedEvent>(relay.RelayRigAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(RigStateChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -159,11 +155,9 @@ internal sealed partial class EventsHostedService(
     {
         try
         {
-            await foreach (var evt in eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(cancellationToken)
-                               .ConfigureAwait(false))
-            {
-                await ClearIfDisconnectedAsync(evt, cancellationToken).ConfigureAwait(false);
-            }
+            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(ClearIfDisconnectedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)), cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -192,6 +186,9 @@ internal sealed partial class EventsHostedService(
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Event relay loop faulted.")]
     private static partial void LogRelayLoopFaulted(ILogger logger, Exception exception);
