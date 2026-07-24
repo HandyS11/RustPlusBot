@@ -10,7 +10,10 @@ public sealed class TeamInfoMappingTests
         var teamInfo = new RustPlusApi.Data.TeamInfo
         {
             LeaderSteamId = 100UL,
-            DeathNote = new RustPlusApi.Data.Notes.DeathNote { X = 12f, Y = 34f },
+            DeathNote = new RustPlusApi.Data.Notes.DeathNote
+            {
+                X = 12f, Y = 34f
+            },
             Members =
             [
                 new RustPlusApi.Data.MemberInfo
@@ -44,7 +47,10 @@ public sealed class TeamInfoMappingTests
     [Fact]
     public void ToSnapshot_NullMembersAndNoDeathNote_YieldEmptyMembersAndNullNote()
     {
-        var teamInfo = new RustPlusApi.Data.TeamInfo { LeaderSteamId = 7UL, Members = null, DeathNote = null };
+        var teamInfo = new RustPlusApi.Data.TeamInfo
+        {
+            LeaderSteamId = 7UL, Members = null, DeathNote = null
+        };
 
         var snapshot = TeamInfoMapping.ToSnapshot(teamInfo);
 

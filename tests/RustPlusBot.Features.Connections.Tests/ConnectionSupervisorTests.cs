@@ -773,10 +773,13 @@ public sealed class ConnectionSupervisorTests
 
         var online = new TeamMemberSnapshot(
             100UL, "Alice", 1f, 1f, IsOnline: true, IsAlive: true, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
-        var offline = online with { IsOnline = false };
+        var offline = online with
+        {
+            IsOnline = false
+        };
 
-        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [online]));   // prime (silent)
-        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [offline]));  // -> Disconnect
+        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [online])); // prime (silent)
+        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [offline])); // -> Disconnect
 
         await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
 
@@ -787,7 +790,11 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; } catch (OperationCanceledException) { /* expected */ }
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
     }
 
     [Fact]
@@ -822,7 +829,12 @@ public sealed class ConnectionSupervisorTests
 
         // Wait for at least one poll to prime the baseline with the online snapshot, then flip to offline.
         await WaitUntilAsync(() => conn.TeamInfoCallCount >= 1, cts.Token);
-        conn.TeamResult = new TeamInfoSnapshot(100UL, [online with { IsOnline = false }]);
+        conn.TeamResult = new TeamInfoSnapshot(100UL, [
+            online with
+            {
+                IsOnline = false
+            }
+        ]);
 
         await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
         Assert.True(captured.TryDequeue(out var evt));
@@ -830,7 +842,11 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; } catch (OperationCanceledException) { /* expected */ }
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
     }
 
     [Fact]
@@ -906,7 +922,11 @@ public sealed class ConnectionSupervisorTests
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
-        try { await subTask; } catch (OperationCanceledException) { /* expected */ }
+        try { await subTask; }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
