@@ -336,21 +336,7 @@ internal sealed partial class RustPlusSocketSource(
                     return null;
                 }
 
-                var members = (response.Data.Members ?? [])
-                    .Select(m => new TeamMemberSnapshot(
-                        m.SteamId,
-                        m.Name ?? string.Empty,
-                        m.X,
-                        m.Y,
-                        m.IsOnline,
-                        m.IsAlive,
-                        new DateTimeOffset(DateTime.SpecifyKind(m.LastSpawnTime, DateTimeKind.Utc)),
-                        new DateTimeOffset(DateTime.SpecifyKind(m.LastDeathTime, DateTimeKind.Utc))))
-                    .ToList();
-                var deathNote = response.Data.DeathNote is { } dn
-                    ? ((float X, float Y)?)(dn.X, dn.Y)
-                    : null;
-                return new TeamInfoSnapshot(response.Data.LeaderSteamId, members, deathNote);
+                return TeamInfoMapping.ToSnapshot(response.Data);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
