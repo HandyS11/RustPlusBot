@@ -38,15 +38,11 @@ public sealed class InfoMapHostedServiceTests
     });
 
     /// <summary>
-    /// A fake bus that records every published <see cref="InfoMapReadyEvent"/>. Deterministic, unlike
-    /// subscribing to the real <see cref="InMemoryEventBus"/> from a background task: that bus drops
-    /// events published before the subscriber is active, which races the service's first tick.
+    /// A fake bus that records every published <see cref="InfoMapReadyEvent"/> and signals each arrival.
+    /// Deterministic, unlike subscribing to the real <see cref="InMemoryEventBus"/> from a background task:
+    /// that bus drops events published before the subscriber is active, which races the service's first tick.
     /// </summary>
-    private static (IEventBus Bus, ConcurrentQueue<InfoMapReadyEvent> Received) CapturingBus()
-    {
-        var bus = new CapturingEventBus();
-        return (bus, bus.Received);
-    }
+    private static CapturingEventBus CapturingBus() => new();
 
     [Fact]
     public async Task Ready_key_publishes_InfoMapReadyEvent_once_per_requester()
@@ -70,7 +66,8 @@ public sealed class InfoMapHostedServiceTests
         // Capture publishes off a substituted bus: the real InMemoryEventBus drops events published
         // before a subscriber is active, so collecting via a background subscription races the
         // service's first tick and flakes on slow CI runners.
-        var (bus, received) = CapturingBus();
+        using var bus = CapturingBus();
+        var received = bus.Received;
 
         var service = new InfoMapHostedService(
             bus, coordinator, driver, query, ShortPollOptions(),
@@ -79,11 +76,7 @@ public sealed class InfoMapHostedServiceTests
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
-            while (DateTimeOffset.UtcNow < deadline && received.Count < 2)
-            {
-                await Task.Delay(20);
-            }
+            await bus.WaitForAsync(2);
         }
         finally
         {
@@ -125,7 +118,8 @@ public sealed class InfoMapHostedServiceTests
         IReadOnlyList<(ulong GuildId, Guid ServerId)> connectable = [(GuildA, serverId)];
         store.ListConnectableServersAsync(Arg.Any<CancellationToken>()).Returns(connectable);
 
-        var (bus, received) = CapturingBus();
+        using var bus = CapturingBus();
+        var received = bus.Received;
 
         var service = new InfoMapHostedService(
             bus, coordinator, driver, query, ShortPollOptions(),
@@ -134,11 +128,7 @@ public sealed class InfoMapHostedServiceTests
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
-            while (DateTimeOffset.UtcNow < deadline && received.IsEmpty)
-            {
-                await Task.Delay(20);
-            }
+            await bus.WaitForAsync(1);
         }
         finally
         {
@@ -179,19 +169,19 @@ public sealed class InfoMapHostedServiceTests
                 GenerationPollInterval = TimeSpan.FromSeconds(30) // must not need to fire for this test to pass
             }
         });
+        // Signals the registration instead of polling for it: a poll loop needs the thread pool to take its
+        // next turn, so on a saturated CI runner the whole deadline can elapse inside one Task.Delay.
+        var registered = new SignallingCoordinator(coordinator);
         var service = new InfoMapHostedService(
-            bus, coordinator, driver, query, pollOptions,
+            bus, registered, driver, query, pollOptions,
             ScopeFactory(connectionStore), NullLogger<InfoMapHostedService>.Instance);
 
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
-            while (DateTimeOffset.UtcNow < deadline && coordinator.PendingKeys().Count == 0)
-            {
-                await bus.PublishAsync(new ConnectionStatusChangedEvent(GuildA, serverId, true, false));
-                await Task.Delay(20);
-            }
+            // Published exactly once: StartAsync subscribes before it returns, so no event can be dropped.
+            await bus.PublishAsync(new ConnectionStatusChangedEvent(GuildA, serverId, true, false));
+            await registered.Registered.WaitAsync(TimeSpan.FromSeconds(30));
         }
         finally
         {
@@ -202,9 +192,43 @@ public sealed class InfoMapHostedServiceTests
         Assert.Contains((GuildA, serverId), coordinator.Requesters(Key));
     }
 
-    private sealed class CapturingEventBus : IEventBus
+    /// <summary>Forwards to a real coordinator and completes <see cref="Registered"/> on the first Register.</summary>
+    /// <param name="inner">The coordinator that holds the real state.</param>
+    private sealed class SignallingCoordinator(IRustMapsMapCoordinator inner) : IRustMapsMapCoordinator
     {
+        private readonly TaskCompletionSource _registered =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Registered => _registered.Task;
+
+        public void Register(RustMapsMapKey key, ulong guildId, Guid serverId)
+        {
+            inner.Register(key, guildId, serverId);
+            _registered.TrySetResult();
+        }
+
+        public RustMapsMapSnapshot Snapshot(RustMapsMapKey key) => inner.Snapshot(key);
+
+        public bool TrySetGenerating(RustMapsMapKey key, string? mapId) => inner.TrySetGenerating(key, mapId);
+
+        public void SetReady(RustMapsMapKey key, RustMapsReadyMap ready) => inner.SetReady(key, ready);
+
+        public void SetFailed(RustMapsMapKey key) => inner.SetFailed(key);
+
+        public void SetLimitReached(RustMapsMapKey key) => inner.SetLimitReached(key);
+
+        public IReadOnlyList<RustMapsMapKey> PendingKeys() => inner.PendingKeys();
+
+        public IReadOnlyList<(ulong Guild, Guid Server)> Requesters(RustMapsMapKey key) => inner.Requesters(key);
+    }
+
+    private sealed class CapturingEventBus : IEventBus, IDisposable
+    {
+        private readonly SemaphoreSlim _published = new(0);
+
         public ConcurrentQueue<InfoMapReadyEvent> Received { get; } = new();
+
+        public void Dispose() => _published.Dispose();
 
         public ValueTask PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
             where TEvent : notnull
@@ -212,6 +236,7 @@ public sealed class InfoMapHostedServiceTests
             if (@event is InfoMapReadyEvent ready)
             {
                 Received.Enqueue(ready);
+                _published.Release();
             }
 
             return ValueTask.CompletedTask;
@@ -220,5 +245,27 @@ public sealed class InfoMapHostedServiceTests
         public IAsyncEnumerable<TEvent> SubscribeAsync<TEvent>(CancellationToken cancellationToken = default)
             where TEvent : notnull =>
             AsyncEnumerable.Empty<TEvent>(); // No live subscriptions needed: assertions read Received.
+
+        /// <summary>
+        /// Waits for <paramref name="count"/> events. Signal-based rather than a poll loop: polling needs the
+        /// thread pool to take its next turn, so on a saturated runner a whole wall-clock deadline can elapse
+        /// inside a single Task.Delay. A timeout here is not asserted on — the caller's assertions report it.
+        /// </summary>
+        /// <param name="count">How many events to wait for.</param>
+        public async Task WaitForAsync(int count)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    await _published.WaitAsync(timeout.Token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Timed out; the caller asserts on what actually arrived.
+            }
+        }
     }
 }
