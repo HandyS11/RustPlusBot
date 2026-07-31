@@ -9,6 +9,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # One catch-all group: every NuGet bump lands in a single weekly PR.
+    groups:
+      nuget:
+        patterns:
+          - "*"
     ignore:
       # SixLabors moved ImageSharp v4 / ImageSharp.Drawing v3 to the commercial
       # "Six Labors Split License", which hard-fails the build without a paid
@@ -17,3 +22,13 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "SixLabors.ImageSharp.Drawing"
         update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Same deal for the actions used by .github/workflows/*.yml.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
