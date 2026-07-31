@@ -134,7 +134,8 @@ public sealed class PairingSupervisorTests
         await h.Supervisor.EnsureListenerAsync(10UL, 99UL);
 
         var note = new PairingNotification(PairingKind.Server, "S", "1.2.3.4", 28015, 7UL, "tok");
-        await h.Source.LastCallback!(note, CancellationToken.None);
+        Assert.NotNull(h.Source.LastCallback);
+        await h.Source.LastCallback(note, CancellationToken.None);
 
         using var scope = h.Provider.CreateScope();
         var reg = await scope.ServiceProvider.GetRequiredService<IFcmRegistrationStore>().GetAsync(10UL, 99UL);

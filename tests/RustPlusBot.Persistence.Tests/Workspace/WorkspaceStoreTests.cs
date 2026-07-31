@@ -31,7 +31,7 @@ public sealed class WorkspaceStoreTests
 
         var loaded = await store.GetCategoryAsync(1, null);
         Assert.NotNull(loaded);
-        Assert.Equal(20UL, loaded!.DiscordCategoryId);
+        Assert.Equal(20UL, loaded.DiscordCategoryId);
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public sealed class WorkspaceStoreTests
 
         var loaded = await store.GetMessageAsync(1, null, "information.main");
         Assert.NotNull(loaded);
-        Assert.Equal(101UL, loaded!.DiscordMessageId);
+        Assert.Equal(101UL, loaded.DiscordMessageId);
         Assert.Equal(DateTimeOffset.UnixEpoch, loaded.UpdatedAt);
     }
 

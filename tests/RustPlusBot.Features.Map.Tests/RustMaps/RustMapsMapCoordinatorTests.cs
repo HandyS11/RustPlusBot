@@ -65,7 +65,7 @@ public sealed class RustMapsMapCoordinatorTests
         var view = c.GetReady(Key.Size, Key.Seed);
 
         Assert.NotNull(view);
-        Assert.Equal("https://img/x.png", view!.ImageUrl);
+        Assert.Equal("https://img/x.png", view.ImageUrl);
         Assert.Equal("https://rustmaps/x", view.RustMapsPageUrl);
     }
 

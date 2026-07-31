@@ -30,7 +30,7 @@ public sealed class WorkspaceReconcilerServerTests
         Assert.Equal(ReconcileStatus.Provisioned, result.Status);
         var category = await harness.Store.GetCategoryAsync(1, serverId);
         Assert.NotNull(category);
-        Assert.Equal(category!.DiscordCategoryId, await harness.Gateway.FindCategoryAsync(1, "Rustopia EU", default));
+        Assert.Equal(category.DiscordCategoryId, await harness.Gateway.FindCategoryAsync(1, "Rustopia EU", default));
         var channels = await harness.Store.GetChannelsAsync(1, serverId);
         Assert.Single(channels);
         Assert.Equal(serverId, channels[0].RustServerId);

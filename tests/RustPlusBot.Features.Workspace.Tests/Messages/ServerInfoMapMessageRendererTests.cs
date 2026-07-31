@@ -44,7 +44,7 @@ public sealed class ServerInfoMapMessageRendererTests
         var payload = await renderer.RenderAsync(new MessageRenderContext(1, serverId, "en"), default);
 
         Assert.NotNull(payload.Embed);
-        Assert.Equal("https://img/icons.png", payload.Embed!.Image!.Value.Url);
+        Assert.Equal("https://img/icons.png", payload.Embed.Image!.Value.Url);
         Assert.Equal("https://rustmaps/x", payload.Embed.Url);
     }
 

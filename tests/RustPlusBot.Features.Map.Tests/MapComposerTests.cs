@@ -99,7 +99,7 @@ public sealed class MapComposerTests
         var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
         Assert.NotNull(result);
-        using var image = Image.Load<Rgba32>(result!.Png);
+        using var image = Image.Load<Rgba32>(result.Png);
         Assert.Equal(MapRenderer.OutputSize, image.Width);
     }
 
@@ -114,7 +114,7 @@ public sealed class MapComposerTests
         var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
         Assert.NotNull(result);
-        using var image = Image.Load<Rgba32>(result!.Png);
+        using var image = Image.Load<Rgba32>(result.Png);
         Assert.Equal(MapRenderer.OutputSize, image.Width);
     }
 
@@ -158,10 +158,10 @@ public sealed class MapComposerTests
         Assert.NotNull(monResult);
         Assert.NotNull(tunResult);
         // Monuments layer must NOT draw the tunnel token -> identical to the bare base render.
-        Assert.True(monResult!.Png.SequenceEqual(baseResult!.Png),
+        Assert.True(monResult.Png.SequenceEqual(baseResult.Png),
             "tunnel token must be excluded from the Monuments pass");
         // Tunnels layer MUST draw the tunnel token -> differs from the bare base render.
-        Assert.False(tunResult!.Png.SequenceEqual(baseResult!.Png), "tunnel token must render under the Tunnels layer");
+        Assert.False(tunResult.Png.SequenceEqual(baseResult.Png), "tunnel token must render under the Tunnels layer");
     }
 
     private static async Task<MapComposition?> ComposeTunnelScenarioAsync(bool monuments, bool tunnels)
@@ -219,7 +219,7 @@ public sealed class MapComposerTests
         Assert.NotNull(resultOn);
         Assert.NotNull(resultOff);
         // The grid layer must have painted at least one pixel differently.
-        Assert.False(resultOn!.Png.SequenceEqual(resultOff!.Png), "Grid-on and grid-off renders must differ.");
+        Assert.False(resultOn.Png.SequenceEqual(resultOff.Png), "Grid-on and grid-off renders must differ.");
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public sealed class MapComposerTests
         Assert.NotNull(resultNoTrail);
         // MapRenderer.DrawTrails only paints when Trail.Count >= 2, so a 2-point History must render
         // differently from a 1-point History — proving the history ring made it through to the trail.
-        Assert.False(resultWithTrail!.Png.SequenceEqual(resultNoTrail!.Png),
+        Assert.False(resultWithTrail.Png.SequenceEqual(resultNoTrail.Png),
             "Vendor trail with 2-point history must render differently than a 1-point history.");
     }
 
@@ -267,9 +267,9 @@ public sealed class MapComposerTests
         var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.NotNull(result!.Legend);
+        Assert.NotNull(result.Legend);
         // Ordered by SteamId: Ada (10) first, Bob (20) second.
-        Assert.Collection(result.Legend!.Entries,
+        Assert.Collection(result.Legend.Entries,
             e =>
             {
                 Assert.Equal("Ada", e.Name);

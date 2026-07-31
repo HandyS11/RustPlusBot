@@ -159,7 +159,7 @@ public sealed class ConnectionSupervisorTests
 
         var state = await WaitForStateAsync(h.Provider, serverId, s => s.Status == ConnectionStatus.Connected);
         Assert.NotNull(state);
-        Assert.Equal(7, state!.PlayerCount);
+        Assert.Equal(7, state.PlayerCount);
     }
 
     [Fact]
@@ -432,7 +432,7 @@ public sealed class ConnectionSupervisorTests
 
         Assert.Single(captured);
         Assert.True(captured.TryPeek(out var evt));
-        Assert.Single(evt!.Added);
+        Assert.Single(evt.Added);
         Assert.Equal(MarkerKind.PatrolHelicopter, evt.Added[0].Kind);
         Assert.Empty(evt.Removed);
 
@@ -489,7 +489,7 @@ public sealed class ConnectionSupervisorTests
         Assert.Single(captured);
         Assert.True(captured.TryPeek(out var evt));
         Assert.NotNull(evt);
-        Assert.Single(evt!.Added);
+        Assert.Single(evt.Added);
         Assert.Equal(MarkerKind.CargoShip, evt.Added[0].Kind);
         Assert.Empty(evt.Removed);
         Assert.Equal(expectedDims, evt.Dimensions);
@@ -540,7 +540,7 @@ public sealed class ConnectionSupervisorTests
         Assert.Single(captured);
         Assert.True(captured.TryPeek(out var evt));
         Assert.NotNull(evt);
-        Assert.Empty(evt!.Added);
+        Assert.Empty(evt.Added);
         Assert.Empty(evt.Removed);
         var moved = Assert.Single(evt.Moved);
         Assert.Equal(7UL, moved.Id);
@@ -602,7 +602,7 @@ public sealed class ConnectionSupervisorTests
         await Task.Delay(TimeSpan.FromMilliseconds(60), cts.Token);
 
         // Poll 4: recover — hold-last still returns [cargo], so snapshot is unchanged, no new event.
-        source.LastConnection!.MarkersThrow = false;
+        source.LastConnection.MarkersThrow = false;
         await Task.Delay(TimeSpan.FromMilliseconds(100), cts.Token);
 
         // Still only one event total — the failed poll did not corrupt the snapshot.
@@ -659,7 +659,7 @@ public sealed class ConnectionSupervisorTests
         Assert.Single(rigEvents);
         Assert.True(rigEvents.TryPeek(out var evt));
         Assert.NotNull(evt);
-        Assert.Equal(RigKind.Small, evt!.Rig);
+        Assert.Equal(RigKind.Small, evt.Rig);
         Assert.Equal(RigEventKind.Activated, evt.Kind);
         Assert.Equal(1000f, evt.X);
         Assert.Equal(1000f, evt.Y);
@@ -784,7 +784,7 @@ public sealed class ConnectionSupervisorTests
         await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
 
         Assert.True(captured.TryDequeue(out var evt));
-        var transition = Assert.Single(evt!.Transitions);
+        var transition = Assert.Single(evt.Transitions);
         Assert.Equal(PlayerTransitionKind.Disconnect, transition.Kind);
         Assert.Equal(100UL, transition.SteamId);
 
@@ -838,7 +838,7 @@ public sealed class ConnectionSupervisorTests
 
         await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
         Assert.True(captured.TryDequeue(out var evt));
-        Assert.Contains(evt!.Transitions, t => t.Kind == PlayerTransitionKind.Disconnect && t.SteamId == 100UL);
+        Assert.Contains(evt.Transitions, t => t.Kind == PlayerTransitionKind.Disconnect && t.SteamId == 100UL);
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();

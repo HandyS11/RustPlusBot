@@ -97,7 +97,7 @@ internal sealed class WorkspaceHostedService(
         // Healing sweeps every provisioned guild's channels over REST; doing it inline blocks the
         // gateway task and stalls event dispatch, so offload it. Failures must be caught here —
         // nothing awaits this.
-        _ = Task.Run(HealProvisionedGuildsAsync);
+        _ = Task.Run(HealProvisionedGuildsAsync, _cts.Token);
         return Task.CompletedTask;
     }
 
@@ -110,11 +110,15 @@ internal sealed class WorkspaceHostedService(
             {
                 var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
                 var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                foreach (var guildId in await store.GetProvisionedGuildIdsAsync().ConfigureAwait(false))
+                foreach (var guildId in await store.GetProvisionedGuildIdsAsync(_cts.Token).ConfigureAwait(false))
                 {
-                    await reconciler.HealGuildAsync(guildId).ConfigureAwait(false);
+                    await reconciler.HealGuildAsync(guildId, _cts.Token).ConfigureAwait(false);
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
         }
         catch (Exception ex) // Broad catch is intentional: a faulting startup heal must not crash the host.
         {
@@ -135,8 +139,12 @@ internal sealed class WorkspaceHostedService(
             await using (scope.ConfigureAwait(false))
             {
                 var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                await reconciler.HealGuildAsync(guildChannel.Guild.Id).ConfigureAwait(false);
+                await reconciler.HealGuildAsync(guildChannel.Guild.Id, _cts.Token).ConfigureAwait(false);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
         }
         catch (Exception ex) // Broad catch is intentional: a faulting self-heal must not crash the host.
         {

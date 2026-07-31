@@ -20,7 +20,7 @@ public sealed class MonumentIconSourceTests
         var icon = CreateSource().Monument("launchsite", 30);
 
         Assert.NotNull(icon);
-        Assert.Equal(30, icon!.Width);
+        Assert.Equal(30, icon.Width);
         Assert.Equal(30, icon.Height);
     }
 
@@ -77,7 +77,7 @@ public sealed class MonumentIconSourceTests
             Assert.True(icon is not null, $"{token} produced no icon");
 
             var hasVisiblePixel = false;
-            for (var y = 0; y < icon!.Height && !hasVisiblePixel; y++)
+            for (var y = 0; y < icon.Height && !hasVisiblePixel; y++)
             {
                 for (var x = 0; x < icon.Width; x++)
                 {
@@ -137,7 +137,7 @@ public sealed class MonumentIconSourceTests
         var ctor = typeof(MonumentAsset).GetConstructor(
             BindingFlags.Instance | BindingFlags.NonPublic, [typeof(MonumentType), typeof(string)]);
         Assert.NotNull(ctor);
-        return (MonumentAsset)ctor!.Invoke([MonumentType.LaunchSite, "Definitely_Not_An_Asset"]);
+        return (MonumentAsset)ctor.Invoke([MonumentType.LaunchSite, "Definitely_Not_An_Asset"]);
     }
 
     private sealed class RecordingLogger<T> : ILogger<T>

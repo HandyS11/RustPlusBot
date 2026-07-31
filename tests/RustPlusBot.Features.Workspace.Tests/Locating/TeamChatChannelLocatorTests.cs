@@ -85,7 +85,7 @@ public sealed class TeamChatChannelLocatorTests
         var resolved = await locator.ResolveAsync(777UL, CancellationToken.None);
 
         Assert.NotNull(resolved);
-        Assert.Equal(10UL, resolved!.Value.GuildId);
+        Assert.Equal(10UL, resolved.Value.GuildId);
         Assert.Equal(serverId, resolved.Value.ServerId);
     }
 

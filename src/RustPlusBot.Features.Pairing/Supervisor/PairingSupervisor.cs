@@ -249,10 +249,11 @@ internal sealed partial class PairingSupervisor(
         await using (expireScope.ConfigureAwait(false))
         {
             var store = expireScope.ServiceProvider.GetRequiredService<IFcmRegistrationStore>();
-            await store.SetStatusAsync(registrationId, FcmRegistrationStatus.Expired).ConfigureAwait(false);
+            await store.SetStatusAsync(registrationId, FcmRegistrationStatus.Expired, _shutdown.Token)
+                .ConfigureAwait(false);
         }
 
-        await notifier.NotifyCredentialsExpiredAsync(key.Guild, key.Owner).ConfigureAwait(false);
+        await notifier.NotifyCredentialsExpiredAsync(key.Guild, key.Owner, _shutdown.Token).ConfigureAwait(false);
     }
 
     private sealed class Handle : IAsyncDisposable
