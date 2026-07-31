@@ -173,7 +173,9 @@ internal sealed partial class ConnectionSupervisor(
     /// <inheritdoc />
     public async Task StopAsync(ulong guildId, Guid serverId)
     {
-        await _gate.WaitAsync().ConfigureAwait(false);
+        // CancellationToken.None, not _shutdown.Token: teardown must still acquire the gate after
+        // StopAllAsync has already cancelled _shutdown, otherwise the connection is never stopped.
+        await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
         try
         {
             await StopConnectionAsync((guildId, serverId)).ConfigureAwait(false);
@@ -188,7 +190,8 @@ internal sealed partial class ConnectionSupervisor(
     public async Task StopAllAsync()
     {
         await _shutdown.CancelAsync().ConfigureAwait(false);
-        await _gate.WaitAsync().ConfigureAwait(false);
+        // CancellationToken.None: _shutdown was just cancelled, so waiting on it would abandon shutdown.
+        await _gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
         try
         {
             foreach (var key in _connections.Keys.ToList())

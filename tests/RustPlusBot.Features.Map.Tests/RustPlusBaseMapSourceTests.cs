@@ -21,7 +21,7 @@ public sealed class RustPlusBaseMapSourceTests
         var result = await source.GetAsync(Guild, Server, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal((byte[])[1, 2, 3], result!.Bytes);
+        Assert.Equal((byte[])[1, 2, 3], result.Bytes);
         Assert.Equal(1000, result.PixelWidth);
         Assert.Equal(1000, result.PixelHeight);
         Assert.Equal(50, result.OceanMarginPx);

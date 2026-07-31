@@ -177,9 +177,9 @@ public sealed class ClanSupervisorTests
 
         Assert.True(captured.TryPeek(out var evt));
         Assert.NotNull(evt);
-        Assert.Equal(ClanProbeStatus.HasClan, evt!.Status);
+        Assert.Equal(ClanProbeStatus.HasClan, evt.Status);
         Assert.NotNull(evt.Snapshot);
-        Assert.Equal(1L, evt.Snapshot!.ClanId);
+        Assert.Equal(1L, evt.Snapshot.ClanId);
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
@@ -220,7 +220,7 @@ public sealed class ClanSupervisorTests
 
         Assert.True(captured.TryPeek(out var evt));
         Assert.NotNull(evt);
-        Assert.Equal(ClanProbeStatus.NoClan, evt!.Status);
+        Assert.Equal(ClanProbeStatus.NoClan, evt.Status);
         Assert.Null(evt.Snapshot);
 
         await h.Supervisor.StopAllAsync();
@@ -264,7 +264,7 @@ public sealed class ClanSupervisorTests
         // connect-time probe call), so RaiseClanChanged below is guaranteed to reach the handler.
         await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
         Assert.NotNull(source.LastConnection);
-        source.LastConnection!.RaiseClanChanged(ClanProbeResult.NoClan);
+        source.LastConnection.RaiseClanChanged(ClanProbeResult.NoClan);
 
         await WaitUntilAsync(() => captured.Count >= 2, cts.Token);
 
@@ -321,7 +321,7 @@ public sealed class ClanSupervisorTests
         await WaitUntilAsync(() => !stateCaptured.IsEmpty, cts.Token);
 
         Assert.NotNull(source.LastConnection);
-        source.LastConnection!.RaiseClanMessage(new ClanChatLine(100UL, "Active", "hi", DateTimeOffset.UnixEpoch));
+        source.LastConnection.RaiseClanMessage(new ClanChatLine(100UL, "Active", "hi", DateTimeOffset.UnixEpoch));
         source.LastConnection.RaiseClanMessage(new ClanChatLine(999UL, "Other", "yo", DateTimeOffset.UnixEpoch));
 
         await WaitUntilAsync(() => captured.Count >= 2, cts.Token);
@@ -394,7 +394,7 @@ public sealed class ClanSupervisorTests
         await WaitUntilAsync(() => !stateCaptured.IsEmpty, cts.Token);
 
         Assert.NotNull(source.LastConnection);
-        var closedConnection = source.LastConnection!;
+        var closedConnection = source.LastConnection;
 
         // Stop the connection loop — this joins RunConnectedAsync's finally block, which unsubscribes
         // the clan handlers, before StopAsync returns.
@@ -453,7 +453,7 @@ public sealed class ClanSupervisorTests
         Assert.Equal(ChatSendResult.Sent, clanResult);
 
         Assert.NotNull(source.LastConnection);
-        var connection = source.LastConnection!;
+        var connection = source.LastConnection;
 
         // Assert both destinations independently, so swapping the routing fails on both sides.
         Assert.Equal("[Alice] team line", Assert.Single(connection.SentMessages));

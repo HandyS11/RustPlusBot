@@ -13,11 +13,15 @@ public sealed class MapControlMessageRendererTests
 {
     private static readonly ResxLocalizer Loc = new();
 
-    private static List<ButtonComponent> Buttons(MessagePayload payload) =>
-    [
-        .. payload.Components!.Components.OfType<ActionRowComponent>()
-            .SelectMany(r => r.Components).OfType<ButtonComponent>(),
-    ];
+    private static List<ButtonComponent> Buttons(MessagePayload payload)
+    {
+        Assert.NotNull(payload.Components);
+        return
+        [
+            .. payload.Components.Components.OfType<ActionRowComponent>()
+                .SelectMany(r => r.Components).OfType<ButtonComponent>(),
+        ];
+    }
 
     [Fact]
     public async Task Renders_seven_toggle_buttons_reflecting_settings()

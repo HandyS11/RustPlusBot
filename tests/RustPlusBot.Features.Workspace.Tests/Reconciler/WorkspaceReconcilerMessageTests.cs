@@ -70,7 +70,7 @@ public sealed class WorkspaceReconcilerMessageTests
 
         var originalInfoMessage = await harness.Store.GetMessageAsync(1, serverId, "server.info");
         Assert.NotNull(originalInfoMessage);
-        var originalInfoMessageId = originalInfoMessage!.DiscordMessageId;
+        var originalInfoMessageId = originalInfoMessage.DiscordMessageId;
         Assert.Equal(1, harness.Gateway.PostedMessages);
         Assert.Empty(harness.Gateway.DeletedMessageIds);
 
@@ -101,7 +101,7 @@ public sealed class WorkspaceReconcilerMessageTests
         var infoRecord = await harness.Store.GetMessageAsync(1, serverId, "server.info");
         Assert.NotNull(mapRecord);
         Assert.NotNull(infoRecord);
-        Assert.NotEqual(originalInfoMessageId, infoRecord!.DiscordMessageId);
+        Assert.NotEqual(originalInfoMessageId, infoRecord.DiscordMessageId);
     }
 
     [Fact]

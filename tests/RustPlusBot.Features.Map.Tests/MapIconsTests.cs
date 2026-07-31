@@ -18,7 +18,7 @@ public sealed class MapIconsTests
         var icon = MapIcons.Marker(MarkerKind.CargoShip, 40);
 
         Assert.NotNull(icon);
-        Assert.True(icon!.Width <= 40 && icon.Height <= 40);
+        Assert.True(icon.Width <= 40 && icon.Height <= 40);
         Assert.True(icon.Width == 40 || icon.Height == 40); // aspect-preserving fit, longest edge = size
     }
 

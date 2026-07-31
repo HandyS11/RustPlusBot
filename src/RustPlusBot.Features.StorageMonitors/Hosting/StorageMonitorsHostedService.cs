@@ -47,12 +47,12 @@ internal sealed partial class StorageMonitorsHostedService(
         foreach (var loop in new[]
                  {
                      _pairedLoop, _triggeredLoop, _statusLoop, _reachabilityLoop, _wipedLoop
-                 }.Where(t => t is not null))
+                 }.OfType<Task>())
         {
             try
             {
 #pragma warning disable VSTHRD003 // Our own loop tasks, joined on stop.
-                await loop!.ConfigureAwait(false);
+                await loop.ConfigureAwait(false);
 #pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)

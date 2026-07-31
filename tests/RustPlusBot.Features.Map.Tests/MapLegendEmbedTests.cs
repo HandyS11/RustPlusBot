@@ -24,7 +24,7 @@ public sealed class MapLegendEmbedTests
         var embed = MapLegendEmbed.Build(legend);
 
         Assert.NotNull(embed);
-        Assert.Contains("Ada", embed!.Description, StringComparison.Ordinal);
+        Assert.Contains("Ada", embed.Description, StringComparison.Ordinal);
         Assert.Contains("online", embed.Description, StringComparison.Ordinal);
         Assert.Contains("Bob", embed.Description, StringComparison.Ordinal);
         Assert.Contains("🟦", embed.Description, StringComparison.Ordinal);

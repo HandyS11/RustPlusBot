@@ -45,7 +45,7 @@ public sealed class RendererTests
         var payload = await renderer.RenderAsync(Global, default);
 
         Assert.NotNull(payload.Embed);
-        Assert.Contains("3", payload.Embed!.Description, StringComparison.Ordinal);
+        Assert.Contains("3", payload.Embed.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class RendererTests
         var payload = await renderer.RenderAsync(Global, default);
 
         Assert.NotNull(payload.Components);
-        var selects = payload.Components!.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components)
+        var selects = payload.Components.Components.OfType<ActionRowComponent>().SelectMany(r => r.Components)
             .OfType<SelectMenuComponent>();
         Assert.Contains(selects, s => s.CustomId == "workspace:settings:culture");
     }
@@ -299,7 +299,7 @@ public sealed class RendererTests
         var payload = await renderer.RenderAsync(Global, default);
 
         Assert.NotNull(payload.Components);
-        var buttons = payload.Components!.Components.OfType<ActionRowComponent>()
+        var buttons = payload.Components.Components.OfType<ActionRowComponent>()
             .SelectMany(r => r.Components).OfType<ButtonComponent>();
         Assert.Contains(buttons, b => b.CustomId == "workspace:setup:connect");
     }

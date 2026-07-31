@@ -13,7 +13,7 @@ public sealed class EmbeddedItemDatabaseTests
     {
         var ak = _db.GetById(1545779598);
         Assert.NotNull(ak);
-        Assert.Equal("Assault Rifle", ak!.Name);
+        Assert.Equal("Assault Rifle", ak.Name);
     }
 
     [Fact]
@@ -61,8 +61,8 @@ public sealed class EmbeddedItemDatabaseTests
     {
         var rec = _db.GetById(15388698);
         Assert.NotNull(rec);
-        Assert.NotNull(rec!.Decay);
-        Assert.Equal(900, rec.Decay!.Seconds);
+        Assert.NotNull(rec.Decay);
+        Assert.Equal(900, rec.Decay.Seconds);
         Assert.Equal(100, rec.Decay.Hp);
     }
 
@@ -71,8 +71,8 @@ public sealed class EmbeddedItemDatabaseTests
     {
         var rec = _db.GetById(1729120840);
         Assert.NotNull(rec);
-        Assert.NotNull(rec!.Upkeep);
-        var entry = Assert.Single(rec.Upkeep!.Entries);
+        Assert.NotNull(rec.Upkeep);
+        var entry = Assert.Single(rec.Upkeep.Entries);
         Assert.Equal(-151838493, entry.ItemId);
         Assert.Equal(30, entry.QuantityMin);
         Assert.Equal(100, entry.QuantityMax);

@@ -60,12 +60,12 @@ internal sealed partial class EventsHostedService(
         foreach (var loop in new[]
                  {
                      _relayLoop, _rigLoop, _tickLoop, _disconnectLoop
-                 }.Where(t => t is not null))
+                 }.OfType<Task>())
         {
             try
             {
 #pragma warning disable VSTHRD003 // Our own loop tasks, joined on stop.
-                await loop!.ConfigureAwait(false);
+                await loop.ConfigureAwait(false);
 #pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)

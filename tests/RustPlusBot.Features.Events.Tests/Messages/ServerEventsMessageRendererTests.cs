@@ -47,7 +47,7 @@ public sealed class ServerEventsMessageRendererTests
         var payload = await Build(events, rigs).RenderAsync(new MessageRenderContext(1, ServerId, "en"), default);
 
         Assert.NotNull(payload.Embed);
-        Assert.Equal(5, payload.Embed!.Fields.Length);
+        Assert.Equal(5, payload.Embed.Fields.Length);
     }
 
     [Fact]
