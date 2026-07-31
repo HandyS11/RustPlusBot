@@ -14,7 +14,7 @@ public sealed class CctvChoiceDriftTests
             .GetParameters()[0];
         return
         [
-            ..parameter.GetCustomAttributes<ChoiceAttribute>()
+            .. parameter.GetCustomAttributes<ChoiceAttribute>()
                 .Select(c => (string)c.Value!)
         ];
     }
