@@ -46,7 +46,12 @@ internal sealed partial class InfoMapHostedService(
     /// <inheritdoc />
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _statusLoop = Task.Run(() => ConsumeConnectionStatusAsync(_cts.Token), CancellationToken.None);
+        // Subscribe here rather than inside the loop task: Task.Run only queues the body, so a service that
+        // subscribed in there would stay unsubscribed until the pool schedules it — and every
+        // ConnectionStatusChangedEvent published in that window is dropped. On a saturated host that window
+        // is seconds long, which is exactly when connections are being established.
+        var statusEvents = eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(_cts.Token);
+        _statusLoop = Task.Run(() => ConsumeConnectionStatusAsync(statusEvents, _cts.Token), CancellationToken.None);
         _tickLoop = Task.Run(() => RunTickAsync(_cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
@@ -159,11 +164,13 @@ internal sealed partial class InfoMapHostedService(
         }
     }
 
-    private async Task ConsumeConnectionStatusAsync(CancellationToken cancellationToken)
+    private async Task ConsumeConnectionStatusAsync(
+        IAsyncEnumerable<ConnectionStatusChangedEvent> statusEvents,
+        CancellationToken cancellationToken)
     {
         try
         {
-            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(OnConnectionStatusAsync,
+            await statusEvents.ConsumeAsync(OnConnectionStatusAsync,
                     ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)), cancellationToken)
                 .ConfigureAwait(false);
         }

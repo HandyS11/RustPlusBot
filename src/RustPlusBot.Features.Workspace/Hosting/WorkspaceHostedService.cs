@@ -154,7 +154,7 @@ internal sealed class WorkspaceHostedService(
 
     /// <summary>
     /// Reconciles one server in its own scope. Every consumer below runs this through
-    /// <see cref="EventBusConsumption.ConsumeAsync{TEvent}"/>, which absorbs its failures: the reconcile
+    /// <c>EventBusConsumption.ConsumeAsync</c>, which absorbs its failures: the reconcile
     /// talks to Discord over REST, where a timeout or a 5xx is routine, and one of those must never end
     /// the subscription that drives the channels.
     /// </summary>
