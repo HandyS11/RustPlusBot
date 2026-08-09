@@ -15,21 +15,21 @@
     <PackageVersion Include="Persistord.Core" Version="1.0.0-beta2" />
     <PackageVersion Include="RustMapsApi" Version="1.0.0-beta.3" />
     <PackageVersion Include="RustMapsApi.Assets" Version="1.0.0-beta.3" />
-    <PackageVersion Include="RustPlusApi" Version="2.0.0-beta.6" />
-    <PackageVersion Include="RustPlusApi.Fcm" Version="2.0.0-beta.6" />
+    <PackageVersion Include="RustPlusApi" Version="2.0.0-beta.7" />
+    <PackageVersion Include="RustPlusApi.Fcm" Version="2.0.0-beta.7" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageVersion Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
-    <PackageVersion Include="SkiaSharp" Version="4.151.0" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.151.0" />
+    <PackageVersion Include="SkiaSharp" Version="4.151.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.151.1" />
     <!-- Pinned to override the transitive 2.1.11 pulled by Microsoft.EntityFrameworkCore.Sqlite,
          whose bundled SQLite is vulnerable to CVE-2025-6965 (GHSA-2m69-gcr7-jv3q). 3.0.x bundles
          SQLite >= 3.50.2. Drop once EF Core ships a build that depends on a patched SQLitePCLRaw. -->
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
-    <PackageVersion Include="Svg.Skia" Version="5.1.1" />
+    <PackageVersion Include="Svg.Skia" Version="5.2.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- Test + sample -->
@@ -37,15 +37,15 @@
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="NSubstitute" Version="6.0.0" />
+    <PackageVersion Include="NSubstitute" Version="6.1.0" />
     <PackageVersion Include="Xunit.SkippableFact" Version="1.5.61" />
   </ItemGroup>
   <ItemGroup>
     <!-- Analyzers -->
     <PackageVersion Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.302" />
     <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" />
-    <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
-    <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.15.0" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.16.0" />
+    <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.16.0" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.31.0.145097" />
   </ItemGroup>
 </Project>
