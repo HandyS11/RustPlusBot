@@ -132,4 +132,25 @@ public sealed class ServerEventsMessageRendererTests
         // "Not out / Online" wall would read as a confident live report.
         Assert.Equal("Not connected to the server.", payload.Embed!.Description);
     }
+
+    [Fact]
+    public async Task Off_map_marker_row_shows_a_direction()
+    {
+        var dims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
+        var events = Substitute.For<IEventState>();
+        events.GetActiveMarkers(1, ServerId, Arg.Any<MarkerKind>()).Returns([]);
+        events.GetActiveMarkers(1, ServerId, MarkerKind.CargoShip).Returns(
+        [
+            new ActiveMarker(1, MarkerKind.CargoShip, 4500f, 4500f, dims, Now.AddMinutes(-3),
+                [new TrailPoint(4500f, 4500f)], null)
+        ]);
+        var rigs = Substitute.For<IRigState>();
+        rigs.Get(1, ServerId, Arg.Any<RigKind>()).Returns(new RigState(RigStatus.Online, null));
+
+        var payload = await Build(events, rigs).RenderAsync(new MessageRenderContext(1, ServerId, "en"), default);
+
+        Assert.NotNull(payload.Embed);
+        var cargo = payload.Embed.Fields[0].Value;
+        Assert.Contains("north-east", cargo, StringComparison.Ordinal);
+    }
 }

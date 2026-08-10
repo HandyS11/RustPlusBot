@@ -85,8 +85,9 @@ public sealed class ServerEventsMessageRenderer(
 
         // Newest-first: the freshest sighting is the one worth reporting.
         var marker = active[0];
+        var location = MapLocation.Describe(localizer, culture, marker.X, marker.Y, marker.Dimensions, style);
         return localizer.Get("server.events.out", culture,
-            GridReference.From(marker.X, marker.Y, marker.Dimensions, style),
+            location.Text,
             DurationFormat.Compact(clock.UtcNow - marker.SeenAtUtc));
     }
 

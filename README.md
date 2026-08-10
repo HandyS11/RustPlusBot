@@ -59,7 +59,7 @@ Plus a guild-global `RustPlusBot` category with `#information`, `#setup`, and `#
 
 ### Live map events
 
-- Per-server `#events` feed (and an in-game team-chat mirror) for **Cargo Ship**, **Patrol Helicopter**, and **Chinook (CH47)** entering/leaving, plus **small / large oil rig** activation, "crate lootable", and respawn — derived from polling the Rust+ map markers and monuments.
+- Per-server `#events` feed (and an in-game team-chat mirror) for **Cargo Ship**, **Patrol Helicopter**, and **Chinook (CH47)** entering/leaving — a helicopter that disappears inside the map is reported as a probable crash with its grid cell, and markers outside the playable world are reported by compass direction rather than a map-edge grid cell — plus **small / large oil rig** activation, "crate lootable", and respawn, derived from polling the Rust+ map markers and monuments.
 
 ### Map rendering
 
