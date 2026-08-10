@@ -498,32 +498,68 @@
   <data name="event.cargo.entered" xml:space="preserve">
     <value>🚢 Cargo Ship entered at {0}</value>
   </data>
+  <data name="event.cargo.entered.dir" xml:space="preserve">
+    <value>🚢 Cargo Ship entered from the {0}</value>
+  </data>
   <data name="event.cargo.entered.line" xml:space="preserve">
     <value>Cargo Ship entered at {0}</value>
+  </data>
+  <data name="event.cargo.entered.line.dir" xml:space="preserve">
+    <value>Cargo Ship entered from the {0}</value>
   </data>
   <data name="event.cargo.left" xml:space="preserve">
     <value>🚢 Cargo Ship left ({0})</value>
   </data>
+  <data name="event.cargo.left.dir" xml:space="preserve">
+    <value>🚢 Cargo Ship left the map to the {0}</value>
+  </data>
   <data name="event.cargo.left.line" xml:space="preserve">
     <value>Cargo Ship left ({0})</value>
+  </data>
+  <data name="event.cargo.left.line.dir" xml:space="preserve">
+    <value>Cargo Ship left the map to the {0}</value>
   </data>
   <data name="event.chinook.spawned" xml:space="preserve">
     <value>🚁 Chinook spawned at {0}</value>
   </data>
+  <data name="event.chinook.spawned.dir" xml:space="preserve">
+    <value>🚁 Chinook spawned to the {0}</value>
+  </data>
   <data name="event.chinook.spawned.line" xml:space="preserve">
     <value>Chinook spawned at {0}</value>
+  </data>
+  <data name="event.chinook.spawned.line.dir" xml:space="preserve">
+    <value>Chinook spawned to the {0}</value>
+  </data>
+  <data name="event.heli.crashed" xml:space="preserve">
+    <value>🚁 Patrol Helicopter probably crashed at {0}</value>
+  </data>
+  <data name="event.heli.crashed.line" xml:space="preserve">
+    <value>Patrol Helicopter probably crashed at {0}</value>
   </data>
   <data name="event.heli.entered" xml:space="preserve">
     <value>🚁 Patrol Helicopter entered at {0}</value>
   </data>
+  <data name="event.heli.entered.dir" xml:space="preserve">
+    <value>🚁 Patrol Helicopter entered from the {0}</value>
+  </data>
   <data name="event.heli.entered.line" xml:space="preserve">
     <value>Patrol Helicopter entered at {0}</value>
+  </data>
+  <data name="event.heli.entered.line.dir" xml:space="preserve">
+    <value>Patrol Helicopter entered from the {0}</value>
   </data>
   <data name="event.heli.left" xml:space="preserve">
     <value>🚁 Patrol Helicopter left ({0})</value>
   </data>
+  <data name="event.heli.left.dir" xml:space="preserve">
+    <value>🚁 Patrol Helicopter left the map to the {0}</value>
+  </data>
   <data name="event.heli.left.line" xml:space="preserve">
     <value>Patrol Helicopter left ({0})</value>
+  </data>
+  <data name="event.heli.left.line.dir" xml:space="preserve">
+    <value>Patrol Helicopter left the map to the {0}</value>
   </data>
   <data name="event.rig.large.activated" xml:space="preserve">
     <value>🛢️ Large Oil Rig activated — combat phase, crate lootable soon ({0})</value>

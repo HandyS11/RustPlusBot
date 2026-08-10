@@ -498,32 +498,68 @@
   <data name="event.cargo.entered" xml:space="preserve">
     <value>🚢 Cargo Ship arrivé en {0}</value>
   </data>
+  <data name="event.cargo.entered.dir" xml:space="preserve">
+    <value>🚢 Cargo Ship arrivé depuis {0}</value>
+  </data>
   <data name="event.cargo.entered.line" xml:space="preserve">
     <value>Cargo Ship arrivé en {0}</value>
+  </data>
+  <data name="event.cargo.entered.line.dir" xml:space="preserve">
+    <value>Cargo Ship arrivé depuis {0}</value>
   </data>
   <data name="event.cargo.left" xml:space="preserve">
     <value>🚢 Cargo Ship parti ({0})</value>
   </data>
+  <data name="event.cargo.left.dir" xml:space="preserve">
+    <value>🚢 Cargo Ship parti vers {0}</value>
+  </data>
   <data name="event.cargo.left.line" xml:space="preserve">
     <value>Cargo Ship parti ({0})</value>
+  </data>
+  <data name="event.cargo.left.line.dir" xml:space="preserve">
+    <value>Cargo Ship parti vers {0}</value>
   </data>
   <data name="event.chinook.spawned" xml:space="preserve">
     <value>🚁 Chinook apparu en {0}</value>
   </data>
+  <data name="event.chinook.spawned.dir" xml:space="preserve">
+    <value>🚁 Chinook apparu vers {0}</value>
+  </data>
   <data name="event.chinook.spawned.line" xml:space="preserve">
     <value>Chinook apparu en {0}</value>
+  </data>
+  <data name="event.chinook.spawned.line.dir" xml:space="preserve">
+    <value>Chinook apparu vers {0}</value>
+  </data>
+  <data name="event.heli.crashed" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille probablement abattu en {0}</value>
+  </data>
+  <data name="event.heli.crashed.line" xml:space="preserve">
+    <value>Hélicoptère de patrouille probablement abattu en {0}</value>
   </data>
   <data name="event.heli.entered" xml:space="preserve">
     <value>🚁 Hélicoptère de patrouille arrivé en {0}</value>
   </data>
+  <data name="event.heli.entered.dir" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille arrivé depuis {0}</value>
+  </data>
   <data name="event.heli.entered.line" xml:space="preserve">
     <value>Hélicoptère de patrouille arrivé en {0}</value>
+  </data>
+  <data name="event.heli.entered.line.dir" xml:space="preserve">
+    <value>Hélicoptère de patrouille arrivé depuis {0}</value>
   </data>
   <data name="event.heli.left" xml:space="preserve">
     <value>🚁 Hélicoptère de patrouille parti ({0})</value>
   </data>
+  <data name="event.heli.left.dir" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille parti vers {0}</value>
+  </data>
   <data name="event.heli.left.line" xml:space="preserve">
     <value>Hélicoptère de patrouille parti ({0})</value>
+  </data>
+  <data name="event.heli.left.line.dir" xml:space="preserve">
+    <value>Hélicoptère de patrouille parti vers {0}</value>
   </data>
   <data name="event.rig.large.activated" xml:space="preserve">
     <value>🛢️ Grande plateforme pétrolière activée — phase de combat, caisse bientôt lootable ({0})</value>

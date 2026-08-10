@@ -20,20 +20,11 @@ internal sealed class EventEmbedRenderer(ILocalizer localizer)
     public Embed Render(RustMapEvent evt, string culture, MapGridStyle gridStyle = MapGridStyle.InGame)
     {
         ArgumentNullException.ThrowIfNull(evt);
-        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions, gridStyle);
-        var key = evt.Kind switch
-        {
-            MapEventKind.CargoEntered => "event.cargo.entered",
-            MapEventKind.CargoLeft => "event.cargo.left",
-            MapEventKind.HeliEntered => "event.heli.entered",
-            MapEventKind.HeliLeft => "event.heli.left",
-            MapEventKind.ChinookSpawned => "event.chinook.spawned",
-            _ => throw new ArgumentOutOfRangeException(nameof(evt), evt.Kind, "Unsupported map event kind."),
-        };
+        var (key, suffix, text) = Locate(evt, culture, gridStyle);
 
         return new EmbedBuilder()
             .WithAuthor(localizer.Get("event.title", culture))
-            .WithDescription(localizer.Get(key, culture, grid))
+            .WithDescription(localizer.Get(key + suffix, culture, text))
             .WithTimestamp(evt.AtUtc)
             .Build();
     }
@@ -76,17 +67,45 @@ internal sealed class EventEmbedRenderer(ILocalizer localizer)
     public string RenderLine(RustMapEvent evt, string culture, MapGridStyle gridStyle = MapGridStyle.InGame)
     {
         ArgumentNullException.ThrowIfNull(evt);
-        var grid = GridReference.From(evt.X, evt.Y, evt.Dimensions, gridStyle);
+        var (key, suffix, text) = Locate(evt, culture, gridStyle);
+        return localizer.Get(key + ".line" + suffix, culture, text);
+    }
+
+    /// <summary>
+    /// Departures report the direction the marker headed, which outlives the cell it was last seen in;
+    /// a crash always happened inside the map, so it reports a cell. Everything else prefers a cell and
+    /// falls back to a direction only when the marker is outside the world. The ".dir" suffix picks the
+    /// matching message wording — with no map dimensions the location is raw coordinates, IsDirection is
+    /// false, and the plain key keeps today's text.
+    /// </summary>
+    /// <param name="evt">The map event.</param>
+    /// <param name="culture">The guild culture.</param>
+    /// <param name="style">Which grid convention the reference uses.</param>
+    /// <returns>The base localization key, the ".dir" suffix (or empty), and the location text to interpolate.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The event kind is not a supported <see cref="MapEventKind"/>.</exception>
+    private (string Key, string Suffix, string Text) Locate(RustMapEvent evt, string culture, MapGridStyle style)
+    {
+        var location = evt.Kind switch
+        {
+            MapEventKind.CargoLeft or MapEventKind.HeliLeft =>
+                MapLocation.DescribeDirection(localizer, culture, evt.X, evt.Y, evt.Dimensions),
+            MapEventKind.HeliCrashed =>
+                new MapLocationText(false, GridReference.From(evt.X, evt.Y, evt.Dimensions, style)),
+            _ => MapLocation.Describe(localizer, culture, evt.X, evt.Y, evt.Dimensions, style),
+        };
+
         var key = evt.Kind switch
         {
-            MapEventKind.CargoEntered => "event.cargo.entered.line",
-            MapEventKind.CargoLeft => "event.cargo.left.line",
-            MapEventKind.HeliEntered => "event.heli.entered.line",
-            MapEventKind.HeliLeft => "event.heli.left.line",
-            MapEventKind.ChinookSpawned => "event.chinook.spawned.line",
+            MapEventKind.CargoEntered => "event.cargo.entered",
+            MapEventKind.CargoLeft => "event.cargo.left",
+            MapEventKind.HeliEntered => "event.heli.entered",
+            MapEventKind.HeliLeft => "event.heli.left",
+            MapEventKind.HeliCrashed => "event.heli.crashed",
+            MapEventKind.ChinookSpawned => "event.chinook.spawned",
             _ => throw new ArgumentOutOfRangeException(nameof(evt), evt.Kind, "Unsupported map event kind."),
         };
-        return localizer.Get(key, culture, grid);
+
+        return (key, location.IsDirection ? ".dir" : string.Empty, location.Text);
     }
 
     private static string RigKey(RigStateChangedEvent evt)
