@@ -373,9 +373,9 @@ public sealed class AlarmStateRelayTests
             CancellationToken.None);
 
         await h.Refresher.Received(1).RefreshAsync(
-            Arg.Is<SmartAlarm>(a => a!.EntityId == 42UL), unreachable: true, Arg.Any<CancellationToken>());
+            Arg.Is<SmartAlarm>(a => a.EntityId == 42UL), unreachable: true, Arg.Any<CancellationToken>());
         await h.Refresher.Received(1).RefreshAsync(
-            Arg.Is<SmartAlarm>(a => a!.EntityId == 43UL), unreachable: true, Arg.Any<CancellationToken>());
+            Arg.Is<SmartAlarm>(a => a.EntityId == 43UL), unreachable: true, Arg.Any<CancellationToken>());
     }
 
     /// <summary>Connected server → no-op (supervisor's prime path handles it).</summary>

@@ -28,7 +28,7 @@ public sealed class EventsHostedServiceTickTests
         await service.TickOnceAsync(CancellationToken.None);
 
         await bus.Received(1).PublishAsync(
-            Arg.Is<RigStateChangedEvent>(e => e!.Kind == RigEventKind.CrateLootable && e.Rig == RigKind.Small),
+            Arg.Is<RigStateChangedEvent>(e => e.Kind == RigEventKind.CrateLootable && e.Rig == RigKind.Small),
             Arg.Any<CancellationToken>());
     }
 
