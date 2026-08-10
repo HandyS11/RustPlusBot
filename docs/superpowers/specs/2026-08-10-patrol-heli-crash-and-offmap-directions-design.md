@@ -247,8 +247,11 @@ for off-map positions and the plain keys otherwise.
 ## Risks
 
 - **Band width is a judgement call.** 146.25 units is one grid cell. A heli shot down while hugging
-  the map border is reported as having left. The opposite error — calling every routine departure a
-  crash — is both more likely and more annoying, so the band errs toward "left".
+  the map border is reported as having left, and the departure message shows only a direction, so
+  that report also omits the cell. This is not a practical loss: the outer band of a Rust map is
+  ocean, well outside the land mass, so a helicopter downed there leaves no lootable debris and the
+  cell would name water. The opposite error — calling every routine departure a crash — is both more
+  likely and more annoying, so the band errs toward "left".
 - **Message-key explosion.** ~29 new keys per language. The parity test catches omissions, and the
   exhaustive `switch` arms catch a missed `HeliCrashed` case, so both failure modes are loud.
 - **A `.dir` key that is never written is only caught at runtime.** `ILocalizer` resolves an unknown
