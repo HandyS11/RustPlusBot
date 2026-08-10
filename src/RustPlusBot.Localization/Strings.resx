@@ -471,6 +471,30 @@
   <data name="command.upkeep.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="direction.e" xml:space="preserve">
+    <value>east</value>
+  </data>
+  <data name="direction.n" xml:space="preserve">
+    <value>north</value>
+  </data>
+  <data name="direction.ne" xml:space="preserve">
+    <value>north-east</value>
+  </data>
+  <data name="direction.nw" xml:space="preserve">
+    <value>north-west</value>
+  </data>
+  <data name="direction.s" xml:space="preserve">
+    <value>south</value>
+  </data>
+  <data name="direction.se" xml:space="preserve">
+    <value>south-east</value>
+  </data>
+  <data name="direction.sw" xml:space="preserve">
+    <value>south-west</value>
+  </data>
+  <data name="direction.w" xml:space="preserve">
+    <value>west</value>
+  </data>
   <data name="event.cargo.entered" xml:space="preserve">
     <value>🚢 Cargo Ship entered at {0}</value>
   </data>
