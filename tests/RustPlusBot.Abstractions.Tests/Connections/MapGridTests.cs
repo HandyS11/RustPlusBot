@@ -100,7 +100,9 @@ public sealed class MapGridTests
     [InlineData(2410f, 3000f, MapDirection.North)]
     [InlineData(2420f, 3000f, MapDirection.NorthEast)]
     public void DirectionFrom_splits_sectors_half_way_between_compass_points(
-        float x, float y, MapDirection expected) =>
+        float x,
+        float y,
+        MapDirection expected) =>
         Assert.Equal(expected, MapGrid.DirectionFrom(x, y, 4000u));
 
     [Fact]

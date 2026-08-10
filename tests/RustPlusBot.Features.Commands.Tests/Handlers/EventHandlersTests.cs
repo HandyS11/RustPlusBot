@@ -16,6 +16,8 @@ public sealed class EventHandlersTests
     private static readonly Guid Server = Guid.NewGuid();
     private static readonly DateTimeOffset Now = new(2026, 6, 17, 12, 5, 0, TimeSpan.Zero);
 
+    private static readonly MapDimensions Dims4000 = new(4000u, 4000u, 500, WorldSize: 4000u);
+
     private static (IClock Clock, ILocalizer Loc) Deps()
     {
         var clock = Substitute.For<IClock>();
@@ -92,8 +94,6 @@ public sealed class EventHandlersTests
         Assert.Equal("chinook", new ChinookCommandHandler(state, loc, clock, Settings()).Name);
         Assert.Equal("events", new EventsCommandHandler(state, loc, Settings()).Name);
     }
-
-    private static readonly MapDimensions Dims4000 = new(4000u, 4000u, 500, WorldSize: 4000u);
 
     [Fact]
     public async Task Heli_off_the_map_reports_a_direction()

@@ -9,6 +9,8 @@ public sealed class EventEmbedRendererTests
 {
     private static readonly DateTimeOffset Now = new(2026, 6, 17, 12, 0, 0, TimeSpan.Zero);
 
+    private static readonly MapDimensions Dims4000 = new(4000u, 4000u, 500, WorldSize: 4000u);
+
     private static EventEmbedRenderer Build() =>
         new(new ResxLocalizer());
 
@@ -35,8 +37,6 @@ public sealed class EventEmbedRendererTests
         var embed = Build().Render(new RustMapEvent(MapEventKind.HeliEntered, 1234f, 5678f, null, Now), "en");
         Assert.Contains("(1234, 5678)", embed.Description, StringComparison.Ordinal);
     }
-
-    private static readonly MapDimensions Dims4000 = new(4000u, 4000u, 500, WorldSize: 4000u);
 
     [Fact]
     public void Heli_crashed_renders_a_grid_cell()
