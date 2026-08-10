@@ -288,26 +288,50 @@
   <data name="command.cargo.ok" xml:space="preserve">
     <value>Cargo en {0} (il y a {1})</value>
   </data>
+  <data name="command.cargo.ok.dir" xml:space="preserve">
+    <value>Cargo vers {0} (il y a {1})</value>
+  </data>
   <data name="command.chinook.none" xml:space="preserve">
     <value>Aucun chinook sur la carte.</value>
   </data>
   <data name="command.chinook.ok" xml:space="preserve">
     <value>Chinook en {0} (il y a {1})</value>
   </data>
+  <data name="command.chinook.ok.dir" xml:space="preserve">
+    <value>Chinook vers {0} (il y a {1})</value>
+  </data>
   <data name="command.event.cargoentered" xml:space="preserve">
     <value>cargo en {0}</value>
+  </data>
+  <data name="command.event.cargoentered.dir" xml:space="preserve">
+    <value>cargo depuis {0}</value>
   </data>
   <data name="command.event.cargoleft" xml:space="preserve">
     <value>cargo parti de {0}</value>
   </data>
+  <data name="command.event.cargoleft.dir" xml:space="preserve">
+    <value>cargo parti vers {0}</value>
+  </data>
   <data name="command.event.chinookspawned" xml:space="preserve">
     <value>chinook en {0}</value>
   </data>
+  <data name="command.event.chinookspawned.dir" xml:space="preserve">
+    <value>chinook vers {0}</value>
+  </data>
+  <data name="command.event.helicrashed" xml:space="preserve">
+    <value>héli abattu en {0}</value>
+  </data>
   <data name="command.event.helientered" xml:space="preserve">
-    <value>heli en {0}</value>
+    <value>héli en {0}</value>
+  </data>
+  <data name="command.event.helientered.dir" xml:space="preserve">
+    <value>héli depuis {0}</value>
   </data>
   <data name="command.event.helileft" xml:space="preserve">
-    <value>heli parti de {0}</value>
+    <value>héli parti de {0}</value>
+  </data>
+  <data name="command.event.helileft.dir" xml:space="preserve">
+    <value>héli parti vers {0}</value>
   </data>
   <data name="command.events.none" xml:space="preserve">
     <value>Aucun événement récent.</value>
@@ -320,6 +344,9 @@
   </data>
   <data name="command.heli.ok" xml:space="preserve">
     <value>Hélicoptère en {0} (il y a {1})</value>
+  </data>
+  <data name="command.heli.ok.dir" xml:space="preserve">
+    <value>Hélicoptère vers {0} (il y a {1})</value>
   </data>
   <data name="command.large.active" xml:space="preserve">
     <value>Grande plateforme : phase de combat — caisse lootable dans {0}.</value>
@@ -471,35 +498,95 @@
   <data name="command.upkeep.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="direction.e" xml:space="preserve">
+    <value>l'est</value>
+  </data>
+  <data name="direction.n" xml:space="preserve">
+    <value>le nord</value>
+  </data>
+  <data name="direction.ne" xml:space="preserve">
+    <value>le nord-est</value>
+  </data>
+  <data name="direction.nw" xml:space="preserve">
+    <value>le nord-ouest</value>
+  </data>
+  <data name="direction.s" xml:space="preserve">
+    <value>le sud</value>
+  </data>
+  <data name="direction.se" xml:space="preserve">
+    <value>le sud-est</value>
+  </data>
+  <data name="direction.sw" xml:space="preserve">
+    <value>le sud-ouest</value>
+  </data>
+  <data name="direction.w" xml:space="preserve">
+    <value>l'ouest</value>
+  </data>
   <data name="event.cargo.entered" xml:space="preserve">
     <value>🚢 Cargo Ship arrivé en {0}</value>
+  </data>
+  <data name="event.cargo.entered.dir" xml:space="preserve">
+    <value>🚢 Cargo Ship arrivé depuis {0}</value>
   </data>
   <data name="event.cargo.entered.line" xml:space="preserve">
     <value>Cargo Ship arrivé en {0}</value>
   </data>
+  <data name="event.cargo.entered.line.dir" xml:space="preserve">
+    <value>Cargo Ship arrivé depuis {0}</value>
+  </data>
   <data name="event.cargo.left" xml:space="preserve">
     <value>🚢 Cargo Ship parti ({0})</value>
+  </data>
+  <data name="event.cargo.left.dir" xml:space="preserve">
+    <value>🚢 Cargo Ship parti vers {0}</value>
   </data>
   <data name="event.cargo.left.line" xml:space="preserve">
     <value>Cargo Ship parti ({0})</value>
   </data>
+  <data name="event.cargo.left.line.dir" xml:space="preserve">
+    <value>Cargo Ship parti vers {0}</value>
+  </data>
   <data name="event.chinook.spawned" xml:space="preserve">
     <value>🚁 Chinook apparu en {0}</value>
+  </data>
+  <data name="event.chinook.spawned.dir" xml:space="preserve">
+    <value>🚁 Chinook apparu vers {0}</value>
   </data>
   <data name="event.chinook.spawned.line" xml:space="preserve">
     <value>Chinook apparu en {0}</value>
   </data>
+  <data name="event.chinook.spawned.line.dir" xml:space="preserve">
+    <value>Chinook apparu vers {0}</value>
+  </data>
+  <data name="event.heli.crashed" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille probablement abattu en {0}</value>
+  </data>
+  <data name="event.heli.crashed.line" xml:space="preserve">
+    <value>Hélicoptère de patrouille probablement abattu en {0}</value>
+  </data>
   <data name="event.heli.entered" xml:space="preserve">
     <value>🚁 Hélicoptère de patrouille arrivé en {0}</value>
+  </data>
+  <data name="event.heli.entered.dir" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille arrivé depuis {0}</value>
   </data>
   <data name="event.heli.entered.line" xml:space="preserve">
     <value>Hélicoptère de patrouille arrivé en {0}</value>
   </data>
+  <data name="event.heli.entered.line.dir" xml:space="preserve">
+    <value>Hélicoptère de patrouille arrivé depuis {0}</value>
+  </data>
   <data name="event.heli.left" xml:space="preserve">
     <value>🚁 Hélicoptère de patrouille parti ({0})</value>
   </data>
+  <data name="event.heli.left.dir" xml:space="preserve">
+    <value>🚁 Hélicoptère de patrouille parti vers {0}</value>
+  </data>
   <data name="event.heli.left.line" xml:space="preserve">
     <value>Hélicoptère de patrouille parti ({0})</value>
+  </data>
+  <data name="event.heli.left.line.dir" xml:space="preserve">
+    <value>Hélicoptère de patrouille parti vers {0}</value>
   </data>
   <data name="event.rig.large.activated" xml:space="preserve">
     <value>🛢️ Grande plateforme pétrolière activée — phase de combat, caisse bientôt lootable ({0})</value>

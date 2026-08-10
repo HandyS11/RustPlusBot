@@ -41,8 +41,9 @@ internal static class MarkerReply
         var settings = await mapSettings.GetAsync(context.GuildId, context.ServerId, cancellationToken)
             .ConfigureAwait(false);
         var m = markers[0];
-        var grid = GridReference.From(m.X, m.Y, m.Dimensions, settings.GridStyle);
+        var location = MapLocation.Describe(localizer, context.Culture, m.X, m.Y, m.Dimensions, settings.GridStyle);
         var ago = DurationFormat.Compact(clock.UtcNow - m.SeenAtUtc);
-        return localizer.Get($"{prefix}.ok", context.Culture, grid, ago);
+        return localizer.Get($"{prefix}.ok{(location.IsDirection ? ".dir" : string.Empty)}", context.Culture,
+            location.Text, ago);
     }
 }

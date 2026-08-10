@@ -17,4 +17,7 @@ public enum MapEventKind
 
     /// <summary>A Chinook spawned.</summary>
     ChinookSpawned = 4,
+
+    /// <summary>A patrol helicopter disappeared inside the map — almost certainly shot down.</summary>
+    HeliCrashed = 5,
 }

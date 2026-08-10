@@ -74,4 +74,58 @@ public static class MapGrid
         var row = Math.Clamp((int)MathF.Floor((worldSize - RowInset(style) - y) / CellSize), 0, cells - 1);
         return string.Create(CultureInfo.InvariantCulture, $"{ColumnLetters(col)}{row}");
     }
+
+    /// <summary>Tests whether a coordinate falls outside the playable world.</summary>
+    /// <param name="x">World X (west→east).</param>
+    /// <param name="y">World Y (south→north).</param>
+    /// <param name="worldSize">The world size in game units.</param>
+    /// <returns>True when either axis is beyond <c>[0, worldSize]</c>; the exact edges count as inside.</returns>
+    public static bool IsOutsideWorld(float x, float y, uint worldSize) =>
+        x < 0f || y < 0f || x > worldSize || y > worldSize;
+
+    /// <summary>
+    /// Tests whether a coordinate sits at the map border — outside the world, or within one grid cell
+    /// of any edge. Marker positions are sampled by polling, so a marker that has just crossed the
+    /// border is usually still reported slightly inside it; the one-cell band absorbs that lag.
+    /// </summary>
+    /// <param name="x">World X (west→east).</param>
+    /// <param name="y">World Y (south→north).</param>
+    /// <param name="worldSize">The world size in game units.</param>
+    /// <returns>
+    /// True when the coordinate is outside the world or within <see cref="CellSize"/> of an edge. On a
+    /// world smaller than <c>2 * CellSize</c> (292.5 units) the north/south and east/west bands overlap
+    /// and every position reports as border; Rust's minimum map size is 1000, so this is unreachable in
+    /// practice, and it fails safe — it can only misclassify a crash as a departure, never the reverse.
+    /// </returns>
+    public static bool IsAtOrBeyondBorder(float x, float y, uint worldSize) =>
+        IsOutsideWorld(x, y, worldSize)
+        || x < CellSize
+        || y < CellSize
+        || x > worldSize - CellSize
+        || y > worldSize - CellSize;
+
+    /// <summary>Bins the bearing from the world centre to a coordinate into an 8-point compass direction.</summary>
+    /// <param name="x">World X (west→east).</param>
+    /// <param name="y">World Y (south→north).</param>
+    /// <param name="worldSize">The world size in game units.</param>
+    /// <returns>
+    /// The compass sector containing the coordinate. Sectors are 45° wide and centred on each compass
+    /// point, so due north spans 337.5°–22.5°. A coordinate exactly at the centre yields
+    /// <see cref="MapDirection.North"/>; that cannot arise for a real off-map marker.
+    /// </returns>
+    public static MapDirection DirectionFrom(float x, float y, uint worldSize)
+    {
+        var centre = worldSize / 2f;
+
+        // Atan2(east, north) gives a bearing measured clockwise from north, which is the order the
+        // MapDirection values are declared in.
+        var bearing = MathF.Atan2(x - centre, y - centre) * (180f / MathF.PI);
+        if (bearing < 0f)
+        {
+            bearing += 360f;
+        }
+
+        // Shift by half a sector so the bins straddle each compass point rather than starting at it.
+        return (MapDirection)(int)MathF.Floor((bearing + 22.5f) % 360f / 45f);
+    }
 }

@@ -81,4 +81,57 @@ public sealed class MapGridTests
     [InlineData(MapGridStyle.RustPlus, 100f)]
     public void RowInset_is_zero_in_game_and_100_for_rustplus(MapGridStyle style, float expected) =>
         Assert.Equal(expected, MapGrid.RowInset(style));
+
+    [Theory]
+    [InlineData(2000f, 3900f, MapDirection.North)]
+    [InlineData(3900f, 3900f, MapDirection.NorthEast)]
+    [InlineData(3900f, 2000f, MapDirection.East)]
+    [InlineData(3900f, 100f, MapDirection.SouthEast)]
+    [InlineData(2000f, 100f, MapDirection.South)]
+    [InlineData(100f, 100f, MapDirection.SouthWest)]
+    [InlineData(100f, 2000f, MapDirection.West)]
+    [InlineData(100f, 3900f, MapDirection.NorthWest)]
+    public void DirectionFrom_bins_the_bearing_from_the_world_centre(float x, float y, MapDirection expected) =>
+        Assert.Equal(expected, MapGrid.DirectionFrom(x, y, 4000u));
+
+    [Theory]
+    // Sectors are centred on each compass point, so the North/NorthEast split sits at 22.5°
+    // clockwise from north: dx/dy = tan(22.5°) = 0.4142. With dy = 1000, that is dx = 414.2.
+    [InlineData(2410f, 3000f, MapDirection.North)]
+    [InlineData(2420f, 3000f, MapDirection.NorthEast)]
+    public void DirectionFrom_splits_sectors_half_way_between_compass_points(
+        float x,
+        float y,
+        MapDirection expected) =>
+        Assert.Equal(expected, MapGrid.DirectionFrom(x, y, 4000u));
+
+    [Fact]
+    public void DirectionFrom_works_outside_the_world()
+    {
+        // The whole point of the helper: ocean spawns sit beyond the world bounds.
+        Assert.Equal(MapDirection.NorthWest, MapGrid.DirectionFrom(-500f, 4500f, 4000u));
+    }
+
+    [Fact]
+    public void DirectionFrom_returns_north_at_the_exact_centre() =>
+        Assert.Equal(MapDirection.North, MapGrid.DirectionFrom(2000f, 2000f, 4000u));
+
+    [Theory]
+    [InlineData(0f, 0f, false)]
+    [InlineData(4000f, 4000f, false)]
+    [InlineData(-0.1f, 2000f, true)]
+    [InlineData(2000f, 4000.1f, true)]
+    public void IsOutsideWorld_treats_the_exact_edges_as_inside(float x, float y, bool expected) =>
+        Assert.Equal(expected, MapGrid.IsOutsideWorld(x, y, 4000u));
+
+    [Theory]
+    [InlineData(2000f, 2000f, false)] // dead centre
+    [InlineData(146.25f, 2000f, false)] // exactly one cell in from the west edge
+    [InlineData(146f, 2000f, true)] // a hair inside the band
+    [InlineData(2000f, 3854f, true)] // 4000 - 146.25 = 3853.75, so this is inside the north band
+    [InlineData(3854f, 2000f, true)] // 4000 - 146.25 = 3853.75, so this is inside the east band
+    [InlineData(2000f, 146f, true)] // a hair inside the south band
+    [InlineData(-50f, 2000f, true)] // outside the world entirely
+    public void IsAtOrBeyondBorder_covers_a_one_cell_band(float x, float y, bool expected) =>
+        Assert.Equal(expected, MapGrid.IsAtOrBeyondBorder(x, y, 4000u));
 }

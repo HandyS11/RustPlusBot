@@ -87,4 +87,54 @@ public sealed class MarkerEventClassifierTests
             [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 0f, 0f, null)]));
         Assert.Equal(3, result.Count);
     }
+
+    [Fact]
+    public void Heli_removed_inside_the_map_is_HeliCrashed()
+    {
+        // Dead centre of a 4000 world: nowhere near the border, so it came down here.
+        var result = Build().Classify(Evt([],
+            [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 2000f, 2000f, null)]));
+
+        Assert.Equal(MapEventKind.HeliCrashed, Assert.Single(result).Kind);
+    }
+
+    [Fact]
+    public void Heli_removed_within_one_cell_of_the_edge_is_HeliLeft()
+    {
+        // One cell is 146.25 units, so x = 100 is inside the border band: a routine departure.
+        var result = Build().Classify(Evt([],
+            [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 100f, 2000f, null)]));
+
+        Assert.Equal(MapEventKind.HeliLeft, Assert.Single(result).Kind);
+    }
+
+    [Fact]
+    public void Heli_removed_outside_the_world_is_HeliLeft()
+    {
+        var result = Build().Classify(Evt([],
+            [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 4500f, 2000f, null)]));
+
+        Assert.Equal(MapEventKind.HeliLeft, Assert.Single(result).Kind);
+    }
+
+    [Fact]
+    public void Heli_removed_without_dimensions_is_HeliLeft()
+    {
+        // No world size means neither a cell nor a direction is computable: keep the old behaviour.
+        var evt = new MapMarkersChangedEvent(1UL, Server, null, [],
+            [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 2000f, 2000f, null)], []);
+
+        Assert.Equal(MapEventKind.HeliLeft, Assert.Single(Build().Classify(evt)).Kind);
+    }
+
+    [Fact]
+    public void Heli_removed_with_zero_world_size_is_HeliLeft()
+    {
+        // A zero world size is as unusable as no dimensions at all: keep the old behaviour, even at a
+        // position that would otherwise read as dead centre and classify as a crash.
+        var evt = new MapMarkersChangedEvent(1UL, Server, new MapDimensions(0u, 0u, 0, WorldSize: 0u), [],
+            [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 2000f, 2000f, null)], []);
+
+        Assert.Equal(MapEventKind.HeliLeft, Assert.Single(Build().Classify(evt)).Kind);
+    }
 }
