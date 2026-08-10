@@ -65,7 +65,7 @@ public sealed class WipeAnnouncerTests
         await h.Poster.Received(1).PostAsync(
             777UL,
             null,
-            Arg.Is<Embed>(e => e!.Title == "🧹 Server wiped"),
+            Arg.Is<Embed>(e => e.Title == "🧹 Server wiped"),
             Arg.Any<CancellationToken>());
     }
 
@@ -93,7 +93,7 @@ public sealed class WipeAnnouncerTests
         await h.Poster.Received(1).PostAsync(
             777UL,
             null,
-            Arg.Is<Embed>(e => e!.Title == "🧹 Serveur wipé"),
+            Arg.Is<Embed>(e => e.Title == "🧹 Serveur wipé"),
             Arg.Any<CancellationToken>());
     }
 

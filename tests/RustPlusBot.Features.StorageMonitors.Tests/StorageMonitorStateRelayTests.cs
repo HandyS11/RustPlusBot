@@ -222,7 +222,7 @@ public sealed class StorageMonitorStateRelayTests
         // A device that became reachable must show its live contents, not the unreachable banner
         // (a null-contents render here would also disable the Refresh/Rename buttons).
         await h.Poster.Received(1).EnsureAsync(555UL, 900UL,
-            Arg.Is<global::Discord.Embed>(e => e!.Description.Contains("Item100")),
+            Arg.Is<global::Discord.Embed>(e => e.Description.Contains("Item100")),
             Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>());
     }
 

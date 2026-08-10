@@ -73,7 +73,7 @@ public sealed class PairingHandlerTests
         await handler.HandleAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         await coordinator.Received(1).HandleDetectedAsync(10UL, 99UL,
-            Arg.Is<PairingNotification>(n => n!.Ip == "1.2.3.4" && n.Port == 28015), Arg.Any<CancellationToken>());
+            Arg.Is<PairingNotification>(n => n.Ip == "1.2.3.4" && n.Port == 28015), Arg.Any<CancellationToken>());
         Assert.Empty(await context.RustServers.ToListAsync());
         Assert.Empty(await context.PlayerCredentials.ToListAsync());
         await bus.DidNotReceive().PublishAsync(Arg.Any<ServerRegisteredEvent>(), Arg.Any<CancellationToken>());
@@ -128,7 +128,7 @@ public sealed class PairingHandlerTests
         await handler.HandleAsync(10UL, 1UL, EntityPairing(FpServer, entityId: 42UL), CancellationToken.None);
 
         await bus.Received(1).PublishAsync(
-            Arg.Is<SwitchPairedEvent>(e => e!.GuildId == 10UL && e.ServerId == server.Id && e.EntityId == 42UL),
+            Arg.Is<SwitchPairedEvent>(e => e.GuildId == 10UL && e.ServerId == server.Id && e.EntityId == 42UL),
             Arg.Any<CancellationToken>());
     }
 
@@ -160,7 +160,7 @@ public sealed class PairingHandlerTests
         await handler.HandleAsync(10UL, 1UL, AlarmPairing(FpServer, 55UL), CancellationToken.None);
 
         await bus.Received(1).PublishAsync(
-            Arg.Is<AlarmPairedEvent>(e => e!.ServerId == server.Id && e.EntityId == 55UL),
+            Arg.Is<AlarmPairedEvent>(e => e.ServerId == server.Id && e.EntityId == 55UL),
             Arg.Any<CancellationToken>());
         await bus.DidNotReceive().PublishAsync(Arg.Any<SwitchPairedEvent>(), Arg.Any<CancellationToken>());
     }
@@ -178,7 +178,7 @@ public sealed class PairingHandlerTests
         await handler.HandleAsync(10UL, 1UL, StorageMonitorPairing(FpServer, 77UL), CancellationToken.None);
 
         await bus.Received(1).PublishAsync(
-            Arg.Is<StorageMonitorPairedEvent>(e => e!.ServerId == server.Id && e.EntityId == 77UL),
+            Arg.Is<StorageMonitorPairedEvent>(e => e.ServerId == server.Id && e.EntityId == 77UL),
             Arg.Any<CancellationToken>());
         await bus.DidNotReceive().PublishAsync(Arg.Any<SwitchPairedEvent>(), Arg.Any<CancellationToken>());
     }
