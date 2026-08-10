@@ -34,17 +34,25 @@ internal sealed class EventsCommandHandler(
             .ConfigureAwait(false);
         var parts = events.Select(e =>
         {
-            var grid = GridReference.From(e.X, e.Y, e.Dimensions, settings.GridStyle);
+            // Departures report the direction the marker headed; everything else prefers a grid cell
+            // and falls back to a direction only when the marker is outside the world.
+            var location = e.Kind is MapEventKind.CargoLeft or MapEventKind.HeliLeft
+                ? MapLocation.DescribeDirection(localizer, context.Culture, e.X, e.Y, e.Dimensions)
+                : MapLocation.Describe(localizer, context.Culture, e.X, e.Y, e.Dimensions, settings.GridStyle);
+
             var key = e.Kind switch
             {
                 MapEventKind.CargoEntered => "command.event.cargoentered",
                 MapEventKind.CargoLeft => "command.event.cargoleft",
                 MapEventKind.HeliEntered => "command.event.helientered",
                 MapEventKind.HeliLeft => "command.event.helileft",
+                MapEventKind.HeliCrashed => "command.event.helicrashed",
                 MapEventKind.ChinookSpawned => "command.event.chinookspawned",
                 _ => throw new ArgumentOutOfRangeException(nameof(e), e.Kind, "Unsupported map event kind."),
             };
-            return localizer.Get(key, context.Culture, grid);
+
+            return localizer.Get(key + (location.IsDirection ? ".dir" : string.Empty), context.Culture,
+                location.Text);
         });
 
         return localizer.Get("command.events.ok", context.Culture, string.Join(", ", parts));

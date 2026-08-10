@@ -288,26 +288,50 @@
   <data name="command.cargo.ok" xml:space="preserve">
     <value>Cargo en {0} (il y a {1})</value>
   </data>
+  <data name="command.cargo.ok.dir" xml:space="preserve">
+    <value>Cargo vers {0} (il y a {1})</value>
+  </data>
   <data name="command.chinook.none" xml:space="preserve">
     <value>Aucun chinook sur la carte.</value>
   </data>
   <data name="command.chinook.ok" xml:space="preserve">
     <value>Chinook en {0} (il y a {1})</value>
   </data>
+  <data name="command.chinook.ok.dir" xml:space="preserve">
+    <value>Chinook vers {0} (il y a {1})</value>
+  </data>
   <data name="command.event.cargoentered" xml:space="preserve">
     <value>cargo en {0}</value>
+  </data>
+  <data name="command.event.cargoentered.dir" xml:space="preserve">
+    <value>cargo depuis {0}</value>
   </data>
   <data name="command.event.cargoleft" xml:space="preserve">
     <value>cargo parti de {0}</value>
   </data>
+  <data name="command.event.cargoleft.dir" xml:space="preserve">
+    <value>cargo parti vers {0}</value>
+  </data>
   <data name="command.event.chinookspawned" xml:space="preserve">
     <value>chinook en {0}</value>
+  </data>
+  <data name="command.event.chinookspawned.dir" xml:space="preserve">
+    <value>chinook vers {0}</value>
+  </data>
+  <data name="command.event.helicrashed" xml:space="preserve">
+    <value>héli abattu en {0}</value>
   </data>
   <data name="command.event.helientered" xml:space="preserve">
     <value>heli en {0}</value>
   </data>
+  <data name="command.event.helientered.dir" xml:space="preserve">
+    <value>héli depuis {0}</value>
+  </data>
   <data name="command.event.helileft" xml:space="preserve">
     <value>heli parti de {0}</value>
+  </data>
+  <data name="command.event.helileft.dir" xml:space="preserve">
+    <value>héli parti vers {0}</value>
   </data>
   <data name="command.events.none" xml:space="preserve">
     <value>Aucun événement récent.</value>
@@ -320,6 +344,9 @@
   </data>
   <data name="command.heli.ok" xml:space="preserve">
     <value>Hélicoptère en {0} (il y a {1})</value>
+  </data>
+  <data name="command.heli.ok.dir" xml:space="preserve">
+    <value>Hélicoptère vers {0} (il y a {1})</value>
   </data>
   <data name="command.large.active" xml:space="preserve">
     <value>Grande plateforme : phase de combat — caisse lootable dans {0}.</value>
