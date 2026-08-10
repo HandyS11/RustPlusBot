@@ -126,4 +126,15 @@ public sealed class MarkerEventClassifierTests
 
         Assert.Equal(MapEventKind.HeliLeft, Assert.Single(Build().Classify(evt)).Kind);
     }
+
+    [Fact]
+    public void Heli_removed_with_zero_world_size_is_HeliLeft()
+    {
+        // A zero world size is as unusable as no dimensions at all: keep the old behaviour, even at a
+        // position that would otherwise read as dead centre and classify as a crash.
+        var evt = new MapMarkersChangedEvent(1UL, Server, new MapDimensions(0u, 0u, 0, WorldSize: 0u), [],
+            [new MapMarkerSnapshot(2, MarkerKind.PatrolHelicopter, 2000f, 2000f, null)], []);
+
+        Assert.Equal(MapEventKind.HeliLeft, Assert.Single(Build().Classify(evt)).Kind);
+    }
 }

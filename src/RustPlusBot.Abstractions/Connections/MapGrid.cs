@@ -91,7 +91,12 @@ public static class MapGrid
     /// <param name="x">World X (west→east).</param>
     /// <param name="y">World Y (south→north).</param>
     /// <param name="worldSize">The world size in game units.</param>
-    /// <returns>True when the coordinate is outside the world or within <see cref="CellSize"/> of an edge.</returns>
+    /// <returns>
+    /// True when the coordinate is outside the world or within <see cref="CellSize"/> of an edge. On a
+    /// world smaller than <c>2 * CellSize</c> (292.5 units) the north/south and east/west bands overlap
+    /// and every position reports as border; Rust's minimum map size is 1000, so this is unreachable in
+    /// practice, and it fails safe — it can only misclassify a crash as a departure, never the reverse.
+    /// </returns>
     public static bool IsAtOrBeyondBorder(float x, float y, uint worldSize) =>
         IsOutsideWorld(x, y, worldSize)
         || x < CellSize

@@ -132,6 +132,26 @@ public sealed class EventHandlersTests
     }
 
     [Fact]
+    public async Task Events_crash_off_map_reports_a_grid_cell_not_a_direction()
+    {
+        var (_, loc) = Deps();
+        var state = Substitute.For<IEventState>();
+        state.GetRecentEvents(Guild, Server).Returns(
+        [
+            new RustMapEvent(MapEventKind.HeliCrashed, 4500f, 4500f, Dims4000, Now)
+        ]);
+
+        var reply = await new EventsCommandHandler(state, loc, Settings()).ExecuteAsync(Ctx(),
+            CancellationToken.None);
+
+        Assert.NotNull(reply);
+        // A crash always reports a grid cell, even when the coordinates are outside the world (should
+        // not be reachable from the classifier today, but the message key must still resolve).
+        Assert.Contains("heli crashed in", reply, StringComparison.Ordinal);
+        Assert.DoesNotContain("command.event.", reply, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Events_off_map_departure_reports_a_direction()
     {
         var (_, loc) = Deps();

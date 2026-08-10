@@ -127,6 +127,8 @@ public sealed class MapGridTests
     [InlineData(146.25f, 2000f, false)] // exactly one cell in from the west edge
     [InlineData(146f, 2000f, true)] // a hair inside the band
     [InlineData(2000f, 3854f, true)] // 4000 - 146.25 = 3853.75, so this is inside the north band
+    [InlineData(3854f, 2000f, true)] // 4000 - 146.25 = 3853.75, so this is inside the east band
+    [InlineData(2000f, 146f, true)] // a hair inside the south band
     [InlineData(-50f, 2000f, true)] // outside the world entirely
     public void IsAtOrBeyondBorder_covers_a_one_cell_band(float x, float y, bool expected) =>
         Assert.Equal(expected, MapGrid.IsAtOrBeyondBorder(x, y, 4000u));

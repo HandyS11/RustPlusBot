@@ -322,13 +322,13 @@
     <value>héli abattu en {0}</value>
   </data>
   <data name="command.event.helientered" xml:space="preserve">
-    <value>heli en {0}</value>
+    <value>héli en {0}</value>
   </data>
   <data name="command.event.helientered.dir" xml:space="preserve">
     <value>héli depuis {0}</value>
   </data>
   <data name="command.event.helileft" xml:space="preserve">
-    <value>heli parti de {0}</value>
+    <value>héli parti de {0}</value>
   </data>
   <data name="command.event.helileft.dir" xml:space="preserve">
     <value>héli parti vers {0}</value>

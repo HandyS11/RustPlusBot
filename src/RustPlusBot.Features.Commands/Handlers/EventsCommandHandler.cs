@@ -34,11 +34,17 @@ internal sealed class EventsCommandHandler(
             .ConfigureAwait(false);
         var parts = events.Select(e =>
         {
-            // Departures report the direction the marker headed; everything else prefers a grid cell
-            // and falls back to a direction only when the marker is outside the world.
-            var location = e.Kind is MapEventKind.CargoLeft or MapEventKind.HeliLeft
-                ? MapLocation.DescribeDirection(localizer, context.Culture, e.X, e.Y, e.Dimensions)
-                : MapLocation.Describe(localizer, context.Culture, e.X, e.Y, e.Dimensions, settings.GridStyle);
+            // Departures report the direction the marker headed; a crash always happened inside the
+            // map, so it reports a cell; everything else prefers a grid cell and falls back to a
+            // direction only when the marker is outside the world.
+            var location = e.Kind switch
+            {
+                MapEventKind.CargoLeft or MapEventKind.HeliLeft =>
+                    MapLocation.DescribeDirection(localizer, context.Culture, e.X, e.Y, e.Dimensions),
+                MapEventKind.HeliCrashed =>
+                    new MapLocationText(false, GridReference.From(e.X, e.Y, e.Dimensions, settings.GridStyle)),
+                _ => MapLocation.Describe(localizer, context.Culture, e.X, e.Y, e.Dimensions, settings.GridStyle),
+            };
 
             var key = e.Kind switch
             {
