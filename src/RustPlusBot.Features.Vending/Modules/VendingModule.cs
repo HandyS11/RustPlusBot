@@ -261,7 +261,7 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
 
                 if (summary.Listings.Count > 0)
                 {
-                    var lines = summary.Listings.Select(listing => FormatListing(listing, items));
+                    var lines = summary.Listings.Select(listing => FormatListing(listing, items, loc, ctx.Culture));
                     builder.AddField(loc.Get("vending.tracked.listings", ctx.Culture), string.Join('\n', lines));
                 }
             }
@@ -333,13 +333,33 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     /// <summary>Formats one manually tracked listing as quantity, item name, cost, and currency name.</summary>
     /// <param name="listing">The listing to format.</param>
     /// <param name="items">The item database, for name resolution.</param>
-    private static string FormatListing(TrackedListing listing, IItemDatabase items) =>
+    /// <param name="loc">The localizer, for the blueprint-item indicator.</param>
+    /// <param name="culture">The guild culture.</param>
+    private static string FormatListing(TrackedListing listing, IItemDatabase items, ILocalizer loc, string culture) =>
         string.Create(CultureInfo.InvariantCulture,
-            $"{listing.Quantity} x {ItemName(items, listing.Key.ItemId)} — " +
+            $"{listing.Quantity} x {ItemDisplayName(items, loc, culture, listing.Key.ItemId, listing.Key.ItemIsBlueprint)} — " +
             $"{listing.CostPerOrder} {ItemName(items, listing.Key.CurrencyId)}");
 
     private static string ItemName(IItemDatabase items, int itemId) =>
         items.GetById(itemId)?.Name ?? itemId.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// An item's display name, prefixed with the "Blueprint: " indicator when it is the blueprint rather
+    /// than the item itself — otherwise two listings for the same item id (one plain, one blueprint) read
+    /// as identical rows and a player cannot tell which is which. Currency is never a blueprint by
+    /// ruling (see <see cref="TrackListingCommandAsync"/>), so only the item side needs this.
+    /// </summary>
+    /// <param name="items">The item database, for name resolution.</param>
+    /// <param name="loc">The localizer, for the blueprint indicator text.</param>
+    /// <param name="culture">The guild culture.</param>
+    /// <param name="itemId">The Rust item id.</param>
+    /// <param name="isBlueprint">True when this listing is for the item's blueprint.</param>
+    private static string ItemDisplayName(
+        IItemDatabase items, ILocalizer loc, string culture, int itemId, bool isBlueprint)
+    {
+        var name = ItemName(items, itemId);
+        return isBlueprint ? loc.Get("vending.listing.blueprint", culture, name) : name;
+    }
 
     /// <summary>
     /// Parses an autocompleted /vending-untrack target back into a grid reference or listing key. The

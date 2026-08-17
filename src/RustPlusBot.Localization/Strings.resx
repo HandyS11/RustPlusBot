@@ -1281,6 +1281,9 @@
   <data name="vending.tracked.none" xml:space="preserve">
     <value>Nothing is tracked yet.</value>
   </data>
+  <data name="vending.listing.blueprint" xml:space="preserve">
+    <value>Blueprint: {0}</value>
+  </data>
   <data name="wipe.title" xml:space="preserve">
     <value>🧹 Server wiped</value>
   </data>

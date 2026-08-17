@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Features.Connections.Servers;
 using RustPlusBot.Features.ItemData;
+using RustPlusBot.Localization;
+using RustPlusBot.Persistence.Workspace;
 
 namespace RustPlusBot.Features.Vending.Modules;
 
@@ -58,13 +60,16 @@ public sealed class VendingUntrackAutocompleteHandler : AutocompleteHandler
 
             var trackService = scope.ServiceProvider.GetRequiredService<IVendingTrackService>();
             var items = scope.ServiceProvider.GetRequiredService<IItemDatabase>();
+            var workspace = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
+            var loc = scope.ServiceProvider.GetRequiredService<ILocalizer>();
+            var culture = await workspace.GetCultureAsync(context.Guild.Id).ConfigureAwait(false);
             var summary = await trackService
                 .GetTrackedAsync(context.Guild.Id, serverId, CancellationToken.None).ConfigureAwait(false);
 
             var choices = summary.Grids
                 .Select(grid => new AutocompleteResult(grid, $"grid:{grid}"))
                 .Concat(summary.Listings.Select(listing => new AutocompleteResult(
-                    DisplayName(listing, items),
+                    DisplayName(listing, items, loc, culture),
                     $"listing:{listing.Key.ItemId}:{listing.Key.ItemIsBlueprint}:" +
                     $"{listing.Key.CurrencyId}:{listing.Key.CurrencyIsBlueprint}")))
                 .Where(c => string.IsNullOrEmpty(typed) || c.Name.Contains(typed, StringComparison.OrdinalIgnoreCase))
@@ -74,11 +79,29 @@ public sealed class VendingUntrackAutocompleteHandler : AutocompleteHandler
         }
     }
 
-    private static string DisplayName(TrackedListing listing, IItemDatabase items) =>
+    private static string DisplayName(TrackedListing listing, IItemDatabase items, ILocalizer loc, string culture) =>
         string.Create(CultureInfo.InvariantCulture,
-            $"{listing.Quantity} x {ItemName(items, listing.Key.ItemId)} for " +
+            $"{listing.Quantity} x {ItemDisplayName(items, loc, culture, listing.Key.ItemId, listing.Key.ItemIsBlueprint)} for " +
             $"{listing.CostPerOrder} {ItemName(items, listing.Key.CurrencyId)}");
 
     private static string ItemName(IItemDatabase items, int itemId) =>
         items.GetById(itemId)?.Name ?? itemId.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// An item's display name, prefixed with the "Blueprint: " indicator when it is the blueprint rather
+    /// than the item itself — otherwise two listings for the same item id (one plain, one blueprint) show
+    /// as identical suggestions and a player cannot tell which one they are picking. Currency is never a
+    /// blueprint by ruling, so only the item side needs this.
+    /// </summary>
+    /// <param name="items">The item database, for name resolution.</param>
+    /// <param name="loc">The localizer, for the blueprint indicator text.</param>
+    /// <param name="culture">The guild culture.</param>
+    /// <param name="itemId">The Rust item id.</param>
+    /// <param name="isBlueprint">True when this listing is for the item's blueprint.</param>
+    private static string ItemDisplayName(
+        IItemDatabase items, ILocalizer loc, string culture, int itemId, bool isBlueprint)
+    {
+        var name = ItemName(items, itemId);
+        return isBlueprint ? loc.Get("vending.listing.blueprint", culture, name) : name;
+    }
 }
