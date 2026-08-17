@@ -501,6 +501,48 @@
   <data name="command.upkeep.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.vending.instock" xml:space="preserve">
+    <value>{0} restants</value>
+  </data>
+  <data name="command.vending.none" xml:space="preserve">
+    <value>Aucun distributeur ne vend {0}.</value>
+  </data>
+  <data name="command.vending.offer" xml:space="preserve">
+    <value>{0} {1} pour {2} ({3})</value>
+  </data>
+  <data name="command.vending.ok" xml:space="preserve">
+    <value>{0} : {1}</value>
+  </data>
+  <data name="command.vending.soldout" xml:space="preserve">
+    <value>épuisé</value>
+  </data>
+  <data name="command.vending.usage" xml:space="preserve">
+    <value>Utilisation : !vending &lt;objet&gt;</value>
+  </data>
+  <data name="command.vtrack.badgrid" xml:space="preserve">
+    <value>{0} n'est pas une grille sur cette carte.</value>
+  </data>
+  <data name="command.vtrack.ok" xml:space="preserve">
+    <value>Suivi de {0} : {1} machines, {2} offres.</value>
+  </data>
+  <data name="command.vtrack.usage" xml:space="preserve">
+    <value>Utilisation : !vtrack &lt;grille&gt;</value>
+  </data>
+  <data name="command.vtracked.none" xml:space="preserve">
+    <value>Rien n'est suivi. Utilisez !vtrack &lt;grille&gt;.</value>
+  </data>
+  <data name="command.vtracked.ok" xml:space="preserve">
+    <value>Suivi : {0}</value>
+  </data>
+  <data name="command.vuntrack.notracked" xml:space="preserve">
+    <value>{0} n'était pas suivi.</value>
+  </data>
+  <data name="command.vuntrack.ok" xml:space="preserve">
+    <value>{0} n'est plus suivi.</value>
+  </data>
+  <data name="command.vuntrack.usage" xml:space="preserve">
+    <value>Utilisation : !vuntrack &lt;grille&gt;</value>
+  </data>
   <data name="direction.e" xml:space="preserve">
     <value>l'est</value>
   </data>
