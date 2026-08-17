@@ -55,9 +55,12 @@ public sealed class GridOwnershipTests
     [Fact]
     public void ToOffers_CarriesGridShopNameAndListingKey()
     {
-        var offer = Assert.Single(GridOwnership.ToOffers(Machine(500f, 3000f), WorldSize, MapGridStyle.InGame));
+        var machine = Machine(500f, 3000f);
+        var offer = Assert.Single(GridOwnership.ToOffers(machine, WorldSize, MapGridStyle.InGame));
 
+        Assert.Equal(1UL, offer.MachineId);
         Assert.Equal("Shop", offer.ShopName);
+        Assert.Equal(GridOwnership.GridOf(machine, WorldSize, MapGridStyle.InGame), offer.Grid);
         Assert.Equal(new ListingKey(69511070, false, -932201673, false), offer.Key);
         Assert.Equal(2, offer.Quantity);
         Assert.Equal(10, offer.CostPerOrder);
