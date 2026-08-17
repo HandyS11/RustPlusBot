@@ -14,6 +14,7 @@ using RustPlusBot.Features.Pairing;
 using RustPlusBot.Features.Players;
 using RustPlusBot.Features.StorageMonitors;
 using RustPlusBot.Features.Switches;
+using RustPlusBot.Features.Vending;
 using RustPlusBot.Features.Wipes;
 using RustPlusBot.Features.Workspace;
 using RustPlusBot.Host.Credentials;
@@ -90,6 +91,10 @@ builder.Services.AddMap(builder.Configuration);
 builder.Services.AddSwitches();
 builder.Services.AddAlarms();
 builder.Services.AddStorageMonitors();
+builder.Services.AddOptions<VendingOptions>()
+    .Bind(builder.Configuration.GetSection(VendingOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddVending();
 builder.Services.AddWipes();
 
 var host = builder.Build();
