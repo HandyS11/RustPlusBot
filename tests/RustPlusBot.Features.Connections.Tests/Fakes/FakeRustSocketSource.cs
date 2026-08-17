@@ -407,12 +407,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             Task.FromResult(StrobeSwitchReachability);
 #pragma warning restore RCS1163
 
-        public Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
+        public Task<MapMarkersSnapshot> GetMapMarkersAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             if (MarkersThrow)
             {
-                return Task.FromException<IReadOnlyList<MapMarkerSnapshot>>(
+                return Task.FromException<MapMarkersSnapshot>(
                     new InvalidOperationException("poll failed"));
             }
 
@@ -420,12 +420,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             {
                 _markerScriptStarted = true;
                 _lastMarkers = scripted;
-                return Task.FromResult(_lastMarkers);
+                return Task.FromResult(new MapMarkersSnapshot(_lastMarkers, []));
             }
 
             // Once any scripted result has been dequeued, hold the last one (mirroring NextHeartbeat).
             // If the script was never started, fall back to MarkersResult so Task-2 callers are unaffected.
-            return Task.FromResult(_markerScriptStarted ? _lastMarkers : MarkersResult);
+            return Task.FromResult(new MapMarkersSnapshot(_markerScriptStarted ? _lastMarkers : MarkersResult, []));
         }
 
         public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,

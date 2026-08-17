@@ -761,7 +761,9 @@ internal sealed partial class ConnectionSupervisor(
             var anyCh47 = false;
             try
             {
-                var current = await connection.GetMapMarkersAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+                var snapshot = await connection.GetMapMarkersAsync(_options.HeartbeatTimeout, ct)
+                    .ConfigureAwait(false);
+                var current = snapshot.Markers;
                 anyCh47 = current.Any(m => m.Kind == MarkerKind.Chinook);
 
                 if (previous is null)

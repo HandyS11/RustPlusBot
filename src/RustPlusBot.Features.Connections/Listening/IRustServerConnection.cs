@@ -120,11 +120,11 @@ internal interface IRustServerConnection : IAsyncDisposable
         TimeSpan timeout,
         CancellationToken cancellationToken);
 
-    /// <summary>Polls the current map markers the bot tracks (cargo ship, patrol helicopter, chinook), for diffing by id. Throws on failure.</summary>
+    /// <summary>Polls the current map markers and vending machines. Throws on failure.</summary>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The current cargo-ship / patrol-helicopter / chinook markers. Other marker types are not surfaced (the mapped RustPlusApi facade exposes no others the bot reasons about; crates are no longer sent by the game).</returns>
-    Task<IReadOnlyList<MapMarkerSnapshot>> GetMapMarkersAsync(TimeSpan timeout,
+    /// <returns>The markers the bot diffs plus every player vending machine.</returns>
+    Task<MapMarkersSnapshot> GetMapMarkersAsync(TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
     /// <summary>Gets the static map dimensions for grid-reference rendering, or null on failure/timeout.</summary>
