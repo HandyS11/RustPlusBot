@@ -26,7 +26,14 @@ public sealed class VendingNotificationRelayTests
     private const uint WorldSize = 4000;
     private const ulong GuildId = 10UL;
     private const int PipeId = 69511070;
+    private const int ClothId = -858312878;
     private const int Scrap = -932201673;
+
+    /// <summary>The stored sold-out signature for a machine with only the pipes dry.</summary>
+    private const string PipeDry = "69511070";
+
+    /// <summary>The stored sold-out signature for a machine with both lines dry (ids sorted ascending).</summary>
+    private const string PipeAndClothDry = "-858312878,69511070";
 
     /// <summary>Our position; far enough from <see cref="RivalX"/> to land in a different grid cell.</summary>
     private const float MineX = 500f, MineY = 3000f;
@@ -38,8 +45,13 @@ public sealed class VendingNotificationRelayTests
 
     private static readonly string MyGrid = MapGrid.LabelFor(MineX, MineY, WorldSize, MapGridStyle.InGame);
 
-    private static VendingMachineSnapshot MyMachine(int cost, int stock) =>
-        new(1UL, MineX, MineY, "Shop", false, [new VendingOfferSnapshot(PipeId, false, 1, Scrap, false, cost, stock)]);
+    private static VendingOfferSnapshot Sell(int itemId, int cost, int stock) =>
+        new(itemId, false, 1, Scrap, false, cost, stock);
+
+    private static VendingMachineSnapshot MyShop(params VendingOfferSnapshot[] offers) =>
+        new(1UL, MineX, MineY, "Shop", false, offers);
+
+    private static VendingMachineSnapshot MyMachine(int cost, int stock) => MyShop(Sell(PipeId, cost, stock));
 
     private static VendingMachineSnapshot RivalMachine(int cost, int stock = 5) =>
         new(2UL, RivalX, RivalY, "Rival", false,
@@ -131,13 +143,90 @@ public sealed class VendingNotificationRelayTests
         var h = Harness.Create();
         h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
         h.Store.ListStockNotificationsAsync(default, Guid.Empty, default)
-            .ReturnsForAnyArgs([StockNotification(machineId: 1UL, messageId: 777UL, signature: "69511070")]);
+            .ReturnsForAnyArgs([StockNotification(machineId: 1UL, messageId: 777UL, signature: PipeDry)]);
 
         await h.Relay.HandleObservedAsync(h.Observed(MyMachine(cost: 10, stock: 5)), h.Ct);
 
         await h.Poster.Received(1).DeleteMessageAsync(Arg.Any<ulong>(), 777UL, Arg.Any<CancellationToken>());
         await h.Store.Received(1).RemoveStockNotificationAsync(
             GuildId, h.ServerId, 1UL, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PartialRestock_DeletesTheStockMessage()
+    {
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Store.ListStockNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([StockNotification(machineId: 1UL, messageId: 777UL, signature: PipeAndClothDry)]);
+
+        // The cloth is back on the shelf; only the pipes are still dry. The owner acted, so the stale
+        // message must go and the survivor be reposted as a new unread.
+        await h.Relay.HandleObservedAsync(
+            h.Observed(MyShop(Sell(PipeId, cost: 10, stock: 0), Sell(ClothId, cost: 5, stock: 4))), h.Ct);
+
+        await h.Poster.Received(1).DeleteMessageAsync(Arg.Any<ulong>(), 777UL, Arg.Any<CancellationToken>());
+        await h.Store.Received(1).RemoveStockNotificationAsync(
+            GuildId, h.ServerId, 1UL, Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceive().EnsureAsync(
+            Arg.Any<ulong>(), 777UL, Arg.Any<Embed>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FurtherItemSellsOut_EditsRatherThanDeleting()
+    {
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Store.ListStockNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([StockNotification(machineId: 1UL, messageId: 777UL, signature: PipeDry)]);
+
+        // The pipes were already dry and now the cloth has gone too: the world moved, not the owner,
+        // so the sold-out set only grew and the message is edited in place.
+        await h.Relay.HandleObservedAsync(
+            h.Observed(MyShop(Sell(PipeId, cost: 10, stock: 0), Sell(ClothId, cost: 5, stock: 0))), h.Ct);
+
+        await h.Poster.Received(1).EnsureAsync(
+            Arg.Any<ulong>(), 777UL, Arg.Any<Embed>(), Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceiveWithAnyArgs().DeleteMessageAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task MachineGoesWhollyEmpty_EditsRatherThanDeleting()
+    {
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Store.ListStockNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([StockNotification(machineId: 1UL, messageId: 777UL, signature: PipeDry)]);
+
+        // "*" is the maximal sold-out set, so reaching it is growth: nothing came back.
+        await h.Relay.HandleObservedAsync(
+            h.Observed(new VendingMachineSnapshot(
+                1UL, MineX, MineY, "Shop", true, [Sell(PipeId, cost: 10, stock: 0)])), h.Ct);
+
+        await h.Poster.Received(1).EnsureAsync(
+            Arg.Any<ulong>(), 777UL, Arg.Any<Embed>(), Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceiveWithAnyArgs().DeleteMessageAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task UntrackedServerWithLiveMessages_SweepsThemOnTheNextPoll()
+    {
+        // Nothing is tracked any more — the last grid was just removed — but the messages it raised are
+        // still sitting in #vending. This pass is what clears them; no other code path will.
+        var h = Harness.Create();
+        h.Store.ListNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([Notification(messageId: 555UL, refQty: 1, refCost: 10)]);
+        h.Store.ListStockNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([StockNotification(machineId: 1UL, messageId: 777UL, signature: PipeDry)]);
+
+        await h.Relay.HandleObservedAsync(h.Observed(MyMachine(cost: 10, stock: 0), RivalMachine(cost: 8)), h.Ct);
+
+        await h.Poster.Received(1).DeleteMessageAsync(Arg.Any<ulong>(), 555UL, Arg.Any<CancellationToken>());
+        await h.Poster.Received(1).DeleteMessageAsync(Arg.Any<ulong>(), 777UL, Arg.Any<CancellationToken>());
+        await h.Store.Received(1).RemoveNotificationAsync(GuildId, h.ServerId, Pipe, Arg.Any<CancellationToken>());
+        await h.Store.Received(1).RemoveStockNotificationAsync(
+            GuildId, h.ServerId, 1UL, Arg.Any<CancellationToken>());
+        await h.Poster.DidNotReceiveWithAnyArgs().EnsureAsync(default, default, default!, default);
     }
 
     [Fact]

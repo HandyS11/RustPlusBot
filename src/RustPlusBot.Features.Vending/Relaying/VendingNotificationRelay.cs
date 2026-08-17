@@ -68,15 +68,19 @@ internal sealed partial class VendingNotificationRelay(
             var store = scope.ServiceProvider.GetRequiredService<IVendingStore>();
             var grids = await store.ListGridsAsync(evt.GuildId, evt.ServerId, ct).ConfigureAwait(false);
             var listings = await store.ListListingsAsync(evt.GuildId, evt.ServerId, ct).ConfigureAwait(false);
-            if (grids.Count == 0 && listings.Count == 0)
-            {
-                return; // Nothing is tracked on this server, so there is nothing to reconcile.
-            }
-
             var notifications = await store.ListNotificationsAsync(evt.GuildId, evt.ServerId, ct)
                 .ConfigureAwait(false);
             var stockNotifications = await store.ListStockNotificationsAsync(evt.GuildId, evt.ServerId, ct)
                 .ConfigureAwait(false);
+
+            if (grids.Count == 0 && listings.Count == 0
+                && notifications.Count == 0 && stockNotifications.Count == 0)
+            {
+                // Nothing is tracked and nothing is posted, so there is nothing to reconcile. Live rows
+                // are deliberately part of the test: untracking the last grid leaves messages behind,
+                // and it is this pass — with both desired sets empty — that sweeps them away.
+                return;
+            }
 
             var settings = await scope.ServiceProvider.GetRequiredService<IMapSettingsStore>()
                 .GetAsync(evt.GuildId, evt.ServerId, ct).ConfigureAwait(false);
@@ -194,11 +198,11 @@ internal sealed partial class VendingNotificationRelay(
         foreach (var notice in desired)
         {
             var row = existing.FirstOrDefault(n => n.MachineId == notice.MachineId);
-            if (row is not null && !string.Equals(row.SoldOutSignature, notice.Signature, StringComparison.Ordinal))
+            if (row is not null && Restocked(row.SoldOutSignature, notice.Signature))
             {
-                // The sold-out set the message was rendered against no longer holds — the owner restocked,
-                // or something else went dry. Either way delete, so the repost below lands as a new unread
-                // rather than a silent edit nobody notices.
+                // Something the message named is back on the shelf, so the owner acted. Delete rather
+                // than edit, so the repost below lands as a new unread. A set that only grew is the
+                // world moving, not the owner, and falls through to an edit.
                 await poster.DeleteMessageAsync(context.ChannelId, row.MessageId, ct).ConfigureAwait(false);
                 await context.Store
                     .RemoveStockNotificationAsync(context.GuildId, context.ServerId, notice.MachineId, ct)
@@ -245,6 +249,39 @@ internal sealed partial class VendingNotificationRelay(
         LogCapExceeded(logger, ordered.Count - max, serverId);
         return [.. ordered.Take(max)];
     }
+
+    /// <summary>
+    /// True when the sold-out set shrank — something the posted message named is back on the shelf, so
+    /// the owner acted and the message must be deleted and reposted as a new unread. A set that only
+    /// grew is the world moving (another line ran dry) and is left to be edited in place.
+    /// <see cref="StockNotice.EmptyMachineSignature"/> is the maximal set: nothing can come back while
+    /// it holds, and leaving it for anything else means part of the shop was refilled.
+    /// </summary>
+    /// <param name="persisted">The signature the live message was rendered against.</param>
+    /// <param name="current">The signature this poll produced.</param>
+    /// <returns>True when the message must be deleted rather than edited.</returns>
+    private static bool Restocked(string persisted, string current)
+    {
+        if (string.Equals(persisted, current, StringComparison.Ordinal)
+            || string.Equals(current, StockNotice.EmptyMachineSignature, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (string.Equals(persisted, StockNotice.EmptyMachineSignature, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        HashSet<string> stillSoldOut = [.. SignatureIds(current)];
+        return SignatureIds(persisted).Any(id => !stillSoldOut.Contains(id));
+    }
+
+    /// <summary>Splits a stored signature back into its item ids; the ids are never interpreted, only compared.</summary>
+    /// <param name="signature">A comma-joined signature, never <see cref="StockNotice.EmptyMachineSignature"/>.</param>
+    /// <returns>The item ids it names.</returns>
+    private static string[] SignatureIds(string signature) =>
+        signature.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     /// <summary>Reads the listing identity off a persisted undercut notification.</summary>
     /// <param name="notification">The persisted row.</param>
