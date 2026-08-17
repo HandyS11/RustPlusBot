@@ -1257,6 +1257,30 @@
   <data name="vending.search.none" xml:space="preserve">
     <value>Aucun distributeur ne vend {0}.</value>
   </data>
+  <data name="vending.track.ok" xml:space="preserve">
+    <value>Suivi activé : {0} x {1} pour {2} {3}.</value>
+  </data>
+  <data name="vending.track.badprice" xml:space="preserve">
+    <value>Le prix et la quantité doivent être d'au moins 1.</value>
+  </data>
+  <data name="vending.untrack.ok" xml:space="preserve">
+    <value>{0} n'est plus suivi.</value>
+  </data>
+  <data name="vending.untrack.notfound" xml:space="preserve">
+    <value>{0} n'était pas suivi.</value>
+  </data>
+  <data name="vending.tracked.title" xml:space="preserve">
+    <value>Suivis enregistrés</value>
+  </data>
+  <data name="vending.tracked.grids" xml:space="preserve">
+    <value>Grilles</value>
+  </data>
+  <data name="vending.tracked.listings" xml:space="preserve">
+    <value>Annonces</value>
+  </data>
+  <data name="vending.tracked.none" xml:space="preserve">
+    <value>Rien n'est suivi pour le moment.</value>
+  </data>
   <data name="wipe.title" xml:space="preserve">
     <value>🧹 Serveur wipé</value>
   </data>

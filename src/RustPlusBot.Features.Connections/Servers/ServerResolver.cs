@@ -6,7 +6,7 @@ namespace RustPlusBot.Features.Connections.Servers;
 /// <summary>Picks the target server for a slash command from an optional (autocompleted) server argument.</summary>
 /// <param name="servers">The server service used to list the guild's servers.</param>
 /// <param name="localizer">Resolves the error messages.</param>
-internal sealed class ServerResolver(IServerService servers, ILocalizer localizer)
+public sealed class ServerResolver(IServerService servers, ILocalizer localizer)
 {
     /// <summary>Resolves the target server, or returns a localized error.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>

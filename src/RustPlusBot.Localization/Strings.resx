@@ -1257,6 +1257,30 @@
   <data name="vending.search.none" xml:space="preserve">
     <value>No vending machine is selling {0}.</value>
   </data>
+  <data name="vending.track.ok" xml:space="preserve">
+    <value>Now tracking: {0} x {1} for {2} {3}.</value>
+  </data>
+  <data name="vending.track.badprice" xml:space="preserve">
+    <value>Price and quantity must each be at least 1.</value>
+  </data>
+  <data name="vending.untrack.ok" xml:space="preserve">
+    <value>No longer tracking {0}.</value>
+  </data>
+  <data name="vending.untrack.notfound" xml:space="preserve">
+    <value>{0} was not tracked.</value>
+  </data>
+  <data name="vending.tracked.title" xml:space="preserve">
+    <value>Tracked listings</value>
+  </data>
+  <data name="vending.tracked.grids" xml:space="preserve">
+    <value>Grids</value>
+  </data>
+  <data name="vending.tracked.listings" xml:space="preserve">
+    <value>Listings</value>
+  </data>
+  <data name="vending.tracked.none" xml:space="preserve">
+    <value>Nothing is tracked yet.</value>
+  </data>
   <data name="wipe.title" xml:space="preserve">
     <value>🧹 Server wiped</value>
   </data>
