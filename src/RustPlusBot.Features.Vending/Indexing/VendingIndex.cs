@@ -41,7 +41,7 @@ internal sealed class VendingIndex : IVendingReadModel
     /// <param name="state">The state, when present.</param>
     /// <returns>True when the server has observed state.</returns>
     public bool TryGet(ulong guildId, Guid serverId, [MaybeNullWhen(false)] out ServerVendingState state) =>
-        _states.TryGetValue((guildId, serverId), out state!);
+        _states.TryGetValue((guildId, serverId), out state);
 
     /// <inheritdoc />
     public bool HasData(ulong guildId, Guid serverId) => _states.ContainsKey((guildId, serverId));

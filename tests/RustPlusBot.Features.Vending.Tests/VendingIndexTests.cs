@@ -52,4 +52,14 @@ public sealed class VendingIndexTests
 
         Assert.Empty(index.Search(10UL, ServerId, itemId: 999, MapGridStyle.InGame));
     }
+
+    [Fact]
+    public void Search_IncludesSoldOutOffers()
+    {
+        var index = new VendingIndex();
+        index.Replace(10UL, ServerId, 4000u, [Machine(1UL, 10, stock: 0)]);
+
+        var offer = Assert.Single(index.Search(10UL, ServerId, Pipe, MapGridStyle.InGame));
+        Assert.False(offer.InStock);
+    }
 }
