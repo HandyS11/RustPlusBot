@@ -1,3 +1,4 @@
+using System.Globalization;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Vending;
@@ -79,5 +80,30 @@ public sealed class VendingCommandHandlerTests
         var reply = await handler.ExecuteAsync(Context(["pipe"]), CancellationToken.None);
 
         Assert.Equal("command.notconnected", reply);
+    }
+
+    [Fact]
+    public async Task Vtracked_RendersManualListings_WithResolvedNames_NotRawIds()
+    {
+        const int listingItemId = 123456;
+        const int listingCurrencyId = 654321;
+
+        var trackService = Substitute.For<IVendingTrackService>();
+        trackService.GetTrackedAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(new VendingTrackSummary(
+                [], [new TrackedListing(new ListingKey(listingItemId, false, listingCurrencyId, false), 5, 20)]));
+
+        var names = Substitute.For<IItemNameResolver>();
+        names.Resolve(listingItemId).Returns("Wood");
+        names.Resolve(listingCurrencyId).Returns("Scrap");
+
+        var handler = new VTrackedCommandHandler(trackService, names, new StubLocalizer());
+        var reply = await handler.ExecuteAsync(Context([]), CancellationToken.None);
+
+        Assert.Contains("Wood", reply, StringComparison.Ordinal);
+        Assert.Contains("Scrap", reply, StringComparison.Ordinal);
+        Assert.DoesNotContain(listingItemId.ToString(CultureInfo.InvariantCulture), reply, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            listingCurrencyId.ToString(CultureInfo.InvariantCulture), reply, StringComparison.Ordinal);
     }
 }

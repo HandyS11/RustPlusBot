@@ -1,15 +1,17 @@
 using System.Globalization;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Features.Commands.Dispatching;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Localization;
 
 namespace RustPlusBot.Features.Commands.Handlers;
 
 /// <summary>!vtracked — lists the grid cells and manually tracked listings registered for this server.</summary>
 /// <param name="trackService">Registers and reads grid/listing tracking.</param>
+/// <param name="names">Resolves item and currency ids to display names.</param>
 /// <param name="localizer">The reply localizer.</param>
-internal sealed class VTrackedCommandHandler(IVendingTrackService trackService, ILocalizer localizer)
-    : ICommandHandler
+internal sealed class VTrackedCommandHandler(
+    IVendingTrackService trackService, IItemNameResolver names, ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "vtracked";
@@ -38,9 +40,13 @@ internal sealed class VTrackedCommandHandler(IVendingTrackService trackService, 
         return localizer.Get("command.vtracked.ok", context.Culture, string.Join(", ", entries));
     }
 
-    /// <summary>Formats one manually tracked listing as item/currency ids, since no name resolver is available here.</summary>
+    /// <summary>
+    /// Formats one manually tracked listing as quantity, item name, cost, and currency name — the same
+    /// shape as the price side of <see cref="Formatting.VendingLine.Format"/>, so the two surfaces read
+    /// consistently.
+    /// </summary>
     /// <param name="listing">The listing to format.</param>
-    private static string FormatListing(TrackedListing listing) =>
+    private string FormatListing(TrackedListing listing) =>
         string.Create(CultureInfo.InvariantCulture,
-            $"{listing.Key.ItemId} x{listing.Quantity} / {listing.CostPerOrder} x{listing.Key.CurrencyId}");
+            $"{listing.Quantity} {names.Resolve(listing.Key.ItemId)} for {listing.CostPerOrder} {names.Resolve(listing.Key.CurrencyId)}");
 }
