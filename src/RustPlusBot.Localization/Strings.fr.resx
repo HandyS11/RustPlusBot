@@ -120,6 +120,9 @@
   <data name="channel.teamchat.name" xml:space="preserve">
     <value>tchat-equipe</value>
   </data>
+  <data name="channel.vending.name" xml:space="preserve">
+    <value>distributeurs</value>
+  </data>
   <data name="clan.event.color" xml:space="preserve">
     <value>Le clan a changé de couleur</value>
   </data>

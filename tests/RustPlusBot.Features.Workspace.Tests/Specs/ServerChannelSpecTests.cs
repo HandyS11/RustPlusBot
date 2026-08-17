@@ -37,6 +37,7 @@ public sealed class ServerChannelSpecTests
             WorkspaceChannelKeys.ServerSwitches,
             WorkspaceChannelKeys.ServerAlarms,
             WorkspaceChannelKeys.ServerStorageMonitors,
+            WorkspaceChannelKeys.ServerVending,
         ], keysInOrder);
     }
 
