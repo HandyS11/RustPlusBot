@@ -699,6 +699,9 @@
   <data name="help.group.teamintel" xml:space="preserve">
     <value>Team</value>
   </data>
+  <data name="help.group.vending" xml:space="preserve">
+    <value>Vending</value>
+  </data>
   <data name="help.decay" xml:space="preserve">
     <value>Decay time for an item</value>
   </data>
@@ -777,6 +780,18 @@
   <data name="help.slash.uptime" xml:space="preserve">
     <value>Show the bot's uptime.</value>
   </data>
+  <data name="help.slash.vending" xml:space="preserve">
+    <value>Find vending machines selling an item.</value>
+  </data>
+  <data name="help.slash.vending.track" xml:space="preserve">
+    <value>Track a listing you sell and get alerted when undercut.</value>
+  </data>
+  <data name="help.slash.vending.tracked" xml:space="preserve">
+    <value>Show everything this team tracks.</value>
+  </data>
+  <data name="help.slash.vending.untrack" xml:space="preserve">
+    <value>Stop tracking a grid cell or a manually tracked listing.</value>
+  </data>
   <data name="help.steamid" xml:space="preserve">
     <value>Show teammates' Steam IDs.</value>
   </data>
@@ -797,6 +812,18 @@
   </data>
   <data name="help.uptime" xml:space="preserve">
     <value>Show how long the bot has been running.</value>
+  </data>
+  <data name="help.vending" xml:space="preserve">
+    <value>Find vending machines selling an item</value>
+  </data>
+  <data name="help.vtrack" xml:space="preserve">
+    <value>Track a grid cell — every machine inside counts as yours</value>
+  </data>
+  <data name="help.vtracked" xml:space="preserve">
+    <value>List tracked grid cells and listings</value>
+  </data>
+  <data name="help.vuntrack" xml:space="preserve">
+    <value>Stop tracking a grid cell</value>
   </data>
   <data name="help.wipe" xml:space="preserve">
     <value>Show how long ago the server wiped.</value>

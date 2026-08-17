@@ -699,6 +699,9 @@
   <data name="help.group.teamintel" xml:space="preserve">
     <value>Équipe</value>
   </data>
+  <data name="help.group.vending" xml:space="preserve">
+    <value>Distributeurs</value>
+  </data>
   <data name="help.decay" xml:space="preserve">
     <value>Temps de dégradation d'un objet</value>
   </data>
@@ -777,6 +780,18 @@
   <data name="help.slash.uptime" xml:space="preserve">
     <value>Afficher la disponibilité du bot.</value>
   </data>
+  <data name="help.slash.vending" xml:space="preserve">
+    <value>Rechercher les distributeurs vendant un objet.</value>
+  </data>
+  <data name="help.slash.vending.track" xml:space="preserve">
+    <value>Suivre une annonce que vous vendez et être alerté en cas de sous-enchère.</value>
+  </data>
+  <data name="help.slash.vending.tracked" xml:space="preserve">
+    <value>Afficher tout ce que l'équipe suit.</value>
+  </data>
+  <data name="help.slash.vending.untrack" xml:space="preserve">
+    <value>Arrêter de suivre une case de la grille ou une annonce suivie manuellement.</value>
+  </data>
   <data name="help.steamid" xml:space="preserve">
     <value>Afficher les identifiants Steam des coéquipiers.</value>
   </data>
@@ -797,6 +812,18 @@
   </data>
   <data name="help.uptime" xml:space="preserve">
     <value>Afficher depuis combien de temps le bot fonctionne.</value>
+  </data>
+  <data name="help.vending" xml:space="preserve">
+    <value>Rechercher les distributeurs vendant un objet</value>
+  </data>
+  <data name="help.vtrack" xml:space="preserve">
+    <value>Suivre une case de la grille — toute machine à l'intérieur compte comme la vôtre</value>
+  </data>
+  <data name="help.vtracked" xml:space="preserve">
+    <value>Lister les cases et annonces suivies</value>
+  </data>
+  <data name="help.vuntrack" xml:space="preserve">
+    <value>Arrêter de suivre une case de la grille</value>
   </data>
   <data name="help.wipe" xml:space="preserve">
     <value>Afficher depuis combien de temps le serveur a été wipe.</value>
