@@ -30,6 +30,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     private ClanProbeResult? _pendingClanProbe;
     private IReadOnlyList<MonumentSnapshot> _pendingMonuments = [];
     private bool _pendingMonumentsTimeout;
+    private IReadOnlyList<VendingMachineSnapshot> _pendingVendingMachines = [];
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
@@ -70,6 +71,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         // connection only (mimicking a real per-request timeout, which surfaces as OperationCanceledException).
         connection.MonumentsTimeout = _pendingMonumentsTimeout;
         _pendingMonumentsTimeout = false;
+
+        // Transfer any pre-staged vending machines so they are available before the supervisor's marker
+        // poll reads them. Reset after transfer so the staging applies to the NEXT connection only.
+        connection.VendingResult = _pendingVendingMachines;
+        _pendingVendingMachines = [];
 
         // Transfer any pre-staged storage contents so they are in place before the prime loop starts.
         foreach (var (entityId, contents) in _pendingStorageContents)
@@ -139,6 +145,15 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// connect path. Applies to the next connection only. Call before <see cref="EnsureConnectionAsync"/>.
     /// </summary>
     public void TimeoutOnMonumentsOnce() => _pendingMonumentsTimeout = true;
+
+    /// <summary>
+    /// Pre-stages the vending-machine set returned as the vending half of every <see cref="MapMarkersSnapshot"/>
+    /// produced by the NEXT connection created by <see cref="Create"/>. Transferred to the new connection at
+    /// creation time, before the supervisor's poll loop starts, eliminating the setup race.
+    /// Call this before <see cref="EnsureConnectionAsync"/>.
+    /// </summary>
+    /// <param name="machines">The vending-machine list to return from every <see cref="IRustServerConnection.GetMapMarkersAsync"/> call.</param>
+    public void SetVendingMachines(IReadOnlyList<VendingMachineSnapshot> machines) => _pendingVendingMachines = machines;
 
     /// <summary>
     /// Pre-stages the probe result returned by <see cref="FakeConnection.GetClanInfoAsync"/> for the NEXT
@@ -259,6 +274,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
         /// <summary>When true, <see cref="GetMapMarkersAsync"/> throws regardless of any enqueued script.</summary>
         public bool MarkersThrow { get; set; }
+
+        /// <summary>
+        /// The vending machines returned as the vending half of every <see cref="GetMapMarkersAsync"/> result.
+        /// Defaults to empty. Unlike <see cref="MarkersResult"/> there is no per-poll scripting queue: Rust
+        /// re-sends the full vending set on every poll, so a single settable value is all tests need.
+        /// </summary>
+        public IReadOnlyList<VendingMachineSnapshot> VendingResult { get; set; } = [];
 
         /// <summary>The dimensions returned by <see cref="GetMapDimensionsAsync"/>. Defaults to a non-null snapshot.</summary>
         public MapDimensions? DimensionsResult { get; set; } = new(4000u, 4000u, 500, 4000u);
@@ -420,12 +442,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             {
                 _markerScriptStarted = true;
                 _lastMarkers = scripted;
-                return Task.FromResult(new MapMarkersSnapshot(_lastMarkers, []));
+                return Task.FromResult(new MapMarkersSnapshot(_lastMarkers, VendingResult));
             }
 
             // Once any scripted result has been dequeued, hold the last one (mirroring NextHeartbeat).
             // If the script was never started, fall back to MarkersResult so Task-2 callers are unaffected.
-            return Task.FromResult(new MapMarkersSnapshot(_markerScriptStarted ? _lastMarkers : MarkersResult, []));
+            return Task.FromResult(
+                new MapMarkersSnapshot(_markerScriptStarted ? _lastMarkers : MarkersResult, VendingResult));
         }
 
         public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
