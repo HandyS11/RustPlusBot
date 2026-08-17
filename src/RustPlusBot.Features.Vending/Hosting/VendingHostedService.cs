@@ -38,24 +38,9 @@ internal sealed partial class VendingHostedService(
         var status = eventBus.SubscribeAsync<ConnectionStatusChangedEvent>(_cts.Token);
         var wiped = eventBus.SubscribeAsync<ServerWipedEvent>(_cts.Token);
 
-        _observedLoop = Task.Run(
-            () => observed.ConsumeAsync(
-                relay.HandleObservedAsync,
-                ex => LogHandlerFailed(logger, ex, nameof(VendingMachinesObservedEvent)),
-                _cts.Token),
-            CancellationToken.None);
-        _statusLoop = Task.Run(
-            () => status.ConsumeAsync(
-                relay.HandleConnectionStatusAsync,
-                ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)),
-                _cts.Token),
-            CancellationToken.None);
-        _wipedLoop = Task.Run(
-            () => wiped.ConsumeAsync(
-                purger.HandleServerWipedAsync,
-                ex => LogHandlerFailed(logger, ex, nameof(ServerWipedEvent)),
-                _cts.Token),
-            CancellationToken.None);
+        _observedLoop = Task.Run(() => ConsumeObservedAsync(observed, _cts.Token), CancellationToken.None);
+        _statusLoop = Task.Run(() => ConsumeStatusAsync(status, _cts.Token), CancellationToken.None);
+        _wipedLoop = Task.Run(() => ConsumeWipedAsync(wiped, _cts.Token), CancellationToken.None);
         return Task.CompletedTask;
     }
 
@@ -78,6 +63,96 @@ internal sealed partial class VendingHostedService(
         }
     }
 
+    /// <summary>Drains the marker-poll subscription, logging and continuing on handler failures.</summary>
+    /// <param name="events">The eagerly-established subscription stream.</param>
+    /// <param name="cancellationToken">Ends the loop when cancelled.</param>
+    /// <returns>A task that completes when the loop ends.</returns>
+    private async Task ConsumeObservedAsync(
+        IAsyncEnumerable<VendingMachinesObservedEvent> events, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await events.ConsumeAsync(
+                    relay.HandleObservedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(VendingMachinesObservedEvent)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogObservedLoopFaulted(logger, ex);
+        }
+    }
+
+    /// <summary>Drains the connection-status subscription, logging and continuing on handler failures.</summary>
+    /// <param name="events">The eagerly-established subscription stream.</param>
+    /// <param name="cancellationToken">Ends the loop when cancelled.</param>
+    /// <returns>A task that completes when the loop ends.</returns>
+    private async Task ConsumeStatusAsync(
+        IAsyncEnumerable<ConnectionStatusChangedEvent> events, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await events.ConsumeAsync(
+                    relay.HandleConnectionStatusAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ConnectionStatusChangedEvent)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogStatusLoopFaulted(logger, ex);
+        }
+    }
+
+    /// <summary>Drains the wipe subscription, logging and continuing on handler failures.</summary>
+    /// <param name="events">The eagerly-established subscription stream.</param>
+    /// <param name="cancellationToken">Ends the loop when cancelled.</param>
+    /// <returns>A task that completes when the loop ends.</returns>
+    private async Task ConsumeWipedAsync(
+        IAsyncEnumerable<ServerWipedEvent> events, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await events.ConsumeAsync(
+                    purger.HandleServerWipedAsync,
+                    ex => LogHandlerFailed(logger, ex, nameof(ServerWipedEvent)),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+#pragma warning disable CA1031 // Broad catch: a faulting consumer must not crash the host.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogWipedLoopFaulted(logger, ex);
+        }
+    }
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
     private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Vending marker-poll relay loop faulted.")]
+    private static partial void LogObservedLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Vending connection-status relay loop faulted.")]
+    private static partial void LogStatusLoopFaulted(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Vending wipe-purge loop faulted.")]
+    private static partial void LogWipedLoopFaulted(ILogger logger, Exception exception);
 }
