@@ -40,6 +40,7 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     /// <param name="price">The currency charged for one order.</param>
     /// <param name="currency">The currency item name or id; defaults to Scrap.</param>
     /// <param name="quantity">Items yielded by one order; defaults to 1.</param>
+    /// <param name="blueprint">True when you sell the item's blueprint, not the item itself; defaults to false.</param>
     /// <param name="server">The target server (only needed if more than one is registered).</param>
     [SlashCommand("vending-track", "Track a listing you sell and get alerted when undercut")]
     public Task TrackAsync(
@@ -47,9 +48,11 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
         [Summary("price", "Cost of one order")] int price,
         [Summary("currency", "Currency item name or id")] string currency = "scrap",
         [Summary("quantity", "Items per order")] int quantity = 1,
+        [Summary("blueprint", "I am selling the blueprint, not the item, defaults to false")]
+        bool blueprint = false,
         [Summary("server", ServerSummary)]
         [Autocomplete(typeof(ServerAutocompleteHandler))]
-        string? server = null) => TrackListingCommandAsync(item, price, currency, quantity, server);
+        string? server = null) => TrackListingCommandAsync(item, price, currency, quantity, blueprint, server);
 
     /// <summary>Unregisters a tracked grid cell or manually tracked listing.</summary>
     /// <param name="target">The grid or listing to stop tracking, picked from the autocompleted list.</param>
@@ -116,7 +119,8 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
         }
     }
 
-    private async Task TrackListingCommandAsync(string item, int price, string currency, int quantity, string? server)
+    private async Task TrackListingCommandAsync(
+        string item, int price, string currency, int quantity, bool blueprint, string? server)
     {
         if (Context.Guild is null)
         {
@@ -156,8 +160,12 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
                 return;
             }
 
-            var key = new ListingKey(itemRecord.Id, ItemIsBlueprint: false, currencyRecord.Id,
-                CurrencyIsBlueprint: false);
+            // CurrencyIsBlueprint is deliberately hardcoded false: selling blueprints is common enough to
+            // deserve its own option, but charging in blueprints is vanishingly rare — a second option
+            // here would double the clutter on every invocation to cover a case almost nobody has. The
+            // grid-registration path (!vtrack) still gets this right for the rare case, since it reads
+            // the flag off the real machine rather than asking a human to spell it out.
+            var key = new ListingKey(itemRecord.Id, blueprint, currencyRecord.Id, CurrencyIsBlueprint: false);
             var trackService = sp.GetRequiredService<IVendingTrackService>();
             await trackService
                 .TrackListingAsync(ctx.GuildId, ctx.ServerId, key, quantity, price, Context.User.Id,
