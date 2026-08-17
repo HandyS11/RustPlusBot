@@ -1179,6 +1179,42 @@
   <data name="uptime.ok" xml:space="preserve">
     <value>Bot uptime: {0}</value>
   </data>
+  <data name="vending.undercut.title" xml:space="preserve">
+    <value>Undercut: {0}</value>
+  </data>
+  <data name="vending.undercut.yours" xml:space="preserve">
+    <value>Your price: {0} for {1}</value>
+  </data>
+  <data name="vending.undercut.rival" xml:space="preserve">
+    <value>{0} — {1} for {2} ({3} left)</value>
+  </data>
+  <data name="vending.stock.title" xml:space="preserve">
+    <value>Sold out: {0}</value>
+  </data>
+  <data name="vending.stock.empty" xml:space="preserve">
+    <value>The whole shop is empty.</value>
+  </data>
+  <data name="vending.stock.item" xml:space="preserve">
+    <value>{0} — sold out</value>
+  </data>
+  <data name="vending.search.title" xml:space="preserve">
+    <value>Selling: {0}</value>
+  </data>
+  <data name="vending.search.row" xml:space="preserve">
+    <value>{0} — {1} for {2} ({3})</value>
+  </data>
+  <data name="vending.search.instock" xml:space="preserve">
+    <value>{0} left</value>
+  </data>
+  <data name="vending.search.soldout" xml:space="preserve">
+    <value>out of stock</value>
+  </data>
+  <data name="vending.search.more" xml:space="preserve">
+    <value>+{0} more</value>
+  </data>
+  <data name="vending.search.none" xml:space="preserve">
+    <value>No vending machine is selling {0}.</value>
+  </data>
   <data name="wipe.title" xml:space="preserve">
     <value>🧹 Server wiped</value>
   </data>
