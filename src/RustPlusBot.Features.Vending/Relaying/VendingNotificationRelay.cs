@@ -146,9 +146,7 @@ internal sealed partial class VendingNotificationRelay(
         foreach (var notice in desired)
         {
             var row = existing.FirstOrDefault(n => KeyOf(n) == notice.Key);
-            if (row is not null
-                && (row.ReferenceCostPerOrder != notice.ReferenceCostPerOrder
-                    || row.ReferenceQuantity != notice.ReferenceQuantity))
+            if (row is not null && Repriced(row, notice))
             {
                 // The owner repriced. Delete rather than edit so reacting to an alert produces a new
                 // unread; the repost below re-raises it if rivals still beat the new price.
@@ -162,7 +160,15 @@ internal sealed partial class VendingNotificationRelay(
             var embed = renderer.RenderUndercut(notice, context.Culture);
             var messageId = await poster.EnsureAsync(context.ChannelId, row?.MessageId, embed, ct)
                 .ConfigureAwait(false);
-            if (messageId is { } id)
+
+            // EnsureAsync returns the same id when the render gate suppressed the edit, so without this
+            // guard a live notice would be re-read and re-written every five seconds for as long as the
+            // market condition holds — and its PostedUtc would forever read "just now".
+            if (messageId is { } id
+                && (row is null
+                    || row.MessageId != id
+                    || row.ReferenceQuantity != notice.ReferenceQuantity
+                    || row.ReferenceCostPerOrder != notice.ReferenceCostPerOrder))
             {
                 await context.Store.UpsertNotificationAsync(
                         context.GuildId, context.ServerId, notice.Key, id,
@@ -213,7 +219,12 @@ internal sealed partial class VendingNotificationRelay(
             var embed = renderer.RenderStock(notice, context.Culture);
             var messageId = await poster.EnsureAsync(context.ChannelId, row?.MessageId, embed, ct)
                 .ConfigureAwait(false);
-            if (messageId is { } id)
+
+            // Same guard as the undercut pass: an unchanged live notice must cost no database write.
+            if (messageId is { } id
+                && (row is null
+                    || row.MessageId != id
+                    || !string.Equals(row.SoldOutSignature, notice.Signature, StringComparison.Ordinal)))
             {
                 await context.Store.UpsertStockNotificationAsync(
                         context.GuildId, context.ServerId, notice.MachineId, id, notice.Signature, ct)
@@ -282,6 +293,22 @@ internal sealed partial class VendingNotificationRelay(
     /// <returns>The item ids it names.</returns>
     private static string[] SignatureIds(string signature) =>
         signature.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>
+    /// True when the owner's own price moved, which is what makes the posted message stale enough to
+    /// delete and repost rather than edit. The comparison is by unit price, not by the raw reference
+    /// fields: <see cref="UndercutEvaluator"/> picks the reference by unit price and replaces it on an
+    /// exact tie, so two owned machines selling "1 for 5" and "10 for 50" yield whichever the poll
+    /// happened to visit last. Comparing the fields raw would read that arbitrary flip — and a cosmetic
+    /// repackage from "1 for 5" to "2 for 10" — as a reprice, and delete a message for nothing.
+    /// </summary>
+    /// <param name="row">The persisted notification.</param>
+    /// <param name="notice">The notice this poll produced.</param>
+    /// <returns>True when the message must be deleted rather than edited.</returns>
+    private static bool Repriced(VendingNotification row, UndercutNotice notice) =>
+        UnitPrice.Compare(
+            row.ReferenceCostPerOrder, row.ReferenceQuantity,
+            notice.ReferenceCostPerOrder, notice.ReferenceQuantity) != 0;
 
     /// <summary>Reads the listing identity off a persisted undercut notification.</summary>
     /// <param name="notification">The persisted row.</param>

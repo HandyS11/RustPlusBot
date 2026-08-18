@@ -77,7 +77,12 @@ public interface IVendingStore
     Task<IReadOnlyList<VendingNotification>> ListNotificationsAsync(
         ulong guildId, Guid serverId, CancellationToken ct = default);
 
-    /// <summary>Records or updates the live undercut notification for a listing.</summary>
+    /// <summary>
+    /// Records or updates the live undercut notification for a listing. A call that would change nothing
+    /// writes nothing, and <see cref="VendingNotification.PostedUtc"/> moves only when the message id
+    /// does — the relay reconciles every five seconds, so an unconditional write would churn the row
+    /// forever and leave the timestamp permanently reading "just now".
+    /// </summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The server id.</param>
     /// <param name="key">The identity of the listing the notification is about.</param>
@@ -106,7 +111,11 @@ public interface IVendingStore
     Task<IReadOnlyList<VendingStockNotification>> ListStockNotificationsAsync(
         ulong guildId, Guid serverId, CancellationToken ct = default);
 
-    /// <summary>Records or updates the live sell-out notification for a machine.</summary>
+    /// <summary>
+    /// Records or updates the live sell-out notification for a machine. As with
+    /// <see cref="UpsertNotificationAsync"/>, an unchanged call writes nothing and
+    /// <see cref="VendingStockNotification.PostedUtc"/> moves only when the message id does.
+    /// </summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The server id.</param>
     /// <param name="machineId">The vending machine's marker id.</param>

@@ -106,4 +106,45 @@ public sealed class VendingCommandHandlerTests
         Assert.DoesNotContain(
             listingCurrencyId.ToString(CultureInfo.InvariantCulture), reply, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Vtracked_BlueprintListing_IsMarkedAndFullyLocalized()
+    {
+        const int listingItemId = 123456;
+        const int listingCurrencyId = 654321;
+
+        var trackService = Substitute.For<IVendingTrackService>();
+        trackService.GetTrackedAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(new VendingTrackSummary(
+                [], [new TrackedListing(new ListingKey(listingItemId, true, listingCurrencyId, false), 5, 20)]));
+
+        var names = Substitute.For<IItemNameResolver>();
+        names.Resolve(listingItemId).Returns("Wood");
+        names.Resolve(listingCurrencyId).Returns("Scrap");
+
+        var handler = new VTrackedCommandHandler(trackService, names, new StubLocalizer());
+        var reply = await handler.ExecuteAsync(Context([]), CancellationToken.None);
+
+        // The blueprint of an item and the item itself are different listings at wildly different
+        // prices; the reply has to say which one this is.
+        Assert.Contains("vending.listing.blueprint(Wood)", reply, StringComparison.Ordinal);
+
+        // And the whole line comes from resources: a French guild must not be told "5 Bois for 20 Ferraille".
+        Assert.Contains("command.vtracked.listing(", reply, StringComparison.Ordinal);
+        Assert.DoesNotContain(" for ", reply, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Vending_BlueprintOffer_IsMarkedSoItIsNotMistakenForABargain()
+    {
+        // !vending names the item once above the rows, so the offer fragment carries the marker itself —
+        // otherwise a blueprint at 100 scrap reads exactly like the item at 100 scrap.
+        var blueprint = new VendingOffer(
+            1, null, "A1", new ListingKey(StubItemId, true, StubCurrencyId, false), 1, 100, 5);
+        var handler = Create(offers: [blueprint]);
+
+        var reply = await handler.ExecuteAsync(Context(["pipe"]), CancellationToken.None);
+
+        Assert.Contains("vending.listing.blueprint(", reply, StringComparison.Ordinal);
+    }
 }

@@ -93,6 +93,8 @@ builder.Services.AddAlarms();
 builder.Services.AddStorageMonitors();
 builder.Services.AddOptions<VendingOptions>()
     .Bind(builder.Configuration.GetSection(VendingOptions.SectionName))
+    .Validate(static o => o.MaxNotificationsPerServer > 0,
+        "Vending:MaxNotificationsPerServer must be positive.")
     .ValidateOnStart();
 builder.Services.AddVending();
 builder.Services.AddWipes();

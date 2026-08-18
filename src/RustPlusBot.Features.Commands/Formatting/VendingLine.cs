@@ -26,6 +26,11 @@ internal static class VendingLine
             ? localizer.Get("command.vending.instock", culture, offer.AmountInStock)
             : localizer.Get("command.vending.soldout", culture);
 
-        return localizer.Get("command.vending.offer", culture, offer.Grid, offer.Quantity, cost, stock);
+        var line = localizer.Get("command.vending.offer", culture, offer.Grid, offer.Quantity, cost, stock);
+
+        // !vending names the item once, above the rows, so this fragment has no item-name slot of its
+        // own — the blueprint marker therefore goes on the whole fragment. Without it a rival's Metal
+        // Pipe *blueprint* at 5 scrap sits next to the pipe itself at 40 and reads as a steal.
+        return ListingDisplay.MarkBlueprint(line, offer.Key.ItemIsBlueprint, localizer, culture);
     }
 }

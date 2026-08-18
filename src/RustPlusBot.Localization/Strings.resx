@@ -531,6 +531,9 @@
   <data name="command.vtracked.none" xml:space="preserve">
     <value>Nothing is tracked. Use !vtrack &lt;grid&gt;.</value>
   </data>
+  <data name="command.vtracked.listing" xml:space="preserve">
+    <value>{0} {1} for {2} {3}</value>
+  </data>
   <data name="command.vtracked.ok" xml:space="preserve">
     <value>Tracking: {0}</value>
   </data>
@@ -1307,6 +1310,9 @@
   </data>
   <data name="vending.tracked.none" xml:space="preserve">
     <value>Nothing is tracked yet.</value>
+  </data>
+  <data name="vending.tracked.omitted" xml:space="preserve">
+    <value>+{0} omitted to fit Discord's field size limit</value>
   </data>
   <data name="vending.listing.blueprint" xml:space="preserve">
     <value>Blueprint: {0}</value>

@@ -166,14 +166,34 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
                 ItemIsBlueprint = key.ItemIsBlueprint,
                 CurrencyId = key.CurrencyId,
                 CurrencyIsBlueprint = key.CurrencyIsBlueprint,
+                MessageId = messageId,
+                ReferenceQuantity = referenceQuantity,
+                ReferenceCostPerOrder = referenceCostPerOrder,
+                PostedUtc = clock.UtcNow,
             };
             context.VendingNotifications.Add(row);
+            await context.SaveChangesAsync(ct).ConfigureAwait(false);
+            return;
+        }
+
+        if (row.MessageId == messageId
+            && row.ReferenceQuantity == referenceQuantity
+            && row.ReferenceCostPerOrder == referenceCostPerOrder)
+        {
+            return; // Nothing moved; issuing an UPDATE here would only churn the row and PostedUtc.
+        }
+
+        // PostedUtc means what it says: it only moves when a message is genuinely (re)posted. The
+        // reference price can change without that — a repackage at the same unit price is edited in
+        // place — and rewriting the timestamp then would make the column read "5 seconds ago" forever.
+        if (row.MessageId != messageId)
+        {
+            row.PostedUtc = clock.UtcNow;
         }
 
         row.MessageId = messageId;
         row.ReferenceQuantity = referenceQuantity;
         row.ReferenceCostPerOrder = referenceCostPerOrder;
-        row.PostedUtc = clock.UtcNow;
         await context.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
@@ -226,13 +246,28 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
                 GuildId = guildId,
                 ServerId = serverId,
                 MachineId = machineId,
+                MessageId = messageId,
+                SoldOutSignature = soldOutSignature,
+                PostedUtc = clock.UtcNow,
             };
             context.VendingStockNotifications.Add(row);
+            await context.SaveChangesAsync(ct).ConfigureAwait(false);
+            return;
+        }
+
+        if (row.MessageId == messageId
+            && string.Equals(row.SoldOutSignature, soldOutSignature, StringComparison.Ordinal))
+        {
+            return; // Nothing moved; see UpsertNotificationAsync.
+        }
+
+        if (row.MessageId != messageId)
+        {
+            row.PostedUtc = clock.UtcNow;
         }
 
         row.MessageId = messageId;
         row.SoldOutSignature = soldOutSignature;
-        row.PostedUtc = clock.UtcNow;
         await context.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 

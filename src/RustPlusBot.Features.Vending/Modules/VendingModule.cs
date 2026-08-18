@@ -25,6 +25,9 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     private const string ServerSummary = "Which server (only needed if more than one)";
     private const int SearchLimit = 10;
 
+    /// <summary>Discord rejects an embed field value longer than this; see <see cref="Fit"/>.</summary>
+    private const int FieldValueLimit = 1024;
+
     /// <summary>Finds every vending machine selling an item.</summary>
     /// <param name="item">The item name or id.</param>
     /// <param name="server">The target server (only needed if more than one is registered).</param>
@@ -101,9 +104,10 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
                     var mapSettings = sp.GetRequiredService<IMapSettingsStore>();
                     var settings = await mapSettings.GetAsync(ctx.GuildId, ctx.ServerId).ConfigureAwait(false);
                     var readModel = sp.GetRequiredService<IVendingReadModel>();
+                    // IVendingReadModel.Search contracts its result as already ordered, so re-ordering
+                    // here would only be a second sort over the same comparison.
                     var offers = readModel.Search(ctx.GuildId, ctx.ServerId, found.Item.Id, settings.GridStyle);
-                    var ordered = VendingSearch.Order(offers);
-                    var (shown, more) = VendingSearch.Take(ordered, SearchLimit);
+                    var (shown, more) = VendingSearch.Take(offers, SearchLimit);
                     var renderer = sp.GetRequiredService<VendingEmbedRenderer>();
                     var embed = renderer.RenderSearch(found.Item.Name, shown, more, ctx.Culture);
                     await FollowupAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
@@ -256,13 +260,16 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
             {
                 if (summary.Grids.Count > 0)
                 {
-                    builder.AddField(loc.Get("vending.tracked.grids", ctx.Culture), string.Join(", ", summary.Grids));
+                    builder.AddField(loc.Get("vending.tracked.grids", ctx.Culture),
+                        Fit(summary.Grids, ", ", loc, ctx.Culture));
                 }
 
                 if (summary.Listings.Count > 0)
                 {
-                    var lines = summary.Listings.Select(listing => FormatListing(listing, items, loc, ctx.Culture));
-                    builder.AddField(loc.Get("vending.tracked.listings", ctx.Culture), string.Join('\n', lines));
+                    IReadOnlyList<string> lines =
+                        [.. summary.Listings.Select(listing => FormatListing(listing, items, loc, ctx.Culture))];
+                    builder.AddField(loc.Get("vending.tracked.listings", ctx.Culture),
+                        Fit(lines, "\n", loc, ctx.Culture));
                 }
             }
 
@@ -344,10 +351,10 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
         items.GetById(itemId)?.Name ?? itemId.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// An item's display name, prefixed with the "Blueprint: " indicator when it is the blueprint rather
-    /// than the item itself — otherwise two listings for the same item id (one plain, one blueprint) read
-    /// as identical rows and a player cannot tell which is which. Currency is never a blueprint by
-    /// ruling (see <see cref="TrackListingCommandAsync"/>), so only the item side needs this.
+    /// An item's display name, marked as a blueprint when that is what the listing sells. The rule
+    /// itself lives in <see cref="ListingDisplay"/> so every surface tells the two apart the same way;
+    /// currency is never a blueprint by ruling (see <see cref="TrackListingCommandAsync"/>), so only the
+    /// item side goes through it.
     /// </summary>
     /// <param name="items">The item database, for name resolution.</param>
     /// <param name="loc">The localizer, for the blueprint indicator text.</param>
@@ -355,11 +362,47 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     /// <param name="itemId">The Rust item id.</param>
     /// <param name="isBlueprint">True when this listing is for the item's blueprint.</param>
     private static string ItemDisplayName(
-        IItemDatabase items, ILocalizer loc, string culture, int itemId, bool isBlueprint)
+        IItemDatabase items, ILocalizer loc, string culture, int itemId, bool isBlueprint) =>
+        ListingDisplay.MarkBlueprint(ItemName(items, itemId), isBlueprint, loc, culture);
+
+    /// <summary>
+    /// Joins parts into one embed field value that Discord will accept. A field value over 1024
+    /// characters is rejected outright — and registering thirty listings, which is precisely the
+    /// workflow /vending-track exists for, crosses that line — so drop whole parts from the end until it
+    /// fits and say how many went. Mirrors the roster renderer's approach, for the same reason.
+    /// </summary>
+    /// <param name="parts">The rendered parts, in display order.</param>
+    /// <param name="separator">The separator to join them with.</param>
+    /// <param name="loc">The localizer, for the omission notice.</param>
+    /// <param name="culture">The guild culture.</param>
+    /// <returns>A value of at most <see cref="FieldValueLimit"/> characters.</returns>
+    internal static string Fit(IReadOnlyList<string> parts, string separator, ILocalizer loc, string culture)
     {
-        var name = ItemName(items, itemId);
-        return isBlueprint ? loc.Get("vending.listing.blueprint", culture, name) : name;
+        ArgumentNullException.ThrowIfNull(parts);
+        ArgumentNullException.ThrowIfNull(loc);
+
+        var full = string.Join(separator, parts);
+        if (full.Length <= FieldValueLimit)
+        {
+            return full;
+        }
+
+        for (var kept = parts.Count - 1; kept > 0; kept--)
+        {
+            var candidate = string.Join(separator, parts.Take(kept)) + separator
+                            + Omitted(loc, culture, parts.Count - kept);
+            if (candidate.Length <= FieldValueLimit)
+            {
+                return candidate;
+            }
+        }
+
+        // Even a single part does not fit: say nothing but the count, which always does.
+        return Omitted(loc, culture, parts.Count);
     }
+
+    private static string Omitted(ILocalizer loc, string culture, int count) =>
+        loc.Get("vending.tracked.omitted", culture, count);
 
     /// <summary>
     /// Parses an autocompleted /vending-untrack target back into a grid reference or listing key. The

@@ -531,6 +531,9 @@
   <data name="command.vtracked.none" xml:space="preserve">
     <value>Rien n'est suivi. Utilisez !vtrack &lt;grille&gt;.</value>
   </data>
+  <data name="command.vtracked.listing" xml:space="preserve">
+    <value>{0} {1} pour {2} {3}</value>
+  </data>
   <data name="command.vtracked.ok" xml:space="preserve">
     <value>Suivi : {0}</value>
   </data>
@@ -1307,6 +1310,9 @@
   </data>
   <data name="vending.tracked.none" xml:space="preserve">
     <value>Rien n'est suivi pour le moment.</value>
+  </data>
+  <data name="vending.tracked.omitted" xml:space="preserve">
+    <value>+{0} omis pour respecter la limite de taille des champs Discord</value>
   </data>
   <data name="vending.listing.blueprint" xml:space="preserve">
     <value>Plan : {0}</value>

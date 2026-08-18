@@ -88,10 +88,10 @@ public sealed class VendingUntrackAutocompleteHandler : AutocompleteHandler
         items.GetById(itemId)?.Name ?? itemId.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// An item's display name, prefixed with the "Blueprint: " indicator when it is the blueprint rather
-    /// than the item itself — otherwise two listings for the same item id (one plain, one blueprint) show
-    /// as identical suggestions and a player cannot tell which one they are picking. Currency is never a
-    /// blueprint by ruling, so only the item side needs this.
+    /// An item's display name, marked as a blueprint when that is what the listing sells — otherwise two
+    /// listings for the same item id (one plain, one blueprint) show as identical suggestions and a
+    /// player cannot tell which one they are picking. The rule lives in <see cref="ListingDisplay"/>;
+    /// currency is never a blueprint by ruling, so only the item side goes through it.
     /// </summary>
     /// <param name="items">The item database, for name resolution.</param>
     /// <param name="loc">The localizer, for the blueprint indicator text.</param>
@@ -99,9 +99,6 @@ public sealed class VendingUntrackAutocompleteHandler : AutocompleteHandler
     /// <param name="itemId">The Rust item id.</param>
     /// <param name="isBlueprint">True when this listing is for the item's blueprint.</param>
     private static string ItemDisplayName(
-        IItemDatabase items, ILocalizer loc, string culture, int itemId, bool isBlueprint)
-    {
-        var name = ItemName(items, itemId);
-        return isBlueprint ? loc.Get("vending.listing.blueprint", culture, name) : name;
-    }
+        IItemDatabase items, ILocalizer loc, string culture, int itemId, bool isBlueprint) =>
+        ListingDisplay.MarkBlueprint(ItemName(items, itemId), isBlueprint, loc, culture);
 }

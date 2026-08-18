@@ -1,4 +1,3 @@
-using System.Globalization;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.ItemData.Naming;
@@ -35,7 +34,7 @@ internal sealed class VTrackedCommandHandler(
             entries.Add(string.Join(", ", summary.Grids));
         }
 
-        entries.AddRange(summary.Listings.Select(FormatListing));
+        entries.AddRange(summary.Listings.Select(listing => FormatListing(listing, context.Culture)));
 
         return localizer.Get("command.vtracked.ok", context.Culture, string.Join(", ", entries));
     }
@@ -43,10 +42,16 @@ internal sealed class VTrackedCommandHandler(
     /// <summary>
     /// Formats one manually tracked listing as quantity, item name, cost, and currency name — the same
     /// shape as the price side of <see cref="Formatting.VendingLine.Format"/>, so the two surfaces read
-    /// consistently.
+    /// consistently. The join word is a resource key, not a literal: a French guild must not be told
+    /// "1 Tuyau en métal for 12 Ferraille".
     /// </summary>
     /// <param name="listing">The listing to format.</param>
-    private string FormatListing(TrackedListing listing) =>
-        string.Create(CultureInfo.InvariantCulture,
-            $"{listing.Quantity} {names.Resolve(listing.Key.ItemId)} for {listing.CostPerOrder} {names.Resolve(listing.Key.CurrencyId)}");
+    /// <param name="culture">The guild culture.</param>
+    private string FormatListing(TrackedListing listing, string culture) =>
+        localizer.Get("command.vtracked.listing", culture,
+            listing.Quantity,
+            ListingDisplay.MarkBlueprint(
+                names.Resolve(listing.Key.ItemId), listing.Key.ItemIsBlueprint, localizer, culture),
+            listing.CostPerOrder,
+            names.Resolve(listing.Key.CurrencyId));
 }

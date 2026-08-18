@@ -107,6 +107,81 @@ public sealed class VendingNotificationRelayTests
     }
 
     [Fact]
+    public async Task UnchangedUndercut_WritesNothingToTheStore()
+    {
+        // The render gate suppresses the edit but EnsureAsync still hands back the message id, so an
+        // unguarded relay re-upserts every live notice every five seconds, forever — a SELECT, an UPDATE
+        // and a SaveChanges per notice per poll, and a PostedUtc that permanently reads "just now".
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Store.ListNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([Notification(messageId: 555UL, refQty: 1, refCost: 10)]);
+        h.Poster.EnsureAsync(default, default, default!, default).ReturnsForAnyArgs(555UL);
+
+        await h.Relay.HandleObservedAsync(h.Observed(MyMachine(cost: 10, stock: 5), RivalMachine(cost: 8)), h.Ct);
+
+        await h.Store.DidNotReceiveWithAnyArgs().UpsertNotificationAsync(
+            default, Guid.Empty, default, default, default, default, default);
+    }
+
+    [Fact]
+    public async Task UnchangedSellOut_WritesNothingToTheStore()
+    {
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Store.ListStockNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([StockNotification(machineId: 1UL, messageId: 777UL, signature: PipeDry)]);
+        h.Poster.EnsureAsync(default, default, default!, default).ReturnsForAnyArgs(777UL);
+
+        await h.Relay.HandleObservedAsync(h.Observed(MyMachine(cost: 10, stock: 0)), h.Ct);
+
+        await h.Store.DidNotReceiveWithAnyArgs().UpsertStockNotificationAsync(
+            default, Guid.Empty, default, default, default!, default);
+    }
+
+    [Fact]
+    public async Task RepostedUndercut_StillWritesTheNewMessageId()
+    {
+        // The complement of the guard above: when the poster self-heals a deleted message it comes back
+        // with a different id, and that id has to be persisted or the next poll edits a ghost.
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Store.ListNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([Notification(messageId: 555UL, refQty: 1, refCost: 10)]);
+        h.Poster.EnsureAsync(default, default, default!, default).ReturnsForAnyArgs(556UL);
+
+        await h.Relay.HandleObservedAsync(h.Observed(MyMachine(cost: 10, stock: 5), RivalMachine(cost: 8)), h.Ct);
+
+        await h.Store.Received(1).UpsertNotificationAsync(
+            GuildId, h.ServerId, Pipe, 556UL, 1, 10, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReferenceFlipsToAnEqualUnitPrice_DoesNotDeleteTheMessage()
+    {
+        // UndercutEvaluator replaces the reference on an exact unit-price tie, so two owned machines
+        // selling "1 for 5" and "2 for 10" yield whichever the poll visited last. Comparing the stored
+        // reference field-by-field would read that arbitrary flip — and an honest repackage at the same
+        // unit price — as an owner reprice, and delete a perfectly good message for nothing.
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Store.ListNotificationsAsync(default, Guid.Empty, default)
+            .ReturnsForAnyArgs([Notification(messageId: 555UL, refQty: 1, refCost: 5)]);
+
+        await h.Relay.HandleObservedAsync(
+            h.Observed(
+                MyShop(new VendingOfferSnapshot(PipeId, false, 2, Scrap, false, 10, 5)),
+                RivalMachine(cost: 4)),
+            h.Ct);
+
+        await h.Poster.DidNotReceiveWithAnyArgs().DeleteMessageAsync(default, default, default);
+        await h.Store.DidNotReceiveWithAnyArgs().RemoveNotificationAsync(
+            default, Guid.Empty, default, default);
+        await h.Poster.Received(1).EnsureAsync(
+            Arg.Any<ulong>(), 555UL, Arg.Any<Embed>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task OwnerReprices_DeletesTheMessageRatherThanEditingIt()
     {
         var h = Harness.Create();
