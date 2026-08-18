@@ -1,6 +1,7 @@
+using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Localization;
 
-namespace RustPlusBot.Abstractions.Vending;
+namespace RustPlusBot.Features.ItemData.Naming;
 
 /// <summary>
 /// The one place that decides how a blueprint listing is told apart from the plain item. <see

@@ -7,6 +7,7 @@ using RustPlusBot.Features.Connections.Servers;
 using RustPlusBot.Features.ItemData;
 using RustPlusBot.Features.ItemData.Data;
 using RustPlusBot.Features.ItemData.Lookup;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Features.Vending.Rendering;
 using RustPlusBot.Features.Vending.Searching;
 using RustPlusBot.Localization;

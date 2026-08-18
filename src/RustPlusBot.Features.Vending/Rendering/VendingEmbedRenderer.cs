@@ -2,6 +2,7 @@ using System.Globalization;
 using Discord;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Features.ItemData;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Features.Vending.Evaluating;
 using RustPlusBot.Features.Vending.Searching;
 using RustPlusBot.Localization;

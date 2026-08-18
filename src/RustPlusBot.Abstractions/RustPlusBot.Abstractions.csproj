@@ -1,12 +1,3 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <!--
-      Localization is a dependency-free leaf (it references no other project), so this cannot form a
-      cycle. It is needed because ListingDisplay applies a *localized* blueprint indicator, and that
-      one indicator has to be reachable from both Features.Vending and Features.Commands.
-    -->
-    <ProjectReference Include="..\RustPlusBot.Localization\RustPlusBot.Localization.csproj" />
-  </ItemGroup>
-
 </Project>

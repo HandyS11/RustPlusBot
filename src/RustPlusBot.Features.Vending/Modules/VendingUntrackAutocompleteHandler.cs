@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Features.Connections.Servers;
 using RustPlusBot.Features.ItemData;
+using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Workspace;
 
