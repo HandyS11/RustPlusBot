@@ -10,15 +10,24 @@ namespace RustPlusBot.Features.Vending.Ownership;
 /// </summary>
 internal static class GridOwnership
 {
+    /// <summary>
+    /// Stands in for a grid label when the world size needed to compute one is unknown (0). Map
+    /// dimensions are fetched once per connection and can legitimately fail, leaving a snapshot with
+    /// <c>WorldSize == 0</c>; <see cref="MapGrid.CellCount"/> clamps that to a single cell, so a computed
+    /// label would place every machine on the server at "A0" — a confident lie. "?" is honest instead:
+    /// the price is still useful to a searching player even when the location is not.
+    /// </summary>
+    public const string UnknownGrid = "?";
+
     /// <summary>Gets the grid reference a machine stands in.</summary>
     /// <param name="machine">The observed machine.</param>
     /// <param name="worldSize">The world size in game units.</param>
     /// <param name="style">Which grid convention to bin against.</param>
-    /// <returns>The grid label, e.g. "D7".</returns>
+    /// <returns>The grid label, e.g. "D7", or <see cref="UnknownGrid"/> when <paramref name="worldSize"/> is 0.</returns>
     public static string GridOf(VendingMachineSnapshot machine, uint worldSize, MapGridStyle style)
     {
         ArgumentNullException.ThrowIfNull(machine);
-        return MapGrid.LabelFor(machine.X, machine.Y, worldSize, style);
+        return worldSize == 0 ? UnknownGrid : MapGrid.LabelFor(machine.X, machine.Y, worldSize, style);
     }
 
     /// <summary>True when the machine stands in one of the registered cells.</summary>

@@ -39,15 +39,39 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
             return; // Re-registering a cell is a no-op, not an error: !vtrack is a natural thing to repeat.
         }
 
-        context.VendingGridTracks.Add(new VendingGridTrack
+        var track = new VendingGridTrack
         {
             GuildId = guildId,
             ServerId = serverId,
             Grid = normalized,
             RegisteredBySteamId = steamId,
             CreatedUtc = clock.UtcNow,
-        });
-        await context.SaveChangesAsync(ct).ConfigureAwait(false);
+        };
+        context.VendingGridTracks.Add(track);
+
+        try
+        {
+            await context.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        catch (DbUpdateException)
+        {
+            // Two callers can both see "not present" above and both insert; the unique index on
+            // (GuildId, ServerId, Grid) then rejects whichever save lands second. That is a race on an
+            // operation this store's own contract calls idempotent, not a real failure, so re-query
+            // rather than surface it: if the row exists now, the desired end state was reached (by the
+            // other caller) and we return normally; if it still doesn't, this was a different failure
+            // and must propagate. The failed insert has to come off the tracker first, or it re-attempts
+            // on the very next SaveChanges this context makes.
+            context.Entry(track).State = EntityState.Detached;
+
+            var winner = await context.VendingGridTracks
+                .FirstOrDefaultAsync(g => g.GuildId == guildId && g.ServerId == serverId && g.Grid == normalized, ct)
+                .ConfigureAwait(false);
+            if (winner is null)
+            {
+                throw;
+            }
+        }
     }
 
     /// <inheritdoc />

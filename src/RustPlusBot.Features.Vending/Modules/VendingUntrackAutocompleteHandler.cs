@@ -80,10 +80,23 @@ public sealed class VendingUntrackAutocompleteHandler : AutocompleteHandler
         }
     }
 
-    private static string DisplayName(TrackedListing listing, IItemDatabase items, ILocalizer loc, string culture) =>
-        string.Create(CultureInfo.InvariantCulture,
-            $"{listing.Quantity} x {ItemDisplayName(items, loc, culture, listing.Key.ItemId, listing.Key.ItemIsBlueprint)} for " +
-            $"{listing.CostPerOrder} {ItemName(items, listing.Key.CurrencyId)}");
+    /// <summary>
+    /// Renders a listing as quantity, item name, cost, and currency name through
+    /// <c>command.vtracked.listing</c> — the same resource key <c>!vtracked</c>'s handler uses — so a
+    /// French guild is not shown a literal " x "/" for " here while the equivalent text command reads
+    /// correctly.
+    /// </summary>
+    /// <param name="listing">The tracked listing to render.</param>
+    /// <param name="items">The item database, for name resolution.</param>
+    /// <param name="loc">The localizer, for the format string and the blueprint indicator text.</param>
+    /// <param name="culture">The guild culture.</param>
+    /// <returns>The localized display text for the autocomplete choice.</returns>
+    internal static string DisplayName(TrackedListing listing, IItemDatabase items, ILocalizer loc, string culture) =>
+        loc.Get("command.vtracked.listing", culture,
+            listing.Quantity,
+            ItemDisplayName(items, loc, culture, listing.Key.ItemId, listing.Key.ItemIsBlueprint),
+            listing.CostPerOrder,
+            ItemName(items, listing.Key.CurrencyId));
 
     private static string ItemName(IItemDatabase items, int itemId) =>
         items.GetById(itemId)?.Name ?? itemId.ToString(CultureInfo.InvariantCulture);

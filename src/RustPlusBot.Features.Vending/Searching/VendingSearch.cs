@@ -32,13 +32,25 @@ internal static class VendingSearch
             : ([.. offers.Take(limit)], offers.Count - limit);
     }
 
-    private sealed class UnitPriceComparer : IComparer<VendingOffer>
+    /// <summary>
+    /// Orders offers by unit price. Internal (rather than private) so its total-order contract — required
+    /// by <see cref="IComparer{T}"/> and relied on by <see cref="Order"/>'s use of <c>OrderBy</c>/<c>ThenBy</c>
+    /// — is directly testable.
+    /// </summary>
+    internal sealed class UnitPriceComparer : IComparer<VendingOffer>
     {
+        /// <summary>The shared comparer instance.</summary>
         public static readonly UnitPriceComparer Instance = new();
 
-        public int Compare(VendingOffer? x, VendingOffer? y) =>
-            x is null || y is null
-                ? 0
-                : UnitPrice.Compare(x.CostPerOrder, x.Quantity, y.CostPerOrder, y.Quantity);
+        /// <inheritdoc />
+        public int Compare(VendingOffer? x, VendingOffer? y)
+        {
+            if (x is null)
+            {
+                return y is null ? 0 : -1;
+            }
+
+            return y is null ? 1 : UnitPrice.Compare(x.CostPerOrder, x.Quantity, y.CostPerOrder, y.Quantity);
+        }
     }
 }

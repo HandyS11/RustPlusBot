@@ -36,6 +36,39 @@ public sealed class GridOwnershipTests
     }
 
     [Fact]
+    public void GridOf_UnknownWorldSize_ReturnsUnknownMarkerNotAComputedLabel()
+    {
+        // MapGrid.CellCount(0) clamps to 1, so a naive computation would place every machine at "A0" — a
+        // confident lie about a place that isn't real. "?" is honest about not knowing.
+        var machine = Machine(500f, 3000f);
+        Assert.Equal(GridOwnership.UnknownGrid, GridOwnership.GridOf(machine, 0, MapGridStyle.InGame));
+    }
+
+    [Fact]
+    public void GridOf_KnownWorldSize_StillReturnsARealLabel()
+    {
+        var machine = Machine(500f, 3000f);
+        Assert.NotEqual(GridOwnership.UnknownGrid, GridOwnership.GridOf(machine, WorldSize, MapGridStyle.InGame));
+    }
+
+    [Fact]
+    public void IsOwned_UnknownWorldSize_IsFalseEvenForARealRegisteredCell()
+    {
+        // GridOf resolves to "?" when the world size is unknown, and no registered cell can ever equal
+        // "?" (grid registration validates against the live map, which rejects a world size of 0
+        // outright). So a registered cell that would ordinarily match this machine's real location must
+        // not match "?" — nothing is owned when the location itself is unknown, which is the correct,
+        // conservative outcome (silence over a false claim of ownership).
+        var machine = Machine(500f, 3000f);
+        var realGrid = GridOwnership.GridOf(machine, WorldSize, MapGridStyle.InGame);
+        Assert.False(GridOwnership.IsOwned(machine, 0, MapGridStyle.InGame,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                realGrid
+            }));
+    }
+
+    [Fact]
     public void IsOwned_MatchesRegisteredCellCaseInsensitively()
     {
         var machine = Machine(500f, 3000f);

@@ -58,4 +58,22 @@ public sealed class VendingSearchTests
         Assert.Single(shown);
         Assert.Equal(0, more);
     }
+
+    [Fact]
+    public void UnitPriceComparer_IsATotalOrder_NullNeverComparesEqualToANonNullOffer()
+    {
+        // IComparer<T> requires a total order. Compare(null, x) == 0 for a non-null x would violate that
+        // (x would then have to compare equal to null too, by symmetry) and risks surprising sort
+        // behaviour if a null ever reaches OrderBy/ThenBy. Nulls must sort consistently to one end.
+        var comparer = VendingSearch.UnitPriceComparer.Instance;
+        var offer = Offer("A1", 1, 5, 5);
+
+        Assert.NotEqual(0, comparer.Compare(null, offer));
+        Assert.NotEqual(0, comparer.Compare(offer, null));
+        Assert.Equal(0, comparer.Compare(null, null));
+
+        // And the two non-equal comparisons must actually be opposite in sign, not both -1 or both 1 —
+        // that is what "sort consistently to one end" means.
+        Assert.Equal(-comparer.Compare(null, offer), comparer.Compare(offer, null));
+    }
 }
