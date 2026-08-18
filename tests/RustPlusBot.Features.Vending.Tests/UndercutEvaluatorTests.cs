@@ -24,11 +24,18 @@ public sealed class UndercutEvaluatorTests
     };
 
     private static VendingMachineSnapshot Machine(
-        ulong id, float x, float y, params VendingOfferSnapshot[] offers) =>
+        ulong id,
+        float x,
+        float y,
+        params VendingOfferSnapshot[] offers) =>
         new(id, x, y, $"Shop{id}", false, offers);
 
     private static VendingOfferSnapshot Sell(
-        int qty, int cost, int stock, int currency = Scrap, int item = Pipe) =>
+        int qty,
+        int cost,
+        int stock,
+        int currency = Scrap,
+        int item = Pipe) =>
         new(item, false, qty, currency, false, cost, stock);
 
     private static IReadOnlyList<UndercutNotice> Evaluate(params VendingMachineSnapshot[] machines) =>

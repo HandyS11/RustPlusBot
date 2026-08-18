@@ -153,7 +153,8 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     /// Call this before <see cref="EnsureConnectionAsync"/>.
     /// </summary>
     /// <param name="machines">The vending-machine list to return from every <see cref="IRustServerConnection.GetMapMarkersAsync"/> call.</param>
-    public void SetVendingMachines(IReadOnlyList<VendingMachineSnapshot> machines) => _pendingVendingMachines = machines;
+    public void SetVendingMachines(IReadOnlyList<VendingMachineSnapshot> machines) =>
+        _pendingVendingMachines = machines;
 
     /// <summary>
     /// Pre-stages the probe result returned by <see cref="FakeConnection.GetClanInfoAsync"/> for the NEXT

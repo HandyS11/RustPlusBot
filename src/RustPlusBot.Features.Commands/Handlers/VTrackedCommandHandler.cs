@@ -10,7 +10,9 @@ namespace RustPlusBot.Features.Commands.Handlers;
 /// <param name="names">Resolves item and currency ids to display names.</param>
 /// <param name="localizer">The reply localizer.</param>
 internal sealed class VTrackedCommandHandler(
-    IVendingTrackService trackService, IItemNameResolver names, ILocalizer localizer) : ICommandHandler
+    IVendingTrackService trackService,
+    IItemNameResolver names,
+    ILocalizer localizer) : ICommandHandler
 {
     /// <inheritdoc />
     public string Name => "vtracked";

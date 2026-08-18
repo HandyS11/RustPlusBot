@@ -72,10 +72,7 @@ public sealed class VendingNotificationRelayTests
     private static VendingStockNotification StockNotification(ulong machineId, ulong messageId, string signature) =>
         new()
         {
-            GuildId = GuildId,
-            MachineId = machineId,
-            MessageId = messageId,
-            SoldOutSignature = signature,
+            GuildId = GuildId, MachineId = machineId, MessageId = messageId, SoldOutSignature = signature,
         };
 
     [Fact]
@@ -338,8 +335,12 @@ public sealed class VendingNotificationRelayTests
     private sealed class Harness
     {
         private Harness(
-            VendingNotificationRelay relay, VendingIndex index, IVendingStore store,
-            IVendingChannelLocator locator, IVendingChannelPoster poster, Guid serverId)
+            VendingNotificationRelay relay,
+            VendingIndex index,
+            IVendingStore store,
+            IVendingChannelLocator locator,
+            IVendingChannelPoster poster,
+            Guid serverId)
         {
             Relay = relay;
             Index = index;

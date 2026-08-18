@@ -60,9 +60,9 @@ internal static class UndercutEvaluator
             List<VendingOffer> undercutters =
             [
                 .. theirs.Where(o => o.Key == key
-                                      && o.InStock
-                                      && UnitPrice.IsAtOrBelow(
-                                          o.CostPerOrder, o.Quantity, reference.CostPerOrder, reference.Quantity)),
+                                     && o.InStock
+                                     && UnitPrice.IsAtOrBelow(
+                                         o.CostPerOrder, o.Quantity, reference.CostPerOrder, reference.Quantity)),
             ];
 
             if (undercutters.Count > 0)

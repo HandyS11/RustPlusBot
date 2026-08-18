@@ -12,7 +12,9 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<string>> ListGridsAsync(
-        ulong guildId, Guid serverId, CancellationToken ct = default) =>
+        ulong guildId,
+        Guid serverId,
+        CancellationToken ct = default) =>
         await context.VendingGridTracks
             .AsNoTracking()
             .Where(g => g.GuildId == guildId && g.ServerId == serverId)
@@ -22,7 +24,11 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
             .ConfigureAwait(false);
 
     /// <inheritdoc />
-    public async Task AddGridAsync(ulong guildId, Guid serverId, string grid, ulong steamId, CancellationToken ct = default)
+    public async Task AddGridAsync(ulong guildId,
+        Guid serverId,
+        string grid,
+        ulong steamId,
+        CancellationToken ct = default)
     {
         var normalized = Normalize(grid);
         var existing = await context.VendingGridTracks
@@ -72,7 +78,9 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<VendingListingTrack>> ListListingsAsync(
-        ulong guildId, Guid serverId, CancellationToken ct = default) =>
+        ulong guildId,
+        Guid serverId,
+        CancellationToken ct = default) =>
         await context.VendingListingTracks
             .AsNoTracking()
             .Where(l => l.GuildId == guildId && l.ServerId == serverId)
@@ -81,14 +89,20 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task UpsertListingAsync(
-        ulong guildId, Guid serverId, ListingKey key, int quantity, int costPerOrder, ulong userId,
+        ulong guildId,
+        Guid serverId,
+        ListingKey key,
+        int quantity,
+        int costPerOrder,
+        ulong userId,
         CancellationToken ct = default)
     {
         var row = await context.VendingListingTracks
             .FirstOrDefaultAsync(
                 l => l.GuildId == guildId && l.ServerId == serverId
-                     && l.ItemId == key.ItemId && l.ItemIsBlueprint == key.ItemIsBlueprint
-                     && l.CurrencyId == key.CurrencyId && l.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
+                                          && l.ItemId == key.ItemId && l.ItemIsBlueprint == key.ItemIsBlueprint
+                                          && l.CurrencyId == key.CurrencyId &&
+                                          l.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
                 ct)
             .ConfigureAwait(false);
 
@@ -115,13 +129,17 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task<bool> RemoveListingAsync(
-        ulong guildId, Guid serverId, ListingKey key, CancellationToken ct = default)
+        ulong guildId,
+        Guid serverId,
+        ListingKey key,
+        CancellationToken ct = default)
     {
         var row = await context.VendingListingTracks
             .FirstOrDefaultAsync(
                 l => l.GuildId == guildId && l.ServerId == serverId
-                     && l.ItemId == key.ItemId && l.ItemIsBlueprint == key.ItemIsBlueprint
-                     && l.CurrencyId == key.CurrencyId && l.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
+                                          && l.ItemId == key.ItemId && l.ItemIsBlueprint == key.ItemIsBlueprint
+                                          && l.CurrencyId == key.CurrencyId &&
+                                          l.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
                 ct)
             .ConfigureAwait(false);
         if (row is null)
@@ -136,7 +154,9 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<VendingNotification>> ListNotificationsAsync(
-        ulong guildId, Guid serverId, CancellationToken ct = default) =>
+        ulong guildId,
+        Guid serverId,
+        CancellationToken ct = default) =>
         await context.VendingNotifications
             .AsNoTracking()
             .Where(n => n.GuildId == guildId && n.ServerId == serverId)
@@ -145,14 +165,20 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task UpsertNotificationAsync(
-        ulong guildId, Guid serverId, ListingKey key, ulong messageId, int referenceQuantity,
-        int referenceCostPerOrder, CancellationToken ct = default)
+        ulong guildId,
+        Guid serverId,
+        ListingKey key,
+        ulong messageId,
+        int referenceQuantity,
+        int referenceCostPerOrder,
+        CancellationToken ct = default)
     {
         var row = await context.VendingNotifications
             .FirstOrDefaultAsync(
                 n => n.GuildId == guildId && n.ServerId == serverId
-                     && n.ItemId == key.ItemId && n.ItemIsBlueprint == key.ItemIsBlueprint
-                     && n.CurrencyId == key.CurrencyId && n.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
+                                          && n.ItemId == key.ItemId && n.ItemIsBlueprint == key.ItemIsBlueprint
+                                          && n.CurrencyId == key.CurrencyId &&
+                                          n.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
                 ct)
             .ConfigureAwait(false);
 
@@ -199,13 +225,17 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task<bool> RemoveNotificationAsync(
-        ulong guildId, Guid serverId, ListingKey key, CancellationToken ct = default)
+        ulong guildId,
+        Guid serverId,
+        ListingKey key,
+        CancellationToken ct = default)
     {
         var row = await context.VendingNotifications
             .FirstOrDefaultAsync(
                 n => n.GuildId == guildId && n.ServerId == serverId
-                     && n.ItemId == key.ItemId && n.ItemIsBlueprint == key.ItemIsBlueprint
-                     && n.CurrencyId == key.CurrencyId && n.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
+                                          && n.ItemId == key.ItemId && n.ItemIsBlueprint == key.ItemIsBlueprint
+                                          && n.CurrencyId == key.CurrencyId &&
+                                          n.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
                 ct)
             .ConfigureAwait(false);
         if (row is null)
@@ -220,7 +250,9 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<VendingStockNotification>> ListStockNotificationsAsync(
-        ulong guildId, Guid serverId, CancellationToken ct = default) =>
+        ulong guildId,
+        Guid serverId,
+        CancellationToken ct = default) =>
         await context.VendingStockNotifications
             .AsNoTracking()
             .Where(s => s.GuildId == guildId && s.ServerId == serverId)
@@ -229,7 +261,11 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task UpsertStockNotificationAsync(
-        ulong guildId, Guid serverId, ulong machineId, ulong messageId, string soldOutSignature,
+        ulong guildId,
+        Guid serverId,
+        ulong machineId,
+        ulong messageId,
+        string soldOutSignature,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(soldOutSignature);
@@ -273,7 +309,10 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
     /// <inheritdoc />
     public async Task<bool> RemoveStockNotificationAsync(
-        ulong guildId, Guid serverId, ulong machineId, CancellationToken ct = default)
+        ulong guildId,
+        Guid serverId,
+        ulong machineId,
+        CancellationToken ct = default)
     {
         var row = await context.VendingStockNotifications
             .FirstOrDefaultAsync(

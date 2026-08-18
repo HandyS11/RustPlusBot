@@ -12,7 +12,10 @@ internal sealed class VendingStockNotificationConfiguration : IEntityTypeConfigu
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(s => s.Id);
         builder.Property(s => s.SoldOutSignature).IsRequired().HasMaxLength(512);
-        builder.HasIndex(s => new { s.GuildId, s.ServerId, s.MachineId }).IsUnique();
+        builder.HasIndex(s => new
+        {
+            s.GuildId, s.ServerId, s.MachineId
+        }).IsUnique();
 
         builder.HasOne<RustServer>()
             .WithMany()

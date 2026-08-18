@@ -13,7 +13,12 @@ internal sealed class VendingNotificationConfiguration : IEntityTypeConfiguratio
         builder.HasKey(n => n.Id);
         builder.HasIndex(x => new
         {
-            x.GuildId, x.ServerId, x.ItemId, x.ItemIsBlueprint, x.CurrencyId, x.CurrencyIsBlueprint
+            x.GuildId,
+            x.ServerId,
+            x.ItemId,
+            x.ItemIsBlueprint,
+            x.CurrencyId,
+            x.CurrencyIsBlueprint
         }).IsUnique();
 
         builder.HasOne<RustServer>()

@@ -48,7 +48,10 @@ internal sealed partial class VendingHostedService(
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await _cts.CancelAsync().ConfigureAwait(false);
-        foreach (var loop in new[] { _observedLoop, _statusLoop, _wipedLoop }.OfType<Task>())
+        foreach (var loop in new[]
+                 {
+                     _observedLoop, _statusLoop, _wipedLoop
+                 }.OfType<Task>())
         {
             try
             {
@@ -68,7 +71,8 @@ internal sealed partial class VendingHostedService(
     /// <param name="cancellationToken">Ends the loop when cancelled.</param>
     /// <returns>A task that completes when the loop ends.</returns>
     private async Task ConsumeObservedAsync(
-        IAsyncEnumerable<VendingMachinesObservedEvent> events, CancellationToken cancellationToken)
+        IAsyncEnumerable<VendingMachinesObservedEvent> events,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -95,7 +99,8 @@ internal sealed partial class VendingHostedService(
     /// <param name="cancellationToken">Ends the loop when cancelled.</param>
     /// <returns>A task that completes when the loop ends.</returns>
     private async Task ConsumeStatusAsync(
-        IAsyncEnumerable<ConnectionStatusChangedEvent> events, CancellationToken cancellationToken)
+        IAsyncEnumerable<ConnectionStatusChangedEvent> events,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -122,7 +127,8 @@ internal sealed partial class VendingHostedService(
     /// <param name="cancellationToken">Ends the loop when cancelled.</param>
     /// <returns>A task that completes when the loop ends.</returns>
     private async Task ConsumeWipedAsync(
-        IAsyncEnumerable<ServerWipedEvent> events, CancellationToken cancellationToken)
+        IAsyncEnumerable<ServerWipedEvent> events,
+        CancellationToken cancellationToken)
     {
         try
         {

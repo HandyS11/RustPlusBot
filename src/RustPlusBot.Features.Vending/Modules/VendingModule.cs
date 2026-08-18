@@ -35,8 +35,7 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     [SlashCommand("vending", "Find vending machines selling an item")]
     public Task VendingAsync(
         [Summary("item", "Item name or id")] string item,
-        [Summary("server", ServerSummary)]
-        [Autocomplete(typeof(ServerAutocompleteHandler))]
+        [Summary("server", ServerSummary)] [Autocomplete(typeof(ServerAutocompleteHandler))]
         string? server = null) => SearchAsync(item, server);
 
     /// <summary>Registers a listing you sell, to be alerted when someone matches or beats your price.</summary>
@@ -49,13 +48,15 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     [SlashCommand("vending-track", "Track a listing you sell and get alerted when undercut")]
     public Task TrackAsync(
         [Summary("item", "Item name or id")] string item,
-        [Summary("price", "Cost of one order")] int price,
-        [Summary("currency", "Currency item name or id")] string currency = "scrap",
-        [Summary("quantity", "Items per order")] int quantity = 1,
+        [Summary("price", "Cost of one order")]
+        int price,
+        [Summary("currency", "Currency item name or id")]
+        string currency = "scrap",
+        [Summary("quantity", "Items per order")]
+        int quantity = 1,
         [Summary("blueprint", "I am selling the blueprint, not the item, defaults to false")]
         bool blueprint = false,
-        [Summary("server", ServerSummary)]
-        [Autocomplete(typeof(ServerAutocompleteHandler))]
+        [Summary("server", ServerSummary)] [Autocomplete(typeof(ServerAutocompleteHandler))]
         string? server = null) => TrackListingCommandAsync(item, price, currency, quantity, blueprint, server);
 
     /// <summary>Unregisters a tracked grid cell or manually tracked listing.</summary>
@@ -66,16 +67,14 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
         [Summary("target", "The grid or listing to stop tracking")]
         [Autocomplete(typeof(VendingUntrackAutocompleteHandler))]
         string target,
-        [Summary("server", ServerSummary)]
-        [Autocomplete(typeof(ServerAutocompleteHandler))]
+        [Summary("server", ServerSummary)] [Autocomplete(typeof(ServerAutocompleteHandler))]
         string? server = null) => UntrackTargetCommandAsync(target, server);
 
     /// <summary>Shows every grid cell and listing this team currently tracks.</summary>
     /// <param name="server">The target server (only needed if more than one is registered).</param>
     [SlashCommand("vending-tracked", "Show everything this team tracks")]
     public Task TrackedAsync(
-        [Summary("server", ServerSummary)]
-        [Autocomplete(typeof(ServerAutocompleteHandler))]
+        [Summary("server", ServerSummary)] [Autocomplete(typeof(ServerAutocompleteHandler))]
         string? server = null) => ShowTrackedCommandAsync(server);
 
     private async Task SearchAsync(string item, string? server)
@@ -125,7 +124,12 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     }
 
     private async Task TrackListingCommandAsync(
-        string item, int price, string currency, int quantity, bool blueprint, string? server)
+        string item,
+        int price,
+        string currency,
+        int quantity,
+        bool blueprint,
+        string? server)
     {
         if (Context.Guild is null)
         {
@@ -363,7 +367,11 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     /// <param name="itemId">The Rust item id.</param>
     /// <param name="isBlueprint">True when this listing is for the item's blueprint.</param>
     private static string ItemDisplayName(
-        IItemDatabase items, ILocalizer loc, string culture, int itemId, bool isBlueprint) =>
+        IItemDatabase items,
+        ILocalizer loc,
+        string culture,
+        int itemId,
+        bool isBlueprint) =>
         ListingDisplay.MarkBlueprint(ItemName(items, itemId), isBlueprint, loc, culture);
 
     /// <summary>
@@ -391,7 +399,7 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
         for (var kept = parts.Count - 1; kept > 0; kept--)
         {
             var candidate = string.Join(separator, parts.Take(kept)) + separator
-                            + Omitted(loc, culture, parts.Count - kept);
+                                                                     + Omitted(loc, culture, parts.Count - kept);
             if (candidate.Length <= FieldValueLimit)
             {
                 return candidate;
@@ -422,10 +430,12 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
         }
 
         if (parts.Length == 5 && parts[0] == "listing"
-            && int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var itemId)
-            && bool.TryParse(parts[2], out var itemIsBlueprint)
-            && int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var currencyId)
-            && bool.TryParse(parts[4], out var currencyIsBlueprint))
+                              && int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture,
+                                  out var itemId)
+                              && bool.TryParse(parts[2], out var itemIsBlueprint)
+                              && int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture,
+                                  out var currencyId)
+                              && bool.TryParse(parts[4], out var currencyIsBlueprint))
         {
             var key = new ListingKey(itemId, itemIsBlueprint, currencyId, currencyIsBlueprint);
             var display = string.Create(CultureInfo.InvariantCulture,

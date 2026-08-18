@@ -74,7 +74,7 @@ internal sealed partial class VendingNotificationRelay(
                 .ConfigureAwait(false);
 
             if (grids.Count == 0 && listings.Count == 0
-                && notifications.Count == 0 && stockNotifications.Count == 0)
+                                 && notifications.Count == 0 && stockNotifications.Count == 0)
             {
                 // Nothing is tracked and nothing is posted, so there is nothing to reconcile. Live rows
                 // are deliberately part of the test: untracking the last grid leaves messages behind,
@@ -91,19 +91,23 @@ internal sealed partial class VendingNotificationRelay(
             IReadOnlyList<TrackedListing> tracked = [.. listings.Select(Track)];
 
             var desired = Cap(
-                [.. UndercutEvaluator
-                    .Evaluate(evt.Machines, evt.WorldSize, settings.GridStyle, owned, tracked)
-                    // The evaluator returns dictionary order, which .NET does not contract. Ordering by
-                    // the listing identity keeps the capped set the same one poll after poll.
-                    .OrderBy(n => n.Key.ItemId)
-                    .ThenBy(n => n.Key.CurrencyId)
-                    .ThenBy(n => n.Key.ItemIsBlueprint)
-                    .ThenBy(n => n.Key.CurrencyIsBlueprint)],
+                [
+                    .. UndercutEvaluator
+                        .Evaluate(evt.Machines, evt.WorldSize, settings.GridStyle, owned, tracked)
+                        // The evaluator returns dictionary order, which .NET does not contract. Ordering by
+                        // the listing identity keeps the capped set the same one poll after poll.
+                        .OrderBy(n => n.Key.ItemId)
+                        .ThenBy(n => n.Key.CurrencyId)
+                        .ThenBy(n => n.Key.ItemIsBlueprint)
+                        .ThenBy(n => n.Key.CurrencyIsBlueprint)
+                ],
                 evt.ServerId);
             var desiredStock = Cap(
-                [.. StockEvaluator
-                    .Evaluate(evt.Machines, evt.WorldSize, settings.GridStyle, owned)
-                    .OrderBy(n => n.MachineId)],
+                [
+                    .. StockEvaluator
+                        .Evaluate(evt.Machines, evt.WorldSize, settings.GridStyle, owned)
+                        .OrderBy(n => n.MachineId)
+                ],
                 evt.ServerId);
 
             var context = new ReconcileContext(store, cid, evt.GuildId, evt.ServerId, culture);
@@ -337,5 +341,9 @@ internal sealed partial class VendingNotificationRelay(
     /// <param name="ServerId">The server being reconciled.</param>
     /// <param name="Culture">The guild culture the embeds are rendered in.</param>
     private sealed record ReconcileContext(
-        IVendingStore Store, ulong ChannelId, ulong GuildId, Guid ServerId, string Culture);
+        IVendingStore Store,
+        ulong ChannelId,
+        ulong GuildId,
+        Guid ServerId,
+        string Culture);
 }

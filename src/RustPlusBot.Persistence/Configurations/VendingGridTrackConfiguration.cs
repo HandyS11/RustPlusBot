@@ -12,7 +12,10 @@ internal sealed class VendingGridTrackConfiguration : IEntityTypeConfiguration<V
         ArgumentNullException.ThrowIfNull(builder);
         builder.HasKey(g => g.Id);
         builder.Property(g => g.Grid).IsRequired().HasMaxLength(8);
-        builder.HasIndex(g => new { g.GuildId, g.ServerId, g.Grid }).IsUnique();
+        builder.HasIndex(g => new
+        {
+            g.GuildId, g.ServerId, g.Grid
+        }).IsUnique();
 
         builder.HasOne<RustServer>()
             .WithMany()

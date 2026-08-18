@@ -29,7 +29,10 @@ public sealed class VendingTrackedFieldTests
     [Fact]
     public void Fit_ShortList_IsLeftExactlyAsItWas()
     {
-        var parts = new[] { "A1", "B2", "C3" };
+        var parts = new[]
+        {
+            "A1", "B2", "C3"
+        };
 
         Assert.Equal("A1, B2, C3", VendingModule.Fit(parts, ", ", Localizer(), "en"));
     }

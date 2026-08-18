@@ -41,12 +41,12 @@ internal sealed class VendingEmbedRenderer(IItemDatabase items, ILocalizer local
         string[] lines =
         [
             yours,
-            ..shown.Select(rival => localizer.Get("vending.undercut.rival", culture,
+            .. shown.Select(rival => localizer.Get("vending.undercut.rival", culture,
                 rival.Grid,
                 FormatQuantityItem(rival.Quantity, rival.Key, culture),
                 FormatCostCurrency(rival.CostPerOrder, rival.Key.CurrencyId),
                 rival.AmountInStock)),
-            ..More(more, culture),
+            .. More(more, culture),
         ];
 
         return new EmbedBuilder().WithTitle(title).WithDescription(string.Join('\n', lines)).Build();
@@ -76,9 +76,9 @@ internal sealed class VendingEmbedRenderer(IItemDatabase items, ILocalizer local
             var (shown, more) = VendingSearch.Take(notice.SoldOut, MaxRows);
             string[] lines =
             [
-                ..shown.Select(offer => localizer.Get("vending.stock.item", culture,
+                .. shown.Select(offer => localizer.Get("vending.stock.item", culture,
                     FormatQuantityItem(offer.Quantity, offer.Key, culture))),
-                ..More(more, culture),
+                .. More(more, culture),
             ];
             description = string.Join('\n', lines);
         }

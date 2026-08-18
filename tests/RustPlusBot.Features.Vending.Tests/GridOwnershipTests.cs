@@ -41,7 +41,10 @@ public sealed class GridOwnershipTests
         var machine = Machine(500f, 3000f);
         var grid = GridOwnership.GridOf(machine, WorldSize, MapGridStyle.InGame);
         Assert.True(GridOwnership.IsOwned(machine, WorldSize, MapGridStyle.InGame,
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { grid.ToLowerInvariant() }));
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                grid.ToLowerInvariant()
+            }));
     }
 
     [Fact]
@@ -49,7 +52,10 @@ public sealed class GridOwnershipTests
     {
         var machine = Machine(500f, 3000f);
         Assert.False(GridOwnership.IsOwned(machine, WorldSize, MapGridStyle.InGame,
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ZZ99" }));
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "ZZ99"
+            }));
     }
 
     [Fact]

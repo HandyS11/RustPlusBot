@@ -100,6 +100,10 @@ public sealed class VendingUntrackAutocompleteHandler : AutocompleteHandler
     /// <param name="itemId">The Rust item id.</param>
     /// <param name="isBlueprint">True when this listing is for the item's blueprint.</param>
     private static string ItemDisplayName(
-        IItemDatabase items, ILocalizer loc, string culture, int itemId, bool isBlueprint) =>
+        IItemDatabase items,
+        ILocalizer loc,
+        string culture,
+        int itemId,
+        bool isBlueprint) =>
         ListingDisplay.MarkBlueprint(ItemName(items, itemId), isBlueprint, loc, culture);
 }

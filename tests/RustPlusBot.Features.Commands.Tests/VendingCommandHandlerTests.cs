@@ -20,17 +20,8 @@ public sealed class VendingCommandHandlerTests
 
     private static readonly ItemRecord StubItem = new(StubItemId, "Pipe", 1, null, null, null, null, null, null);
 
-    /// <summary>Test double: returns the key unchanged (formatted args appended), so assertions can
-    /// key off exact localization keys without depending on real resource strings.</summary>
-    private sealed class StubLocalizer : ILocalizer
-    {
-        public string Get(string key, string culture) => key;
-
-        public string Get(string key, string culture, params object[] args) =>
-            args.Length == 0 ? key : $"{key}({string.Join(",", args)})";
-    }
-
-    private static CommandContext Context(IReadOnlyList<string> args) => new(1, Guid.NewGuid(), "en", 99, "Caller", args);
+    private static CommandContext Context(IReadOnlyList<string> args) =>
+        new(1, Guid.NewGuid(), "en", 99, "Caller", args);
 
     private static VendingOffer Offer(string grid, int amountInStock) =>
         new(1, null, grid, new ListingKey(StubItemId, false, StubCurrencyId, false), 1, 100, amountInStock);
@@ -146,5 +137,15 @@ public sealed class VendingCommandHandlerTests
         var reply = await handler.ExecuteAsync(Context(["pipe"]), CancellationToken.None);
 
         Assert.Contains("vending.listing.blueprint(", reply, StringComparison.Ordinal);
+    }
+
+    /// <summary>Test double: returns the key unchanged (formatted args appended), so assertions can
+    /// key off exact localization keys without depending on real resource strings.</summary>
+    private sealed class StubLocalizer : ILocalizer
+    {
+        public string Get(string key, string culture) => key;
+
+        public string Get(string key, string culture, params object[] args) =>
+            args.Length == 0 ? key : $"{key}({string.Join(",", args)})";
     }
 }

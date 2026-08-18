@@ -10,7 +10,11 @@ public interface IVendingTrackService
     /// <param name="steamId">The Steam id of the registering player.</param>
     /// <param name="ct">A cancellation token.</param>
     /// <returns>The outcome, including how many machines and listings the cell holds right now.</returns>
-    Task<GridTrackResult> TrackGridAsync(ulong guildId, Guid serverId, string grid, ulong steamId, CancellationToken ct);
+    Task<GridTrackResult> TrackGridAsync(ulong guildId,
+        Guid serverId,
+        string grid,
+        ulong steamId,
+        CancellationToken ct);
 
     /// <summary>Unregisters a grid cell.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>

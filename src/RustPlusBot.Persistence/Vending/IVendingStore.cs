@@ -46,7 +46,9 @@ public interface IVendingStore
     /// <param name="ct">A cancellation token.</param>
     /// <returns>The registered listings.</returns>
     Task<IReadOnlyList<VendingListingTrack>> ListListingsAsync(
-        ulong guildId, Guid serverId, CancellationToken ct = default);
+        ulong guildId,
+        Guid serverId,
+        CancellationToken ct = default);
 
     /// <summary>Registers or reprices a listing.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
@@ -58,7 +60,12 @@ public interface IVendingStore
     /// <param name="ct">A cancellation token.</param>
     /// <returns>A task that completes when the listing has been persisted.</returns>
     Task UpsertListingAsync(
-        ulong guildId, Guid serverId, ListingKey key, int quantity, int costPerOrder, ulong userId,
+        ulong guildId,
+        Guid serverId,
+        ListingKey key,
+        int quantity,
+        int costPerOrder,
+        ulong userId,
         CancellationToken ct = default);
 
     /// <summary>Removes a hand-registered listing.</summary>
@@ -75,7 +82,9 @@ public interface IVendingStore
     /// <param name="ct">A cancellation token.</param>
     /// <returns>The live notifications.</returns>
     Task<IReadOnlyList<VendingNotification>> ListNotificationsAsync(
-        ulong guildId, Guid serverId, CancellationToken ct = default);
+        ulong guildId,
+        Guid serverId,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Records or updates the live undercut notification for a listing. A call that would change nothing
@@ -92,8 +101,13 @@ public interface IVendingStore
     /// <param name="ct">A cancellation token.</param>
     /// <returns>A task that completes when the notification has been persisted.</returns>
     Task UpsertNotificationAsync(
-        ulong guildId, Guid serverId, ListingKey key, ulong messageId, int referenceQuantity,
-        int referenceCostPerOrder, CancellationToken ct = default);
+        ulong guildId,
+        Guid serverId,
+        ListingKey key,
+        ulong messageId,
+        int referenceQuantity,
+        int referenceCostPerOrder,
+        CancellationToken ct = default);
 
     /// <summary>Removes the live undercut notification for a listing.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
@@ -109,7 +123,9 @@ public interface IVendingStore
     /// <param name="ct">A cancellation token.</param>
     /// <returns>The live notifications.</returns>
     Task<IReadOnlyList<VendingStockNotification>> ListStockNotificationsAsync(
-        ulong guildId, Guid serverId, CancellationToken ct = default);
+        ulong guildId,
+        Guid serverId,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Records or updates the live sell-out notification for a machine. As with
@@ -124,7 +140,11 @@ public interface IVendingStore
     /// <param name="ct">A cancellation token.</param>
     /// <returns>A task that completes when the notification has been persisted.</returns>
     Task UpsertStockNotificationAsync(
-        ulong guildId, Guid serverId, ulong machineId, ulong messageId, string soldOutSignature,
+        ulong guildId,
+        Guid serverId,
+        ulong machineId,
+        ulong messageId,
+        string soldOutSignature,
         CancellationToken ct = default);
 
     /// <summary>Removes the live sell-out notification for a machine.</summary>
@@ -134,5 +154,8 @@ public interface IVendingStore
     /// <param name="ct">A cancellation token.</param>
     /// <returns>True when a row actually existed and was removed; false when there was nothing to clear.</returns>
     Task<bool> RemoveStockNotificationAsync(
-        ulong guildId, Guid serverId, ulong machineId, CancellationToken ct = default);
+        ulong guildId,
+        Guid serverId,
+        ulong machineId,
+        CancellationToken ct = default);
 }

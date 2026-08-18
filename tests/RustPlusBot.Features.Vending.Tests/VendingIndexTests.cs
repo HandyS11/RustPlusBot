@@ -6,9 +6,9 @@ namespace RustPlusBot.Features.Vending.Tests;
 /// <summary>Unit tests for <see cref="VendingIndex"/>.</summary>
 public sealed class VendingIndexTests
 {
-    private static readonly Guid ServerId = Guid.NewGuid();
     private const int Pipe = 69511070;
     private const int Scrap = -932201673;
+    private static readonly Guid ServerId = Guid.NewGuid();
 
     private static VendingMachineSnapshot Machine(ulong id, int cost, int stock) =>
         new(id, 500f, 3000f, "Shop", false, [new VendingOfferSnapshot(Pipe, false, 1, Scrap, false, cost, stock)]);

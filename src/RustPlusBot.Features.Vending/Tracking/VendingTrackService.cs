@@ -24,7 +24,11 @@ internal sealed class VendingTrackService(
 {
     /// <inheritdoc />
     public async Task<GridTrackResult> TrackGridAsync(
-        ulong guildId, Guid serverId, string grid, ulong steamId, CancellationToken ct)
+        ulong guildId,
+        Guid serverId,
+        string grid,
+        ulong steamId,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(grid);
         var normalized = grid.Trim().ToUpperInvariant();
@@ -49,11 +53,14 @@ internal sealed class VendingTrackService(
 
         await store.AddGridAsync(guildId, serverId, normalized, steamId, ct).ConfigureAwait(false);
 
-        List<VendingMachineSnapshot> inCell = [.. state.Machines
-            .Where(m => string.Equals(
-                GridOwnership.GridOf(m, state.WorldSize, settings.GridStyle),
-                normalized,
-                StringComparison.OrdinalIgnoreCase))];
+        List<VendingMachineSnapshot> inCell =
+        [
+            .. state.Machines
+                .Where(m => string.Equals(
+                    GridOwnership.GridOf(m, state.WorldSize, settings.GridStyle),
+                    normalized,
+                    StringComparison.OrdinalIgnoreCase))
+        ];
         var listings = inCell
             .SelectMany(m => GridOwnership.ToOffers(m, state.WorldSize, settings.GridStyle))
             .Select(o => o.Key)

@@ -44,7 +44,8 @@ public sealed class VendingEmbedRendererTests
         var renderer = Create();
         var notice = new StockNotice(1UL, "Shop", "D7", MachineEmpty: true, []);
 
-        Assert.Contains("vending.stock.empty", renderer.RenderStock(notice, "en").Description, StringComparison.Ordinal);
+        Assert.Contains("vending.stock.empty", renderer.RenderStock(notice, "en").Description,
+            StringComparison.Ordinal);
     }
 
     [Fact]

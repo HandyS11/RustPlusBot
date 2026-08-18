@@ -622,38 +622,6 @@ internal sealed partial class RustPlusSocketSource(
             return new MapMarkersSnapshot(markers, MapVendingMachines(data.VendingMachineMarkers));
         }
 
-        /// <summary>Maps the raw vending-machine marker bucket to snapshots, skipping markers with no id/position.</summary>
-        /// <param name="markers">The raw vending-machine markers keyed by id.</param>
-        /// <returns>One <see cref="VendingMachineSnapshot"/> per marker with a known id, X and Y.</returns>
-        // Quantity is a divisor in every unit-price comparison, so a malformed 0 from the server is
-        // clamped to 1 here rather than guarded at each of the (many) downstream comparison sites.
-        private static List<VendingMachineSnapshot> MapVendingMachines(
-            IReadOnlyDictionary<ulong, RustPlusApi.Data.Markers.VendingMachineMarker> markers)
-        {
-            var machines = new List<VendingMachineSnapshot>();
-            foreach (var marker in markers.Values)
-            {
-                if (marker.Id is not { } id || marker.X is not { } x || marker.Y is not { } y)
-                {
-                    continue;
-                }
-
-                var offers = (marker.VendingMachineItems ?? [])
-                    .Select(i => new VendingOfferSnapshot(
-                        i.Id,
-                        i.IsItemBlueprint,
-                        Math.Max(1, i.StackSize),
-                        i.CurrencyId,
-                        i.IsCurrencyBlueprint,
-                        i.CostPerStack,
-                        i.StackSizeAmount))
-                    .ToList();
-                machines.Add(new VendingMachineSnapshot(id, x, y, marker.Name, marker.IsOutOfStock, offers));
-            }
-
-            return machines;
-        }
-
         public async Task<MapDimensions?> GetMapDimensionsAsync(
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -806,6 +774,38 @@ internal sealed partial class RustPlusSocketSource(
             {
                 LogDisposeFailed(_logger, ex);
             }
+        }
+
+        /// <summary>Maps the raw vending-machine marker bucket to snapshots, skipping markers with no id/position.</summary>
+        /// <param name="markers">The raw vending-machine markers keyed by id.</param>
+        /// <returns>One <see cref="VendingMachineSnapshot"/> per marker with a known id, X and Y.</returns>
+        // Quantity is a divisor in every unit-price comparison, so a malformed 0 from the server is
+        // clamped to 1 here rather than guarded at each of the (many) downstream comparison sites.
+        private static List<VendingMachineSnapshot> MapVendingMachines(
+            IReadOnlyDictionary<ulong, RustPlusApi.Data.Markers.VendingMachineMarker> markers)
+        {
+            var machines = new List<VendingMachineSnapshot>();
+            foreach (var marker in markers.Values)
+            {
+                if (marker.Id is not { } id || marker.X is not { } x || marker.Y is not { } y)
+                {
+                    continue;
+                }
+
+                var offers = (marker.VendingMachineItems ?? [])
+                    .Select(i => new VendingOfferSnapshot(
+                        i.Id,
+                        i.IsItemBlueprint,
+                        Math.Max(1, i.StackSize),
+                        i.CurrencyId,
+                        i.IsCurrencyBlueprint,
+                        i.CostPerStack,
+                        i.StackSizeAmount))
+                    .ToList();
+                machines.Add(new VendingMachineSnapshot(id, x, y, marker.Name, marker.IsOutOfStock, offers));
+            }
+
+            return machines;
         }
 
         private void OnSmartDeviceTriggered(object? sender, RustPlusApi.Data.Events.SmartDeviceEventArg e) =>

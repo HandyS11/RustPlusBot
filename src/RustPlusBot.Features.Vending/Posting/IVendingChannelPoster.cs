@@ -10,7 +10,10 @@ internal interface IVendingChannelPoster
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The (possibly new) message id, or null on failure.</returns>
     Task<ulong?> EnsureAsync(
-        ulong channelId, ulong? messageId, global::Discord.Embed embed, CancellationToken cancellationToken);
+        ulong channelId,
+        ulong? messageId,
+        global::Discord.Embed embed,
+        CancellationToken cancellationToken);
 
     /// <summary>Deletes a message in the given channel (missing message/channel tolerated).</summary>
     /// <param name="channelId">The #vending channel id.</param>

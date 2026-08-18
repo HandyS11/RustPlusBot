@@ -21,13 +21,37 @@ internal sealed class VendingIndex : IVendingReadModel
 {
     private readonly ConcurrentDictionary<(ulong Guild, Guid Server), ServerVendingState> _states = new();
 
+    /// <inheritdoc />
+    public bool HasData(ulong guildId, Guid serverId) => _states.ContainsKey((guildId, serverId));
+
+    /// <inheritdoc />
+    public IReadOnlyList<VendingOffer> Search(
+        ulong guildId,
+        Guid serverId,
+        int itemId,
+        MapGridStyle gridStyle)
+    {
+        if (!TryGet(guildId, serverId, out var state))
+        {
+            return [];
+        }
+
+        var matches = state.Machines
+            .SelectMany(m => GridOwnership.ToOffers(m, state.WorldSize, gridStyle))
+            .Where(o => o.Key.ItemId == itemId);
+        return VendingSearch.Order(matches);
+    }
+
     /// <summary>Replaces a server's state with the latest poll.</summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The target server id.</param>
     /// <param name="worldSize">The world size in game units.</param>
     /// <param name="machines">Every machine observed in this poll.</param>
     public void Replace(
-        ulong guildId, Guid serverId, uint worldSize, IReadOnlyList<VendingMachineSnapshot> machines) =>
+        ulong guildId,
+        Guid serverId,
+        uint worldSize,
+        IReadOnlyList<VendingMachineSnapshot> machines) =>
         _states[(guildId, serverId)] = new ServerVendingState(worldSize, machines);
 
     /// <summary>Drops a server's state, e.g. on disconnect.</summary>
@@ -42,22 +66,4 @@ internal sealed class VendingIndex : IVendingReadModel
     /// <returns>True when the server has observed state.</returns>
     public bool TryGet(ulong guildId, Guid serverId, [MaybeNullWhen(false)] out ServerVendingState state) =>
         _states.TryGetValue((guildId, serverId), out state);
-
-    /// <inheritdoc />
-    public bool HasData(ulong guildId, Guid serverId) => _states.ContainsKey((guildId, serverId));
-
-    /// <inheritdoc />
-    public IReadOnlyList<VendingOffer> Search(
-        ulong guildId, Guid serverId, int itemId, MapGridStyle gridStyle)
-    {
-        if (!TryGet(guildId, serverId, out var state))
-        {
-            return [];
-        }
-
-        var matches = state.Machines
-            .SelectMany(m => GridOwnership.ToOffers(m, state.WorldSize, gridStyle))
-            .Where(o => o.Key.ItemId == itemId);
-        return VendingSearch.Order(matches);
-    }
 }

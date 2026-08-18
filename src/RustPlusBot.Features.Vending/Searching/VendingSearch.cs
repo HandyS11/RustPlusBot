@@ -13,7 +13,7 @@ internal static class VendingSearch
         ArgumentNullException.ThrowIfNull(offers);
         return
         [
-            ..offers
+            .. offers
                 .OrderByDescending(o => o.InStock)
                 .ThenBy(o => o, UnitPriceComparer.Instance)
                 .ThenBy(o => o.Grid, StringComparer.Ordinal)
@@ -29,7 +29,7 @@ internal static class VendingSearch
         ArgumentNullException.ThrowIfNull(offers);
         return offers.Count <= limit
             ? (offers, 0)
-            : ([..offers.Take(limit)], offers.Count - limit);
+            : ([.. offers.Take(limit)], offers.Count - limit);
     }
 
     private sealed class UnitPriceComparer : IComparer<VendingOffer>

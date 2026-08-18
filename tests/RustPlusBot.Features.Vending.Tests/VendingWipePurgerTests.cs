@@ -26,9 +26,7 @@ public sealed class VendingWipePurgerTests
 
     private static VendingStockNotification StockNotification(ulong messageId) => new()
     {
-        GuildId = 10UL,
-        MachineId = 1UL,
-        MessageId = messageId,
+        GuildId = 10UL, MachineId = 1UL, MessageId = messageId,
     };
 
     [Fact]
@@ -71,8 +69,11 @@ public sealed class VendingWipePurgerTests
     private sealed class Harness
     {
         private Harness(
-            VendingWipePurger purger, IVendingStore store, IVendingChannelLocator locator,
-            IVendingChannelPoster poster, Guid serverId)
+            VendingWipePurger purger,
+            IVendingStore store,
+            IVendingChannelLocator locator,
+            IVendingChannelPoster poster,
+            Guid serverId)
         {
             Purger = purger;
             Store = store;

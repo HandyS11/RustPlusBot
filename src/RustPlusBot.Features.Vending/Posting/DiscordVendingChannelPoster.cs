@@ -16,7 +16,10 @@ internal sealed partial class DiscordVendingChannelPoster(
 {
     /// <inheritdoc />
     public Task<ulong?> EnsureAsync(
-        ulong channelId, ulong? messageId, Embed embed, CancellationToken cancellationToken)
+        ulong channelId,
+        ulong? messageId,
+        Embed embed,
+        CancellationToken cancellationToken)
         => messenger.EnsureAsync(
             channelId, messageId, embed, new ComponentBuilder().Build(), logger, cancellationToken);
 

@@ -49,14 +49,17 @@ internal static class GridOwnership
     {
         ArgumentNullException.ThrowIfNull(machine);
         var grid = GridOf(machine, worldSize, style);
-        return [.. machine.Offers
-            .Select(o => new VendingOffer(
-                machine.Id,
-                machine.Name,
-                grid,
-                new ListingKey(o.ItemId, o.ItemIsBlueprint, o.CurrencyId, o.CurrencyIsBlueprint),
-                o.Quantity,
-                o.CostPerOrder,
-                o.AmountInStock))];
+        return
+        [
+            .. machine.Offers
+                .Select(o => new VendingOffer(
+                    machine.Id,
+                    machine.Name,
+                    grid,
+                    new ListingKey(o.ItemId, o.ItemIsBlueprint, o.CurrencyId, o.CurrencyIsBlueprint),
+                    o.Quantity,
+                    o.CostPerOrder,
+                    o.AmountInStock))
+        ];
     }
 }
