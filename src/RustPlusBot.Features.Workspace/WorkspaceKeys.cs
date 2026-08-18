@@ -41,6 +41,9 @@ internal static class WorkspaceChannelKeys
 
     /// <summary>Per-server storage-monitors channel key.</summary>
     public const string ServerStorageMonitors = "storagemonitors";
+
+    /// <summary>Key for the per-server #vending channel (undercut and sell-out notifications).</summary>
+    public const string ServerVending = "vending";
 }
 
 /// <summary>Stable message keys persisted as <c>ProvisionedMessage.MessageKey</c>.</summary>

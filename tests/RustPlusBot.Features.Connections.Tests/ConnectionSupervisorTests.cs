@@ -507,6 +507,64 @@ public sealed class ConnectionSupervisorTests
     }
 
     [Fact]
+    public async Task PollMarkers_PublishesObservedVendingMachines()
+    {
+        // Contract: every marker poll publishes the server's complete vending-machine set — Rust
+        // re-sends the whole bucket each poll, so this fires unconditionally (no change detection).
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var captured = new System.Collections.Concurrent.ConcurrentQueue<VendingMachinesObservedEvent>();
+        var subTask = Task.Run(async () =>
+        {
+            await foreach (var e in h.Bus.SubscribeAsync<VendingMachinesObservedEvent>(cts.Token))
+            {
+                captured.Enqueue(e);
+            }
+        }, CancellationToken.None);
+
+        // Pre-stage before EnsureConnectionAsync so the vending set is in place before the poll loop
+        // starts — eliminates any setup race, matching the marker/monument staging convention.
+        source.SetVendingMachines([
+            new VendingMachineSnapshot(42UL, 100f, 200f, "Bob's Shop", false, [
+                new VendingOfferSnapshot(69511070, false, 1, -932201673, false, 12, 5)
+            ])
+        ]);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        // Wait for the definite signal: the vending event arriving proves the poll ran.
+        await WaitUntilAsync(() => !captured.IsEmpty, cts.Token);
+
+        Assert.True(captured.TryPeek(out var observed));
+        Assert.NotNull(observed);
+        Assert.Equal(10UL, observed.GuildId);
+        Assert.Equal(serverId, observed.ServerId);
+
+        // FakeConnection default DimensionsResult is new(4000u, 4000u, 500, 4000u); assert WorldSize
+        // threads through from dimensions to the published event.
+        Assert.Equal(4000u, observed.WorldSize);
+        var machine = Assert.Single(observed.Machines);
+        Assert.Equal(42UL, machine.Id);
+        Assert.Equal("Bob's Shop", machine.Name);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try
+        {
+            await subTask;
+        }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    [Fact]
     public async Task Marker_position_change_publishes_moved_bucket()
     {
         // Contract: a marker present in consecutive polls whose position changed lands in Moved

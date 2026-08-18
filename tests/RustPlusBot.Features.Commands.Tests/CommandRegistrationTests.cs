@@ -4,6 +4,7 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Discord;
 using RustPlusBot.Features.Commands.Dispatching;
 using RustPlusBot.Features.Commands.Hosting;
@@ -36,6 +37,8 @@ public sealed class CommandRegistrationTests
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IMapSettingsStore>(_ => Substitute.For<IMapSettingsStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
+        services.AddSingleton<IVendingReadModel>(_ => Substitute.For<IVendingReadModel>());
+        services.AddScoped<IVendingTrackService>(_ => Substitute.For<IVendingTrackService>());
         services.AddOptions<CommandOptions>();
         services.AddItemData();
         services.AddCommands();
@@ -52,7 +55,7 @@ public sealed class CommandRegistrationTests
         using var scope = provider.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<CommandDispatcher>());
         var handlers = scope.ServiceProvider.GetServices<ICommandHandler>().ToList();
-        Assert.Equal(28, handlers.Count);
+        Assert.Equal(32, handlers.Count);
         Assert.Contains(handlers, h => h.Name == "mute");
         Assert.Contains(handlers, h => h.Name == "pop");
         Assert.Contains(handlers, h => h.Name == "time");
@@ -93,6 +96,8 @@ public sealed class CommandRegistrationTests
         services.AddScoped<IWorkspaceStore>(_ => Substitute.For<IWorkspaceStore>());
         services.AddScoped<IMapSettingsStore>(_ => Substitute.For<IMapSettingsStore>());
         services.AddScoped<IServerService>(_ => Substitute.For<IServerService>());
+        services.AddSingleton<IVendingReadModel>(_ => Substitute.For<IVendingReadModel>());
+        services.AddScoped<IVendingTrackService>(_ => Substitute.For<IVendingTrackService>());
         services.AddOptions<CommandOptions>();
         services.AddItemData();
         services.AddCommands();

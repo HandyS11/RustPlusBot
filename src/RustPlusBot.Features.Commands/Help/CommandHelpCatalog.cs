@@ -34,6 +34,10 @@ internal static class CommandHelpCatalog
         new("durability", CommandGroup.ItemDb, "help.durability"),
         new("smelt", CommandGroup.ItemDb, "help.smelt"),
         new("cctv", CommandGroup.ItemDb, "help.cctv"),
+        new("vending", CommandGroup.Vending, "help.vending"),
+        new("vtrack", CommandGroup.Vending, "help.vtrack"),
+        new("vuntrack", CommandGroup.Vending, "help.vuntrack"),
+        new("vtracked", CommandGroup.Vending, "help.vtracked"),
     ];
 
     /// <summary>The Discord slash commands, in display order.</summary>
@@ -52,5 +56,9 @@ internal static class CommandHelpCatalog
         new("durability", CommandGroup.ItemDb, "help.slash.durability"),
         new("smelt", CommandGroup.ItemDb, "help.slash.smelt"),
         new("cctv", CommandGroup.ItemDb, "help.slash.cctv"),
+        new("vending", CommandGroup.Vending, "help.slash.vending"),
+        new("vending-track", CommandGroup.Vending, "help.slash.vending.track"),
+        new("vending-untrack", CommandGroup.Vending, "help.slash.vending.untrack"),
+        new("vending-tracked", CommandGroup.Vending, "help.slash.vending.tracked"),
     ];
 }

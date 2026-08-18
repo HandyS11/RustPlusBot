@@ -28,6 +28,8 @@ internal sealed class ServerWorkspaceSpecProvider : IChannelSpecProvider, IMessa
             ChannelPermissionProfile.Interactive, 8),
         new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerStorageMonitors, "channel.storagemonitors.name",
             ChannelPermissionProfile.Interactive, 9),
+        new(WorkspaceScope.PerServer, WorkspaceChannelKeys.ServerVending, "channel.vending.name",
+            ChannelPermissionProfile.ReadOnly, 10),
     ];
 
     /// <inheritdoc />

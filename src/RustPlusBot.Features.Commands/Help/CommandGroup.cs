@@ -17,4 +17,7 @@ internal enum CommandGroup
 
     /// <summary>Item-database commands (item/recycle/craft/research).</summary>
     ItemDb = 4,
+
+    /// <summary>Vending-machine commands (vending/vtrack/vuntrack/vtracked).</summary>
+    Vending = 5,
 }

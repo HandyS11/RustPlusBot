@@ -15,6 +15,7 @@ internal sealed class HelpEmbedRenderer(ILocalizer localizer)
         (CommandGroup.TeamIntel, "help.group.teamintel"),
         (CommandGroup.Bot, "help.group.bot"),
         (CommandGroup.ItemDb, "help.group.itemdb"),
+        (CommandGroup.Vending, "help.group.vending"),
     ];
 
     /// <summary>Renders the help embed.</summary>
@@ -46,11 +47,21 @@ internal sealed class HelpEmbedRenderer(ILocalizer localizer)
             }
         }
 
-        var slashLines = CommandHelpCatalog.Slash
-            .Select(e => string.Create(CultureInfo.InvariantCulture,
-                $"`/{e.Name}` — {localizer.Get(e.DescriptionKey, culture)}"))
-            .ToList();
-        embed.AddField(localizer.Get("help.group.slash", culture), string.Join('\n', slashLines));
+        var slashHeadingPrefix = localizer.Get("help.group.slash", culture);
+        foreach (var (group, headingKey) in GroupOrder)
+        {
+            var lines = CommandHelpCatalog.Slash
+                .Where(e => e.Group == group)
+                .Select(e => string.Create(CultureInfo.InvariantCulture,
+                    $"`/{e.Name}` — {localizer.Get(e.DescriptionKey, culture)}"))
+                .ToList();
+            if (lines.Count > 0)
+            {
+                var heading = string.Create(CultureInfo.InvariantCulture,
+                    $"{slashHeadingPrefix} · {localizer.Get(headingKey, culture)}");
+                embed.AddField(heading, string.Join('\n', lines));
+            }
+        }
 
         return embed.Build();
     }

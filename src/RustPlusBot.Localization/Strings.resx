@@ -120,6 +120,9 @@
   <data name="channel.teamchat.name" xml:space="preserve">
     <value>teamchat</value>
   </data>
+  <data name="channel.vending.name" xml:space="preserve">
+    <value>vending</value>
+  </data>
   <data name="clan.event.color" xml:space="preserve">
     <value>The clan changed its color</value>
   </data>
@@ -498,6 +501,51 @@
   <data name="command.upkeep.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.vending.instock" xml:space="preserve">
+    <value>{0} left</value>
+  </data>
+  <data name="command.vending.none" xml:space="preserve">
+    <value>No vending machine is selling {0}.</value>
+  </data>
+  <data name="command.vending.offer" xml:space="preserve">
+    <value>{0} {1} for {2} ({3})</value>
+  </data>
+  <data name="command.vending.ok" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="command.vending.soldout" xml:space="preserve">
+    <value>out</value>
+  </data>
+  <data name="command.vending.usage" xml:space="preserve">
+    <value>Usage: !vending &lt;item&gt;</value>
+  </data>
+  <data name="command.vtrack.badgrid" xml:space="preserve">
+    <value>{0} is not a grid on this map.</value>
+  </data>
+  <data name="command.vtrack.ok" xml:space="preserve">
+    <value>Tracking {0}: {1} machines, {2} listings.</value>
+  </data>
+  <data name="command.vtrack.usage" xml:space="preserve">
+    <value>Usage: !vtrack &lt;grid&gt;</value>
+  </data>
+  <data name="command.vtracked.none" xml:space="preserve">
+    <value>Nothing is tracked. Use !vtrack &lt;grid&gt;.</value>
+  </data>
+  <data name="command.vtracked.listing" xml:space="preserve">
+    <value>{0} {1} for {2} {3}</value>
+  </data>
+  <data name="command.vtracked.ok" xml:space="preserve">
+    <value>Tracking: {0}</value>
+  </data>
+  <data name="command.vuntrack.notracked" xml:space="preserve">
+    <value>{0} was not tracked.</value>
+  </data>
+  <data name="command.vuntrack.ok" xml:space="preserve">
+    <value>No longer tracking {0}.</value>
+  </data>
+  <data name="command.vuntrack.usage" xml:space="preserve">
+    <value>Usage: !vuntrack &lt;grid&gt;</value>
+  </data>
   <data name="direction.e" xml:space="preserve">
     <value>east</value>
   </data>
@@ -654,6 +702,9 @@
   <data name="help.group.teamintel" xml:space="preserve">
     <value>Team</value>
   </data>
+  <data name="help.group.vending" xml:space="preserve">
+    <value>Vending</value>
+  </data>
   <data name="help.decay" xml:space="preserve">
     <value>Decay time for an item</value>
   </data>
@@ -732,6 +783,18 @@
   <data name="help.slash.uptime" xml:space="preserve">
     <value>Show the bot's uptime.</value>
   </data>
+  <data name="help.slash.vending" xml:space="preserve">
+    <value>Find vending machines selling an item.</value>
+  </data>
+  <data name="help.slash.vending.track" xml:space="preserve">
+    <value>Track a listing you sell and get alerted when undercut.</value>
+  </data>
+  <data name="help.slash.vending.tracked" xml:space="preserve">
+    <value>Show everything this team tracks.</value>
+  </data>
+  <data name="help.slash.vending.untrack" xml:space="preserve">
+    <value>Stop tracking a grid cell or a manually tracked listing.</value>
+  </data>
   <data name="help.steamid" xml:space="preserve">
     <value>Show teammates' Steam IDs.</value>
   </data>
@@ -752,6 +815,18 @@
   </data>
   <data name="help.uptime" xml:space="preserve">
     <value>Show how long the bot has been running.</value>
+  </data>
+  <data name="help.vending" xml:space="preserve">
+    <value>Find vending machines selling an item</value>
+  </data>
+  <data name="help.vtrack" xml:space="preserve">
+    <value>Track a grid cell — every machine inside counts as yours</value>
+  </data>
+  <data name="help.vtracked" xml:space="preserve">
+    <value>List tracked grid cells and listings</value>
+  </data>
+  <data name="help.vuntrack" xml:space="preserve">
+    <value>Stop tracking a grid cell</value>
   </data>
   <data name="help.wipe" xml:space="preserve">
     <value>Show how long ago the server wiped.</value>
@@ -1175,6 +1250,72 @@
   </data>
   <data name="uptime.ok" xml:space="preserve">
     <value>Bot uptime: {0}</value>
+  </data>
+  <data name="vending.undercut.title" xml:space="preserve">
+    <value>Undercut: {0}</value>
+  </data>
+  <data name="vending.undercut.yours" xml:space="preserve">
+    <value>Your price: {0} for {1}</value>
+  </data>
+  <data name="vending.undercut.rival" xml:space="preserve">
+    <value>{0} — {1} for {2} ({3} left)</value>
+  </data>
+  <data name="vending.stock.title" xml:space="preserve">
+    <value>Sold out: {0}</value>
+  </data>
+  <data name="vending.stock.empty" xml:space="preserve">
+    <value>The whole shop is empty.</value>
+  </data>
+  <data name="vending.stock.item" xml:space="preserve">
+    <value>{0} — sold out</value>
+  </data>
+  <data name="vending.search.title" xml:space="preserve">
+    <value>Selling: {0}</value>
+  </data>
+  <data name="vending.search.row" xml:space="preserve">
+    <value>{0} — {1} for {2} ({3})</value>
+  </data>
+  <data name="vending.search.instock" xml:space="preserve">
+    <value>{0} left</value>
+  </data>
+  <data name="vending.search.soldout" xml:space="preserve">
+    <value>out of stock</value>
+  </data>
+  <data name="vending.search.more" xml:space="preserve">
+    <value>+{0} more</value>
+  </data>
+  <data name="vending.search.none" xml:space="preserve">
+    <value>No vending machine is selling {0}.</value>
+  </data>
+  <data name="vending.track.ok" xml:space="preserve">
+    <value>Now tracking: {0} x {1} for {2} {3}.</value>
+  </data>
+  <data name="vending.track.badprice" xml:space="preserve">
+    <value>Price and quantity must each be at least 1.</value>
+  </data>
+  <data name="vending.untrack.ok" xml:space="preserve">
+    <value>No longer tracking {0}.</value>
+  </data>
+  <data name="vending.untrack.notfound" xml:space="preserve">
+    <value>{0} was not tracked.</value>
+  </data>
+  <data name="vending.tracked.title" xml:space="preserve">
+    <value>Tracked listings</value>
+  </data>
+  <data name="vending.tracked.grids" xml:space="preserve">
+    <value>Grids</value>
+  </data>
+  <data name="vending.tracked.listings" xml:space="preserve">
+    <value>Listings</value>
+  </data>
+  <data name="vending.tracked.none" xml:space="preserve">
+    <value>Nothing is tracked yet.</value>
+  </data>
+  <data name="vending.tracked.omitted" xml:space="preserve">
+    <value>+{0} omitted to fit Discord's field size limit</value>
+  </data>
+  <data name="vending.listing.blueprint" xml:space="preserve">
+    <value>Blueprint: {0}</value>
   </data>
   <data name="wipe.title" xml:space="preserve">
     <value>🧹 Server wiped</value>

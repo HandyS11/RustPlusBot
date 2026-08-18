@@ -120,6 +120,9 @@
   <data name="channel.teamchat.name" xml:space="preserve">
     <value>tchat-equipe</value>
   </data>
+  <data name="channel.vending.name" xml:space="preserve">
+    <value>distributeurs</value>
+  </data>
   <data name="clan.event.color" xml:space="preserve">
     <value>Le clan a changé de couleur</value>
   </data>
@@ -498,6 +501,51 @@
   <data name="command.upkeep.ok" xml:space="preserve">
     <value>{0}</value>
   </data>
+  <data name="command.vending.instock" xml:space="preserve">
+    <value>{0} restants</value>
+  </data>
+  <data name="command.vending.none" xml:space="preserve">
+    <value>Aucun distributeur ne vend {0}.</value>
+  </data>
+  <data name="command.vending.offer" xml:space="preserve">
+    <value>{0} {1} pour {2} ({3})</value>
+  </data>
+  <data name="command.vending.ok" xml:space="preserve">
+    <value>{0} : {1}</value>
+  </data>
+  <data name="command.vending.soldout" xml:space="preserve">
+    <value>épuisé</value>
+  </data>
+  <data name="command.vending.usage" xml:space="preserve">
+    <value>Utilisation : !vending &lt;objet&gt;</value>
+  </data>
+  <data name="command.vtrack.badgrid" xml:space="preserve">
+    <value>{0} n'est pas une grille sur cette carte.</value>
+  </data>
+  <data name="command.vtrack.ok" xml:space="preserve">
+    <value>Suivi de {0} : {1} machines, {2} offres.</value>
+  </data>
+  <data name="command.vtrack.usage" xml:space="preserve">
+    <value>Utilisation : !vtrack &lt;grille&gt;</value>
+  </data>
+  <data name="command.vtracked.none" xml:space="preserve">
+    <value>Rien n'est suivi. Utilisez !vtrack &lt;grille&gt;.</value>
+  </data>
+  <data name="command.vtracked.listing" xml:space="preserve">
+    <value>{0} {1} pour {2} {3}</value>
+  </data>
+  <data name="command.vtracked.ok" xml:space="preserve">
+    <value>Suivi : {0}</value>
+  </data>
+  <data name="command.vuntrack.notracked" xml:space="preserve">
+    <value>{0} n'était pas suivi.</value>
+  </data>
+  <data name="command.vuntrack.ok" xml:space="preserve">
+    <value>{0} n'est plus suivi.</value>
+  </data>
+  <data name="command.vuntrack.usage" xml:space="preserve">
+    <value>Utilisation : !vuntrack &lt;grille&gt;</value>
+  </data>
   <data name="direction.e" xml:space="preserve">
     <value>l'est</value>
   </data>
@@ -654,6 +702,9 @@
   <data name="help.group.teamintel" xml:space="preserve">
     <value>Équipe</value>
   </data>
+  <data name="help.group.vending" xml:space="preserve">
+    <value>Distributeurs</value>
+  </data>
   <data name="help.decay" xml:space="preserve">
     <value>Temps de dégradation d'un objet</value>
   </data>
@@ -732,6 +783,18 @@
   <data name="help.slash.uptime" xml:space="preserve">
     <value>Afficher la disponibilité du bot.</value>
   </data>
+  <data name="help.slash.vending" xml:space="preserve">
+    <value>Rechercher les distributeurs vendant un objet.</value>
+  </data>
+  <data name="help.slash.vending.track" xml:space="preserve">
+    <value>Suivre une annonce que vous vendez et être alerté en cas de sous-enchère.</value>
+  </data>
+  <data name="help.slash.vending.tracked" xml:space="preserve">
+    <value>Afficher tout ce que l'équipe suit.</value>
+  </data>
+  <data name="help.slash.vending.untrack" xml:space="preserve">
+    <value>Arrêter de suivre une case de la grille ou une annonce suivie manuellement.</value>
+  </data>
   <data name="help.steamid" xml:space="preserve">
     <value>Afficher les identifiants Steam des coéquipiers.</value>
   </data>
@@ -752,6 +815,18 @@
   </data>
   <data name="help.uptime" xml:space="preserve">
     <value>Afficher depuis combien de temps le bot fonctionne.</value>
+  </data>
+  <data name="help.vending" xml:space="preserve">
+    <value>Rechercher les distributeurs vendant un objet</value>
+  </data>
+  <data name="help.vtrack" xml:space="preserve">
+    <value>Suivre une case de la grille — toute machine à l'intérieur compte comme la vôtre</value>
+  </data>
+  <data name="help.vtracked" xml:space="preserve">
+    <value>Lister les cases et annonces suivies</value>
+  </data>
+  <data name="help.vuntrack" xml:space="preserve">
+    <value>Arrêter de suivre une case de la grille</value>
   </data>
   <data name="help.wipe" xml:space="preserve">
     <value>Afficher depuis combien de temps le serveur a été wipe.</value>
@@ -1175,6 +1250,72 @@
   </data>
   <data name="uptime.ok" xml:space="preserve">
     <value>Disponibilité du bot : {0}</value>
+  </data>
+  <data name="vending.undercut.title" xml:space="preserve">
+    <value>Prix cassé : {0}</value>
+  </data>
+  <data name="vending.undercut.yours" xml:space="preserve">
+    <value>Votre prix : {0} pour {1}</value>
+  </data>
+  <data name="vending.undercut.rival" xml:space="preserve">
+    <value>{0} — {1} pour {2} ({3} restants)</value>
+  </data>
+  <data name="vending.stock.title" xml:space="preserve">
+    <value>Épuisé : {0}</value>
+  </data>
+  <data name="vending.stock.empty" xml:space="preserve">
+    <value>La boutique est entièrement vide.</value>
+  </data>
+  <data name="vending.stock.item" xml:space="preserve">
+    <value>{0} — épuisé</value>
+  </data>
+  <data name="vending.search.title" xml:space="preserve">
+    <value>En vente : {0}</value>
+  </data>
+  <data name="vending.search.row" xml:space="preserve">
+    <value>{0} — {1} pour {2} ({3})</value>
+  </data>
+  <data name="vending.search.instock" xml:space="preserve">
+    <value>{0} restants</value>
+  </data>
+  <data name="vending.search.soldout" xml:space="preserve">
+    <value>épuisé</value>
+  </data>
+  <data name="vending.search.more" xml:space="preserve">
+    <value>+{0} de plus</value>
+  </data>
+  <data name="vending.search.none" xml:space="preserve">
+    <value>Aucun distributeur ne vend {0}.</value>
+  </data>
+  <data name="vending.track.ok" xml:space="preserve">
+    <value>Suivi activé : {0} x {1} pour {2} {3}.</value>
+  </data>
+  <data name="vending.track.badprice" xml:space="preserve">
+    <value>Le prix et la quantité doivent être d'au moins 1.</value>
+  </data>
+  <data name="vending.untrack.ok" xml:space="preserve">
+    <value>{0} n'est plus suivi.</value>
+  </data>
+  <data name="vending.untrack.notfound" xml:space="preserve">
+    <value>{0} n'était pas suivi.</value>
+  </data>
+  <data name="vending.tracked.title" xml:space="preserve">
+    <value>Suivis enregistrés</value>
+  </data>
+  <data name="vending.tracked.grids" xml:space="preserve">
+    <value>Grilles</value>
+  </data>
+  <data name="vending.tracked.listings" xml:space="preserve">
+    <value>Annonces</value>
+  </data>
+  <data name="vending.tracked.none" xml:space="preserve">
+    <value>Rien n'est suivi pour le moment.</value>
+  </data>
+  <data name="vending.tracked.omitted" xml:space="preserve">
+    <value>+{0} omis pour respecter la limite de taille des champs Discord</value>
+  </data>
+  <data name="vending.listing.blueprint" xml:space="preserve">
+    <value>Plan : {0}</value>
   </data>
   <data name="wipe.title" xml:space="preserve">
     <value>🧹 Serveur wipé</value>

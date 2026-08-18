@@ -11,6 +11,7 @@ using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.StorageMonitors;
 using RustPlusBot.Persistence.Switches;
+using RustPlusBot.Persistence.Vending;
 using RustPlusBot.Persistence.Wipes;
 using RustPlusBot.Persistence.Workspace;
 
@@ -49,6 +50,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IMapSettingsStore, MapSettingsStore>();
         services.AddScoped<IWipeBaselineStore, WipeBaselineStore>();
         services.AddScoped<IClanStore, ClanStore>();
+        services.AddScoped<IVendingStore, VendingStore>();
 
         return services;
     }

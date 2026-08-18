@@ -761,7 +761,18 @@ internal sealed partial class ConnectionSupervisor(
             var anyCh47 = false;
             try
             {
-                var current = await connection.GetMapMarkersAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+                var snapshot = await connection.GetMapMarkersAsync(_options.HeartbeatTimeout, ct)
+                    .ConfigureAwait(false);
+                var current = snapshot.Markers;
+
+                // Published every poll, not only on change: the index is a wholesale replacement and the
+                // evaluators are pure, so change detection lives downstream where it is unit-testable.
+                await eventBus.PublishAsync(
+                        new VendingMachinesObservedEvent(
+                            key.Guild, key.Server, localDims?.WorldSize ?? 0u, snapshot.VendingMachines),
+                        ct)
+                    .ConfigureAwait(false);
+
                 anyCh47 = current.Any(m => m.Kind == MarkerKind.Chinook);
 
                 if (previous is null)

@@ -35,5 +35,6 @@
     <ProjectReference Include="..\RustPlusBot.Features.Wipes\RustPlusBot.Features.Wipes.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Map\RustPlusBot.Features.Map.csproj" />
     <ProjectReference Include="..\RustPlusBot.Features.Players\RustPlusBot.Features.Players.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Features.Vending\RustPlusBot.Features.Vending.csproj" />
   </ItemGroup>
 </Project>

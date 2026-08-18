@@ -31,6 +31,7 @@ Once paired, each Rust server gets its own Discord category — every channel be
 | `#player-events` | Team presence: joins, disconnects, deaths, respawns, and AFK transitions. Read-only. The same lines are still broadcast to in-game team chat. |
 | `#map` | Rendered live map with toggleable layers |
 | `#switches` / `#alarms` / `#storagemonitors` | One embed per paired smart device |
+| `#vending` | Undercut and sell-out alerts for tracked vending listings |
 
 Plus a guild-global `RustPlusBot` category with `#information`, `#setup`, and `#settings`.
 
@@ -80,6 +81,13 @@ Plus a guild-global `RustPlusBot` category with `#information`, `#setup`, and `#
 - **Name-or-id lookup** — type a name (case-insensitive, partial), an exact name, or a numeric id; multiple matches return a short "did you mean" list.
 - **Provenance-aware** — each result footers the date its data was sourced, and a maintainer [generator tool](tools/RustPlusBot.ItemData.Generator) regenerates the bundle from upstream (with strict validation) so it never silently rots.
 
+### Vending machines
+
+- **Search** — find every vending machine selling an item, in-stock listings first, then cheapest per-item price, via `!vending`/`/vending`.
+- **Track & alert** — `!vtrack`/`/vending-track` binds a grid cell (every machine inside counts as yours, including a neighbour's if they build in the same cell) or registers a manual listing; the bot then posts to `#vending` whenever a rival matches or undercuts your price, and edits/deletes that message as prices and stock change.
+- **Same-currency, per-item comparison** — undercut checks only compare listings selling in the same currency (scrap is never compared against cloth), and compare price **per item**, not per order: "2 for 10 scrap" undercuts "1 for 6 scrap".
+- `!vuntrack` / `/vending-untrack` and `!vtracked` / `/vending-tracked` manage and list what a team currently tracks.
+
 ### Foundation
 
 - Multi-guild, self-hosted, per-guild isolation everywhere; SQLite persistence; credentials protected at rest; fail-fast token validation on startup.
@@ -96,6 +104,7 @@ Run in team chat by any teammate; replies in the guild's language with a configu
 | Team | `!online` · `!offline` · `!team` · `!alive` · `!afk` · `!steamid [name]` · `!prox [name]` |
 | Live events | `!cargo` · `!heli` · `!chinook` · `!small` · `!large` · `!events` |
 | Items | `!item` · `!recycle` · `!craft` · `!research` · `!decay` · `!upkeep` · `!durability` · `!smelt` · `!cctv` |
+| Vending | `!vending` · `!vtrack` · `!vuntrack` · `!vtracked` |
 | Bot | `!uptime` |
 | Control | `!mute` / `!unmute` (gate all bot→game output) |
 
@@ -106,6 +115,7 @@ Live server data (population, in-game time, wipe, team, oil rigs) is no longer a
 | Group | Commands |
 | --- | --- |
 | Items (ephemeral) | `/item` · `/recycle` · `/craft` · `/research` · `/decay` · `/upkeep` · `/durability` · `/smelt` · `/cctv` |
+| Vending (ephemeral) | `/vending` · `/vending-track` · `/vending-untrack` · `/vending-tracked` |
 | Utility | `/help` · `/uptime` · `/ping` · `/status` |
 | Manage Server | `/leader` (transfer in-game team leadership) · `/server player` (hot-swap the active paired account) |
 | Admin | `/setup` · `/workspace repair` · `/workspace rebuild` · `/workspace purge` · `/workspace reset` · `/workspace simulate-server` · `/admin reset-database` |

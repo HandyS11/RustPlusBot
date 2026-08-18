@@ -15,7 +15,7 @@ namespace RustPlusBot.Persistence.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
 
             modelBuilder.Entity("Persistord.Core.Entities.ChannelEntity", b =>
                 {
@@ -627,6 +627,167 @@ namespace RustPlusBot.Persistence.Migrations
                     b.ToTable("SmartSwitches");
                 });
 
+            modelBuilder.Entity("RustPlusBot.Domain.Vending.VendingGridTrack", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Grid")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("RegisteredBySteamId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("GuildId", "ServerId", "Grid")
+                        .IsUnique();
+
+                    b.ToTable("VendingGridTracks");
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Vending.VendingListingTrack", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CostPerOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CurrencyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CurrencyIsBlueprint")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ItemIsBlueprint")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("RegisteredByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("GuildId", "ServerId", "ItemId", "ItemIsBlueprint", "CurrencyId", "CurrencyIsBlueprint")
+                        .IsUnique();
+
+                    b.ToTable("VendingListingTracks");
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Vending.VendingNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CurrencyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CurrencyIsBlueprint")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ItemIsBlueprint")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("MessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("PostedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReferenceCostPerOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ReferenceQuantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("GuildId", "ServerId", "ItemId", "ItemIsBlueprint", "CurrencyId", "CurrencyIsBlueprint")
+                        .IsUnique();
+
+                    b.ToTable("VendingNotifications");
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Vending.VendingStockNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("MachineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("MessageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("PostedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ServerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SoldOutSignature")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServerId");
+
+                    b.HasIndex("GuildId", "ServerId", "MachineId")
+                        .IsUnique();
+
+                    b.ToTable("VendingStockNotifications");
+                });
+
             modelBuilder.Entity("RustPlusBot.Domain.Workspace.ProvisionedCategory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -808,6 +969,42 @@ namespace RustPlusBot.Persistence.Migrations
                 });
 
             modelBuilder.Entity("RustPlusBot.Domain.Switches.SmartSwitch", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Vending.VendingGridTrack", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Vending.VendingListingTrack", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Vending.VendingNotification", b =>
+                {
+                    b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
+                        .WithMany()
+                        .HasForeignKey("ServerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RustPlusBot.Domain.Vending.VendingStockNotification", b =>
                 {
                     b.HasOne("RustPlusBot.Domain.Servers.RustServer", null)
                         .WithMany()

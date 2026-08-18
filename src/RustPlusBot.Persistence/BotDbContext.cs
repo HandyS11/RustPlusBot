@@ -12,6 +12,7 @@ using RustPlusBot.Domain.Map;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.StorageMonitors;
 using RustPlusBot.Domain.Switches;
+using RustPlusBot.Domain.Vending;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Persistence.Configurations;
 
@@ -75,6 +76,18 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Cached Steam id to display-name mappings for clan members.</summary>
     public DbSet<ClanPlayerName> ClanPlayerNames => Set<ClanPlayerName>();
 
+    /// <summary>Registered vending grid cells.</summary>
+    public DbSet<VendingGridTrack> VendingGridTracks => Set<VendingGridTrack>();
+
+    /// <summary>Manually registered vending listings.</summary>
+    public DbSet<VendingListingTrack> VendingListingTracks => Set<VendingListingTrack>();
+
+    /// <summary>Live undercut notifications.</summary>
+    public DbSet<VendingNotification> VendingNotifications => Set<VendingNotification>();
+
+    /// <summary>Live sell-out notifications.</summary>
+    public DbSet<VendingStockNotification> VendingStockNotifications => Set<VendingStockNotification>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -98,6 +111,10 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new ProvisionedChannelConfiguration())
             .ApplyConfiguration(new ProvisionedMessageConfiguration())
             .ApplyConfiguration(new ClanStateConfiguration())
-            .ApplyConfiguration(new ClanPlayerNameConfiguration());
+            .ApplyConfiguration(new ClanPlayerNameConfiguration())
+            .ApplyConfiguration(new VendingGridTrackConfiguration())
+            .ApplyConfiguration(new VendingListingTrackConfiguration())
+            .ApplyConfiguration(new VendingNotificationConfiguration())
+            .ApplyConfiguration(new VendingStockNotificationConfiguration());
     }
 }
