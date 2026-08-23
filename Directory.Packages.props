@@ -44,8 +44,8 @@
     <!-- Analyzers -->
     <PackageVersion Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.400" />
     <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" />
-    <PackageVersion Include="Roslynator.Analyzers" Version="4.16.1" />
-    <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.16.1" />
-    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.32.0.713" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="5.0.0" />
+    <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="5.0.0" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.33.0.1635" />
   </ItemGroup>
 </Project>
