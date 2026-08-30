@@ -11,14 +11,27 @@ namespace RustPlusBot.Features.Workspace.Teardown;
 internal sealed class WorkspaceTeardownService(
     IWorkspaceGateway gateway,
     IWorkspaceStore store,
-    IProvisioningLock provisioningLock) : IWorkspaceTeardownService, IServerWorkspaceRemover
+    IProvisioningLock provisioningLock) : IWorkspaceTeardownService
 {
     /// <inheritdoc />
     public async Task RemoveServerAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default)
     {
         using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
-        await DeleteScopeAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+        await RemoveServerCoreAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Deletes one server's provisioned resources and records WITHOUT taking the provisioning lock.
+    /// The caller MUST already hold the guild's <see cref="IProvisioningLock"/> — <see cref="ServerPurgeService"/>
+    /// uses this so it can hold the lock across the row delete too. External callers use
+    /// <see cref="RemoveServerAsync"/>.
+    /// </summary>
+    /// <param name="guildId">The guild.</param>
+    /// <param name="serverId">The server to remove.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task.</returns>
+    internal Task RemoveServerCoreAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default) =>
+        DeleteScopeAsync(guildId, serverId, cancellationToken);
 
     /// <inheritdoc />
     public async Task ResetGuildAsync(ulong guildId, CancellationToken cancellationToken = default)

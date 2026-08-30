@@ -2,21 +2,19 @@ using NSubstitute;
 using RustPlusBot.Features.Connections.Removal;
 using RustPlusBot.Features.Connections.Supervisor;
 using RustPlusBot.Features.Workspace.Teardown;
-using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Connections.Tests;
 
 public sealed class ServerRemovalServiceTests
 {
     [Fact]
-    public async Task RemoveServer_Stops_Deletes_TearsDown_InOrder()
+    public async Task RemoveServer_StopsTheSocket_BeforeTheRowDeleteAndTeardown()
     {
         var serverId = Guid.NewGuid();
         var supervisor = Substitute.For<IConnectionSupervisor>();
-        var servers = Substitute.For<IServerService>();
-        servers.RemoveAsync(10UL, serverId, Arg.Any<CancellationToken>()).Returns(true);
         var workspace = Substitute.For<IServerWorkspaceRemover>();
-        var sut = new ServerRemovalService(supervisor, servers, workspace);
+        workspace.RemoveServerAsync(10UL, serverId, Arg.Any<CancellationToken>()).Returns(true);
+        var sut = new ServerRemovalService(supervisor, workspace);
 
         var removed = await sut.RemoveServerAsync(10UL, serverId);
 
@@ -25,7 +23,6 @@ public sealed class ServerRemovalServiceTests
         Received.InOrder(() =>
         {
             supervisor.StopAsync(10UL, serverId);
-            servers.RemoveAsync(10UL, serverId, Arg.Any<CancellationToken>());
             workspace.RemoveServerAsync(10UL, serverId, Arg.Any<CancellationToken>());
         });
 #pragma warning restore VSTHRD110
@@ -36,10 +33,9 @@ public sealed class ServerRemovalServiceTests
     {
         var serverId = Guid.NewGuid();
         var supervisor = Substitute.For<IConnectionSupervisor>();
-        var servers = Substitute.For<IServerService>();
-        servers.RemoveAsync(10UL, serverId, Arg.Any<CancellationToken>()).Returns(false);
         var workspace = Substitute.For<IServerWorkspaceRemover>();
-        var sut = new ServerRemovalService(supervisor, servers, workspace);
+        workspace.RemoveServerAsync(10UL, serverId, Arg.Any<CancellationToken>()).Returns(false);
+        var sut = new ServerRemovalService(supervisor, workspace);
 
         var removed = await sut.RemoveServerAsync(10UL, serverId);
 
