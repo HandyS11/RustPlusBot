@@ -115,6 +115,12 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
             Message = "Exception while dispatching pairing notification; it is swallowed to keep the listener alive.")]
         private static partial void LogNotificationDispatchFailed(ILogger logger, Exception ex);
 
+        [LoggerMessage(Level = LogLevel.Information,
+            Message =
+                "Received {Kind} pairing notification from Rust+ (server '{ServerName}' at {Ip}:{Port}, facepunch id {FacepunchServerId}, entity {EntityId}).")]
+        private static partial void LogNotificationReceived(ILogger logger, PairingKind kind, string serverName,
+            string ip, int port, Guid facepunchServerId, ulong entityId);
+
         private void OnServerPairing(object? sender, Notification<ServerEvent?> e)
         {
             if (e?.Data is null)
@@ -190,6 +196,12 @@ internal sealed partial class RustPlusFcmPairingSource(ILogger<RustPlusFcmPairin
 
         private void Dispatch(PairingNotification notification)
         {
+            // Log on arrival, not just on failure: a pairing that never arrives and one that arrives and is
+            // handled cleanly are otherwise indistinguishable in the log, which makes "I pressed pair and
+            // nothing happened" undiagnosable. PlayerToken is deliberately not logged — it is a secret.
+            LogNotificationReceived(_logger, notification.Kind, notification.ServerName, notification.Ip,
+                notification.Port, notification.FacepunchServerId, notification.EntityId);
+
             // Fire-and-forget bridge from synchronous event to async callback.
             // Exception must never propagate back into the package's event dispatcher.
 #pragma warning disable CA2008 // Task.Run without TaskScheduler: acceptable here; default is ThreadPool.
