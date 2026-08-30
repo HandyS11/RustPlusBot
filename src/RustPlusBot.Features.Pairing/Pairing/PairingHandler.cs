@@ -110,8 +110,12 @@ internal sealed partial class PairingHandler(
         LogUnroutedEntityKind(ILogger logger, RustPlusBot.Domain.Entities.PairedEntityKind kind);
 
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "Pairing detected a new server '{ServerName}' ({Ip}:{Port}) in guild {GuildId}; prompting in #setup.")]
-    private static partial void LogNewServerDetected(ILogger logger, string serverName, string ip, int port,
+        Message =
+            "Pairing detected a new server '{ServerName}' ({Ip}:{Port}) in guild {GuildId}; prompting in #setup.")]
+    private static partial void LogNewServerDetected(ILogger logger,
+        string serverName,
+        string ip,
+        int port,
         ulong guildId);
 
     [LoggerMessage(Level = LogLevel.Information,

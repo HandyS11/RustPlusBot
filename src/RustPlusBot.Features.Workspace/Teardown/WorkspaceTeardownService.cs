@@ -20,6 +20,13 @@ internal sealed class WorkspaceTeardownService(
         await RemoveServerCoreAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async Task ResetGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
+        await ResetGuildCoreAsync(guildId, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Deletes one server's provisioned resources and records WITHOUT taking the provisioning lock.
     /// The caller MUST already hold the guild's <see cref="IProvisioningLock"/> — <see cref="ServerPurgeService"/>
@@ -32,13 +39,6 @@ internal sealed class WorkspaceTeardownService(
     /// <returns>A task.</returns>
     internal Task RemoveServerCoreAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken = default) =>
         DeleteScopeAsync(guildId, serverId, cancellationToken);
-
-    /// <inheritdoc />
-    public async Task ResetGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
-    {
-        using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
-        await ResetGuildCoreAsync(guildId, cancellationToken).ConfigureAwait(false);
-    }
 
     /// <summary>
     /// Deletes the guild's provisioned resources and records WITHOUT taking the provisioning lock.
