@@ -1,8 +1,13 @@
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using NSubstitute;
+using RustPlusBot.Abstractions.Time;
+using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Teardown;
+using RustPlusBot.Persistence;
 using RustPlusBot.Persistence.Servers;
 using RustPlusBot.Persistence.Workspace;
 
@@ -67,7 +72,7 @@ public sealed class ServerPurgeServiceTests
     }
 
     [Fact]
-    public async Task PurgeServer_DeletesTheRow_ThenTearsDownTheScope()
+    public async Task PurgeServer_TearsDownTheScope_BeforeDeletingTheRow()
     {
         var (sut, servers, store, _) = NewHarness();
         var serverId = Guid.NewGuid();
@@ -79,10 +84,61 @@ public sealed class ServerPurgeServiceTests
 #pragma warning disable VSTHRD110 // Received.InOrder requires unawaited calls inside its synchronous ordering lambda.
         Received.InOrder(() =>
         {
-            servers.RemoveAsync(GuildId, serverId, Arg.Any<CancellationToken>());
             store.DeleteScopeAsync(GuildId, serverId, Arg.Any<CancellationToken>());
+            servers.RemoveAsync(GuildId, serverId, Arg.Any<CancellationToken>());
         });
 #pragma warning restore VSTHRD110
+    }
+
+    /// <summary>
+    /// Over a real database, not a substituted store: ProvisionedCategories/Channels/Messages all declare
+    /// ON DELETE CASCADE against RustServers, so deleting the server row first silently takes the
+    /// provisioning records with it and teardown then has no channel ids left to delete — the Discord
+    /// channels survive as orphans. Teardown must read those records while they still exist.
+    /// </summary>
+    [Fact]
+    public async Task PurgeServer_DeletesTheDiscordChannels_EvenThoughTheRecordsCascadeWithTheRow()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+        await using var _ = connection;
+        var options = new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connection).Options;
+        await using var context = new BotDbContext(options);
+        await context.Database.MigrateAsync();
+
+        var server = new RustServer
+        {
+            GuildId = GuildId, Name = "srv", Ip = "1.2.3.4", Port = 28082
+        };
+        context.RustServers.Add(server);
+        context.ProvisionedCategories.Add(new ProvisionedCategory
+        {
+            GuildId = GuildId, RustServerId = server.Id, DiscordCategoryId = 900
+        });
+        context.ProvisionedChannels.Add(new ProvisionedChannel
+        {
+            GuildId = GuildId, RustServerId = server.Id, ChannelKey = "info", DiscordChannelId = 901
+        });
+        context.ProvisionedChannels.Add(new ProvisionedChannel
+        {
+            GuildId = GuildId, RustServerId = server.Id, ChannelKey = "events", DiscordChannelId = 902
+        });
+        await context.SaveChangesAsync();
+
+        var gateway = Substitute.For<IWorkspaceGateway>();
+        var clock = Substitute.For<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
+        var provisioningLock = new ProvisioningLock();
+        var teardown = new WorkspaceTeardownService(gateway, new WorkspaceStore(context, clock), provisioningLock);
+        var sut = new ServerPurgeService(new ServerService(context), teardown, provisioningLock);
+
+        var removed = await sut.RemoveServerAsync(GuildId, server.Id);
+
+        Assert.True(removed);
+        await gateway.Received(1).DeleteChannelAsync(GuildId, 901UL, Arg.Any<CancellationToken>());
+        await gateway.Received(1).DeleteChannelAsync(GuildId, 902UL, Arg.Any<CancellationToken>());
+        await gateway.Received(1).DeleteCategoryAsync(GuildId, 900UL, Arg.Any<CancellationToken>());
+        Assert.Empty(await context.RustServers.ToListAsync());
     }
 
     [Fact]

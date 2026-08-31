@@ -209,6 +209,16 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
         await context.ProvisionedCategories
             .Where(c => c.GuildId == guildId && c.RustServerId == serverId)
             .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+
+        // ExecuteDeleteAsync bypasses the change tracker. The reads above these deletes (GetChannelsAsync /
+        // GetCategoryAsync) track what they load, so any of these rows read earlier in the same scope would
+        // linger as Unchanged against rows that no longer exist. The next SaveChanges that deletes their
+        // RustServer would then re-issue them as client-side cascade deletes and fail with a concurrency
+        // exception ("expected to affect 1 row(s), but actually affected 0"). Detach them so the tracker
+        // matches the database.
+        DetachScope<ProvisionedMessage>(e => e.GuildId == guildId && e.RustServerId == serverId);
+        DetachScope<ProvisionedChannel>(e => e.GuildId == guildId && e.RustServerId == serverId);
+        DetachScope<ProvisionedCategory>(e => e.GuildId == guildId && e.RustServerId == serverId);
     }
 
     /// <inheritdoc />
@@ -236,4 +246,13 @@ public sealed class WorkspaceStore(BotDbContext context, IClock clock) : IWorksp
             .Where(c => c.ChannelKey == channelKey)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+
+    private void DetachScope<TEntity>(Func<TEntity, bool> matches)
+        where TEntity : class
+    {
+        foreach (var entry in context.ChangeTracker.Entries<TEntity>().Where(e => matches(e.Entity)).ToList())
+        {
+            entry.State = EntityState.Detached;
+        }
+    }
 }

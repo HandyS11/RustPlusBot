@@ -20,13 +20,16 @@ internal sealed class ServerPurgeService(
     {
         // Hold the per-guild provisioning lock across BOTH steps. A reconcile that is already in flight took
         // its "does this server exist?" decision before the row went away; if the lock were free between the
-        // delete and the teardown it would finish re-creating the category and channels that teardown has
-        // just removed (and fault on the FK when it writes its ProvisionedMessages row), leaving orphaned
-        // Discord resources behind. Use the lock-free teardown core since we already hold the lock —
-        // RemoveServerAsync would deadlock re-acquiring it.
+        // two it would finish re-creating the category and channels that teardown has just removed (and fault
+        // on the FK when it writes its ProvisionedMessages row), leaving orphaned Discord resources behind.
+        // Use the lock-free teardown core since we already hold the lock — RemoveServerAsync would deadlock
+        // re-acquiring it.
         using var handle = await provisioningLock.AcquireAsync(guildId, cancellationToken).ConfigureAwait(false);
-        var removed = await servers.RemoveAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+
+        // Teardown FIRST. ProvisionedCategories/Channels/Messages all declare ON DELETE CASCADE against
+        // RustServers, so deleting the row first would silently take the provisioning records with it and
+        // leave teardown with no Discord ids to delete — the channels would survive as orphans.
         await teardown.RemoveServerCoreAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-        return removed;
+        return await servers.RemoveAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
     }
 }
