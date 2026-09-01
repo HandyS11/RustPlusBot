@@ -25,6 +25,32 @@
 
 A missing or empty `Discord:Token` makes the host fail fast at startup with a clear `OptionsValidationException`.
 
+## Running detached
+
+To keep the bot alive after closing the terminal, run it from the repository root:
+
+```bash
+setsid nohup dotnet run --project src/RustPlusBot.Host > bot.log 2>&1 < /dev/null &
+```
+
+`dotnet run` reads `launchSettings.json`, so the environment stays `Development` and the
+`Discord:Token` user-secret is picked up as usual. Output goes to `bot.log` (gitignored).
+
+Follow the log:
+
+```bash
+tail -f bot.log
+```
+
+Stop it:
+
+```bash
+pkill -f 'RustPlusBot.Host'
+```
+
+That kills both the `dotnet run` wrapper and the host process it launched. Check nothing is left with
+`pgrep -af RustPlusBot.Host` (no output means it is stopped).
+
 ## Discord application setup (team chat bridge)
 
 The team chat bridge reads messages typed in each server's `#teamchat` channel, which requires a

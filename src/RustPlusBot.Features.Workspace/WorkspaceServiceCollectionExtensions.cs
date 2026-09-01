@@ -48,14 +48,16 @@ public static class WorkspaceServiceCollectionExtensions
         services.AddScoped<IMessageRenderer, ServerInfoMapMessageRenderer>();
         services.AddScoped<IMessageRenderer, MapControlMessageRenderer>();
 
-        // Reconciler + teardown (scoped). Register the teardown service once and expose both interfaces
-        // off the same scoped instance, so resolving either does not create a second instance.
+        // Reconciler + teardown (scoped). WorkspaceTeardownService is registered once and IWorkspaceTeardownService
+        // resolves off that same scoped instance, so resolving either does not create a second instance. The
+        // purge services take it as a concrete dependency to reach its lock-free cores while they hold the
+        // provisioning lock themselves.
         services.AddScoped<WorkspaceBackends>();
         services.AddScoped<IWorkspaceReconciler, WorkspaceReconciler>();
         services.AddScoped<IServerInfoRefresher, ServerInfoRefresher>();
         services.AddScoped<WorkspaceTeardownService>();
         services.AddScoped<IWorkspaceTeardownService>(sp => sp.GetRequiredService<WorkspaceTeardownService>());
-        services.AddScoped<IServerWorkspaceRemover>(sp => sp.GetRequiredService<WorkspaceTeardownService>());
+        services.AddScoped<IServerWorkspaceRemover, ServerPurgeService>();
         services.AddScoped<IGuildPurgeService, GuildPurgeService>();
 
         // Options (Host binds the "Workspace" section; default = danger commands off).

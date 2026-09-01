@@ -431,3 +431,6 @@ temp/
 
 .agents/
 .claude/
+
+# Rotated detached-run logs (*.log above only matches the un-rotated bot.log)
+*.log.*

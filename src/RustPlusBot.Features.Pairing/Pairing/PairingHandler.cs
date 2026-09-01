@@ -39,10 +39,13 @@ internal sealed partial class PairingHandler(
         if (existing is null)
         {
             // New server: nothing is persisted until the user accepts the #setup prompt.
+            LogNewServerDetected(logger, notification.ServerName, notification.Ip, notification.Port, guildId);
             await serverPairings.HandleDetectedAsync(guildId, ownerUserId, notification, cancellationToken)
                 .ConfigureAwait(false);
             return;
         }
+
+        LogKnownServerCredentialUpsert(logger, existing.Id, notification.Ip, notification.Port);
 
         // Only backfill a real Facepunch GUID. Persisting Guid.Empty would make every server that paired
         // without one share the same id, breaking GUID-based entity-pairing attribution.
@@ -98,11 +101,24 @@ internal sealed partial class PairingHandler(
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Debug,
+    [LoggerMessage(Level = LogLevel.Information,
         Message = "Dropping entity pairing for unknown Facepunch server {FacepunchServerId} (no matching server).")]
     private static partial void LogUnknownEntityServer(ILogger logger, Guid facepunchServerId);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Dropping entity pairing of unrouted kind {Kind}.")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Dropping entity pairing of unrouted kind {Kind}.")]
     private static partial void
         LogUnroutedEntityKind(ILogger logger, RustPlusBot.Domain.Entities.PairedEntityKind kind);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message =
+            "Pairing detected a new server '{ServerName}' ({Ip}:{Port}) in guild {GuildId}; prompting in #setup.")]
+    private static partial void LogNewServerDetected(ILogger logger,
+        string serverName,
+        string ip,
+        int port,
+        ulong guildId);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Pairing matched known server {ServerId} ({Ip}:{Port}); upserting its credential.")]
+    private static partial void LogKnownServerCredentialUpsert(ILogger logger, Guid serverId, string ip, int port);
 }

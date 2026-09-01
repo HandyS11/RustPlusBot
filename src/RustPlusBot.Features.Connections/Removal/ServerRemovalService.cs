@@ -1,17 +1,16 @@
 using RustPlusBot.Features.Connections.Supervisor;
 using RustPlusBot.Features.Workspace.Teardown;
-using RustPlusBot.Persistence.Servers;
 
 namespace RustPlusBot.Features.Connections.Removal;
 
 /// <summary>Default <see cref="IServerRemovalService"/>. Order matters: stop the socket before deleting the row,
-/// so no late status write re-inserts a connection-state row against a deleted server (FK violation).</summary>
+/// so no late status write re-inserts a connection-state row against a deleted server (FK violation). The row
+/// delete and the Discord teardown are then done together under the guild's provisioning lock, so an in-flight
+/// reconcile cannot re-provision the scope between them.</summary>
 /// <param name="supervisor">Stops the live socket.</param>
-/// <param name="servers">Deletes the RustServer (cascades credentials + connection state).</param>
-/// <param name="workspace">Tears down the server's Discord category/channels/records.</param>
+/// <param name="workspace">Deletes the RustServer row and tears down its Discord category/channels/records.</param>
 internal sealed class ServerRemovalService(
     IConnectionSupervisor supervisor,
-    IServerService servers,
     IServerWorkspaceRemover workspace) : IServerRemovalService
 {
     /// <inheritdoc />
@@ -20,8 +19,6 @@ internal sealed class ServerRemovalService(
         CancellationToken cancellationToken = default)
     {
         await supervisor.StopAsync(guildId, serverId).ConfigureAwait(false);
-        var removed = await servers.RemoveAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-        await workspace.RemoveServerAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-        return removed;
+        return await workspace.RemoveServerAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
     }
 }
