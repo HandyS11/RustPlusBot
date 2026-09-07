@@ -46,7 +46,7 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <param name="message">The message text to send.</param>
     /// <param name="timeout">How long to wait for the send to be acknowledged.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A task that completes when the send has been issued.</returns>
+    /// <returns>A task that completes when the server has acknowledged the send, not when it was written to the socket.</returns>
     /// <remarks>
     /// Unlike the probe methods, this surfaces send failures to the caller (the supervisor maps them to a
     /// failed send result). <paramref name="timeout"/> is mandatory for the same reason it is on every other
@@ -65,7 +65,7 @@ internal interface IRustServerConnection : IAsyncDisposable
     /// <param name="message">The message text to send.</param>
     /// <param name="timeout">How long to wait for the send to be acknowledged.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>A task that completes when the send has been issued.</returns>
+    /// <returns>A task that completes when the server has acknowledged the send, not when it was written to the socket.</returns>
     /// <remarks>Like <see cref="SendTeamMessageAsync"/>, this surfaces failures to the caller and is bounded by <paramref name="timeout"/>.</remarks>
     Task SendClanMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken);
 
