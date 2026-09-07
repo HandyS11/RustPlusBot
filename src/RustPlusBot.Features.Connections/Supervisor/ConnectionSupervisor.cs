@@ -102,15 +102,25 @@ internal sealed partial class ConnectionSupervisor(
             return ChatSendResult.NotConnected;
         }
 
+        // Bound the send here, not only inside the socket wrapper: the relay loops for #events,
+        // #playerevents and alarms await this call inline, so an unbounded send parks the whole loop
+        // forever and its feature dies silently. .WaitAsync enforces the ceiling whatever the
+        // IRustServerConnection implementation does with the timeout it is handed.
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(_options.HeartbeatTimeout);
         try
         {
             switch (kind)
             {
                 case ChatChannelKind.Team:
-                    await live.Connection.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    await live.Connection
+                        .SendTeamMessageAsync(message, _options.HeartbeatTimeout, timeoutCts.Token)
+                        .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
                     break;
                 case ChatChannelKind.Clan:
-                    await live.Connection.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
+                    await live.Connection
+                        .SendClanMessageAsync(message, _options.HeartbeatTimeout, timeoutCts.Token)
+                        .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
                     break;
                 default:
                     return ChatSendResult.Failed;
@@ -118,9 +128,9 @@ internal sealed partial class ConnectionSupervisor(
 
             return ChatSendResult.Sent;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            throw;
+            throw; // A real shutdown: let the caller unwind.
         }
 #pragma warning disable CA1031 // Broad catch: a failed relay send must not crash the caller; report Failed.
         catch (Exception ex)
@@ -287,8 +297,26 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        return await live.Connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, cancellationToken)
+        // Serve from the connected window's resolved dimensions. On the Rust+ socket this call is
+        // GetMap, which downloads the entire map JPEG to read width/height — and the callers (#map
+        // compose, the team panel renderer) re-render several times a minute, so fetching per read
+        // moved hundreds of MB an hour. Dimensions are fixed for a wipe; the window is torn down and
+        // re-resolved on reconnect, which is exactly when they can change.
+        if (live.Dimensions.Value is { } cached)
+        {
+            return cached;
+        }
+
+        // Not resolved yet (a read that beat the marker poll's first fetch): fetch once and publish it
+        // to the window so the next reader is served from memory.
+        var fetched = await live.Connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, cancellationToken)
             .ConfigureAwait(false);
+        if (fetched is not null)
+        {
+            live.Dimensions.Value = fetched;
+        }
+
+        return fetched;
     }
 
     /// <inheritdoc />
@@ -625,7 +653,7 @@ internal sealed partial class ConnectionSupervisor(
         connection.ClanMessageReceived += OnClanMessage;
         connection.ClanChanged += OnClanChanged;
         connection.TeamChanged += OnTeamChanged;
-        _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker);
+        _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker, dims);
         await PrimeDevicesAsync(key, connection, ct).ConfigureAwait(false);
 
         // Probe once on connect so clan state is correct after a bot restart, not only after the
@@ -1680,7 +1708,11 @@ internal sealed partial class ConnectionSupervisor(
         ulong SteamId,
         string PlayerToken);
 
-    private sealed record LiveSocket(IRustServerConnection Connection, ulong ActiveSteamId, TeamStateTracker Tracker);
+    private sealed record LiveSocket(
+        IRustServerConnection Connection,
+        ulong ActiveSteamId,
+        TeamStateTracker Tracker,
+        DimensionsHolder Dimensions);
 
     /// <summary>Mutable, thread-visible holder for the per-connected-window map dimensions. The marker poll
     /// resolves these once off the critical path; the team push handler and team poll read them (possibly

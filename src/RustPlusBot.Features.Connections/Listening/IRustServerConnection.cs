@@ -44,10 +44,16 @@ internal interface IRustServerConnection : IAsyncDisposable
 
     /// <summary>Sends a message to in-game team chat.</summary>
     /// <param name="message">The message text to send.</param>
+    /// <param name="timeout">How long to wait for the send to be acknowledged.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the send has been issued.</returns>
-    /// <remarks>Unlike the probe methods, this surfaces send failures to the caller (the supervisor maps them to a failed send result).</remarks>
-    Task SendTeamMessageAsync(string message, CancellationToken cancellationToken);
+    /// <remarks>
+    /// Unlike the probe methods, this surfaces send failures to the caller (the supervisor maps them to a
+    /// failed send result). <paramref name="timeout"/> is mandatory for the same reason it is on every other
+    /// call here: a Rust+ request whose response the server never delivers otherwise parks the caller
+    /// forever, and the callers are the relay loops that drive #events, #playerevents and alarms.
+    /// </remarks>
+    Task SendTeamMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken);
 
     /// <summary>Probes the authenticated player's clan, distinguishing "no clan" from "could not ask".</summary>
     /// <param name="timeout">How long to wait for the response.</param>
@@ -57,10 +63,11 @@ internal interface IRustServerConnection : IAsyncDisposable
 
     /// <summary>Sends a message to in-game clan chat.</summary>
     /// <param name="message">The message text to send.</param>
+    /// <param name="timeout">How long to wait for the send to be acknowledged.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>A task that completes when the send has been issued.</returns>
-    /// <remarks>Like <see cref="SendTeamMessageAsync"/>, this surfaces failures to the caller.</remarks>
-    Task SendClanMessageAsync(string message, CancellationToken cancellationToken);
+    /// <remarks>Like <see cref="SendTeamMessageAsync"/>, this surfaces failures to the caller and is bounded by <paramref name="timeout"/>.</remarks>
+    Task SendClanMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken);
 
     /// <summary>Sets the clan message of the day; returns true on success.</summary>
     /// <param name="motd">The new message of the day.</param>
