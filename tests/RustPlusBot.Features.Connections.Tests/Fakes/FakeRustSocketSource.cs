@@ -28,8 +28,8 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
     private HeartbeatResult _lastHeartbeat = HeartbeatResult.Ok(0);
     private ClanProbeResult? _pendingClanProbe;
+    private bool _pendingMapTimeout;
     private IReadOnlyList<MonumentSnapshot> _pendingMonuments = [];
-    private bool _pendingMonumentsTimeout;
     private IReadOnlyList<VendingMachineSnapshot> _pendingVendingMachines = [];
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
@@ -67,10 +67,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         connection.MonumentsResult = _pendingMonuments;
         _pendingMonuments = [];
 
-        // Transfer any pre-staged monuments timeout so the marker poll's rig fetch throws for the NEXT
-        // connection only (mimicking a real per-request timeout, which surfaces as OperationCanceledException).
-        connection.MonumentsTimeout = _pendingMonumentsTimeout;
-        _pendingMonumentsTimeout = false;
+        // Transfer any pre-staged map timeout so the marker poll's rig fetch throws for the NEXT connection
+        // only (mimicking a real per-request timeout, which surfaces as OperationCanceledException).
+        connection.MapTimeout = _pendingMapTimeout;
+        _pendingMapTimeout = false;
 
         // Transfer any pre-staged vending machines so they are available before the supervisor's marker
         // poll reads them. Reset after transfer so the staging applies to the NEXT connection only.
@@ -139,12 +139,12 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     public void SetMonuments(IReadOnlyList<MonumentSnapshot> monuments) => _pendingMonuments = monuments;
 
     /// <summary>
-    /// Makes the NEXT connection's <see cref="FakeConnection.GetMonumentsAsync"/> throw
+    /// Makes the NEXT connection's <see cref="FakeConnection.GetServerMapAsync"/> throw
     /// <see cref="OperationCanceledException"/>, simulating a per-request timeout (the outer connection
     /// token is NOT cancelled). The supervisor issues this fetch from its background marker poll, not the
     /// connect path. Applies to the next connection only. Call before <see cref="EnsureConnectionAsync"/>.
     /// </summary>
-    public void TimeoutOnMonumentsOnce() => _pendingMonumentsTimeout = true;
+    public void TimeoutOnMapOnce() => _pendingMapTimeout = true;
 
     /// <summary>
     /// Pre-stages the vending-machine set returned as the vending half of every <see cref="MapMarkersSnapshot"/>
@@ -215,8 +215,8 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         : IRustServerConnection
     {
         private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _markerScript = new();
-        private int _dimensionsCallCount;
         private IReadOnlyList<MapMarkerSnapshot> _lastMarkers = [];
+        private int _mapFetchCount;
         private bool _markerScriptStarted;
 
         /// <summary>Gets the messages sent via <see cref="SendTeamMessageAsync"/>.</summary>
@@ -290,29 +290,32 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// </summary>
         public IReadOnlyList<VendingMachineSnapshot> VendingResult { get; set; } = [];
 
-        /// <summary>The dimensions returned by <see cref="GetMapDimensionsAsync"/>. Defaults to a non-null snapshot.</summary>
-        public MapDimensions? DimensionsResult { get; set; } = new(4000u, 4000u, 500, 4000u);
+        /// <summary>The geometry half of <see cref="GetServerMapAsync"/>. Defaults to a non-null snapshot.</summary>
+        public MapGeometry? GeometryResult { get; set; } = new(4000u, 4000u, 500);
 
-        /// <summary>Number of times <see cref="GetMapDimensionsAsync"/> has been called. Each call is a full
-        /// map download on the real socket, so the query seam must serve repeat reads from cache.</summary>
-        public int DimensionsCallCount => Volatile.Read(ref _dimensionsCallCount);
+        /// <summary>Number of GetMap round trips this connection has issued. Dimensions, monuments and the
+        /// map image are all served by the one Rust+ GetMap endpoint, which answers with the whole map JPEG
+        /// (~683 KB), so every one of those calls costs a full map download on the real socket. Tests assert
+        /// on this to pin how much a connected window actually pulls off the wire.</summary>
+        public int MapFetchCount => Volatile.Read(ref _mapFetchCount);
 
-        /// <summary>The snapshot returned by <see cref="GetWorldAsync"/>. Defaults to null.</summary>
-        public WorldSnapshot? World { get; set; }
+        /// <summary>The snapshot returned by <see cref="GetWorldAsync"/>, which also completes the map
+        /// dimensions with the world size. Defaults to a snapshot matching <see cref="GeometryResult"/>.</summary>
+        public WorldSnapshot? World { get; set; } = new(4000u, 0u);
 
-        /// <summary>The monuments returned by <see cref="GetMonumentsAsync"/>. Defaults to empty.</summary>
+        /// <summary>The monuments half of <see cref="GetServerMapAsync"/>. Defaults to empty.</summary>
         public IReadOnlyList<MonumentSnapshot> MonumentsResult { get; set; } = [];
 
-        /// <summary>When true, <see cref="GetMonumentsAsync"/> throws <see cref="OperationCanceledException"/>
-        /// (a per-request timeout) instead of returning <see cref="MonumentsResult"/>.</summary>
-        public bool MonumentsTimeout { get; set; }
+        /// <summary>When true, <see cref="GetServerMapAsync"/> throws <see cref="OperationCanceledException"/>
+        /// (a per-request timeout) instead of answering.</summary>
+        public bool MapTimeout { get; set; }
 
-        /// <summary>When set, <see cref="GetMonumentsAsync"/> throws this instead of returning
-        /// <see cref="MonumentsResult"/> — models the real socket's "GetMap returned no data" throw when
-        /// the Rust+ endpoint answers with an error (rate limit, no map, …).</summary>
-        public Exception? MonumentsFault { get; set; }
+        /// <summary>When set, <see cref="GetServerMapAsync"/> throws this instead of answering — models the
+        /// real socket's "GetMap returned no data" throw when the Rust+ endpoint answers with an error
+        /// (rate limit, no map, …).</summary>
+        public Exception? MapFault { get; set; }
 
-        /// <summary>The bytes returned by <see cref="GetMapImageAsync"/>. Defaults to null.</summary>
+        /// <summary>The image half of <see cref="GetServerMapAsync"/>. Defaults to null.</summary>
         public byte[]? MapImageResult { get; set; }
 
         /// <summary>The probe result this fake returns; defaults to no clan.</summary>
@@ -473,27 +476,18 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
                 new MapMarkersSnapshot(_markerScriptStarted ? _lastMarkers : MarkersResult, VendingResult));
         }
 
-        public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
+        public Task<ServerMapSnapshot> GetServerMapAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            Interlocked.Increment(ref _dimensionsCallCount);
-            return Task.FromResult(DimensionsResult);
+            Interlocked.Increment(ref _mapFetchCount);
+            var fault = MapFault ?? (MapTimeout ? new OperationCanceledException() : null);
+            return fault is null
+                ? Task.FromResult(new ServerMapSnapshot(GeometryResult, MonumentsResult, MapImageResult))
+                : Task.FromException<ServerMapSnapshot>(fault);
         }
 
         public Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
             Task.FromResult(World);
-
-        public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            var fault = MonumentsFault ?? (MonumentsTimeout ? new OperationCanceledException() : null);
-            return fault is null
-                ? Task.FromResult(MonumentsResult)
-                : Task.FromException<IReadOnlyList<MonumentSnapshot>>(fault);
-        }
-
-        public Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
-            Task.FromResult(MapImageResult);
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 

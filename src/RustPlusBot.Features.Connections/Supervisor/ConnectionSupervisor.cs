@@ -282,8 +282,21 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        return await live.Connection.GetMapImageAsync(_options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            return await live.Map.GetImageAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // Broad catch: this seam promises degradation, so a failed fetch is "no image".
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogMapQueryFailed(logger, ex, serverId);
+            return null;
+        }
     }
 
     /// <inheritdoc />
@@ -297,26 +310,24 @@ internal sealed partial class ConnectionSupervisor(
             return null;
         }
 
-        // Serve from the connected window's resolved dimensions. On the Rust+ socket this call is
-        // GetMap, which downloads the entire map JPEG to read width/height — and the callers (#map
-        // compose, the team panel renderer) re-render several times a minute, so fetching per read
-        // moved hundreds of MB an hour. Dimensions are fixed for a wipe; the window is torn down and
-        // re-resolved on reconnect, which is exactly when they can change.
-        if (live.Dimensions.Value is { } cached)
+        try
         {
-            return cached;
+            return await live.Map.GetDimensionsAsync(cancellationToken).ConfigureAwait(false);
         }
-
-        // Not resolved yet (a read that beat the marker poll's first fetch): fetch once and publish it
-        // to the window so the next reader is served from memory.
-        var fetched = await live.Connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
-        if (fetched is not null)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            live.Dimensions.Value = fetched;
+            throw;
         }
-
-        return fetched;
+#pragma warning disable CA1031 // Broad catch: this seam promises degradation, so a failed fetch is "no dimensions".
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // The map fetch throws on a failed GetMap (rate limit, no map, slow endpoint). Callers here are
+            // render paths — the team panel, the #map composer — that must degrade to no grid reference,
+            // never fault: an escaping exception tears down the consuming loop for the rest of the process.
+            LogMapQueryFailed(logger, ex, serverId);
+            return null;
+        }
     }
 
     /// <inheritdoc />
@@ -344,8 +355,7 @@ internal sealed partial class ConnectionSupervisor(
 
         try
         {
-            return await live.Connection.GetMonumentsAsync(_options.HeartbeatTimeout, cancellationToken)
-                .ConfigureAwait(false);
+            return await live.Map.GetMonumentsAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -637,13 +647,13 @@ internal sealed partial class ConnectionSupervisor(
 #pragma warning restore RCS1163
 
         var tracker = new TeamStateTracker();
-        var dims = new DimensionsHolder();
+        var map = new ServerMapWindowCache(connection, _options.HeartbeatTimeout);
 
 #pragma warning disable RCS1163 // Unused 'sender': required by the EventHandler<TeamInfoSnapshot> delegate shape.
         void OnTeamChanged(object? sender, TeamInfoSnapshot snapshot)
         {
             // Fire-and-forget: PublishTeamStateAsync catches everything internally.
-            _ = PublishTeamStateAsync(key, tracker, dims, snapshot);
+            _ = PublishTeamStateAsync(key, tracker, map, snapshot);
         }
 #pragma warning restore RCS1163
 
@@ -653,7 +663,7 @@ internal sealed partial class ConnectionSupervisor(
         connection.ClanMessageReceived += OnClanMessage;
         connection.ClanChanged += OnClanChanged;
         connection.TeamChanged += OnTeamChanged;
-        _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker, dims);
+        _liveSockets[key] = new LiveSocket(connection, activeSteamId, tracker, map);
         await PrimeDevicesAsync(key, connection, ct).ConfigureAwait(false);
 
         // Probe once on connect so clan state is correct after a bot restart, not only after the
@@ -663,11 +673,11 @@ internal sealed partial class ConnectionSupervisor(
         await PublishClanStateAsync(key, clanProbe).ConfigureAwait(false);
 
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, dims, pollCts.Token),
+        var markerPoll = Task.Run(() => PollMarkersAsync(key, connection, map, pollCts.Token),
             CancellationToken.None);
         var reachabilityPoll = Task.Run(() => PollReachabilityAsync(key, connection, pollCts.Token),
             CancellationToken.None);
-        var teamPoll = Task.Run(() => PollTeamAsync(key, connection, tracker, dims, pollCts.Token),
+        var teamPoll = Task.Run(() => PollTeamAsync(key, connection, tracker, map, pollCts.Token),
             CancellationToken.None);
         // Race the heartbeat against a liveness watchdog: the Rust+ library raises no event when the SERVER
         // closes the socket, so without the watchdog a silent drop goes unnoticed until the next heartbeat
@@ -770,17 +780,15 @@ internal sealed partial class ConnectionSupervisor(
     private async Task PollMarkersAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
-        DimensionsHolder dims,
+        ServerMapWindowCache map,
         CancellationToken ct)
     {
-        // Fetch map dimensions and oil-rig positions here, off the critical connect path: these are the two
-        // heavy full-map downloads, and on a degraded map endpoint they can stall for seconds. Doing them in
-        // this background poll means a slow map no longer delays the connection going live (heartbeat + chat
-        // relay start immediately); marker/rig detection simply activates once these resolve. Both degrade
-        // safely on timeout (dims -> null, rigs -> empty) without ending the poll.
-        var localDims = await connection.GetMapDimensionsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-        dims.Value = localDims;
-        var rigs = await GetRigPositionsAsync(key.Server, connection, ct).ConfigureAwait(false);
+        // Resolve the window's map here, off the critical connect path: it is one heavy full-map download,
+        // and on a degraded map endpoint it can stall for seconds. Doing it in this background poll means a
+        // slow map no longer delays the connection going live, because the heartbeat and the chat relay
+        // start immediately, and marker/rig detection activates once it resolves. A timeout degrades safely — no dimensions
+        // and no rigs — without ending the poll.
+        var rigs = await GetRigPositionsAsync(key.Server, map, ct).ConfigureAwait(false);
 
         IReadOnlyList<MapMarkerSnapshot>? previous = null;
         var rigsInRadius = new HashSet<RigKind>();
@@ -789,6 +797,11 @@ internal sealed partial class ConnectionSupervisor(
             var anyCh47 = false;
             try
             {
+                // Read per poll, not once before the loop: the map itself is cached for the window, but the
+                // world size that completes the dimensions comes from GetInfo and can fail transiently. A
+                // single read up front would latch that failure and drop grid references for the whole
+                // connection.
+                var localDims = await map.GetDimensionsAsync(ct).ConfigureAwait(false);
                 var snapshot = await connection.GetMapMarkersAsync(_options.HeartbeatTimeout, ct)
                     .ConfigureAwait(false);
                 var current = snapshot.Markers;
@@ -844,13 +857,13 @@ internal sealed partial class ConnectionSupervisor(
     /// <param name="key">The (guild, server) routing key.</param>
     /// <param name="connection">The live connection to poll.</param>
     /// <param name="tracker">The shared AFK/online tracker whose baseline this poll also primes/diffs.</param>
-    /// <param name="dims">The connected window's dimensions holder, read for the published event.</param>
+    /// <param name="map">The connected window's map cache, peeked for the published event's dimensions.</param>
     /// <param name="ct">Cancels when the connected window ends.</param>
     private async Task PollTeamAsync(
         (ulong Guild, Guid Server) key,
         IRustServerConnection connection,
         TeamStateTracker tracker,
-        DimensionsHolder dims,
+        ServerMapWindowCache map,
         CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -858,7 +871,7 @@ internal sealed partial class ConnectionSupervisor(
             try
             {
                 var team = await connection.GetTeamInfoAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
-                await PublishTeamStateAsync(key, tracker, dims, team).ConfigureAwait(false);
+                await PublishTeamStateAsync(key, tracker, map, team).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -1077,12 +1090,14 @@ internal sealed partial class ConnectionSupervisor(
 
     private async Task<IReadOnlyList<RigPosition>> GetRigPositionsAsync(
         Guid serverId,
-        IRustServerConnection connection,
+        ServerMapWindowCache map,
         CancellationToken ct)
     {
         try
         {
-            var monuments = await connection.GetMonumentsAsync(_options.HeartbeatTimeout, ct).ConfigureAwait(false);
+            // Through the window cache, not the socket: this is the one map fetch of the connected window,
+            // and it also publishes the dimensions and the base-map image every other reader needs.
+            var monuments = await map.GetMonumentsAsync(ct).ConfigureAwait(false);
             var rigs = new List<RigPosition>();
             foreach (var m in monuments)
             {
@@ -1303,7 +1318,7 @@ internal sealed partial class ConnectionSupervisor(
     private async Task PublishTeamStateAsync(
         (ulong Guild, Guid Server) key,
         TeamStateTracker tracker,
-        DimensionsHolder dims,
+        ServerMapWindowCache map,
         TeamInfoSnapshot? snapshot)
     {
         if (_disposed)
@@ -1319,7 +1334,7 @@ internal sealed partial class ConnectionSupervisor(
                 return;
             }
 
-            var evt = new PlayerStateChangedEvent(key.Guild, key.Server, dims.Value, transitions);
+            var evt = new PlayerStateChangedEvent(key.Guild, key.Server, map.DimensionsOrNull, transitions);
             // Supervisor-wide shutdown token, not a per-connection ct: a pushed team change should publish
             // regardless of one connection's reconnect cycle (mirrors the chat/clan handlers).
             await eventBus.PublishAsync(evt, _shutdown.Token).ConfigureAwait(false);
@@ -1651,6 +1666,10 @@ internal sealed partial class ConnectionSupervisor(
         Message = "Querying monuments for server {ServerId} failed; returning no monuments for this call.")]
     private static partial void LogMonumentsQueryFailed(ILogger logger, Exception exception, Guid serverId);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Querying the map for server {ServerId} failed; degrading this call to no result.")]
+    private static partial void LogMapQueryFailed(ILogger logger, Exception exception, Guid serverId);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Relaying a message to team chat for server {ServerId} failed.")]
     private static partial void LogSendFailed(ILogger logger, Exception exception, Guid serverId);
 
@@ -1712,21 +1731,7 @@ internal sealed partial class ConnectionSupervisor(
         IRustServerConnection Connection,
         ulong ActiveSteamId,
         TeamStateTracker Tracker,
-        DimensionsHolder Dimensions);
-
-    /// <summary>Mutable, thread-visible holder for the per-connected-window map dimensions. The marker poll
-    /// resolves these once off the critical path; the team push handler and team poll read them (possibly
-    /// null before resolution — PlayerStateChangedEvent tolerates a null and renders without a grid ref).</summary>
-    private sealed class DimensionsHolder
-    {
-        private volatile MapDimensions? _value;
-
-        public MapDimensions? Value
-        {
-            get => _value;
-            set => _value = value;
-        }
-    }
+        ServerMapWindowCache Map);
 
     private sealed class Handle(CancellationTokenSource cts, Task runTask) : IAsyncDisposable
     {

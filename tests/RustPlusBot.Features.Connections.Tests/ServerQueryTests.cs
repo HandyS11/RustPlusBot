@@ -263,7 +263,9 @@ public sealed class ServerQueryTests
     {
         // The query seam promises degradation ("or an empty list"), but the socket-level call throws on a
         // failed GetMap. Left unguarded, that throw escapes into the map pipeline and kills its event loop.
-        var source = new FakeRustSocketSource();
+        // Staged before connect: the connected window caches the map on its first successful resolve, so a
+        // fault applied afterwards would be served from that cache and this would pass vacuously.
+        var source = FaultingSource();
         var (provider, supervisor) = CreateHarness(source);
         await using var _ = provider;
         var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
@@ -271,13 +273,54 @@ public sealed class ServerQueryTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
         await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
-        source.LastConnection!.MonumentsFault = new InvalidOperationException("GetMap returned no data.");
 
         var result = await supervisor.GetMonumentsAsync(10UL, serverId, cts.Token);
 
         Assert.Empty(result);
         await supervisor.StopAllAsync();
     }
+
+    [Fact]
+    public async Task GetMapImageAsync_returns_null_when_the_endpoint_fails()
+    {
+        // Same guarantee as the monuments seam. The map fetch now throws on a failed GetMap where the old
+        // image wrapper swallowed everything, so this path needs its own guard or the throw escapes into
+        // the base-map source and kills the #map refresh loop.
+        var source = FaultingSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+        var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        Assert.Null(await supervisor.GetMapImageAsync(10UL, serverId, cts.Token));
+        await supervisor.StopAllAsync();
+    }
+
+    [Fact]
+    public async Task GetMapDimensionsAsync_returns_null_when_the_endpoint_fails()
+    {
+        var source = FaultingSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+        var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        Assert.Null(await supervisor.GetMapDimensionsAsync(10UL, serverId, cts.Token));
+        await supervisor.StopAllAsync();
+    }
+
+    /// <summary>A source whose connections fail every map query, from the very first one on connect.</summary>
+    private static FakeRustSocketSource FaultingSource() =>
+        new()
+        {
+            LastConnectionSetup = c => c.MapFault = new InvalidOperationException("GetMap returned no data."),
+        };
 
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
     {

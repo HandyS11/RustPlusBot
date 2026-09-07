@@ -94,19 +94,12 @@ internal sealed partial class RustPlusSocketSource(
             CancellationToken cancellationToken = default) =>
             Task.FromResult(MapMarkersSnapshot.Empty);
 
-        public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
+        public Task<ServerMapSnapshot> GetServerMapAsync(TimeSpan timeout,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<MapDimensions?>(null);
+            Task.FromResult(new ServerMapSnapshot(null, [], null));
 
         public Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
             Task.FromResult<WorldSnapshot?>(null);
-
-        public Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonumentSnapshot>>([]);
-
-        public Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
-            Task.FromResult<byte[]?>(null);
 
         public event EventHandler<TeamChatLine>? TeamMessageReceived
         {
@@ -631,50 +624,46 @@ internal sealed partial class RustPlusSocketSource(
             return new MapMarkersSnapshot(markers, MapVendingMachines(data.VendingMachineMarkers));
         }
 
-        public async Task<MapDimensions?> GetMapDimensionsAsync(
+        public async Task<ServerMapSnapshot> GetServerMapAsync(
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
-            try
+
+            // CONFIRMED (2.0.0-beta.1): GetMapAsync returns Task<Response<RustPlusApi.Data.ServerMap>>.
+            // ServerMap carries Nullable<uint> Width/Height, Nullable<int> OceanMargin, Monuments
+            // (List<ServerMapMonument> with Name = protobuf token, e.g. "oil_rig_small", and Nullable<float>
+            // X/Y) and JpgImage (raw JPEG bytes). One response, one ~683 KB download: read all three here.
+            // The world size that completes MapDimensions lives on GetInfo, which is cheap and fails
+            // independently, so it is resolved separately rather than being able to sink this whole read.
+            var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
+                .ConfigureAwait(false);
+            if (!response.IsSuccess || response.Data is null)
             {
-                // CONFIRMED (2.0.0-beta.1): GetMapAsync returns Task<Response<RustPlusApi.Data.ServerMap>>.
-                // ServerMap has Nullable<uint> Width/Height, Nullable<int> OceanMargin, JpgImage, Monuments.
-                // 2a uses dims only; if any dim is null, treat the whole thing as unavailable (return null).
-                var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
-                    .ConfigureAwait(false);
-                if (!response.IsSuccess || response.Data is null)
+                // Name the reason: the caller only ever sees this message, and "rate_limit" reads very
+                // differently from "no_map".
+                throw new InvalidOperationException(
+                    "GetMap returned no data; error: " + (response.Error?.Code.ToString() ?? "none") +
+                    " (" + (response.Error?.Message ?? "no message") + ").");
+            }
+
+            var map = response.Data;
+            var monuments = new List<MonumentSnapshot>();
+            foreach (var m in map.Monuments ?? [])
+            {
+                if (m.Name is null || m.X is not { } x || m.Y is not { } y)
                 {
-                    return null;
+                    continue;
                 }
 
-                var map = response.Data;
-                if (map.Width is not { } width || map.Height is not { } height || map.OceanMargin is not { } margin)
-                {
-                    return null;
-                }
+                monuments.Add(new MonumentSnapshot(m.Name, x, y));
+            }
 
-                var infoResponse = await _rustPlus.GetInfoAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
-                    .ConfigureAwait(false);
-                if (!infoResponse.IsSuccess || infoResponse.Data?.MapSize is not { } worldSize)
-                {
-                    return null;
-                }
-
-                return new MapDimensions(width, height, margin, worldSize);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
-#pragma warning disable CA1031 // Broad catch: any map-query failure maps to null; never surface a token/secret.
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-#pragma warning restore CA1031
-            {
-                LogQueryFailed(_logger, ex);
-                return null;
-            }
+            var geometry = map.Width is { } width && map.Height is { } height && map.OceanMargin is { } margin
+                ? new MapGeometry(width, height, margin)
+                : null;
+            return new ServerMapSnapshot(geometry, monuments, map.JpgImage);
         }
 
         public async Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
@@ -691,64 +680,6 @@ internal sealed partial class RustPlusSocketSource(
                 }
 
                 return new WorldSnapshot(size, seed);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
-#pragma warning disable CA1031 // Broad catch: any map-query failure maps to null; never surface a token/secret.
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-#pragma warning restore CA1031
-            {
-                LogQueryFailed(_logger, ex);
-                return null;
-            }
-        }
-
-        public async Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(timeout);
-            // CONFIRMED (2.0.0-beta.1): GetMapAsync returns Task<Response<RustPlusApi.Data.ServerMap>>.
-            // ServerMap.Monuments is List<ServerMapMonument> with Name (= protobuf token, e.g. "oil_rig_small"),
-            // Nullable<float> X/Y. We surface (token, x, y) and skip monuments with incomplete coordinates.
-            var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
-                .ConfigureAwait(false);
-            if (!response.IsSuccess || response.Data is null)
-            {
-                // Name the reason: the caller only ever sees this message, and "rate_limit" (three heavy
-                // GetMap calls land back-to-back on connect) reads very differently from "no_map".
-                throw new InvalidOperationException(
-                    "GetMap returned no data; error: " + (response.Error?.Code.ToString() ?? "none") +
-                    " (" + (response.Error?.Message ?? "no message") + ").");
-            }
-
-            var monuments = new List<MonumentSnapshot>();
-            foreach (var m in response.Data.Monuments ?? [])
-            {
-                if (m.Name is null || m.X is not { } x || m.Y is not { } y)
-                {
-                    continue;
-                }
-
-                monuments.Add(new MonumentSnapshot(m.Name, x, y));
-            }
-
-            return monuments;
-        }
-
-        public async Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(timeout);
-            try
-            {
-                // CONFIRMED (2.0.0-beta.1): GetMapAsync -> Response<ServerMap>; ServerMap.JpgImage is byte[] (raw JPEG bytes).
-                var response = await _rustPlus.GetMapAsync(timeoutCts.Token).WaitAsync(timeoutCts.Token)
-                    .ConfigureAwait(false);
-                return response.IsSuccess ? response.Data?.JpgImage : null;
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
