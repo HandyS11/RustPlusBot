@@ -215,11 +215,18 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         : IRustServerConnection
     {
         private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _markerScript = new();
+        private int _dimensionsCallCount;
         private IReadOnlyList<MapMarkerSnapshot> _lastMarkers = [];
         private bool _markerScriptStarted;
 
         /// <summary>Gets the messages sent via <see cref="SendTeamMessageAsync"/>.</summary>
         public List<string> SentMessages { get; } = [];
+
+        /// <summary>
+        /// When set, <see cref="SendTeamMessageAsync"/> and <see cref="SendClanMessageAsync"/> return a task
+        /// that never completes, reproducing a Rust+ send whose response the server never delivers.
+        /// </summary>
+        public bool HangOnSend { get; set; }
 
         /// <summary>The snapshot returned by <see cref="GetServerInfoAsync"/>. Defaults to a non-null zero snapshot.</summary>
         public ServerInfoSnapshot? InfoResult { get; set; } = new(0, 0, 0, null);
@@ -286,6 +293,10 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>The dimensions returned by <see cref="GetMapDimensionsAsync"/>. Defaults to a non-null snapshot.</summary>
         public MapDimensions? DimensionsResult { get; set; } = new(4000u, 4000u, 500, 4000u);
 
+        /// <summary>Number of times <see cref="GetMapDimensionsAsync"/> has been called. Each call is a full
+        /// map download on the real socket, so the query seam must serve repeat reads from cache.</summary>
+        public int DimensionsCallCount => Volatile.Read(ref _dimensionsCallCount);
+
         /// <summary>The snapshot returned by <see cref="GetWorldAsync"/>. Defaults to null.</summary>
         public WorldSnapshot? World { get; set; }
 
@@ -350,8 +361,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             return Task.FromResult(TeamResult);
         }
 
-        public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken)
+        public Task SendTeamMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken)
         {
+            if (HangOnSend)
+            {
+                return new TaskCompletionSource().Task;
+            }
+
             SentMessages.Add(message);
             return Task.CompletedTask;
         }
@@ -359,8 +375,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(ClanProbe);
 
-        public Task SendClanMessageAsync(string message, CancellationToken cancellationToken)
+        public Task SendClanMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken)
         {
+            if (HangOnSend)
+            {
+                return new TaskCompletionSource().Task;
+            }
+
             SentClanMessages.Add(message);
             return Task.CompletedTask;
         }
@@ -453,8 +474,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         }
 
         public Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(DimensionsResult);
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _dimensionsCallCount);
+            return Task.FromResult(DimensionsResult);
+        }
 
         public Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
             Task.FromResult(World);

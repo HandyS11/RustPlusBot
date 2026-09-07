@@ -113,6 +113,34 @@ public sealed class MapImageQueryTests
     }
 
     [Fact]
+    public async Task GetMapDimensions_ServesRepeatReadsFromTheConnectedWindow_WithoutRefetching()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor) = CreateHarness(source);
+        await using var _ = provider;
+        var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        // The marker poll resolves dimensions once for the connected window.
+        var connection = source.LastConnection!;
+        await WaitUntilAsync(() => connection.DimensionsCallCount > 0, cts.Token);
+        var afterConnect = connection.DimensionsCallCount;
+
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.NotNull(await supervisor.GetMapDimensionsAsync(10UL, serverId, cts.Token));
+        }
+
+        // On the real socket each fetch downloads the whole map JPEG just to read width/height, and the
+        // team panel re-renders several times a minute. Repeat reads must not touch the socket.
+        Assert.Equal(afterConnect, connection.DimensionsCallCount);
+        await supervisor.StopAllAsync();
+    }
+
+    [Fact]
     public async Task GetMapImage_ReturnsNull_WhenNoLiveSocket()
     {
         var source = new FakeRustSocketSource();

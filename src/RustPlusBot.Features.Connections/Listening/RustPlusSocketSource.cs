@@ -51,13 +51,13 @@ internal sealed partial class RustPlusSocketSource(
         public Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<TeamInfoSnapshot?>(null);
 
-        public Task SendTeamMessageAsync(string message, CancellationToken cancellationToken) =>
+        public Task SendTeamMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
         public Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(ClanProbeResult.Unavailable);
 
-        public Task SendClanMessageAsync(string message, CancellationToken cancellationToken) =>
+        public Task SendClanMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
         public Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken cancellationToken) =>
@@ -364,12 +364,17 @@ internal sealed partial class RustPlusSocketSource(
 
         public event EventHandler<ClanProbeResult>? ClanChanged;
 
-        public async Task SendTeamMessageAsync(string message, CancellationToken cancellationToken)
+        public async Task SendTeamMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken)
         {
             // CONFIRMED: SendTeamMessageAsync(string, CancellationToken) in 2.0.0-beta.1 returns Task<Response<T>>.
             // Awaiting it discards the response; the interface contract is bare Task.
             // Intentional: send failures propagate to the caller (the supervisor classifies them), unlike the broad-catch probes.
-            await _rustPlus.SendTeamMessageAsync(message, cancellationToken).ConfigureAwait(false);
+            // .WaitAsync guards the timeout even if the beta call doesn't internally honor the token (matching
+            // every other call here): a send the server never answers must fail, never hang the caller.
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            await _rustPlus.SendTeamMessageAsync(message, timeoutCts.Token)
+                .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
         }
 
         public async Task<ClanProbeResult> GetClanInfoAsync(TimeSpan timeout, CancellationToken cancellationToken)
@@ -399,10 +404,14 @@ internal sealed partial class RustPlusSocketSource(
             }
         }
 
-        public async Task SendClanMessageAsync(string message, CancellationToken cancellationToken)
+        public async Task SendClanMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken)
         {
-            // Intentional: send failures propagate to the caller (the supervisor classifies them).
-            await _rustPlus.SendClanMessageAsync(message, cancellationToken).ConfigureAwait(false);
+            // Intentional: send failures propagate to the caller (the supervisor classifies them), but the
+            // wait is bounded — see SendTeamMessageAsync for why an unbounded send is a silent loop-killer.
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            await _rustPlus.SendClanMessageAsync(message, timeoutCts.Token)
+                .WaitAsync(timeoutCts.Token).ConfigureAwait(false);
         }
 
         public async Task<bool> SetClanMotdAsync(string motd, TimeSpan timeout, CancellationToken cancellationToken)

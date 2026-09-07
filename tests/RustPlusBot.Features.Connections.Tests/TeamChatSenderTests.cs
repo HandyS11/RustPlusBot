@@ -158,6 +158,28 @@ public sealed class TeamChatSenderTests
     }
 
     [Fact]
+    public async Task SendAsync_reports_failure_when_the_socket_never_answers_the_send()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor, _) = CreateHarness(source);
+        await using var _p = provider;
+        var serverId = await SeedServerWithActiveAsync(provider, steamId: 555UL);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        source.LastConnection!.HangOnSend = true;
+
+        // A send whose response never arrives must be bounded by the request timeout (200 ms in this
+        // harness). Unbounded, it parks the calling relay loop forever and the feature dies silently.
+        var result = await supervisor.SendAsync(ChatChannelKind.Team, 10UL, serverId, "hi", cts.Token)
+            .WaitAsync(TimeSpan.FromSeconds(5), cts.Token);
+
+        Assert.Equal(ChatSendResult.Failed, result);
+        await supervisor.StopAllAsync();
+    }
+
+    [Fact]
     public async Task SendAsync_returns_NotConnected_when_no_socket()
     {
         var source = new FakeRustSocketSource();
