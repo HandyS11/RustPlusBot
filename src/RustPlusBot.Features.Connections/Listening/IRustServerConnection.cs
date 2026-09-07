@@ -134,30 +134,25 @@ internal interface IRustServerConnection : IAsyncDisposable
     Task<MapMarkersSnapshot> GetMapMarkersAsync(TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Gets the static map dimensions for grid-reference rendering, or null on failure/timeout.</summary>
+    /// <summary>
+    /// Gets the whole map in one round trip: dimensions, monuments and the base-map JPEG. Throws on failure.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately one call rather than three. Rust+ answers dimensions, monuments and the image from a
+    /// single <c>GetMap</c> response that always carries the ~683 KB JPEG, so a per-purpose accessor would
+    /// download the entire map to read a couple of integers. Callers must cache the result for the connected
+    /// window (see <c>ServerMapWindowCache</c>) rather than calling this per read.
+    /// </remarks>
     /// <param name="timeout">How long to wait for the response.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The map dimensions, or null on failure/timeout.</returns>
-    Task<MapDimensions?> GetMapDimensionsAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
+    /// <returns>The map snapshot.</returns>
+    Task<ServerMapSnapshot> GetServerMapAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
 
     /// <summary>Gets the world size and seed from server info, or null when unavailable.</summary>
     /// <param name="timeout">The per-call timeout.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The world snapshot, or null.</returns>
     Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
-
-    /// <summary>Gets the map monuments (for locating oil rigs). Throws on failure.</summary>
-    /// <param name="timeout">How long to wait for the response.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The map monuments (token + position).</returns>
-    Task<IReadOnlyList<MonumentSnapshot>> GetMonumentsAsync(TimeSpan timeout,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>Gets the base map image (JPEG bytes), or null on failure/unavailable.</summary>
-    /// <param name="timeout">How long to wait for the response.</param>
-    /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>The base-map JPEG bytes, or null on failure/unavailable.</returns>
-    Task<byte[]?> GetMapImageAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
 
     /// <summary>Raised for every in-game team chat line received on this socket.</summary>
     event EventHandler<TeamChatLine>? TeamMessageReceived;

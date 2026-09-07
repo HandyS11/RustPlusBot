@@ -244,7 +244,7 @@ public sealed class ConnectionSupervisorTests
     {
         var source = new FakeRustSocketSource();
         source.EnqueueConnect(SocketConnectOutcome.Connected);
-        source.TimeoutOnMonumentsOnce(); // the marker poll's rig fetch times out on the FIRST connection only
+        source.TimeoutOnMapOnce(); // the marker poll's rig fetch times out on the FIRST connection only
         source.EnqueueHeartbeat(HeartbeatResult.Ok(2)); // first heartbeat -> Connected
         source.EnqueueHeartbeat(HeartbeatResult.Unreachable); // next heartbeat -> drop
         source.EnqueueConnect(SocketConnectOutcome.Connected); // reconnect
@@ -473,7 +473,7 @@ public sealed class ConnectionSupervisorTests
             }
         }, CancellationToken.None);
 
-        // FakeConnection default DimensionsResult is new(4000u, 4000u, 500, 4000u); assert those exact values.
+        // FakeConnection defaults are GeometryResult new(4000u, 4000u, 500) + World size 4000u.
         var expectedDims = new MapDimensions(4000u, 4000u, 500, WorldSize: 4000u);
 
         // Script polls before EnsureConnectionAsync so the marker script is in the connection before
@@ -545,7 +545,7 @@ public sealed class ConnectionSupervisorTests
         Assert.Equal(10UL, observed.GuildId);
         Assert.Equal(serverId, observed.ServerId);
 
-        // FakeConnection default DimensionsResult is new(4000u, 4000u, 500, 4000u); assert WorldSize
+        // FakeConnection defaults give WorldSize 4000u (from World); assert WorldSize
         // threads through from dimensions to the published event.
         Assert.Equal(4000u, observed.WorldSize);
         var machine = Assert.Single(observed.Machines);
