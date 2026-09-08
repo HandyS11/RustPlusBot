@@ -4,4 +4,4 @@ namespace RustPlusBot.Abstractions.Events;
 /// <param name="GuildId">The owning Discord guild snowflake.</param>
 /// <param name="ServerId">The local RustServer id the entity belongs to.</param>
 /// <param name="EntityId">The in-game smart-switch entity id.</param>
-public sealed record SwitchPairedEvent(ulong GuildId, Guid ServerId, ulong EntityId);
+public sealed record SwitchPairedEvent(ulong GuildId, Guid ServerId, ulong EntityId) : IPairedDeviceEvent;
