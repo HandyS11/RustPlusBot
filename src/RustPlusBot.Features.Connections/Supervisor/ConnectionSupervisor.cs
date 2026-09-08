@@ -531,6 +531,15 @@ internal sealed partial class ConnectionSupervisor(
                     await connection.DisposeAsync().ConfigureAwait(false);
                     throw;
                 }
+                catch (Exception) when (ct.IsCancellationRequested)
+                {
+                    // Stopping. A socket library may unwind cancellation as something other than an
+                    // OperationCanceledException (a client disposed underneath the connect, say). Dispose
+                    // and end the loop as the cancellation it is — reporting the server unreachable and
+                    // warning about a connect failure here would be noise pointing at the wrong problem.
+                    await connection.DisposeAsync().ConfigureAwait(false);
+                    return;
+                }
 #pragma warning disable CA1031 // Broad catch is intentional: see below — a throwing source must not end the loop.
                 catch (Exception ex)
 #pragma warning restore CA1031

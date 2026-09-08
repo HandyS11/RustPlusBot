@@ -1169,6 +1169,40 @@ public sealed class ConnectionSupervisorTests
     }
 
     /// <summary>
+    /// A socket library may unwind cancellation as something other than an OperationCanceledException — a
+    /// client disposed underneath the connect throwing ObjectDisposedException, say. That is a stop, not a
+    /// connectivity failure: the loop must end quietly, disposing its socket, without reporting the server
+    /// unreachable or logging a connect warning that would send someone hunting a network problem.
+    /// </summary>
+    [Fact]
+    public async Task Connect_unwinding_as_a_non_cancellation_exception_on_stop_ends_quietly()
+    {
+        var source = new FakeRustSocketSource
+        {
+            LastConnectionSetup = c =>
+            {
+                c.BlockConnectUntilCancelled = true;
+                c.ConnectFaultOnCancel = new ObjectDisposedException("socket");
+            }
+        };
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => source.LastConnection is not null, cts.Token);
+        var connecting = source.LastConnection!;
+
+        // StopAsync joins the loop, so once it returns no further log or dispose can race these asserts.
+        await h.Supervisor.StopAsync(10UL, serverId).WaitAsync(TimeSpan.FromSeconds(30), cts.Token);
+
+        Assert.Equal(1, connecting.DisposeCount);
+        Assert.DoesNotContain(
+            h.Logs.Records,
+            r => r.Message.Contains("threw while connecting", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Stopping a server whose connect is still in flight must complete and must dispose the half-open
     /// socket. A leaked socket here accumulates one live WebSocket per stop/start cycle.
     /// </summary>

@@ -252,6 +252,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// </summary>
         public bool BlockConnectUntilCancelled { get; set; }
 
+        /// <summary>
+        /// When set together with <see cref="BlockConnectUntilCancelled"/>, the cancelled connect unwinds by
+        /// throwing THIS instead of <see cref="OperationCanceledException"/> — models a socket library that
+        /// surfaces cancellation as something else (a disposed client throwing ObjectDisposedException, say).
+        /// </summary>
+        public Exception? ConnectFaultOnCancel { get; set; }
+
         /// <summary>When set, <see cref="GetTeamInfoAsync"/> throws this instead of answering.</summary>
         public Exception? TeamInfoFault { get; set; }
 
@@ -408,7 +415,14 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
             if (BlockConnectUntilCancelled)
             {
-                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ConnectFaultOnCancel is not null)
+                {
+                    throw ConnectFaultOnCancel;
+                }
             }
 
             return outcome;
