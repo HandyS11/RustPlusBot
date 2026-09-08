@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -185,5 +186,111 @@ public sealed class AlarmSweepTests
         Assert.Equal(77UL, evt.EntityId);
         Assert.True(evt.IsActive);
         await supervisor.StopAllAsync();
+    }
+
+    /// <summary>
+    /// The periodic sweep is the only thing that notices a device going away while the socket stays up —
+    /// picked up, destroyed, TC privilege lost. The connect-time prime cannot see it, so without the sweep
+    /// the embed keeps claiming the device is reachable until the next reconnect.
+    /// </summary>
+    [Fact]
+    public async Task Sweep_publishes_a_reachability_change_that_happens_mid_window()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor, bus) = CreateHarness(source);
+        await using var disposeProvider = provider;
+        var serverId = await SeedServerWithActiveAndAlarmAsync(provider, entityId: 77UL);
+        source.StageDeviceState(77UL, isActive: true);
+        // Stage the key up front so the flip below only rewrites an existing entry rather than growing the
+        // dictionary the sweep is reading.
+        source.StageDeviceReachability(77UL, DeviceReachability.Reachable);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var changes = new ConcurrentQueue<DeviceReachabilityChangedEvent>();
+        var stream = bus.SubscribeAsync<DeviceReachabilityChangedEvent>(cts.Token);
+        _ = Task.Run(
+            async () =>
+            {
+                await foreach (var e in stream)
+                {
+                    changes.Enqueue(e);
+                }
+            },
+            CancellationToken.None);
+
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        var conn = source.LastConnection;
+        Assert.NotNull(conn);
+
+        // Prime plus two sweep cycles: the sweep's silent baseline is definitely seeded before the change.
+        await WaitUntilAsync(() => ReadCount(conn, 77UL) >= 3, cts.Token);
+        conn.DeviceReachabilityOverrides[77UL] = DeviceReachability.Removed;
+
+        await WaitUntilAsync(
+            () => changes.Any(e => e.EntityId == 77UL && e.Reachability == DeviceReachability.Removed),
+            cts.Token);
+
+        await supervisor.StopAllAsync();
+        await cts.CancelAsync();
+    }
+
+    /// <summary>
+    /// A failing sweep cycle must be logged and retried on the next tick. Letting the exception escape ends
+    /// the sweep for the rest of the connection, so reachability changes go unreported until a restart —
+    /// the silent-death failure mode this bot has actually shipped.
+    /// </summary>
+    [Fact]
+    public async Task A_failing_sweep_cycle_is_retried_and_the_sweep_recovers()
+    {
+        var source = new FakeRustSocketSource();
+        var (provider, supervisor, bus) = CreateHarness(source);
+        await using var disposeProvider = provider;
+        var serverId = await SeedServerWithActiveAndAlarmAsync(provider, entityId: 88UL);
+        source.StageDeviceState(88UL, isActive: true);
+        source.StageDeviceReachability(88UL, DeviceReachability.Reachable);
+        source.LastConnectionSetup = c => c.DeviceInfoFault = new InvalidOperationException("device read failed");
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var changes = new ConcurrentQueue<DeviceReachabilityChangedEvent>();
+        var stream = bus.SubscribeAsync<DeviceReachabilityChangedEvent>(cts.Token);
+        _ = Task.Run(
+            async () =>
+            {
+                await foreach (var e in stream)
+                {
+                    changes.Enqueue(e);
+                }
+            },
+            CancellationToken.None);
+
+        await supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        var conn = source.LastConnection;
+        Assert.NotNull(conn);
+
+        // Every read throws, yet the sweep keeps coming back for more: it was retried, not torn down.
+        await WaitUntilAsync(() => ReadCount(conn, 88UL) >= 3, cts.Token);
+
+        conn.DeviceInfoFault = null;
+        var recovered = ReadCount(conn, 88UL);
+        // Let the first successful cycle seed the (still empty) baseline before anything changes.
+        await WaitUntilAsync(() => ReadCount(conn, 88UL) >= recovered + 3, cts.Token);
+        conn.DeviceReachabilityOverrides[88UL] = DeviceReachability.Removed;
+
+        await WaitUntilAsync(
+            () => changes.Any(e => e.EntityId == 88UL && e.Reachability == DeviceReachability.Removed),
+            cts.Token);
+
+        await supervisor.StopAllAsync();
+        await cts.CancelAsync();
+    }
+
+    private static int ReadCount(FakeRustSocketSource.FakeConnection connection, ulong entityId)
+    {
+        lock (connection.DeviceReadCalls)
+        {
+            return connection.DeviceReadCalls.Count(c => c.EntityId == entityId);
+        }
     }
 }

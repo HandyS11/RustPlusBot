@@ -1,8 +1,11 @@
+using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
@@ -21,22 +24,27 @@ namespace RustPlusBot.Features.Connections.Tests;
 
 public sealed class ConnectionSupervisorTests
 {
-    private static Harness CreateHarness(FakeRustSocketSource source, TimeSpan? teamPollInterval = null)
+    private static Harness CreateHarness(
+        FakeRustSocketSource source,
+        TimeSpan? teamPollInterval = null,
+        Func<string, string>? unprotect = null,
+        IEventBus? eventBus = null)
     {
         var protector = Substitute.For<ICredentialProtector>();
-        protector.Unprotect(Arg.Any<string>()).Returns(c => c.Arg<string>());
+        protector.Unprotect(Arg.Any<string>()).Returns(c => (unprotect ?? (token => token))(c.Arg<string>()));
 
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
 
         var dm = Substitute.For<IUserDmSender>();
 
+        var logs = new CapturingLoggerProvider();
         var services = new ServiceCollection();
-        services.AddLogging();
+        services.AddLogging(builder => builder.AddProvider(logs));
         services.AddSingleton(clock);
         services.AddSingleton(protector);
         services.AddSingleton(dm);
-        services.AddSingleton<IEventBus, InMemoryEventBus>();
+        services.AddSingleton(eventBus ?? new InMemoryEventBus());
 
         // Each scope opens its OWN connection to a shared-cache in-memory database, so the background
         // supervisor loop and the test's polling never run concurrent commands on a single SqliteConnection
@@ -80,6 +88,7 @@ public sealed class ConnectionSupervisorTests
             Dm = dm,
             Supervisor = provider.GetRequiredService<ConnectionSupervisor>(),
             Bus = provider.GetRequiredService<IEventBus>(),
+            Logs = logs,
         };
     }
 
@@ -988,6 +997,659 @@ public sealed class ConnectionSupervisorTests
         }
     }
 
+    /// <summary>
+    /// The FIRST heartbeat of a connected window is the one that promotes the socket to Connected. When it
+    /// comes back AuthRejected the window must be abandoned, the credential burned and the pool failed over —
+    /// not left sitting in Connecting until a heartbeat that will never be accepted.
+    /// </summary>
+    [Fact]
+    public async Task FirstHeartbeat_AuthRejected_FailsOverAndReconnects()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected); // credential A: socket opens...
+        source.EnqueueHeartbeat(HeartbeatResult.AuthRejected); // ...but the very first heartbeat is rejected
+        source.EnqueueConnect(SocketConnectOutcome.Connected); // credential B
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(5));
+        await using var h = CreateHarness(source);
+        var (serverId, credA, credB) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        var state = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 5);
+        Assert.NotNull(state);
+        Assert.Equal(CredentialStatus.Invalid, await CredStatusAsync(h.Provider, credA));
+        Assert.Equal(CredentialStatus.Active, await CredStatusAsync(h.Provider, credB));
+        await h.Dm.Received(1).SendAsync(1UL, Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// An unreachable FIRST heartbeat is a transport problem, not a credential problem: the loop must back
+    /// off and retry the SAME credential. Burning it here would walk a healthy pool to NoCredentials during
+    /// a server restart.
+    /// </summary>
+    [Fact]
+    public async Task FirstHeartbeat_Unreachable_RetriesWithoutBurningTheCredential()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Unreachable); // first heartbeat of the window fails
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(6));
+        await using var h = CreateHarness(source);
+        var (serverId, credA, credB) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        var state = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 6);
+        Assert.NotNull(state);
+        Assert.True(source.CreateCount >= 2, "the loop should have reconnected after the failed first heartbeat");
+        Assert.Equal(CredentialStatus.Active, await CredStatusAsync(h.Provider, credA));
+        Assert.Equal(CredentialStatus.Standby, await CredStatusAsync(h.Provider, credB));
+        await h.Dm.DidNotReceive().SendAsync(Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// A credential can be revoked in-game while the socket is up. The periodic heartbeat is what notices,
+    /// and it must drive the same failover as a rejected connect.
+    /// </summary>
+    [Fact]
+    public async Task Heartbeat_AuthRejected_MidWindow_FailsOverAndReconnects()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(2)); // window goes live
+        source.EnqueueHeartbeat(HeartbeatResult.AuthRejected); // then the credential is revoked in-game
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(8));
+        await using var h = CreateHarness(source);
+        var (serverId, credA, credB) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        var state = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 8);
+        Assert.NotNull(state);
+        Assert.Equal(CredentialStatus.Invalid, await CredStatusAsync(h.Provider, credA));
+        Assert.Equal(CredentialStatus.Active, await CredStatusAsync(h.Provider, credB));
+        Assert.Equal(200UL, source.LastSteamId);
+    }
+
+    /// <summary>
+    /// A socket library that throws while connecting (rather than reporting an outcome) must not take the
+    /// host down, and must leave the supervisor able to start the server again. The loop itself ends — that
+    /// is the documented contract of the outer catch — so the regression this pins is that the failure is
+    /// LOGGED and CONTAINED rather than silently swallowed or propagated.
+    /// </summary>
+    [Fact]
+    public async Task Faulting_connect_is_logged_and_leaves_the_supervisor_restartable()
+    {
+        var source = new FakeRustSocketSource();
+        source.LastConnectionSetup = c =>
+        {
+            if (source.CreateCount == 1)
+            {
+                c.ConnectFault = new InvalidOperationException("socket library faulted");
+            }
+        };
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(9));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitForLogAsync(h, LogLevel.Error, "faulted", cts.Token);
+
+        // The second attempt gets a healthy socket: nothing about the fault is sticky.
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+
+        var state = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 9);
+        Assert.NotNull(state);
+    }
+
+    /// <summary>
+    /// Stopping a server whose connect is still in flight must complete and must dispose the half-open
+    /// socket. A leaked socket here accumulates one live WebSocket per stop/start cycle.
+    /// </summary>
+    [Fact]
+    public async Task Stop_while_connecting_disposes_the_socket_and_returns()
+    {
+        var source = new FakeRustSocketSource { LastConnectionSetup = c => c.BlockConnectUntilCancelled = true };
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => source.LastConnection is not null, cts.Token);
+        var connecting = source.LastConnection!;
+
+        await h.Supervisor.StopAsync(10UL, serverId).WaitAsync(TimeSpan.FromSeconds(30), cts.Token);
+
+        Assert.Equal(1, connecting.DisposeCount);
+        Assert.False(h.Supervisor.HasLiveSocket(10UL, serverId));
+    }
+
+    /// <summary>
+    /// A stored token that no longer decrypts (key rotation, corrupted blob) must burn that credential, tell
+    /// its owner why, and move on to the next one in the pool — the loop must not spin on it forever.
+    /// </summary>
+    [Fact]
+    public async Task Unreadable_token_invalidates_the_credential_dms_the_owner_and_fails_over()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(3));
+        await using var h = CreateHarness(
+            source,
+            unprotect: token => token == "111" ? throw new CryptographicException("key rotated") : token);
+        var (serverId, credA, credB) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        var state = await WaitForStateAsync(h.Provider, serverId, s => s.Status == ConnectionStatus.Connected);
+        Assert.NotNull(state);
+        Assert.Equal(CredentialStatus.Invalid, await CredStatusAsync(h.Provider, credA));
+        Assert.Equal(CredentialStatus.Active, await CredStatusAsync(h.Provider, credB));
+        Assert.Equal(200UL, source.LastSteamId);
+        await h.Dm.Received(1).SendAsync(
+            1UL,
+            Arg.Is<string>(m => m.Contains("could not be read", StringComparison.Ordinal)),
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// After <see cref="ConnectionSupervisor.StopAllAsync"/> the process is shutting down: a late
+    /// EnsureConnection (a slash command racing shutdown, say) must not resurrect a loop that nothing will
+    /// ever stop. The guard runs before any loop is scheduled, so this assertion is not timing-dependent.
+    /// </summary>
+    [Fact]
+    public async Task EnsureConnection_after_StopAll_starts_no_loop()
+    {
+        var source = new FakeRustSocketSource();
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.StopAllAsync();
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        Assert.Equal(0, source.CreateCount);
+        Assert.False(h.Supervisor.HasLiveSocket(10UL, serverId));
+    }
+
+    /// <summary>
+    /// Every inbound socket callback publishes through a guard that drops the event once the supervisor is
+    /// disposed. Without it a callback racing shutdown publishes onto a bus whose consumers are gone, or
+    /// touches an already-disposed shutdown token.
+    /// </summary>
+    [Fact]
+    public async Task Nothing_is_published_once_the_supervisor_is_disposed()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // Park the team poll inside its request, deliberately ignoring cancellation. The connected window
+        // joins that poll before it detaches the socket handlers, so the handlers stay attached while the
+        // supervisor is already disposed — exactly the race the guards exist for.
+        source.LastConnectionSetup = c => c.TeamInfoHold = hold.Task;
+
+        // Not `await using var h`: this test disposes the supervisor itself, and Harness.DisposeAsync would
+        // then call StopAllAsync on an already-disposed CancellationTokenSource.
+        var h = CreateHarness(source);
+        await using var provider = h.Provider;
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var teamMessages = new System.Collections.Concurrent.ConcurrentQueue<TeamMessageReceivedEvent>();
+        var deviceTriggers = new System.Collections.Concurrent.ConcurrentQueue<SmartDeviceTriggeredEvent>();
+        var teamStream = h.Bus.SubscribeAsync<TeamMessageReceivedEvent>(cts.Token);
+        var deviceStream = h.Bus.SubscribeAsync<SmartDeviceTriggeredEvent>(cts.Token);
+        _ = Task.Run(
+            async () =>
+            {
+                await foreach (var e in teamStream)
+                {
+                    teamMessages.Enqueue(e);
+                }
+            },
+            CancellationToken.None);
+        _ = Task.Run(
+            async () =>
+            {
+                await foreach (var e in deviceStream)
+                {
+                    deviceTriggers.Enqueue(e);
+                }
+            },
+            CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        var conn = source.LastConnection!;
+        await conn.TeamInfoEntered.WaitAsync(cts.Token);
+
+        // DisposeAsync flips the guard before its first await, so it is already set when the raises below run.
+        var disposeTask = h.Supervisor.DisposeAsync().AsTask();
+        conn.RaiseTeamMessage(new TeamChatLine(100UL, "Alice", "after-dispose"));
+        conn.RaiseClanMessage(new ClanChatLine(100UL, "Alice", "after-dispose", DateTimeOffset.UnixEpoch));
+        conn.RaiseClanChanged(ClanProbeResult.NoClan);
+        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, []));
+        conn.RaiseSmartDeviceTriggered(42UL, isActive: true);
+        conn.RaiseStorageMonitorTriggered(43UL, new StorageContentsSnapshot(null, null, null, []));
+        hold.SetResult();
+        await disposeTask;
+
+        // Barrier, not a sleep: the bus preserves publish order per subscription, so once a sentinel
+        // published AFTER the raises has arrived, anything the raises published would have arrived first.
+        await h.Bus.PublishAsync(
+            new TeamMessageReceivedEvent(10UL, serverId, 1UL, "s", "sentinel", false), cts.Token);
+        await h.Bus.PublishAsync(new SmartDeviceTriggeredEvent(10UL, serverId, 999UL, false), cts.Token);
+        await WaitUntilAsync(
+            () => teamMessages.Any(e => e.Message == "sentinel") && deviceTriggers.Any(e => e.EntityId == 999UL),
+            cts.Token);
+
+        Assert.DoesNotContain(teamMessages, e => e.Message == "after-dispose");
+        Assert.DoesNotContain(deviceTriggers, e => e.EntityId == 42UL);
+        await cts.CancelAsync();
+    }
+
+    /// <summary>
+    /// A failing team poll must be logged and retried, never allowed to escape: an escaping exception ends
+    /// the poll for the rest of the connection, and AFK detection dies silently until the bot restarts.
+    /// </summary>
+    [Fact]
+    public async Task Team_poll_survives_repeated_failures()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        source.LastConnectionSetup = c => c.TeamInfoFault = new InvalidOperationException("team poll failed");
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromMilliseconds(20));
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        var conn = source.LastConnection!;
+
+        // Three attempts: the loop kept going after the first two throws instead of dying on them.
+        await WaitUntilAsync(() => conn.TeamInfoCallCount >= 3, cts.Token);
+        await WaitForLogAsync(h, LogLevel.Warning, "Team poll", cts.Token);
+        Assert.True(h.Supervisor.HasLiveSocket(10UL, serverId), "the connection must survive a failing poll");
+
+        await h.Supervisor.StopAllAsync();
+    }
+
+    /// <summary>
+    /// A team poll parked in a request when the window is torn down must unwind on cancellation instead of
+    /// wedging teardown — a stuck teardown blocks the whole supervisor's shutdown gate.
+    /// </summary>
+    [Fact]
+    public async Task Team_poll_parked_in_a_request_does_not_wedge_teardown()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        source.LastConnectionSetup = c => c.BlockTeamInfoUntilCancelled = true;
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromMilliseconds(20));
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        var conn = source.LastConnection;
+        Assert.NotNull(conn);
+        await conn.TeamInfoEntered.WaitAsync(cts.Token);
+
+        await h.Supervisor.StopAllAsync().WaitAsync(TimeSpan.FromSeconds(30), cts.Token);
+
+        Assert.False(h.Supervisor.HasLiveSocket(10UL, serverId));
+    }
+
+    /// <summary>
+    /// Every read seam answers its "not connected" default rather than throwing, so a command issued against
+    /// a disconnected server degrades instead of faulting the Discord interaction handling it.
+    /// </summary>
+    [Fact]
+    public async Task Every_read_seam_degrades_to_its_default_without_a_live_socket()
+    {
+        var source = new FakeRustSocketSource();
+        await using var h = CreateHarness(source);
+        var unknown = Guid.NewGuid();
+
+        // Null, not an empty list: callers must be able to tell "not connected" from "nobody is AFK".
+        Assert.Null(await h.Supervisor.GetAfkMembersAsync(10UL, unknown, CancellationToken.None));
+        Assert.Null(await h.Supervisor.GetWorldAsync(10UL, unknown, CancellationToken.None));
+        Assert.Null(await h.Supervisor.GetMapDimensionsAsync(10UL, unknown, CancellationToken.None));
+        Assert.Null(await h.Supervisor.GetSmartSwitchStateAsync(10UL, unknown, 1UL, CancellationToken.None));
+        Assert.Equal(
+            DeviceReachability.NoResponse,
+            await h.Supervisor.StrobeSmartSwitchAsync(10UL, unknown, 1UL, 100, value: true, CancellationToken.None));
+        Assert.False(await h.Supervisor.SetClanMotdAsync(10UL, unknown, "motd", CancellationToken.None));
+        Assert.Equal(0, source.CreateCount);
+    }
+
+    /// <summary>Each read seam is wired to the live window's socket, not to a stale or default value.</summary>
+    [Fact]
+    public async Task Every_read_seam_answers_from_the_live_socket()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        source.StageDeviceState(50UL, isActive: true);
+        source.LastConnectionSetup = c =>
+        {
+            c.World = new WorldSnapshot(3500u, 7u);
+            c.StrobeSwitchReachability = DeviceReachability.NoPrivilege;
+        };
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        var world = await h.Supervisor.GetWorldAsync(10UL, serverId, cts.Token);
+        Assert.NotNull(world);
+        Assert.Equal(3500u, world.WorldSize);
+        Assert.True(await h.Supervisor.GetSmartSwitchStateAsync(10UL, serverId, 50UL, cts.Token));
+        Assert.Equal(
+            DeviceReachability.NoPrivilege,
+            await h.Supervisor.StrobeSmartSwitchAsync(10UL, serverId, 50UL, 100, value: true, cts.Token));
+        Assert.True(await h.Supervisor.SetClanMotdAsync(10UL, serverId, "motd", cts.Token));
+
+        await h.Supervisor.StopAllAsync();
+    }
+
+    /// <summary>
+    /// The map seams swallow failures on purpose (a render must degrade, never fault the consuming loop) —
+    /// but a CALLER's cancellation is a shutdown signal and must still propagate, otherwise a shutting-down
+    /// caller silently gets "no map" and carries on.
+    /// </summary>
+    [Fact]
+    public async Task Map_seams_propagate_the_callers_cancellation_instead_of_degrading()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        // The window's map never resolves, so each read reaches the cache's gate, where the caller's
+        // already-cancelled token is observed.
+        source.LastConnectionSetup = c => c.MapFault = new InvalidOperationException("GetMap returned no data");
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => h.Supervisor.GetMapImageAsync(10UL, serverId, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => h.Supervisor.GetMapDimensionsAsync(10UL, serverId, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => h.Supervisor.GetMonumentsAsync(10UL, serverId, cancelled.Token));
+
+        await h.Supervisor.StopAllAsync();
+    }
+
+    /// <summary>
+    /// A relay send must be bounded by the caller's token: an in-game send whose reply never arrives would
+    /// otherwise park the calling relay loop forever.
+    /// </summary>
+    [Fact]
+    public async Task Send_propagates_the_callers_cancellation_when_the_reply_never_arrives()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        source.LastConnectionSetup = c => c.HangOnSend = true;
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => h.Supervisor.SendAsync(ChatChannelKind.Team, 10UL, serverId, "hi", cancelled.Token));
+
+        // An unroutable channel is a caller bug, not a transport failure: report it, do not throw.
+        Assert.Equal(
+            ChatSendResult.Failed,
+            await h.Supervisor.SendAsync((ChatChannelKind)99, 10UL, serverId, "hi", cts.Token));
+
+        await h.Supervisor.StopAllAsync();
+    }
+
+    /// <summary>
+    /// Rig detection keys off oil-rig monuments and CH47 markers only. An unrecognised monument token and a
+    /// non-CH47 marker sitting on the rig must both be ignored, or every cargo ship passing an oil rig
+    /// would ping the guild.
+    /// </summary>
+    [Fact]
+    public async Task Non_rig_monuments_and_non_chinook_markers_never_activate_a_rig()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        source.SetMonuments([
+            new MonumentSnapshot("lighthouse", 1000f, 1000f), // not a rig: must never produce an event
+            new MonumentSnapshot("oil_rig_small", 1000f, 1000f),
+        ]);
+        source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.CargoShip, 1000f, 1000f, null)]); // poll 1
+        source.EnqueueMarkers([new MapMarkerSnapshot(2UL, MarkerKind.Chinook, 1000f, 1000f, null)]); // poll 2
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var rigEvents = new System.Collections.Concurrent.ConcurrentQueue<RigStateChangedEvent>();
+        var subTask = Task.Run(
+            async () =>
+            {
+                await foreach (var e in h.Bus.SubscribeAsync<RigStateChangedEvent>(cts.Token))
+                {
+                    rigEvents.Enqueue(e);
+                }
+            },
+            CancellationToken.None);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => !rigEvents.IsEmpty, cts.Token);
+
+        // Exactly one: the cargo ship on the rig (poll 1) and the lighthouse produced nothing.
+        var evt = Assert.Single(rigEvents);
+        Assert.Equal(RigKind.Small, evt.Rig);
+        Assert.Equal(RigEventKind.Activated, evt.Kind);
+
+        await h.Supervisor.StopAllAsync();
+        await cts.CancelAsync();
+        try
+        {
+            await subTask;
+        }
+        catch (OperationCanceledException)
+        {
+            /* expected */
+        }
+    }
+
+    /// <summary>
+    /// The AFK seam must read the LIVE window's tracker: after a reconnect the old tracker is gone, so a
+    /// seam bound to a stale one reports AFK state from a window that no longer exists.
+    /// </summary>
+    [Fact]
+    public async Task GetAfkMembers_reports_the_live_windows_tracker()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        var still = new TeamMemberSnapshot(
+            100UL, "Alice", 1f, 1f, IsOnline: true, IsAlive: true, DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch);
+        source.LastConnectionSetup = c => c.TeamResult = new TeamInfoSnapshot(100UL, [still]);
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromMilliseconds(20));
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        var conn = source.LastConnection;
+        Assert.NotNull(conn);
+        await conn.TeamInfoEntered.WaitAsync(cts.Token);
+
+        // Advance past AfkThreshold; the team poll re-runs the diff on the tracker the seam reads.
+        var clock = h.Provider.GetRequiredService<IClock>();
+        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch + TimeSpan.FromMinutes(6));
+
+        IReadOnlyList<AfkMember>? afk;
+        while (true)
+        {
+            afk = await h.Supervisor.GetAfkMembersAsync(10UL, serverId, cts.Token);
+            if (afk is { Count: > 0 })
+            {
+                break;
+            }
+
+            await Task.Delay(10, cts.Token);
+        }
+
+        var member = Assert.Single(afk);
+        Assert.Equal(100UL, member.SteamId);
+        Assert.Equal(TimeSpan.FromMinutes(6), member.StillFor);
+
+        await h.Supervisor.StopAllAsync();
+    }
+
+    /// <summary>
+    /// The inbound socket callbacks are fire-and-forget. A publish that throws — a consumer bug, a bus
+    /// backed by a failing transport — must be logged and swallowed inside each publisher: an escaping
+    /// exception there becomes an unobserved task fault and, historically, a dead feature until restart.
+    /// </summary>
+    [Fact]
+    public async Task A_failing_bus_publish_is_logged_and_never_escapes_a_socket_callback()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        var online = new TeamMemberSnapshot(
+            100UL, "Alice", 1f, 1f, IsOnline: true, IsAlive: true, DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch);
+        source.LastConnectionSetup = c => c.TeamResult = new TeamInfoSnapshot(100UL, [online]);
+        // Status events keep working — they drive the connect loop itself; only the callback publishes fail.
+        var bus = new FaultingEventBus(
+            t => t != typeof(ConnectionStatusChangedEvent),
+            () => new InvalidOperationException("bus refused the event"));
+        await using var h = CreateHarness(source, teamPollInterval: TimeSpan.FromMilliseconds(20), eventBus: bus);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        var conn = source.LastConnection;
+        Assert.NotNull(conn);
+
+        // Each publisher completes synchronously on the failing bus, so the log is in place once the raise
+        // returns — no sleeping, no polling.
+        // The second poll proves the first one primed the tracker's baseline, so the push below is a real
+        // change (Alice goes offline) and therefore does publish.
+        await WaitUntilAsync(() => conn.TeamInfoCallCount >= 2, cts.Token);
+
+        conn.RaiseTeamMessage(new TeamChatLine(100UL, "Alice", "hi"));
+        conn.RaiseClanMessage(new ClanChatLine(100UL, "Alice", "hi", DateTimeOffset.UnixEpoch));
+        conn.RaiseSmartDeviceTriggered(42UL, isActive: true);
+        conn.RaiseStorageMonitorTriggered(43UL, new StorageContentsSnapshot(null, null, null, []));
+        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [online with { IsOnline = false }]));
+
+        Assert.Contains(h.Logs.Records, r => r.Message.Contains("received team message", StringComparison.Ordinal));
+        Assert.Contains(h.Logs.Records, r => r.Message.Contains("a clan message", StringComparison.Ordinal));
+        Assert.Contains(h.Logs.Records, r => r.Message.Contains("smart-device state", StringComparison.Ordinal));
+        Assert.Contains(h.Logs.Records, r => r.Message.Contains("Publishing team state", StringComparison.Ordinal));
+
+        // The connect-time clan probe publishes from the connect path, so that one is awaited.
+        await WaitForLogAsync(h, LogLevel.Error, "Publishing clan state", cts.Token);
+
+        // The window is unharmed: every failure stayed inside its publisher.
+        Assert.True(h.Supervisor.HasLiveSocket(10UL, serverId));
+        await h.Supervisor.StopAllAsync();
+    }
+
+    /// <summary>
+    /// A publish cancelled because the process is shutting down is NOT a failure: swallowing it silently is
+    /// the point, so a normal shutdown does not fill the log with false errors.
+    /// </summary>
+    [Fact]
+    public async Task A_publish_cancelled_by_shutdown_is_swallowed_without_an_error()
+    {
+        var source = new FakeRustSocketSource();
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(1));
+        var bus = new FaultingEventBus(
+            t => t != typeof(ConnectionStatusChangedEvent),
+            () => new OperationCanceledException("shutting down"));
+        await using var h = CreateHarness(source, eventBus: bus);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => h.Supervisor.HasLiveSocket(10UL, serverId), cts.Token);
+        var conn = source.LastConnection;
+        Assert.NotNull(conn);
+
+        conn.RaiseTeamMessage(new TeamChatLine(100UL, "Alice", "hi"));
+        conn.RaiseClanMessage(new ClanChatLine(100UL, "Alice", "hi", DateTimeOffset.UnixEpoch));
+        conn.RaiseClanChanged(ClanProbeResult.NoClan);
+        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, []));
+        conn.RaiseSmartDeviceTriggered(42UL, isActive: true);
+        conn.RaiseStorageMonitorTriggered(43UL, new StorageContentsSnapshot(null, null, null, []));
+
+        // Deterministic: each publisher runs to completion synchronously on this bus.
+        Assert.DoesNotContain(h.Logs.Records, r => r.Message.Contains("Publishing a", StringComparison.Ordinal));
+        Assert.True(h.Supervisor.HasLiveSocket(10UL, serverId));
+        await h.Supervisor.StopAllAsync();
+    }
+
+    /// <summary>
+    /// Repeated unreachable connects must back off and then CAP at MaxRetryDelay. An uncapped doubling
+    /// walks a temporarily-down server out to hours between attempts, so it never comes back on its own.
+    /// </summary>
+    [Fact]
+    public async Task Reconnect_backoff_stops_growing_at_the_configured_cap()
+    {
+        var source = new FakeRustSocketSource();
+        // 5ms, 10ms, then the 20ms cap for every further attempt (harness values).
+        source.EnqueueConnect(SocketConnectOutcome.Unreachable);
+        source.EnqueueConnect(SocketConnectOutcome.Unreachable);
+        source.EnqueueConnect(SocketConnectOutcome.Unreachable);
+        source.EnqueueConnect(SocketConnectOutcome.Unreachable);
+        source.EnqueueConnect(SocketConnectOutcome.Unreachable);
+        source.EnqueueConnect(SocketConnectOutcome.Connected);
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(4));
+        await using var h = CreateHarness(source);
+        var (serverId, credA, _) = await SeedAsync(h.Provider);
+
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        var state = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 4);
+        Assert.NotNull(state);
+        Assert.True(source.CreateCount >= 6, "every unreachable attempt should have been retried");
+        // Unreachable is a transport problem: the credential must survive all of it.
+        Assert.Equal(CredentialStatus.Active, await CredStatusAsync(h.Provider, credA));
+    }
+
+    private static Task WaitForLogAsync(Harness h, LogLevel level, string fragment, CancellationToken ct) =>
+        WaitUntilAsync(
+            () => h.Logs.Records.Any(r => r.Level == level && r.Message.Contains(fragment, StringComparison.Ordinal)),
+            ct);
+
     private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
     {
         while (!condition())
@@ -1003,6 +1665,7 @@ public sealed class ConnectionSupervisorTests
         public required IUserDmSender Dm { get; init; }
         public required ConnectionSupervisor Supervisor { get; init; }
         public required IEventBus Bus { get; init; }
+        public required CapturingLoggerProvider Logs { get; init; }
 
         public async ValueTask DisposeAsync()
         {
