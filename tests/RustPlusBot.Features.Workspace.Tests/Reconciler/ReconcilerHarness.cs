@@ -43,6 +43,31 @@ internal sealed class ReconcilerHarness
         return this;
     }
 
+    /// <summary>Declares a message spec with NO registered renderer, as a stale key from an older deploy.</summary>
+    /// <param name="scope">The workspace scope.</param>
+    /// <param name="key">The message key no renderer answers for.</param>
+    /// <param name="channelKey">The channel the message would live in.</param>
+    public ReconcilerHarness WithUnrenderedMessage(WorkspaceScope scope, string key, string channelKey)
+    {
+        _messageProviders.Add(new StubMessageProvider([new MessageSpec(scope, key, channelKey)]));
+        return this;
+    }
+
+    /// <summary>Declares a message whose text is re-read from a mutable holder each render.</summary>
+    /// <param name="scope">The workspace scope.</param>
+    /// <param name="key">The message key.</param>
+    /// <param name="channelKey">The channel the message lives in.</param>
+    /// <param name="text">The text holder; set it to null to make the renderer return an empty payload.</param>
+    public ReconcilerHarness WithMutableMessage(WorkspaceScope scope,
+        string key,
+        string channelKey,
+        TextHolder text)
+    {
+        _messageProviders.Add(new StubMessageProvider([new MessageSpec(scope, key, channelKey)]));
+        _renderers.Add(new MutableTextRenderer(key, text));
+        return this;
+    }
+
     /// <summary>Declares a message whose renderer attaches a file, re-read from the mutable holder each render.</summary>
     /// <param name="scope">The workspace scope.</param>
     /// <param name="key">The message key.</param>
@@ -100,6 +125,15 @@ internal sealed class ReconcilerHarness
             ValueTask.FromResult(available);
     }
 
+    private sealed class MutableTextRenderer(string key, TextHolder text) : IMessageRenderer
+    {
+        public string MessageKey { get; } = key;
+
+        public ValueTask<MessagePayload>
+            RenderAsync(MessageRenderContext context, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new MessagePayload(text.Current, null, null));
+    }
+
     private sealed class AttachmentRenderer(string key, AttachmentHolder attachment) : IMessageRenderer
     {
         public string MessageKey { get; } = key;
@@ -121,6 +155,13 @@ internal sealed class ReconcilerHarness
             return ValueTask.FromResult(new MessagePayload(null, embed.Build(), null, file));
         }
     }
+}
+
+/// <summary>A mutable text slot, so a test can change (or blank) what a renderer returns between passes.</summary>
+/// <param name="current">The text the renderer starts out returning; null renders an empty payload.</param>
+internal sealed class TextHolder(string? current)
+{
+    public string? Current { get; set; } = current;
 }
 
 /// <summary>A mutable attachment slot, so a test can change the file a renderer returns between passes.</summary>
