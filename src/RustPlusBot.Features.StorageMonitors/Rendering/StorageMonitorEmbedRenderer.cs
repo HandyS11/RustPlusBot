@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Discord;
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Abstractions.Formatting;
 using RustPlusBot.Domain.StorageMonitors;
 using RustPlusBot.Features.ItemData.Naming;
 using RustPlusBot.Localization;
@@ -116,21 +117,6 @@ internal sealed class StorageMonitorEmbedRenderer(ILocalizer localizer, IItemNam
         _ => "storage.type.unknown",
     };
 
-    private static string FormatRemaining(TimeSpan span)
-    {
-        if (span.TotalDays >= 1)
-        {
-            return string.Create(CultureInfo.InvariantCulture, $"{(int)span.TotalDays}d {span.Hours}h");
-        }
-
-        if (span.TotalHours >= 1)
-        {
-            return string.Create(CultureInfo.InvariantCulture, $"{(int)span.TotalHours}h {span.Minutes}m");
-        }
-
-        return string.Create(CultureInfo.InvariantCulture, $"{(int)span.TotalMinutes}m");
-    }
-
     private void AppendProtection(StringBuilder sb, StorageContentsSnapshot contents, string culture)
     {
         // Protection is only meaningful for a Tool Cupboard (capacity 24).
@@ -143,7 +129,7 @@ internal sealed class StorageMonitorEmbedRenderer(ILocalizer localizer, IItemNam
         {
             var remaining = expiry - DateTimeOffset.UtcNow;
             sb.AppendLine(localizer.Get("storage.protection.on", culture,
-                FormatRemaining(remaining < TimeSpan.Zero ? TimeSpan.Zero : remaining)));
+                DurationFormat.Compact(remaining < TimeSpan.Zero ? TimeSpan.Zero : remaining)));
         }
         else
         {

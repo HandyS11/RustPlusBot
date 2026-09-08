@@ -52,6 +52,31 @@ public sealed class StorageMonitorEmbedRendererTests
         Assert.Contains("Protected", embed.Description ?? string.Empty, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     Pins the rendered protection countdown at the day, hour and minute boundaries. The renderer
+    ///     computes the remaining span against the wall clock, so each expiry is set far enough inside
+    ///     its bucket that a slow test run cannot tip it into the next one.
+    /// </summary>
+    /// <param name="offsetSeconds">Seconds from now until protection expires.</param>
+    /// <param name="expected">The compact duration the embed must show.</param>
+    [Theory]
+    [InlineData((25 * 3600) + 1800, "1d 1h")]   // over a day: days + leftover hours
+    [InlineData((24 * 3600) + 1800, "1d 0h")]   // exactly on the day boundary
+    [InlineData(5400 + 30, "1h 30m")]         // 90 minutes: hours + leftover minutes
+    [InlineData(3600 + 30, "1h 0m")]          // exactly on the hour boundary
+    [InlineData(45, "0m")]                    // under a minute truncates to zero minutes
+    [InlineData(-3600, "0m")]                 // already expired clamps to zero
+    public void RenderMonitor_ProtectionRemaining_UsesCompactDuration(int offsetSeconds, string expected)
+    {
+        var renderer = Create(out _);
+        var contents = new StorageContentsSnapshot(
+            24, true, DateTimeOffset.UtcNow.AddSeconds(offsetSeconds), []);
+
+        var (embed, _) = renderer.RenderMonitor(Sample("TC"), contents, "en");
+
+        Assert.Contains(expected, embed.Description ?? string.Empty, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void RenderMonitor_LargeBoxWithItems_ListsItemsSortedDescAndNoProtection()
     {
