@@ -351,4 +351,147 @@ public sealed class ClanSnapshotDifferTests
         ];
         Assert.Equal(expected, kinds);
     }
+
+    // Characterisation tests: pin the current behaviour, including full emission order, before
+    // ClanSnapshotDiffer.Diff is split into AddIdentityChanges / AddMembershipChanges /
+    // AddRoleChanges. These must keep passing, unchanged, after that refactor.
+
+    [Fact]
+    public void Diff_ReturnsNothing_WhenPreviousIsNull()
+    {
+        // A first snapshot is a baseline, not news: nothing should be reported even though the
+        // current snapshot has members and an invite.
+        var current = Clan(members: [Member(10), Member(20)], invites: [Invite(30)]);
+
+        var result = ClanSnapshotDiffer.Diff(null, current);
+
+        Assert.Equal([], result);
+    }
+
+    [Fact]
+    public void Diff_ReturnsDissolved_WhenCurrentIsNull()
+    {
+        var previous = Clan(name: "Wolves");
+
+        var result = ClanSnapshotDiffer.Diff(previous, null);
+
+        ClanChange[] expected = [new ClanChange(ClanChangeKind.Dissolved, Text: "Wolves")];
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void Diff_ReturnsNothing_WhenClanIdChanged()
+    {
+        // A different clan entirely; re-baseline rather than diffing unrelated rosters.
+        var previous = Clan(clanId: 1, members: [Member(10)]);
+        var current = Clan(clanId: 2, members: [Member(20)]);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        Assert.Equal([], result);
+    }
+
+    [Fact]
+    public void Diff_EmitsRenamedThenMotdThenJoinsThenLeavesThenRoles_InThatOrder()
+    {
+        IReadOnlyList<ClanRoleSnapshot> roles = [Role(1, 2, "Member"), Role(2, 0, "Leader")];
+        var previous = Clan(
+            name: "Wolves",
+            motd: "old motd",
+            motdAuthor: 1,
+            roles: roles,
+            members: [Member(1, roleId: 1), Member(5, roleId: 1)]);
+        var current = Clan(
+            name: "Dire Wolves",
+            motd: "new motd",
+            motdAuthor: 2,
+            roles: roles,
+            members: [Member(9, roleId: 1), Member(20, roleId: 1), Member(1, roleId: 2)]);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        ClanChange[] expected =
+        [
+            new ClanChange(ClanChangeKind.Renamed, Text: "Dire Wolves"),
+            new ClanChange(ClanChangeKind.MotdChanged, ActorSteamId: 2, Text: "new motd"),
+            new ClanChange(ClanChangeKind.MemberJoined, 9),
+            new ClanChange(ClanChangeKind.MemberJoined, 20),
+            new ClanChange(ClanChangeKind.MemberLeft, 5),
+            new ClanChange(ClanChangeKind.MemberPromoted, 1, RoleName: "Leader"),
+        ];
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void Diff_ReportsInviteAcceptance_Once_NotAsJoinPlusRevocation()
+    {
+        // Id 7 leaves Invites and appears in Members in the same step: an acceptance, reported
+        // once. Id 8 leaves Invites without appearing in Members: a genuine revocation. Neither
+        // should surface id 7 as a MemberJoined or as an InviteRevoked.
+        var previous = Clan(members: [Member(1)], invites: [Invite(7), Invite(8)]);
+        var current = Clan(members: [Member(1), Member(7)], invites: [Invite(9)]);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        ClanChange[] expected =
+        [
+            new ClanChange(ClanChangeKind.InviteSent, 9, ActorSteamId: 99),
+            new ClanChange(ClanChangeKind.InviteAccepted, 7),
+            new ClanChange(ClanChangeKind.InviteRevoked, 8),
+        ];
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void Diff_OrdersJoinsBySteamId()
+    {
+        var previous = Clan(members: []);
+        var current = Clan(members: [Member(50), Member(10), Member(30)]);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        ClanChange[] expected =
+        [
+            new ClanChange(ClanChangeKind.MemberJoined, 10),
+            new ClanChange(ClanChangeKind.MemberJoined, 30),
+            new ClanChange(ClanChangeKind.MemberJoined, 50),
+        ];
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void Diff_OrdersLeavesBySteamId()
+    {
+        var previous = Clan(members: [Member(50), Member(10), Member(30)]);
+        var current = Clan(members: []);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        ClanChange[] expected =
+        [
+            new ClanChange(ClanChangeKind.MemberLeft, 10),
+            new ClanChange(ClanChangeKind.MemberLeft, 30),
+            new ClanChange(ClanChangeKind.MemberLeft, 50),
+        ];
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void Diff_SkipsRoleChange_WhenEitherRoleIdIsUnknown()
+    {
+        // Member 10's previous role (1) is missing from current.Roles: the "old" endpoint is
+        // unresolvable. Member 20's new role (3) is missing from current.Roles: the "new" endpoint
+        // is unresolvable. Neither direction can be judged without both endpoints, so nothing is
+        // emitted for either member.
+        var previous = Clan(
+            roles: [Role(1, 0, "Leader"), Role(2, 1, "Member")],
+            members: [Member(10, roleId: 1), Member(20, roleId: 2)]);
+        var current = Clan(
+            roles: [Role(2, 1, "Member")],
+            members: [Member(10, roleId: 2), Member(20, roleId: 3)]);
+
+        var result = ClanSnapshotDiffer.Diff(previous, current);
+
+        Assert.Equal([], result);
+    }
 }
