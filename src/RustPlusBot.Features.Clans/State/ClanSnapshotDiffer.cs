@@ -33,7 +33,20 @@ internal static class ClanSnapshotDiffer
         }
 
         var changes = new List<ClanChange>();
+        AddIdentityChanges(changes, previous, current);
+        AddMembershipChanges(changes, previous, current);
+        AddRoleChanges(changes, previous, current);
+        AddInviteChanges(changes, previous, current);
+        AddAttributeChanges(changes, previous, current);
+        return changes;
+    }
 
+    /// <summary>Adds clan-level identity changes: renames and MOTD updates.</summary>
+    /// <param name="changes">The change list being built, appended to in emission order.</param>
+    /// <param name="previous">The last known snapshot.</param>
+    /// <param name="current">The new snapshot.</param>
+    private static void AddIdentityChanges(List<ClanChange> changes, ClanSnapshot previous, ClanSnapshot current)
+    {
         if (!string.Equals(previous.Name, current.Name, StringComparison.Ordinal))
         {
             changes.Add(new ClanChange(ClanChangeKind.Renamed, Text: current.Name));
@@ -44,18 +57,18 @@ internal static class ClanSnapshotDiffer
             changes.Add(new ClanChange(ClanChangeKind.MotdChanged, ActorSteamId: current.MotdAuthor,
                 Text: current.Motd));
         }
+    }
 
-        var previousMembers = previous.Members.ToDictionary(m => m.SteamId);
-        var currentMembers = current.Members.ToDictionary(m => m.SteamId);
-        var previousInvites = previous.Invites.Select(i => i.SteamId).ToHashSet();
-        var currentInvites = current.Invites.Select(i => i.SteamId).ToHashSet();
-
-        // An id that left Invites and appeared in Members in one step is an acceptance, reported
-        // once — never as a join plus a revocation.
-        var accepted = previousInvites
-            .Where(id =>
-                !currentInvites.Contains(id) && currentMembers.ContainsKey(id) && !previousMembers.ContainsKey(id))
-            .ToHashSet();
+    /// <summary>Adds member joins and departures, each ordered ascending by Steam id.</summary>
+    /// <param name="changes">The change list being built, appended to in emission order.</param>
+    /// <param name="previous">The last known snapshot.</param>
+    /// <param name="current">The new snapshot.</param>
+    private static void AddMembershipChanges(List<ClanChange> changes, ClanSnapshot previous, ClanSnapshot current)
+    {
+        var previousMembers = ToMemberLookup(previous);
+        var currentMembers = ToMemberLookup(current);
+        var accepted = ComputeAcceptedInvites(
+            ToInviteIdSet(previous), ToInviteIdSet(current), previousMembers, currentMembers);
 
         foreach (var id in currentMembers.Keys.Where(id => !previousMembers.ContainsKey(id) && !accepted.Contains(id))
                      .Order())
@@ -67,8 +80,18 @@ internal static class ClanSnapshotDiffer
         {
             changes.Add(new ClanChange(ClanChangeKind.MemberLeft, id));
         }
+    }
 
+    /// <summary>Adds member role promotions and demotions, ordered ascending by Steam id.</summary>
+    /// <param name="changes">The change list being built, appended to in emission order.</param>
+    /// <param name="previous">The last known snapshot.</param>
+    /// <param name="current">The new snapshot.</param>
+    private static void AddRoleChanges(List<ClanChange> changes, ClanSnapshot previous, ClanSnapshot current)
+    {
+        var previousMembers = ToMemberLookup(previous);
+        var currentMembers = ToMemberLookup(current);
         var rolesById = current.Roles.ToDictionary(r => r.RoleId);
+
         foreach (var (id, member) in currentMembers.OrderBy(kv => kv.Key))
         {
             if (!previousMembers.TryGetValue(id, out var before) || before.RoleId == member.RoleId)
@@ -87,6 +110,18 @@ internal static class ClanSnapshotDiffer
             var kind = newRole.Rank < oldRole.Rank ? ClanChangeKind.MemberPromoted : ClanChangeKind.MemberDemoted;
             changes.Add(new ClanChange(kind, id, RoleName: newRole.Name));
         }
+    }
+
+    /// <summary>Adds sent, accepted and revoked invites, each ordered ascending by Steam id.</summary>
+    /// <param name="changes">The change list being built, appended to in emission order.</param>
+    /// <param name="previous">The last known snapshot.</param>
+    /// <param name="current">The new snapshot.</param>
+    private static void AddInviteChanges(List<ClanChange> changes, ClanSnapshot previous, ClanSnapshot current)
+    {
+        var previousInvites = ToInviteIdSet(previous);
+        var currentInvites = ToInviteIdSet(current);
+        var accepted = ComputeAcceptedInvites(
+            previousInvites, currentInvites, ToMemberLookup(previous), ToMemberLookup(current));
 
         foreach (var invite in current.Invites.Where(i => !previousInvites.Contains(i.SteamId))
                      .OrderBy(i => i.SteamId))
@@ -105,7 +140,14 @@ internal static class ClanSnapshotDiffer
         {
             changes.Add(new ClanChange(ClanChangeKind.InviteRevoked, id));
         }
+    }
 
+    /// <summary>Adds clan-wide attribute changes: logo, colour and score.</summary>
+    /// <param name="changes">The change list being built, appended to in emission order.</param>
+    /// <param name="previous">The last known snapshot.</param>
+    /// <param name="current">The new snapshot.</param>
+    private static void AddAttributeChanges(List<ClanChange> changes, ClanSnapshot previous, ClanSnapshot current)
+    {
         if (!string.Equals(previous.LogoHash, current.LogoHash, StringComparison.Ordinal))
         {
             changes.Add(new ClanChange(ClanChangeKind.LogoChanged));
@@ -120,7 +162,37 @@ internal static class ClanSnapshotDiffer
         {
             changes.Add(new ClanChange(ClanChangeKind.ScoreChanged, Score: current.Score));
         }
-
-        return changes;
     }
+
+    /// <summary>Indexes a snapshot's members by Steam id.</summary>
+    /// <param name="snapshot">The snapshot to index.</param>
+    /// <returns>The members keyed by Steam id.</returns>
+    private static Dictionary<ulong, ClanMemberSnapshot> ToMemberLookup(ClanSnapshot snapshot) =>
+        snapshot.Members.ToDictionary(m => m.SteamId);
+
+    /// <summary>Collects the Steam ids of a snapshot's pending invites.</summary>
+    /// <param name="snapshot">The snapshot to read invites from.</param>
+    /// <returns>The invited Steam ids.</returns>
+    private static HashSet<ulong> ToInviteIdSet(ClanSnapshot snapshot) =>
+        [.. snapshot.Invites.Select(i => i.SteamId)];
+
+    /// <summary>
+    /// Computes ids that left <see cref="ClanSnapshot.Invites"/> and appeared in
+    /// <see cref="ClanSnapshot.Members"/> in the same step: an acceptance, reported once — never
+    /// as a join plus a revocation.
+    /// </summary>
+    /// <param name="previousInvites">The previous snapshot's invited Steam ids.</param>
+    /// <param name="currentInvites">The new snapshot's invited Steam ids.</param>
+    /// <param name="previousMembers">The previous snapshot's members, keyed by Steam id.</param>
+    /// <param name="currentMembers">The new snapshot's members, keyed by Steam id.</param>
+    /// <returns>The Steam ids of members whose invite was just accepted.</returns>
+    private static HashSet<ulong> ComputeAcceptedInvites(
+        HashSet<ulong> previousInvites,
+        HashSet<ulong> currentInvites,
+        Dictionary<ulong, ClanMemberSnapshot> previousMembers,
+        Dictionary<ulong, ClanMemberSnapshot> currentMembers) =>
+    [
+        .. previousInvites.Where(id =>
+            !currentInvites.Contains(id) && currentMembers.ContainsKey(id) && !previousMembers.ContainsKey(id))
+    ];
 }

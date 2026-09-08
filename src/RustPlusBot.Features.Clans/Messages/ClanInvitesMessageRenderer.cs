@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Discord;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Clans.Names;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Registry;
@@ -28,24 +29,20 @@ public sealed class ClanInvitesMessageRenderer(
     public string MessageKey => Key;
 
     /// <inheritdoc />
-    public async ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
+    public ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
+        CancellationToken cancellationToken) =>
+        ClanMessageShell.RenderAsync(store, context,
+            (clan, serverId, culture) =>
+                RenderInvitesAsync(context.GuildId, serverId, clan, culture, cancellationToken),
+            cancellationToken);
+
+    private async ValueTask<MessagePayload> RenderInvitesAsync(
+        ulong guildId,
+        Guid serverId,
+        ClanSnapshot clan,
+        string culture,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        if (context.ServerId is not Guid serverId)
-        {
-            return new MessagePayload(null, null, null);
-        }
-
-        var clan = await store.GetAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
-        if (clan is null)
-        {
-            // See ClanOverviewMessageRenderer: an empty payload keeps this key inert on clanless
-            // servers, where the channel this message would live in does not exist either.
-            return new MessagePayload(null, null, null);
-        }
-
-        var culture = context.Culture;
         if (clan.Invites.Count == 0)
         {
             // Honest over stale: an empty payload means "leave the previous message on screen", so
@@ -61,7 +58,7 @@ public sealed class ClanInvitesMessageRenderer(
             ids.Add(invite.Recruiter);
         }
 
-        var resolved = await names.ResolveAsync(context.GuildId, serverId, ids, cancellationToken)
+        var resolved = await names.ResolveAsync(guildId, serverId, ids, cancellationToken)
             .ConfigureAwait(false);
 
         var body = new StringBuilder();

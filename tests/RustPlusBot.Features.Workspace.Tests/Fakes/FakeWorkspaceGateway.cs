@@ -25,6 +25,9 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
     /// <summary>How many <see cref="EnsureChannelOrderAsync"/> calls actually moved channels.</summary>
     public int ReorderCalls { get; private set; }
 
+    /// <summary>How many times <see cref="EnsureChannelOrderAsync"/> was called at all, moved or not.</summary>
+    public int EnsureOrderCalls { get; private set; }
+
     public IReadOnlyCollection<ulong> ChannelIds => [.. _channels.Keys];
     public IReadOnlyCollection<ulong> CategoryIds => [.. _categories.Keys];
 
@@ -152,6 +155,7 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         IReadOnlyList<ulong> orderedChannelIds,
         CancellationToken cancellationToken)
     {
+        EnsureOrderCalls++;
         var live = orderedChannelIds
             .Select(id => _channels.TryGetValue(id, out var c) && c.CategoryId == categoryId ? c : null)
             .OfType<Channel>()

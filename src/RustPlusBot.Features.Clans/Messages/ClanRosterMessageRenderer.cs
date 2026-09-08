@@ -38,23 +38,19 @@ public sealed class ClanRosterMessageRenderer(
     public string MessageKey => Key;
 
     /// <inheritdoc />
-    public async ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
+    public ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
+        CancellationToken cancellationToken) =>
+        ClanMessageShell.RenderAsync(store, context,
+            (clan, serverId, culture) => RenderRosterAsync(context.GuildId, serverId, clan, culture, cancellationToken),
+            cancellationToken);
+
+    private async ValueTask<MessagePayload> RenderRosterAsync(
+        ulong guildId,
+        Guid serverId,
+        ClanSnapshot clan,
+        string culture,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        if (context.ServerId is not Guid serverId)
-        {
-            return new MessagePayload(null, null, null);
-        }
-
-        var clan = await store.GetAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
-        if (clan is null)
-        {
-            // See ClanOverviewMessageRenderer: an empty payload keeps this key inert on clanless servers.
-            return new MessagePayload(null, null, null);
-        }
-
-        var culture = context.Culture;
         var embed = new EmbedBuilder()
             .WithTitle(localizer.Get("clan.roster.title", culture,
                 clan.Members.Count.ToString(CultureInfo.InvariantCulture)))
@@ -68,7 +64,7 @@ public sealed class ClanRosterMessageRenderer(
 
         // One batched call for the whole roster rather than one per member.
         var resolved = await names
-            .ResolveAsync(context.GuildId, serverId, clan.Members.Select(m => m.SteamId).ToHashSet(),
+            .ResolveAsync(guildId, serverId, clan.Members.Select(m => m.SteamId).ToHashSet(),
                 cancellationToken)
             .ConfigureAwait(false);
 

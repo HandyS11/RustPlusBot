@@ -71,10 +71,17 @@ public sealed class MapComposer(
         {
             // Dimensions unavailable: render the base tile only (every overlay needs world→pixel).
             return new MapComposition(
-                renderer.Render(baseImage.Bytes, new MapProjection(0, 1, 1, 0, MapRenderer.OutputSize),
-                    markers: [], monuments: [], players: [], rigs: [],
-                    new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false, Players: false,
-                        Rigs: false, Tunnels: false)),
+                renderer.Render(new MapRenderRequest
+                {
+                    BaseJpeg = baseImage.Bytes,
+                    Projection = new MapProjection(0, 1, 1, 0, MapRenderer.OutputSize),
+                    Markers = [],
+                    Monuments = [],
+                    Players = [],
+                    Rigs = [],
+                    Layers = new MapLayerSet(Grid: false, Markers: false, Monuments: false, Vendor: false,
+                        Players: false, Rigs: false, Tunnels: false),
+                }),
                 Legend: null);
         }
 
@@ -96,8 +103,18 @@ public sealed class MapComposer(
             .ConfigureAwait(false);
         var rigPlacements = GatherRigs(guildId, serverId, serverMonuments, projection, layers);
 
-        var png = renderer.Render(baseImage.Bytes, projection, markers, monuments, players, rigPlacements, layers,
-            gridStyle, tunnels);
+        var png = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseImage.Bytes,
+            Projection = projection,
+            Markers = markers,
+            Monuments = monuments,
+            Players = players,
+            Rigs = rigPlacements,
+            Layers = layers,
+            GridStyle = gridStyle,
+            Tunnels = tunnels,
+        });
         return new MapComposition(png, legend);
     }
 

@@ -6,6 +6,7 @@
     <Project Path="src/RustPlusBot.Host/RustPlusBot.Host.csproj" />
     <Project Path="src/RustPlusBot.Features.Commands/RustPlusBot.Features.Commands.csproj" />
     <Project Path="src/RustPlusBot.Features.Connections/RustPlusBot.Features.Connections.csproj" />
+    <Project Path="src/RustPlusBot.Features.Devices/RustPlusBot.Features.Devices.csproj" />
     <Project Path="src/RustPlusBot.Features.Map/RustPlusBot.Features.Map.csproj" />
     <Project Path="src/RustPlusBot.Features.Pairing/RustPlusBot.Features.Pairing.csproj" />
     <Project Path="src/RustPlusBot.Features.Alarms/RustPlusBot.Features.Alarms.csproj" />

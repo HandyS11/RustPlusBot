@@ -19,6 +19,7 @@ namespace RustPlusBot.Features.Connections.Tests.Fakes;
 internal sealed class FakeRustSocketSource : IRustSocketSource
 {
     private readonly ConcurrentQueue<SocketConnectOutcome> _connectOutcomes = new();
+    private readonly ConcurrentQueue<long> _createTimestamps = new();
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
     private readonly Dictionary<ulong, DeviceReachability> _pendingDeviceReachabilityOverrides = [];
     private readonly Dictionary<ulong, bool?> _pendingDeviceStates = [];
@@ -34,6 +35,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
+
+    /// <summary>
+    /// A <see cref="System.Diagnostics.Stopwatch"/> timestamp per <see cref="Create"/> call, in call order.
+    /// Lets a test measure the interval the supervisor actually waited between reconnect attempts, which is
+    /// otherwise invisible: the backoff is realised by an internal <c>Task.Delay</c>.
+    /// </summary>
+    public IReadOnlyCollection<long> CreateTimestamps => _createTimestamps;
 
     /// <summary>The IP address passed to the most recent <see cref="Create"/> call. Read after the operation under test has settled.</summary>
     public string? LastIp { get; private set; }
@@ -52,6 +60,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     public IRustServerConnection Create(string ip, int port, ulong steamId, string playerToken)
     {
         Interlocked.Increment(ref _createCount);
+        _createTimestamps.Enqueue(System.Diagnostics.Stopwatch.GetTimestamp());
         LastIp = ip;
         LastSteamId = steamId;
         var outcome = _connectOutcomes.TryDequeue(out var next) ? next : SocketConnectOutcome.Connected;
@@ -215,12 +224,56 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         : IRustServerConnection
     {
         private readonly ConcurrentQueue<IReadOnlyList<MapMarkerSnapshot>> _markerScript = new();
+
+        private readonly TaskCompletionSource _teamInfoEntered =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private int _disposeCount;
         private IReadOnlyList<MapMarkerSnapshot> _lastMarkers = [];
         private int _mapFetchCount;
         private bool _markerScriptStarted;
 
         /// <summary>Gets the messages sent via <see cref="SendTeamMessageAsync"/>.</summary>
         public List<string> SentMessages { get; } = [];
+
+        /// <summary>Number of times <see cref="DisposeAsync"/> has been called. Safe to read from any thread.</summary>
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        /// <summary>
+        /// When set, <see cref="ConnectAsync"/> throws this instead of answering — models a socket library
+        /// that faults while connecting rather than reporting a <see cref="SocketConnectOutcome"/>.
+        /// </summary>
+        public Exception? ConnectFault { get; set; }
+
+        /// <summary>
+        /// When true, <see cref="ConnectAsync"/> never answers until its cancellation token fires (then
+        /// throws <see cref="OperationCanceledException"/>) — models a connect attempt still in flight when
+        /// the supervisor is stopped.
+        /// </summary>
+        public bool BlockConnectUntilCancelled { get; set; }
+
+        /// <summary>When set, <see cref="GetTeamInfoAsync"/> throws this instead of answering.</summary>
+        public Exception? TeamInfoFault { get; set; }
+
+        /// <summary>
+        /// When true, <see cref="GetTeamInfoAsync"/> never answers until its cancellation token fires (then
+        /// throws <see cref="OperationCanceledException"/>) — models a team poll parked in a request while
+        /// the connected window is torn down.
+        /// </summary>
+        public bool BlockTeamInfoUntilCancelled { get; set; }
+
+        /// <summary>
+        /// When set, <see cref="GetTeamInfoAsync"/> awaits this — deliberately ignoring its cancellation
+        /// token — before answering. Lets a test hold the team poll, and with it the connected window's
+        /// teardown, open across a disposal.
+        /// </summary>
+        public Task? TeamInfoHold { get; set; }
+
+        /// <summary>Completes the first time <see cref="GetTeamInfoAsync"/> is entered.</summary>
+        public Task TeamInfoEntered => _teamInfoEntered.Task;
+
+        /// <summary>When set, <see cref="GetSmartDeviceInfoAsync"/> throws this instead of answering.</summary>
+        public Exception? DeviceInfoFault { get; set; }
 
         /// <summary>
         /// When set, <see cref="SendTeamMessageAsync"/> and <see cref="SendClanMessageAsync"/> return a task
@@ -346,8 +399,20 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         /// <summary>Raised by <see cref="RaiseTeamChanged"/> to simulate a pushed team_changed broadcast.</summary>
         public event EventHandler<TeamInfoSnapshot>? TeamChanged;
 
-        public Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
-            Task.FromResult(outcome);
+        public async Task<SocketConnectOutcome> ConnectAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            if (ConnectFault is { } fault)
+            {
+                throw fault;
+            }
+
+            if (BlockConnectUntilCancelled)
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+            }
+
+            return outcome;
+        }
 
         public Task<HeartbeatResult> GetInfoAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(source.NextHeartbeat());
@@ -358,10 +423,26 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public Task<ServerTimeSnapshot?> GetTimeAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult(TimeResult);
 
-        public Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<TeamInfoSnapshot?> GetTeamInfoAsync(TimeSpan timeout, CancellationToken cancellationToken)
         {
             TeamInfoCallCount++;
-            return Task.FromResult(TeamResult);
+            _teamInfoEntered.TrySetResult();
+            if (TeamInfoHold is { } hold)
+            {
+                await hold.ConfigureAwait(false);
+            }
+
+            if (BlockTeamInfoUntilCancelled)
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (TeamInfoFault is { } fault)
+            {
+                throw fault;
+            }
+
+            return TeamResult;
         }
 
         public Task SendTeamMessageAsync(string message, TimeSpan timeout, CancellationToken cancellationToken)
@@ -409,6 +490,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
             lock (DeviceReadCalls)
             {
                 DeviceReadCalls.Add((entityId, kind));
+            }
+
+            if (DeviceInfoFault is { } fault)
+            {
+                return Task.FromException<DeviceReading>(fault);
             }
 
             var reachability = DeviceReachabilityOverrides.TryGetValue(entityId, out var r)
@@ -489,7 +575,11 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
         public Task<WorldSnapshot?> GetWorldAsync(TimeSpan timeout, CancellationToken cancellationToken = default) =>
             Task.FromResult(World);
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync()
+        {
+            Interlocked.Increment(ref _disposeCount);
+            return ValueTask.CompletedTask;
+        }
 
         /// <summary>
         /// Enqueues a scripted marker list to be returned by the next <see cref="GetMapMarkersAsync"/> call.

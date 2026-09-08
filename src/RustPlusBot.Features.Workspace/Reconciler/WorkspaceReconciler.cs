@@ -159,6 +159,14 @@ internal sealed class WorkspaceReconciler(
         return categoryId;
     }
 
+    /// <summary>Brings the scope's channels to their declared state and reports where each one lives.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>
+    /// <param name="categoryId">The category the channels sit under.</param>
+    /// <param name="culture">The guild's culture, used to localize channel names.</param>
+    /// <param name="scope">The workspace scope whose channel specs to reconcile.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The Discord channel id of every provisioned spec, keyed by channel key.</returns>
     private async Task<Dictionary<string, ulong>> EnsureChannelsAsync(ulong guildId,
         Guid? serverId,
         ulong categoryId,
@@ -175,55 +183,115 @@ internal sealed class WorkspaceReconciler(
 
         foreach (var spec in specs)
         {
-            if (spec.Capability is { } capability &&
-                !await backends.Registry
-                    .IsCapabilityAvailableAsync(capability, guildId, serverId, cancellationToken)
-                    .ConfigureAwait(false))
+            if (await IsGatedOffAsync(spec, guildId, serverId, cancellationToken).ConfigureAwait(false))
             {
                 gatedOff.Add(spec.Key);
                 continue;
             }
 
-            var name = localizer.Get(spec.NameKey, culture);
-            ulong channelId;
-
-            if (existing.TryGetValue(spec.Key, out var rec) &&
-                backends.Gateway.ChannelExists(guildId, rec.DiscordChannelId))
-            {
-                channelId = rec.DiscordChannelId;
-                await backends.Gateway
-                    .ApplyChannelSettingsAsync(guildId, channelId, categoryId, name, spec.Permissions,
-                        cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                var adopted = await backends.Gateway.FindChannelAsync(guildId, categoryId, name, cancellationToken)
-                    .ConfigureAwait(false);
-                if (adopted is ulong adoptedId)
-                {
-                    channelId = adoptedId;
-                    await backends.Gateway
-                        .ApplyChannelSettingsAsync(guildId, channelId, categoryId, name, spec.Permissions,
-                            cancellationToken).ConfigureAwait(false);
-                }
-                else
-                {
-                    channelId = await backends.Gateway
-                        .CreateChannelAsync(guildId, categoryId, name, spec.Permissions, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                await backends.Store.SaveChannelAsync(
-                    new ProvisionedChannel
-                    {
-                        GuildId = guildId, RustServerId = serverId, ChannelKey = spec.Key, DiscordChannelId = channelId
-                    },
-                    cancellationToken).ConfigureAwait(false);
-            }
-
-            result[spec.Key] = channelId;
+            result[spec.Key] = await EnsureChannelAsync(guildId, serverId, categoryId, culture, spec,
+                existing.GetValueOrDefault(spec.Key), cancellationToken).ConfigureAwait(false);
         }
 
+        await RemoveGatedOffChannelsAsync(guildId, serverId, gatedOff, existing, cancellationToken)
+            .ConfigureAwait(false);
+        LogChannelsRetainedOutsideTheRegistry(guildId, specs, existing);
+        await ApplyChannelOrderAsync(guildId, categoryId, specs, result, cancellationToken).ConfigureAwait(false);
+
+        return result;
+    }
+
+    /// <summary>Decides whether a channel spec is switched off because its capability is unavailable.</summary>
+    /// <param name="spec">The channel spec under consideration.</param>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>True when the spec declares a capability that is not currently available.</returns>
+    private async Task<bool> IsGatedOffAsync(ChannelSpec spec,
+        ulong guildId,
+        Guid? serverId,
+        CancellationToken cancellationToken) =>
+        spec.Capability is { } capability &&
+        !await backends.Registry.IsCapabilityAvailableAsync(capability, guildId, serverId, cancellationToken)
+            .ConfigureAwait(false);
+
+    /// <summary>Resolves one channel spec to a live, correctly configured and recorded Discord channel.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>
+    /// <param name="categoryId">The category the channel sits under.</param>
+    /// <param name="culture">The guild's culture, used to localize the channel name.</param>
+    /// <param name="spec">The channel spec to satisfy.</param>
+    /// <param name="record">The channel's current provisioning record, or null when it has never been provisioned.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The Discord channel id the spec now maps to.</returns>
+    private async Task<ulong> EnsureChannelAsync(ulong guildId,
+        Guid? serverId,
+        ulong categoryId,
+        string culture,
+        ChannelSpec spec,
+        ProvisionedChannel? record,
+        CancellationToken cancellationToken)
+    {
+        var name = localizer.Get(spec.NameKey, culture);
+        if (record is not null && backends.Gateway.ChannelExists(guildId, record.DiscordChannelId))
+        {
+            await backends.Gateway
+                .ApplyChannelSettingsAsync(guildId, record.DiscordChannelId, categoryId, name, spec.Permissions,
+                    cancellationToken).ConfigureAwait(false);
+            return record.DiscordChannelId;
+        }
+
+        var channelId = await AdoptOrCreateChannelAsync(guildId, categoryId, name, spec, cancellationToken)
+            .ConfigureAwait(false);
+        await backends.Store.SaveChannelAsync(
+            new ProvisionedChannel
+            {
+                GuildId = guildId, RustServerId = serverId, ChannelKey = spec.Key, DiscordChannelId = channelId
+            },
+            cancellationToken).ConfigureAwait(false);
+        return channelId;
+    }
+
+    /// <summary>Decides between adopting an identically named channel already in the category and creating one.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="categoryId">The category to search in and create under.</param>
+    /// <param name="name">The localized channel name.</param>
+    /// <param name="spec">The channel spec whose permission profile to apply.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The adopted or newly created Discord channel id.</returns>
+    private async Task<ulong> AdoptOrCreateChannelAsync(ulong guildId,
+        ulong categoryId,
+        string name,
+        ChannelSpec spec,
+        CancellationToken cancellationToken)
+    {
+        var adopted = await backends.Gateway.FindChannelAsync(guildId, categoryId, name, cancellationToken)
+            .ConfigureAwait(false);
+        if (adopted is not ulong adoptedId)
+        {
+            return await backends.Gateway
+                .CreateChannelAsync(guildId, categoryId, name, spec.Permissions, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await backends.Gateway
+            .ApplyChannelSettingsAsync(guildId, adoptedId, categoryId, name, spec.Permissions, cancellationToken)
+            .ConfigureAwait(false);
+        return adoptedId;
+    }
+
+    /// <summary>Deletes the channels whose capability has gone away, along with their provisioning records.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>
+    /// <param name="gatedOff">The channel keys whose capability reported unavailable this pass.</param>
+    /// <param name="existing">The scope's provisioning records, keyed by channel key.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    private async Task RemoveGatedOffChannelsAsync(ulong guildId,
+        Guid? serverId,
+        IEnumerable<string> gatedOff,
+        Dictionary<string, ProvisionedChannel> existing,
+        CancellationToken cancellationToken)
+    {
         // A capability that has gone away is an explicit removal, distinct from a spec merely
         // disappearing from the registry (which is retained, below).
         foreach (var key in gatedOff)
@@ -243,36 +311,65 @@ internal sealed class WorkspaceReconciler(
                     guildId);
             }
         }
+    }
+
+    /// <summary>Reports the provisioned channels the registry no longer declares; they are kept, not deleted.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="specs">The channel specs the registry declares for this scope.</param>
+    /// <param name="existing">The scope's provisioning records, keyed by channel key.</param>
+    private void LogChannelsRetainedOutsideTheRegistry(ulong guildId,
+        IEnumerable<ChannelSpec> specs,
+        Dictionary<string, ProvisionedChannel> existing)
+    {
+        if (!logger.IsEnabled(LogLevel.Information))
+        {
+            return;
+        }
 
         // Gated-off keys are still in specs, so the retention log below never reports a channel this
         // pass deliberately removed.
         var registryKeys = specs.Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
-        if (logger.IsEnabled(LogLevel.Information))
+        foreach (var orphan in existing.Keys.Where(k => !registryKeys.Contains(k)))
         {
-            foreach (var orphan in existing.Keys.Where(k => !registryKeys.Contains(k)))
-            {
-                logger.LogInformation(
-                    "Retaining provisioned channel '{Key}' no longer in the registry (guild {GuildId}).", orphan,
-                    guildId);
-            }
+            logger.LogInformation(
+                "Retaining provisioned channel '{Key}' no longer in the registry (guild {GuildId}).", orphan,
+                guildId);
         }
+    }
 
+    /// <summary>Puts the category's provisioned channels back into the order the specs declare.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="categoryId">The category to order.</param>
+    /// <param name="specs">The channel specs the registry declares for this scope.</param>
+    /// <param name="provisioned">The Discord channel id of every provisioned spec, keyed by channel key.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    private async Task ApplyChannelOrderAsync(ulong guildId,
+        ulong categoryId,
+        IEnumerable<ChannelSpec> specs,
+        Dictionary<string, ulong> provisioned,
+        CancellationToken cancellationToken)
+    {
         // A capability-gated channel created after the rest of the category is appended at the
         // bottom by Discord; restore the declared order. The gateway only issues a reorder call
         // when the live order actually differs, so this is a cache read on the steady state.
-        var ordered = specs.Where(s => result.ContainsKey(s.Key))
+        var ordered = specs.Where(s => provisioned.ContainsKey(s.Key))
             .OrderBy(s => s.Order)
-            .Select(s => result[s.Key])
+            .Select(s => provisioned[s.Key])
             .ToList();
         if (ordered.Count > 1)
         {
             await backends.Gateway.EnsureChannelOrderAsync(guildId, categoryId, ordered, cancellationToken)
                 .ConfigureAwait(false);
         }
-
-        return result;
     }
 
+    /// <summary>Brings every declared message in the scope's channels to its rendered state.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>
+    /// <param name="channelIds">The Discord channel id of every provisioned spec, keyed by channel key.</param>
+    /// <param name="culture">The guild's culture, handed to each renderer.</param>
+    /// <param name="scope">The workspace scope whose message specs to reconcile.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     private async Task EnsureMessagesAsync(ulong guildId,
         Guid? serverId,
         Dictionary<string, ulong> channelIds,
@@ -287,110 +384,190 @@ internal sealed class WorkspaceReconciler(
         foreach (var group in specsByChannel)
         {
             var channelId = channelIds[group.Key];
-            var items = new List<MessageItem>();
+            var items = await RenderChannelMessagesAsync(guildId, serverId, channelId, culture, group,
+                cancellationToken).ConfigureAwait(false);
+            await DeleteMessagesOutOfDeclarationOrderAsync(guildId, channelId, items, cancellationToken)
+                .ConfigureAwait(false);
+            await PublishChannelMessagesAsync(guildId, serverId, channelId, items, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
 
-            foreach (var spec in group)
-            {
-                var payload = await _renderers[spec.Key]
-                    .RenderAsync(new MessageRenderContext(guildId, serverId, culture), cancellationToken)
+    /// <summary>Renders one channel's declared messages and pairs each with the live message it can reuse.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>
+    /// <param name="channelId">The channel the messages live in.</param>
+    /// <param name="culture">The guild's culture, handed to each renderer.</param>
+    /// <param name="specs">The channel's message specs, in declaration order.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>One item per spec, in declaration order.</returns>
+    private async Task<List<MessageItem>> RenderChannelMessagesAsync(ulong guildId,
+        Guid? serverId,
+        ulong channelId,
+        string culture,
+        IEnumerable<MessageSpec> specs,
+        CancellationToken cancellationToken)
+    {
+        var items = new List<MessageItem>();
+
+        foreach (var spec in specs)
+        {
+            var payload = await _renderers[spec.Key]
+                .RenderAsync(new MessageRenderContext(guildId, serverId, culture), cancellationToken)
+                .ConfigureAwait(false);
+
+            // A renderer with nothing to show (e.g. the source entity vanished mid-reconcile) returns an
+            // empty payload; Discord rejects a message with no content/embed/components, so skip it.
+            var isEmpty = payload.Text is null && payload.Embed is null && payload.Components is null
+                          && payload.Attachment is null;
+
+            var liveId = isEmpty
+                ? null
+                : await AdoptOrDiscardLiveMessageAsync(guildId, serverId, channelId, spec, payload, cancellationToken)
                     .ConfigureAwait(false);
 
-                // A renderer with nothing to show (e.g. the source entity vanished mid-reconcile) returns an
-                // empty payload; Discord rejects a message with no content/embed/components, so skip it.
-                var isEmpty = payload.Text is null && payload.Embed is null && payload.Components is null
-                              && payload.Attachment is null;
+            items.Add(new MessageItem(spec, payload, isEmpty, liveId));
+        }
 
-                ulong? liveId = null;
-                if (!isEmpty)
-                {
-                    var record = await backends.Store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken)
-                        .ConfigureAwait(false);
-                    var live = record is not null && record.DiscordChannelId == channelId
-                        ? await backends.Gateway
-                            .GetLiveMessageAsync(guildId, channelId, record.DiscordMessageId, cancellationToken)
-                            .ConfigureAwait(false)
-                        : null;
-                    if (live is not null)
-                    {
-                        liveId = live.Id;
+        return items;
+    }
 
-                        // An uploaded file cannot be swapped by an edit, so the live message has to carry
-                        // exactly the file the payload asks for — including none at all. A message that
-                        // drops its upload, such as a custom-map server whose RustMaps render later
-                        // verifies, would otherwise keep the stale image alongside its new embed. The file
-                        // name identifies the content: a message already carrying it is edited in place,
-                        // which leaves the upload alone (the edit never mentions attachments, and Discord
-                        // keeps them) while still applying text and embed changes — a culture switch, say.
-                        if (!string.Equals(live.AttachmentFileName, payload.Attachment?.FileName,
-                                StringComparison.Ordinal))
-                        {
-                            await backends.Gateway
-                                .DeleteMessageAsync(guildId, channelId, live.Id, cancellationToken)
-                                .ConfigureAwait(false);
-                            liveId = null;
-                        }
-                    }
-                }
+    /// <summary>Decides whether the currently live message can be edited in place, deleting it when it cannot.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>
+    /// <param name="channelId">The channel the message must live in.</param>
+    /// <param name="spec">The message spec being reconciled.</param>
+    /// <param name="payload">The freshly rendered content the live message would have to carry.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The snowflake of the reusable live message, or null when the message has to be posted afresh.</returns>
+    private async Task<ulong?> AdoptOrDiscardLiveMessageAsync(ulong guildId,
+        Guid? serverId,
+        ulong channelId,
+        MessageSpec spec,
+        MessagePayload payload,
+        CancellationToken cancellationToken)
+    {
+        var record = await backends.Store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken)
+            .ConfigureAwait(false);
+        if (record is null || record.DiscordChannelId != channelId)
+        {
+            return null;
+        }
 
-                items.Add(new MessageItem(spec, payload, isEmpty, liveId));
-            }
+        var live = await backends.Gateway
+            .GetLiveMessageAsync(guildId, channelId, record.DiscordMessageId, cancellationToken)
+            .ConfigureAwait(false);
+        if (live is null)
+        {
+            return null;
+        }
 
-            // Discord orders messages by creation time. If an earlier-declared message still needs to be
-            // posted while a later-declared one is already live, the channel would render out of spec
-            // order. Delete the live messages after that first to-post one so they re-post fresh, below
-            // it, in declaration order. Live messages before it already sit in their correct earlier
-            // position and are left untouched.
-            var firstToPost = items.FindIndex(i => !i.IsEmpty && i.LiveId is null);
-            if (firstToPost >= 0)
+        // An uploaded file cannot be swapped by an edit, so the live message has to carry
+        // exactly the file the payload asks for — including none at all. A message that
+        // drops its upload, such as a custom-map server whose RustMaps render later
+        // verifies, would otherwise keep the stale image alongside its new embed. The file
+        // name identifies the content: a message already carrying it is edited in place,
+        // which leaves the upload alone (the edit never mentions attachments, and Discord
+        // keeps them) while still applying text and embed changes — a culture switch, say.
+        if (string.Equals(live.AttachmentFileName, payload.Attachment?.FileName, StringComparison.Ordinal))
+        {
+            return live.Id;
+        }
+
+        await backends.Gateway.DeleteMessageAsync(guildId, channelId, live.Id, cancellationToken)
+            .ConfigureAwait(false);
+        return null;
+    }
+
+    /// <summary>Deletes the live messages that would otherwise render below a message still to be posted.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="channelId">The channel the messages live in.</param>
+    /// <param name="items">The channel's items in declaration order; deleted ones are reset to "must post".</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    private async Task DeleteMessagesOutOfDeclarationOrderAsync(ulong guildId,
+        ulong channelId,
+        List<MessageItem> items,
+        CancellationToken cancellationToken)
+    {
+        // Discord orders messages by creation time. If an earlier-declared message still needs to be
+        // posted while a later-declared one is already live, the channel would render out of spec
+        // order. Delete the live messages after that first to-post one so they re-post fresh, below
+        // it, in declaration order. Live messages before it already sit in their correct earlier
+        // position and are left untouched.
+        var firstToPost = items.FindIndex(i => !i.IsEmpty && i.LiveId is null);
+        if (firstToPost < 0)
+        {
+            return;
+        }
+
+        for (var k = firstToPost + 1; k < items.Count; k++)
+        {
+            if (items[k].LiveId is { } staleId)
             {
-                for (var k = firstToPost + 1; k < items.Count; k++)
+                await backends.Gateway.DeleteMessageAsync(guildId, channelId, staleId, cancellationToken)
+                    .ConfigureAwait(false);
+                items[k] = items[k] with
                 {
-                    if (items[k].LiveId is { } staleId)
-                    {
-                        await backends.Gateway.DeleteMessageAsync(guildId, channelId, staleId, cancellationToken)
-                            .ConfigureAwait(false);
-                        items[k] = items[k] with
-                        {
-                            LiveId = null
-                        };
-                    }
-                }
-            }
-
-            foreach (var item in items)
-            {
-                if (item.IsEmpty)
-                {
-                    continue;
-                }
-
-                ulong messageId;
-                if (item.LiveId is { } liveId)
-                {
-                    await backends.Gateway
-                        .EditMessageAsync(guildId, channelId, liveId, item.Payload, cancellationToken)
-                        .ConfigureAwait(false);
-                    messageId = liveId;
-                }
-                else
-                {
-                    messageId = await backends.Gateway
-                        .PostMessageAsync(guildId, channelId, item.Payload, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
-                await backends.Store.SaveMessageAsync(
-                    new ProvisionedMessage
-                    {
-                        GuildId = guildId,
-                        RustServerId = serverId,
-                        MessageKey = item.Spec.Key,
-                        DiscordChannelId = channelId,
-                        DiscordMessageId = messageId
-                    },
-                    cancellationToken).ConfigureAwait(false);
+                    LiveId = null
+                };
             }
         }
+    }
+
+    /// <summary>Edits or posts every non-empty item and records where it ended up.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>
+    /// <param name="channelId">The channel the messages live in.</param>
+    /// <param name="items">The channel's items in declaration order.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    private async Task PublishChannelMessagesAsync(ulong guildId,
+        Guid? serverId,
+        ulong channelId,
+        IEnumerable<MessageItem> items,
+        CancellationToken cancellationToken)
+    {
+        foreach (var item in items)
+        {
+            if (item.IsEmpty)
+            {
+                continue;
+            }
+
+            var messageId = await EditOrPostMessageAsync(guildId, channelId, item, cancellationToken)
+                .ConfigureAwait(false);
+            await backends.Store.SaveMessageAsync(
+                new ProvisionedMessage
+                {
+                    GuildId = guildId,
+                    RustServerId = serverId,
+                    MessageKey = item.Spec.Key,
+                    DiscordChannelId = channelId,
+                    DiscordMessageId = messageId
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Decides between editing the item's live message in place and posting a fresh one.</summary>
+    /// <param name="guildId">The Discord guild.</param>
+    /// <param name="channelId">The channel the message lives in.</param>
+    /// <param name="item">The rendered item to materialize.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The snowflake the item is now anchored to.</returns>
+    private async Task<ulong> EditOrPostMessageAsync(ulong guildId,
+        ulong channelId,
+        MessageItem item,
+        CancellationToken cancellationToken)
+    {
+        if (item.LiveId is not { } liveId)
+        {
+            return await backends.Gateway.PostMessageAsync(guildId, channelId, item.Payload, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        await backends.Gateway.EditMessageAsync(guildId, channelId, liveId, item.Payload, cancellationToken)
+            .ConfigureAwait(false);
+        return liveId;
     }
 
     /// <summary>A rendered message spec paired with its current live materialization, if any.</summary>

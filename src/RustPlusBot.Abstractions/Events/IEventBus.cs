@@ -19,6 +19,13 @@ public interface IEventBus
     /// published after this call until <paramref name="cancellationToken"/> is cancelled or
     /// enumeration stops.
     /// </summary>
+    /// <remarks>
+    /// Implementations must register the subscription <em>before returning</em>, not lazily on first
+    /// enumeration — so an implementation must not be written as a plain
+    /// <c>async IAsyncEnumerable&lt;TEvent&gt;</c> iterator, whose body only runs once the caller starts
+    /// enumerating. Callers rely on this to subscribe synchronously in <c>StartAsync</c> and drain on a
+    /// background task without dropping the events published in between.
+    /// </remarks>
     /// <typeparam name="TEvent">The event type to subscribe to.</typeparam>
     /// <param name="cancellationToken">Token that ends the subscription when cancelled.</param>
     /// <returns>An async stream of <typeparamref name="TEvent"/> instances.</returns>

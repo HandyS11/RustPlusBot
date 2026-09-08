@@ -4,4 +4,4 @@ namespace RustPlusBot.Abstractions.Events;
 /// <param name="GuildId">The owning Discord guild snowflake.</param>
 /// <param name="ServerId">The local Rust server id.</param>
 /// <param name="EntityId">The in-game storage-monitor entity id.</param>
-public sealed record StorageMonitorPairedEvent(ulong GuildId, Guid ServerId, ulong EntityId);
+public sealed record StorageMonitorPairedEvent(ulong GuildId, Guid ServerId, ulong EntityId) : IPairedDeviceEvent;

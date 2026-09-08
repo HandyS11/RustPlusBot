@@ -4,6 +4,7 @@ using Discord.Interactions;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Features.Alarms.Pairing;
 using RustPlusBot.Features.Alarms.Relaying;
 using RustPlusBot.Features.Alarms.Rendering;
@@ -75,72 +76,22 @@ public sealed class AlarmComponentModule(
     /// <summary>Toggles the @everyone ping setting for this alarm.</summary>
     /// <param name="tail">The "{serverId}:{entityId}" custom-id tail.</param>
     [ComponentInteraction(AlarmComponentIds.PingTogglePrefix + "*")]
-    public async Task PingToggleAsync(string tail)
-    {
-        if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
-        {
-            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
-        await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
-            var current = await store.GetAsync(Context.Guild.Id, serverId, entityId, CancellationToken.None)
-                .ConfigureAwait(false);
-            if (current is null)
-            {
-                await FollowupAsync("That alarm isn't managed.", ephemeral: true).ConfigureAwait(false);
-                return;
-            }
-
-            await store
-                .SetPingEveryoneAsync(Context.Guild.Id, serverId, entityId, !current.PingEveryone,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-        }
-
-        await refresher.RefreshAsync(Context.Guild.Id, serverId, entityId, unreachable: false, CancellationToken.None)
-            .ConfigureAwait(false);
-        await FollowupAsync("Updated.", ephemeral: true).ConfigureAwait(false);
-    }
+    public Task PingToggleAsync(string tail) =>
+        ToggleAsync(
+            tail,
+            current => current.PingEveryone,
+            (store, guildId, serverId, entityId, value, cancellationToken) =>
+                store.SetPingEveryoneAsync(guildId, serverId, entityId, value, cancellationToken));
 
     /// <summary>Toggles the relay-to-team-chat setting for this alarm.</summary>
     /// <param name="tail">The "{serverId}:{entityId}" custom-id tail.</param>
     [ComponentInteraction(AlarmComponentIds.RelayTogglePrefix + "*")]
-    public async Task RelayToggleAsync(string tail)
-    {
-        if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
-        {
-            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
-        await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
-        {
-            var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
-            var current = await store.GetAsync(Context.Guild.Id, serverId, entityId, CancellationToken.None)
-                .ConfigureAwait(false);
-            if (current is null)
-            {
-                await FollowupAsync("That alarm isn't managed.", ephemeral: true).ConfigureAwait(false);
-                return;
-            }
-
-            await store
-                .SetRelayToTeamChatAsync(Context.Guild.Id, serverId, entityId, !current.RelayToTeamChat,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-        }
-
-        await refresher.RefreshAsync(Context.Guild.Id, serverId, entityId, unreachable: false, CancellationToken.None)
-            .ConfigureAwait(false);
-        await FollowupAsync("Updated.", ephemeral: true).ConfigureAwait(false);
-    }
+    public Task RelayToggleAsync(string tail) =>
+        ToggleAsync(
+            tail,
+            current => current.RelayToTeamChat,
+            (store, guildId, serverId, entityId, value, cancellationToken) =>
+                store.SetRelayToTeamChatAsync(guildId, serverId, entityId, value, cancellationToken));
 
     /// <summary>Re-reads the alarm's live state and republishes it so the embed refreshes.</summary>
     /// <param name="tail">The "{serverId}:{entityId}" custom-id tail.</param>
@@ -220,6 +171,48 @@ public sealed class AlarmComponentModule(
         await refresher.RefreshAsync(Context.Guild.Id, serverId, entityId, unreachable: false, CancellationToken.None)
             .ConfigureAwait(false);
         await FollowupAsync("Renamed.", ephemeral: true).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Shared body for the ping/relay toggle buttons: parse the tail, load the managed alarm, flip one
+    /// bool field, persist, then refresh the embed. The two buttons differ only in which field they read
+    /// and which store setter they call.
+    /// </summary>
+    /// <param name="tail">The "{serverId}:{entityId}" custom-id tail.</param>
+    /// <param name="getCurrent">Reads the field's current value off the managed alarm.</param>
+    /// <param name="setAsync">Persists the flipped value.</param>
+    /// <returns>A task that completes when the toggle has been applied and the user notified.</returns>
+    private async Task ToggleAsync(
+        string tail,
+        Func<SmartAlarm, bool> getCurrent,
+        Func<IAlarmStore, ulong, Guid, ulong, bool, CancellationToken, Task> setAsync)
+    {
+        if (!TryParse(tail, out var serverId, out var entityId) || Context.Guild is null)
+        {
+            await RespondAsync(InvalidControlMessage, ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var scope = scopeFactory.CreateAsyncScope();
+        await using (scope.ConfigureAwait(false))
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IAlarmStore>();
+            var current = await store.GetAsync(Context.Guild.Id, serverId, entityId, CancellationToken.None)
+                .ConfigureAwait(false);
+            if (current is null)
+            {
+                await FollowupAsync("That alarm isn't managed.", ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
+            await setAsync(store, Context.Guild.Id, serverId, entityId, !getCurrent(current), CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+
+        await refresher.RefreshAsync(Context.Guild.Id, serverId, entityId, unreachable: false, CancellationToken.None)
+            .ConfigureAwait(false);
+        await FollowupAsync("Updated.", ephemeral: true).ConfigureAwait(false);
     }
 
     private static bool TryParse(string tail, out Guid serverId, out ulong entityId)

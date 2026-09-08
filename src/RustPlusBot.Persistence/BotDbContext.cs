@@ -5,6 +5,7 @@ using RustPlusBot.Domain.Clans;
 using RustPlusBot.Domain.Commands;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
+using RustPlusBot.Domain.Devices;
 using RustPlusBot.Domain.Entities;
 using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
@@ -94,7 +95,12 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
         ArgumentNullException.ThrowIfNull(modelBuilder);
         base.OnModelCreating(modelBuilder); // core skeleton + snowflake convention
 
+        // PairedDeviceEntity is a code-sharing base, not an entity type: SmartSwitch and
+        // SmartStorageMonitor each own their table. Ignoring it makes that intent EF-enforced — without
+        // this, a future DbSet<PairedDeviceEntity> or a navigation pointing at the base would silently
+        // turn both devices into one table-per-hierarchy table and take the existing rows with it.
         modelBuilder
+            .Ignore<PairedDeviceEntity>()
             .ApplyConfiguration(new RustServerConfiguration())
             .ApplyConfiguration(new PlayerCredentialConfiguration())
             .ApplyConfiguration(new FcmRegistrationConfiguration())

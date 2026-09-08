@@ -23,6 +23,7 @@ public sealed class InfoMapHostedServiceTests
     private static readonly Guid ServerA = Guid.NewGuid();
     private static readonly Guid ServerB = Guid.NewGuid();
     private static readonly RustMapsMapKey Key = new(4000, 12345);
+    private static readonly int[] OneElement = [0];
 
     private static IServiceScopeFactory ScopeFactory(IConnectionStore store) =>
         new ServiceCollection()
@@ -303,6 +304,249 @@ public sealed class InfoMapHostedServiceTests
 
         Assert.Contains(Key, coordinator.PendingKeys());
         Assert.Contains((GuildA, serverId), coordinator.Requesters(Key));
+    }
+
+    [Fact]
+    public async Task A_status_event_for_a_server_the_store_no_longer_reports_as_connected_registers_nothing()
+    {
+        // The bus is an unbounded queue, so a connect event can be dequeued after the socket has already
+        // dropped. Registering on the stale payload would spend RustMaps credits on a dead server.
+        var coordinator = new RustMapsMapCoordinator();
+        var query = Substitute.For<IRustServerQuery>();
+        var connectionStore = Substitute.For<IConnectionStore>();
+        var handled = SecondReadSignal(connectionStore, null);
+
+        var bus = new InMemoryEventBus();
+        using var service = NoTickService(bus, coordinator, query, connectionStore);
+
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            await bus.PublishAsync(new ConnectionStatusChangedEvent(GuildA, ServerA, true, false));
+            await bus.PublishAsync(new ConnectionStatusChangedEvent(GuildA, ServerA, true, false));
+            await handled.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+
+        await query.DidNotReceive().GetWorldAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        Assert.Empty(coordinator.PendingKeys());
+    }
+
+    [Fact]
+    public async Task A_connected_server_whose_world_is_not_resolvable_yet_registers_nothing()
+    {
+        // The map window resolves asynchronously after connect; until it does there is no (size, seed) to
+        // key a render on, and guessing one would render — and bill for — the wrong island.
+        var coordinator = new RustMapsMapCoordinator();
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetWorldAsync(GuildA, ServerA, Arg.Any<CancellationToken>()).Returns((WorldSnapshot?)null);
+        var connectionStore = Substitute.For<IConnectionStore>();
+        var handled = SecondReadSignal(connectionStore, new ConnectionState
+        {
+            GuildId = GuildA, RustServerId = ServerA, Status = ConnectionStatus.Connected
+        });
+
+        var bus = new InMemoryEventBus();
+        using var service = NoTickService(bus, coordinator, query, connectionStore);
+
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            await bus.PublishAsync(new ConnectionStatusChangedEvent(GuildA, ServerA, true, false));
+            await bus.PublishAsync(new ConnectionStatusChangedEvent(GuildA, ServerA, true, false));
+            await handled.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+
+        await query.Received().GetWorldAsync(GuildA, ServerA, Arg.Any<CancellationToken>());
+        Assert.Empty(coordinator.PendingKeys());
+    }
+
+    [Fact]
+    public async Task A_failing_status_read_costs_its_own_event_and_not_the_subscription()
+    {
+        // The connect burst is exactly when the database is busiest; one failed read must not cost every
+        // later connect its RustMaps registration for the rest of the process.
+        var coordinator = new RustMapsMapCoordinator();
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetWorldAsync(GuildA, ServerA, Arg.Any<CancellationToken>())
+            .Returns(new WorldSnapshot((uint)Key.Size, (uint)Key.Seed));
+
+        var reads = 0;
+        var connectionStore = Substitute.For<IConnectionStore>();
+        connectionStore.GetStateAsync(GuildA, ServerA, Arg.Any<CancellationToken>())
+            .Returns<ConnectionState?>(_ => Interlocked.Increment(ref reads) == 1
+                ? throw new TimeoutException("database is locked")
+                : new ConnectionState
+                {
+                    GuildId = GuildA, RustServerId = ServerA, Status = ConnectionStatus.Connected
+                });
+
+        var bus = new InMemoryEventBus();
+        var registered = new SignallingCoordinator(coordinator);
+        using var service = NoTickService(bus, registered, query, connectionStore);
+
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            await bus.PublishAsync(new ConnectionStatusChangedEvent(GuildA, ServerA, true, false));
+            await bus.PublishAsync(new ConnectionStatusChangedEvent(GuildA, ServerA, true, false));
+            await registered.Registered.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+
+        Assert.Contains((GuildA, ServerA), coordinator.Requesters(Key));
+    }
+
+    [Fact]
+    public async Task A_faulting_status_stream_ends_that_loop_without_faulting_the_host()
+    {
+        // A loop that ends because the stream itself broke must be contained: rethrowing it out of the
+        // joined task would fail the host's shutdown on the way down.
+        // The subscription is established synchronously inside StartAsync, so the fault has to surface on
+        // enumeration — which is where a real broken stream would surface it too.
+        var bus = Substitute.For<IEventBus>();
+        bus.SubscribeAsync<ConnectionStatusChangedEvent>(Arg.Any<CancellationToken>())
+            .Returns(_ => OneElement.ToAsyncEnumerable()
+                .Select<int, ConnectionStatusChangedEvent>(_ =>
+                    throw new InvalidOperationException("the subscription broke.")));
+        using var service = NoTickService(bus, new RustMapsMapCoordinator(), Substitute.For<IRustServerQuery>(),
+            Substitute.For<IConnectionStore>());
+
+        await service.StartAsync(CancellationToken.None);
+        var stop = service.StopAsync(CancellationToken.None);
+        await stop;
+
+        Assert.True(stop.IsCompletedSuccessfully);
+    }
+
+    [Fact]
+    public async Task A_tick_that_cannot_reach_the_connection_store_does_not_fault_the_host()
+    {
+        var listed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = Substitute.For<IConnectionStore>();
+        store.ListConnectableServersAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<(ulong GuildId, Guid ServerId)>>(_ =>
+            {
+                listed.TrySetResult();
+                throw new TimeoutException("database is locked");
+            });
+
+        using var service = new InfoMapHostedService(
+            new InMemoryEventBus(), new RustMapsMapCoordinator(),
+            new RustMapsGenerationDriver(Substitute.For<IRustMapsClient>(), new RustMapsMapCoordinator(),
+                NullLogger<RustMapsGenerationDriver>.Instance),
+            Substitute.For<IRustServerQuery>(), ShortPollOptions(), ScopeFactory(store),
+            NullLogger<InfoMapHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        await listed.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        var stop = service.StopAsync(CancellationToken.None);
+        await stop;
+
+        Assert.True(stop.IsCompletedSuccessfully);
+    }
+
+    [Fact]
+    public async Task A_server_whose_verdict_is_already_decided_is_not_announced_again()
+    {
+        // Announcing a second time would make the workspace reconciler re-render #info for a render whose
+        // verdict has not changed, on every single tick for the rest of the wipe.
+        var coordinator = new RustMapsMapCoordinator();
+        coordinator.Register(Key, GuildA, ServerA);
+
+        var client = Substitute.For<IRustMapsClient>();
+        client.GetMapBySeedAndSizeAsync(Key.Size, Key.Seed, false, Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Success(
+                new MapInfo
+                {
+                    ImageUrl = "https://img/plain.png",
+                    ImageIconUrl = "https://img/icons.png",
+                    Monuments = RenderMonuments()
+                }, 200));
+        var driver = new RustMapsGenerationDriver(client, coordinator, NullLogger<RustMapsGenerationDriver>.Instance);
+
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetMonumentsAsync(GuildA, ServerA, Arg.Any<CancellationToken>())
+            .Returns(MatchingServerMonuments(Key.Size));
+
+        using var bus = CapturingBus();
+        var service = new InfoMapHostedService(
+            bus, coordinator, driver, query, ShortPollOptions(),
+            ScopeFactory(Substitute.For<IConnectionStore>()), NullLogger<InfoMapHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            await bus.WaitForAsync(1);
+            // Several more poll intervals pass with the verdict already recorded.
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+
+        Assert.Single(bus.Received);
+        Assert.Equal(RustMapsMapMatch.Match, coordinator.MatchFor(Key, GuildA, ServerA));
+    }
+
+    /// <summary>Builds a service whose generation poll is far enough out that only the status loop runs.</summary>
+    /// <param name="bus">The event bus to consume status events from.</param>
+    /// <param name="coordinator">The coordinator under observation.</param>
+    /// <param name="query">The live query seam.</param>
+    /// <param name="connectionStore">The store the handler re-reads the status from.</param>
+    /// <returns>The configured service.</returns>
+    private static InfoMapHostedService NoTickService(
+        IEventBus bus,
+        IRustMapsMapCoordinator coordinator,
+        IRustServerQuery query,
+        IConnectionStore connectionStore) =>
+        new(bus, coordinator,
+            new RustMapsGenerationDriver(Substitute.For<IRustMapsClient>(), coordinator,
+                NullLogger<RustMapsGenerationDriver>.Instance),
+            query,
+            Options.Create(new MapOptions
+            {
+                RustMaps = new RustMapsOptions
+                {
+                    GenerationPollInterval = TimeSpan.FromMinutes(30)
+                }
+            }),
+            ScopeFactory(connectionStore), NullLogger<InfoMapHostedService>.Instance);
+
+    /// <summary>
+    /// Stubs the status read and signals on its second call. The consume loop is sequential, so reaching the
+    /// second read proves the first event's handler ran to completion — which is what lets a test assert
+    /// that nothing was registered without racing the handler.
+    /// </summary>
+    /// <param name="store">The store to stub.</param>
+    /// <param name="state">The state every read returns.</param>
+    /// <returns>The signal completed on the second read.</returns>
+    private static TaskCompletionSource SecondReadSignal(IConnectionStore store, ConnectionState? state)
+    {
+        var handled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reads = 0;
+        store.GetStateAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (Interlocked.Increment(ref reads) == 2)
+                {
+                    handled.TrySetResult();
+                }
+
+                return Task.FromResult(state);
+            });
+        return handled;
     }
 
     /// <summary>Forwards to a real coordinator and completes <see cref="Registered"/> on the first Register.</summary>

@@ -27,8 +27,8 @@ internal sealed class HeliCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         return await MarkerReply
-            .ForAsync(state, context, MarkerKind.PatrolHelicopter, "command.heli", localizer, clock, mapSettings,
-                cancellationToken)
+            .ForAsync(new MarkerReplyServices(state, localizer, clock, mapSettings), context,
+                MarkerKind.PatrolHelicopter, "command.heli", cancellationToken)
             .ConfigureAwait(false);
     }
 }
