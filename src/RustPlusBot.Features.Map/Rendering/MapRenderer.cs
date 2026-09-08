@@ -39,12 +39,7 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
     /// <summary>Renders the map tile plus the requested overlay layers to PNG bytes.</summary>
     /// <param name="request">The base image, projection, and overlay data to render.</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
-    /// <remarks>
-    /// <see cref="MapRenderRequest"/> is internal, so this method is internal rather than public — every
-    /// caller (<see cref="Composing.MapComposer"/> and the map test suite) lives in this assembly or a
-    /// friend assembly.
-    /// </remarks>
-    internal byte[] Render(MapRenderRequest request)
+    public byte[] Render(MapRenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.BaseJpeg);

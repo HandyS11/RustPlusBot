@@ -3,7 +3,7 @@ using RustPlusBot.Abstractions.Connections;
 namespace RustPlusBot.Features.Map.Rendering;
 
 /// <summary>The base image, projection, and overlay data needed to render a map PNG.</summary>
-internal sealed record MapRenderRequest
+public sealed record MapRenderRequest
 {
     /// <summary>The raw base-map JPEG bytes.</summary>
     public required byte[] BaseJpeg { get; init; }
