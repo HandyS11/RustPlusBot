@@ -27,8 +27,8 @@ internal sealed class CargoCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         return await MarkerReply
-            .ForAsync(state, context, MarkerKind.CargoShip, "command.cargo", localizer, clock, mapSettings,
-                cancellationToken)
+            .ForAsync(new MarkerReplyServices(state, localizer, clock, mapSettings), context, MarkerKind.CargoShip,
+                "command.cargo", cancellationToken)
             .ConfigureAwait(false);
     }
 }
