@@ -27,6 +27,7 @@ public abstract partial class EventLoopHostedService : IHostedService, IDisposab
     private readonly CancellationTokenSource _cts = new();
     private readonly IEventBus _eventBus;
     private readonly ILogger _logger;
+    private int _created;
     private Task[] _loops = [];
 
     /// <summary>Initializes a new instance of the <see cref="EventLoopHostedService"/> class.</summary>
@@ -64,7 +65,21 @@ public abstract partial class EventLoopHostedService : IHostedService, IDisposab
 
         // Enumerating Loops is what subscribes: materialise it here, before the first Task.Run, so that
         // every subscription is live by the time this method returns.
+        _created = 0;
         var registrations = Loops.ToArray();
+
+        // Loop<TEvent> subscribes as a side effect, so a registration built but not yielded has already
+        // taken a subscription that nothing will ever drain. The in-process bus buffers such a channel
+        // without bound and only unregisters it when its iterator is disposed, so the misuse would leak
+        // silently. Refuse to start instead.
+        if (_created != registrations.Length)
+        {
+            throw new InvalidOperationException(
+                $"Every {nameof(EventLoopRegistration)} created by Loop<TEvent>() must be yielded from " +
+                $"{nameof(Loops)}: {_created} were created but {registrations.Length} were yielded. An " +
+                "unyielded registration has already subscribed to the bus and would never be drained.");
+        }
+
         var loops = new Task[registrations.Length];
         for (var i = 0; i < registrations.Length; i++)
         {
@@ -107,12 +122,18 @@ public abstract partial class EventLoopHostedService : IHostedService, IDisposab
     /// <param name="name">The loop's name, used in the "loop faulted" log message.</param>
     /// <param name="handle">Handles one event; its failures are logged, not propagated.</param>
     /// <returns>The registration to return from <see cref="Loops"/>.</returns>
+    /// <remarks>
+    /// Calling this subscribes immediately. Every registration it returns must be yielded from
+    /// <see cref="Loops"/>; <see cref="StartAsync"/> counts them and throws if any was created and
+    /// dropped, because such a subscription is never drained and would leak.
+    /// </remarks>
     protected EventLoopRegistration Loop<TEvent>(string name, Func<TEvent, CancellationToken, Task> handle)
         where TEvent : notnull
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(handle);
 
+        _created++;
         var events = _eventBus.SubscribeAsync<TEvent>(_cts.Token);
         return new EventLoopRegistration(
             name,

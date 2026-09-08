@@ -58,14 +58,47 @@ public sealed class EventLoopHostedServiceTests
     public async Task StopAsync_JoinsEveryLoop_AndDoesNotThrowOnCancellation()
     {
         var bus = new InMemoryEventBus();
-        var subject = new Subject(bus);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var subject = new Subject(bus)
+        {
+            OnPing = async _ =>
+            {
+                entered.TrySetResult();
+                await release.Task.ConfigureAwait(false);
+            },
+        };
         await subject.StartAsync(CancellationToken.None);
 
-        var stop = subject.StopAsync(CancellationToken.None);
-        await stop;
+        await bus.PublishAsync(new Ping(1));
+        await entered.Task; // The ping loop is now inside the handler and cannot finish on its own.
 
-        Assert.True(stop.IsCompletedSuccessfully);
+        var stop = subject.StopAsync(CancellationToken.None);
+
+        // Cancellation alone does not end the loop: it is mid-handler. If StopAsync did not join its loop
+        // tasks it would already have returned here.
+        Assert.False(stop.IsCompleted);
+
+        release.SetResult();
+        await stop; // Joins the loop, and the cancellation that ends the stream does not escape.
+
+        // Proof the join happened: the handler ran to completion before StopAsync returned.
+        Assert.Equal([1], subject.Pings);
         subject.Dispose();
+    }
+
+    [Fact]
+    public async Task StartAsync_Throws_WhenALoopWasCreatedButNotYielded()
+    {
+        // A registration built and dropped has already subscribed, and nothing will ever drain it: on the
+        // unbounded in-process bus that is a silent leak, so starting must fail loudly instead.
+        var subject = new DroppedLoopSubject(new InMemoryEventBus());
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => subject.StartAsync(CancellationToken.None));
+
+        Assert.Contains("must be yielded", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("2 were created but 1 were yielded", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -137,5 +170,19 @@ public sealed class EventLoopHostedServiceTests
         protected override void OnStarting() => StartingCalls++;
 
         protected override void OnStopping() => StoppingCalls++;
+    }
+
+    /// <summary>A subclass that misuses the base: it builds two loops but only yields one.</summary>
+    /// <param name="bus">The bus to subscribe to.</param>
+    private sealed class DroppedLoopSubject(IEventBus bus) : EventLoopHostedService(bus, NullLogger.Instance)
+    {
+        protected override IEnumerable<EventLoopRegistration> Loops
+        {
+            get
+            {
+                _ = Loop<Ping>("created but never yielded", (_, _) => Task.CompletedTask);
+                yield return Loop<Pong>("pong", (_, _) => Task.CompletedTask);
+            }
+        }
     }
 }
