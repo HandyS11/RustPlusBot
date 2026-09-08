@@ -12,7 +12,8 @@
 
 ## Global Constraints
 
-- `TreatWarningsAsErrors` is `true` with `AnalysisLevel=latest-all`. NetAnalyzers, Roslynator, Roslynator.Formatting, VS Threading and SonarAnalyzer.CSharp all run during build. Any new warning fails the build. **Run `dtk dotnet build` after every change.**
+- `TreatWarningsAsErrors` is `true` with `AnalysisLevel=latest-all`. NetAnalyzers, Roslynator, Roslynator.Formatting and VS Threading run during build and any new warning fails it. **Run `dotnet build` after every change.**
+- **Correction (2026-09-08): `dotnet build` does NOT enforce the SonarQube smell rules.** Verified empirically: a deliberately over-complex method compiled with zero `S3776` diagnostics, and the probe file was genuinely analysed (adding a syntax error to it failed the build with CS1514). `.editorconfig` sets severities for only three `S*` rules (S2094, S4581, S3220). Treat a clean build as a **regression check only** — it is NOT evidence that S3776, S107 or S1192 is cleared. The only binding evidence is a SonarQube analysis (Task 21, Step 6). The MCP `analyze_code_snippet` tool cannot substitute: it has no C# language support.
 - `GenerateDocumentationFile` is `true`. Every new public and internal type and member needs XML doc comments, including `<param>` for each parameter and `<returns>` where applicable. Missing docs fail the build.
 - Central package management: add package versions in `Directory.Packages.props`, reference without a version in the `.csproj`.
 - New `internal` types that need testing require `<InternalsVisibleTo Include="<TestProject>" />` in the owning `.csproj`. Follow the existing pattern (see `src/RustPlusBot.Features.Switches/RustPlusBot.Features.Switches.csproj`).
@@ -1177,7 +1178,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 dotnet clean && dotnet build --configuration Release
 ```
 
-Expected: zero warnings, zero errors. With `TreatWarningsAsErrors` and SonarAnalyzer in-build, a clean Release build is direct evidence that S3776, S107 and S1192 are gone.
+Expected: zero warnings, zero errors. This is a **regression check only**. It does NOT prove the smells are cleared — see the correction in Global Constraints. The binding evidence for all 8 smells is Step 6's SonarQube query.
 
 - [ ] **Step 2: Full suite with coverage**
 
