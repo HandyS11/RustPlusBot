@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RustPlusBot.Abstractions\RustPlusBot.Abstractions.csproj" />
+    <ProjectReference Include="..\RustPlusBot.Discord\RustPlusBot.Discord.csproj" />
     <ProjectReference Include="..\RustPlusBot.Persistence\RustPlusBot.Persistence.csproj" />
   </ItemGroup>
 
