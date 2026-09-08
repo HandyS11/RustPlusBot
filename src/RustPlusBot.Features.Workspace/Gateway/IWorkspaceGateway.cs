@@ -66,13 +66,16 @@ internal interface IWorkspaceGateway
         ChannelPermissionProfile profile,
         CancellationToken cancellationToken);
 
-    /// <summary>True if the message still exists in the channel.</summary>
+    /// <summary>Reads a message's live state, or null when it no longer exists.</summary>
     /// <param name="guildId">The snowflake ID of the guild.</param>
     /// <param name="channelId">The snowflake ID of the channel containing the message.</param>
     /// <param name="messageId">The snowflake ID of the message to check.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
-    /// <returns>True if the message exists; otherwise false.</returns>
-    Task<bool> MessageExistsAsync(ulong guildId, ulong channelId, ulong messageId, CancellationToken cancellationToken);
+    /// <returns>The live message (with any attachment's file name), or null if it is gone.</returns>
+    Task<LiveMessage?> GetLiveMessageAsync(ulong guildId,
+        ulong channelId,
+        ulong messageId,
+        CancellationToken cancellationToken);
 
     /// <summary>Posts a new message and returns its snowflake.</summary>
     /// <param name="guildId">The snowflake ID of the guild.</param>

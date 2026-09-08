@@ -12,8 +12,9 @@ namespace RustPlusBot.Features.Map.Hosting;
 
 /// <summary>
 /// Drives credit-safe RustMaps generation for the #info map: registers each connected server's (size, seed)
-/// key with the coordinator, advances pending generations on a poll interval, and publishes
-/// <see cref="InfoMapReadyEvent"/> at most once per key so the workspace reconciler picks up the ready render.
+/// key with the coordinator, advances pending generations on a poll interval, checks each ready render
+/// against the monuments its servers actually report, and publishes <see cref="InfoMapReadyEvent"/> at most
+/// once per (key, server) so the workspace reconciler picks up the verdict.
 /// No posting here — delivery is a reconciled Workspace message (<c>ServerInfoMapMessageRenderer</c>) that
 /// reads the coordinator through <c>IInfoMapReadModel</c>.
 /// </summary>
@@ -33,8 +34,11 @@ internal sealed partial class InfoMapHostedService(
     IServiceScopeFactory scopeFactory,
     ILogger<InfoMapHostedService> logger) : IHostedService, IDisposable
 {
-    /// <summary>Keys already announced via <see cref="InfoMapReadyEvent"/> — each key is published at most once.</summary>
-    private readonly HashSet<RustMapsMapKey> _announced = [];
+    /// <summary>
+    /// (key, server) pairs already announced via <see cref="InfoMapReadyEvent"/> — each is published at most
+    /// once, when its verdict is first decided.
+    /// </summary>
+    private readonly HashSet<(RustMapsMapKey Key, ulong Guild, Guid Server)> _announced = [];
 
     private readonly CancellationTokenSource _cts = new();
     private Task? _statusLoop;
@@ -81,8 +85,8 @@ internal sealed partial class InfoMapHostedService(
     /// <summary>
     /// Advances every pending RustMaps generation key strictly one-at-a-time (sequential, never
     /// concurrent) — the driver's check-then-spend path is not atomic across awaits, so concurrent
-    /// calls for the same key could double-spend real RustMaps credits. Then announces any key that
-    /// just reached Ready to every one of its requesters.
+    /// calls for the same key could double-spend real RustMaps credits. Then checks each ready render
+    /// against its requesting servers and announces every server whose verdict has just been decided.
     /// </summary>
     /// <param name="cancellationToken">A cancellation token.</param>
     private async Task RunTickAsync(CancellationToken cancellationToken)
@@ -99,13 +103,14 @@ internal sealed partial class InfoMapHostedService(
                 // subscribed on startup, so it is missed and the server would otherwise never generate).
                 await RegisterConnectedServersAsync(cancellationToken).ConfigureAwait(false);
 
-                var pending = coordinator.PendingKeys();
-                foreach (var key in pending)
+                foreach (var key in coordinator.PendingKeys())
                 {
                     await driver.AdvanceAsync(key, cancellationToken).ConfigureAwait(false);
                 }
 
-                await AnnounceReadyKeysAsync(pending, cancellationToken).ConfigureAwait(false);
+                // Verification runs after the advance so a key that just turned Ready is judged on this same
+                // tick, and re-runs every tick for servers still undecided (a monument fetch can miss).
+                await VerifyReadyMapsAsync(cancellationToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -146,21 +151,61 @@ internal sealed partial class InfoMapHostedService(
         }
     }
 
-    private async Task AnnounceReadyKeysAsync(IReadOnlyList<RustMapsMapKey> keys, CancellationToken cancellationToken)
+    /// <summary>
+    /// Checks every ready render against the monuments its requesting servers actually report, and announces
+    /// each server the first time its verdict is decided.
+    /// </summary>
+    /// <remarks>
+    /// A (size, seed) does not identify a Rust world: a server running a pre-generated or edited level still
+    /// reports the seed from its config, and RustMaps then renders a different island. The monuments come
+    /// from the connection's already-resolved map window, so this costs no extra Rust+ map download.
+    /// </remarks>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    private async Task VerifyReadyMapsAsync(CancellationToken cancellationToken)
     {
-        foreach (var key in keys)
+        foreach (var key in coordinator.ReadyKeys())
         {
-            if (_announced.Contains(key) || coordinator.Snapshot(key).State != RustMapsGenerationState.Ready)
+            if (coordinator.Snapshot(key).Ready is not { } ready)
             {
                 continue;
             }
 
-            _announced.Add(key);
             foreach (var (guild, server) in coordinator.Requesters(key))
             {
-                await eventBus.PublishAsync(new InfoMapReadyEvent(guild, server), cancellationToken)
+                if (coordinator.MatchFor(key, guild, server) != RustMapsMapMatch.Unknown)
+                {
+                    continue;
+                }
+
+                var monuments = await query.GetMonumentsAsync(guild, server, cancellationToken)
                     .ConfigureAwait(false);
+                var match = RustMapsMapMatcher.Compare(ready.Monuments, monuments, (uint)key.Size);
+                if (match == RustMapsMapMatch.Unknown)
+                {
+                    continue; // Nothing to judge on yet (server offline, or no monuments): retry next tick.
+                }
+
+                if (match == RustMapsMapMatch.Mismatch)
+                {
+                    LogMapMismatch(logger, guild, server, key.Size, key.Seed);
+                }
+
+                coordinator.SetMatch(key, guild, server, match);
+                await AnnounceAsync(key, guild, server, cancellationToken).ConfigureAwait(false);
             }
+        }
+    }
+
+    private async Task AnnounceAsync(
+        RustMapsMapKey key,
+        ulong guild,
+        Guid server,
+        CancellationToken cancellationToken)
+    {
+        if (_announced.Add((key, guild, server)))
+        {
+            await eventBus.PublishAsync(new InfoMapReadyEvent(guild, server), cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 
@@ -213,6 +258,12 @@ internal sealed partial class InfoMapHostedService(
 
         coordinator.Register(new RustMapsMapKey((int)world.WorldSize, (int)world.Seed), evt.GuildId, evt.ServerId);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "The RustMaps render for size {Size} seed {Seed} does not match the world guild {GuildId} "
+                  + "server {ServerId} is running (custom or pre-generated level); showing the server's own "
+                  + "map instead.")]
+    private static partial void LogMapMismatch(ILogger logger, ulong guildId, Guid serverId, int size, int seed);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Handling {EventType} failed; skipping that event.")]
     private static partial void LogHandlerFailed(ILogger logger, Exception exception, string eventType);

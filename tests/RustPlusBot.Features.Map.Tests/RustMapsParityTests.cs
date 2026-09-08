@@ -35,21 +35,20 @@ public sealed class RustMapsParityTests
                 continue;
             }
 
-            var x = coords.GetProperty("x").GetSingle();
-            var y = coords.GetProperty("y").GetSingle();
+            // RustMaps reports the game's own world coordinates, whose origin is the map CENTRE; Rust+ (and
+            // therefore MapProjection) works from the map corner, so shift the origin before projecting.
+            var x = coords.GetProperty("x").GetSingle() + (size / 2f);
+            var y = coords.GetProperty("y").GetSingle() + (size / 2f);
             var (px, py) = projection.ToPixel(x, y);
 
-            // Independent re-derivation: the cell computed from the projected PIXEL must equal the
-            // cell computed from the WORLD coordinate. Catches any scale/offset/Y-flip regression.
+            // Independent re-derivation: the cell computed from the projected PIXEL must equal the cell
+            // MapGrid labels the WORLD coordinate with. Catches any scale/offset/Y-flip regression, and
+            // pins the projection against the grid the rest of the bot quotes to players.
             var cells = MapGrid.CellCount(size);
             var cellPx = MapGrid.CellSize * (2048f / size);
-            var colFromPixel = Math.Clamp((int)(px / cellPx), 0, cells - 1);
-            var rowFromPixel = Math.Clamp((int)(py / cellPx), 0, cells - 1);
-            var colFromWorld = Math.Clamp((int)(Math.Clamp(x, 0f, size - 1) / MapGrid.CellSize), 0, cells - 1);
-            var rowFromWorld =
-                cells - 1 - Math.Clamp((int)(Math.Clamp(y, 0f, size - 1) / MapGrid.CellSize), 0, cells - 1);
-            Assert.Equal(colFromWorld, colFromPixel);
-            Assert.Equal(rowFromWorld, rowFromPixel);
+            var col = Math.Clamp((int)(px / cellPx), 0, cells - 1);
+            var row = Math.Clamp((int)(py / cellPx), 0, cells - 1);
+            Assert.Equal(MapGrid.LabelFor(x, y, size), $"{MapGrid.ColumnLetters(col)}{row}");
         }
     }
 }

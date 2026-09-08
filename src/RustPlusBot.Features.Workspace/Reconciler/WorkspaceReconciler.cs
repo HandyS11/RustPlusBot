@@ -297,24 +297,46 @@ internal sealed class WorkspaceReconciler(
 
                 // A renderer with nothing to show (e.g. the source entity vanished mid-reconcile) returns an
                 // empty payload; Discord rejects a message with no content/embed/components, so skip it.
-                var isEmpty = payload.Text is null && payload.Embed is null && payload.Components is null;
+                var isEmpty = payload.Text is null && payload.Embed is null && payload.Components is null
+                              && payload.Attachment is null;
 
                 ulong? liveId = null;
+                var upToDate = false;
                 if (!isEmpty)
                 {
                     var record = await backends.Store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken)
                         .ConfigureAwait(false);
-                    if (record is not null
-                        && record.DiscordChannelId == channelId
-                        && await backends.Gateway
-                            .MessageExistsAsync(guildId, channelId, record.DiscordMessageId, cancellationToken)
-                            .ConfigureAwait(false))
+                    var live = record is not null && record.DiscordChannelId == channelId
+                        ? await backends.Gateway
+                            .GetLiveMessageAsync(guildId, channelId, record.DiscordMessageId, cancellationToken)
+                            .ConfigureAwait(false)
+                        : null;
+                    if (live is not null)
                     {
-                        liveId = record.DiscordMessageId;
+                        liveId = live.Id;
+
+                        // An uploaded file cannot be swapped by an edit, so the live message has to carry
+                        // exactly the file the payload asks for — including none at all. A message that
+                        // drops its upload, such as a custom-map server whose RustMaps render later
+                        // verifies, would otherwise keep the stale image alongside its new embed. The file
+                        // name identifies the content, so an unchanged one means "already posted, leave it
+                        // entirely alone": re-uploading costs its full size per server per reconcile pass.
+                        if (!string.Equals(live.AttachmentFileName, payload.Attachment?.FileName,
+                                StringComparison.Ordinal))
+                        {
+                            await backends.Gateway
+                                .DeleteMessageAsync(guildId, channelId, live.Id, cancellationToken)
+                                .ConfigureAwait(false);
+                            liveId = null;
+                        }
+                        else if (payload.Attachment is not null)
+                        {
+                            upToDate = true;
+                        }
                     }
                 }
 
-                items.Add(new MessageItem(spec, payload, isEmpty, liveId));
+                items.Add(new MessageItem(spec, payload, isEmpty, liveId, upToDate));
             }
 
             // Discord orders messages by creation time. If an earlier-declared message still needs to be
@@ -333,7 +355,7 @@ internal sealed class WorkspaceReconciler(
                             .ConfigureAwait(false);
                         items[k] = items[k] with
                         {
-                            LiveId = null
+                            LiveId = null, UpToDate = false
                         };
                     }
                 }
@@ -341,7 +363,7 @@ internal sealed class WorkspaceReconciler(
 
             foreach (var item in items)
             {
-                if (item.IsEmpty)
+                if (item.IsEmpty || item.UpToDate)
                 {
                     continue;
                 }
@@ -380,5 +402,11 @@ internal sealed class WorkspaceReconciler(
     /// <param name="Payload">The freshly rendered content.</param>
     /// <param name="IsEmpty">True if the renderer had nothing to show (skipped entirely).</param>
     /// <param name="LiveId">The snowflake of the currently-live message, or null if it must be posted.</param>
-    private sealed record MessageItem(MessageSpec Spec, MessagePayload Payload, bool IsEmpty, ulong? LiveId);
+    /// <param name="UpToDate">True if the live message already carries this payload's attachment (leave it alone).</param>
+    private sealed record MessageItem(
+        MessageSpec Spec,
+        MessagePayload Payload,
+        bool IsEmpty,
+        ulong? LiveId,
+        bool UpToDate = false);
 }

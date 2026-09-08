@@ -67,6 +67,7 @@ Plus a guild-global `RustPlusBot` category with `#information`, `#setup`, and `#
 - Per-server `#map` channel renders the live game map as an image with seven toggleable layers — **Grid**, **Markers**, **Monuments**, **Vendor**, **Players**, **Rigs**, **Tunnels** — controlled from a Manage-Server-gated control message.
 - **Readable at a glance** — monument icons, rotor-composited event markers with dashed movement trails, per-teammate coloured crosses with a matching legend embed, and train-tunnel entrances.
 - **Grid conventions** — a per-server `MapGridStyle` setting aligns the grid (and every event grid reference) with either the in-game F1 map or the Rust+/RustMaps convention.
+- **`#info` static map** — the wipe's RustMaps render, shown only once its monuments are checked against the ones the server actually reports. A seed and a world size do not identify a Rust world (a server on a custom or pre-generated level still reports the seed from its config), so a render that does not match is discarded and the map Rust+ itself serves is posted instead.
 
 ### Smart devices
 

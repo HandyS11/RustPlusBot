@@ -88,11 +88,29 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
         return Task.CompletedTask;
     }
 
-    public Task<bool> MessageExistsAsync(ulong guildId,
+    public Task<LiveMessage?> GetLiveMessageAsync(ulong guildId,
         ulong channelId,
         ulong messageId,
-        CancellationToken cancellationToken) =>
-        Task.FromResult(_messages.ContainsKey(messageId));
+        CancellationToken cancellationToken)
+    {
+        if (!_messages.TryGetValue(messageId, out var message))
+        {
+            return Task.FromResult<LiveMessage?>(null);
+        }
+
+        var payload = message.Payload;
+
+        // Mirror Discord: an attachment the embed references through attachment:// is folded INTO the
+        // embed — the attachments array comes back EMPTY and the embed's image URL becomes the CDN one.
+        // A fake that just echoes the payload hides that, and the reconciler then reposts every pass.
+        var isEmbedded = payload.Attachment is not null
+                         && payload.Embed?.Image?.Url?.StartsWith("attachment://", StringComparison.Ordinal) == true;
+        var attachmentFileName = isEmbedded ? null : payload.Attachment?.FileName;
+        var embedImageUrl = isEmbedded
+            ? $"https://cdn.discordapp.com/attachments/{channelId}/{messageId}/{payload.Attachment!.FileName}?ex=1"
+            : payload.Embed?.Image?.Url;
+        return Task.FromResult<LiveMessage?>(LiveMessage.From(message.Id, attachmentFileName, embedImageUrl));
+    }
 
     public Task<ulong> PostMessageAsync(ulong guildId,
         ulong channelId,

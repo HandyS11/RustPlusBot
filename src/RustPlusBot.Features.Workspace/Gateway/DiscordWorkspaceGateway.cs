@@ -87,7 +87,7 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
     }
 
     /// <inheritdoc />
-    public async Task<bool> MessageExistsAsync(ulong guildId,
+    public async Task<LiveMessage?> GetLiveMessageAsync(ulong guildId,
         ulong channelId,
         ulong messageId,
         CancellationToken cancellationToken)
@@ -95,11 +95,14 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId);
         if (channel is null)
         {
-            return false;
+            return null;
         }
 
         var message = await channel.GetMessageAsync(messageId).ConfigureAwait(false);
-        return message is not null;
+        return message is null
+            ? null
+            : LiveMessage.From(message.Id, message.Attachments.FirstOrDefault()?.Filename,
+                message.Embeds.FirstOrDefault()?.Image?.Url);
     }
 
     /// <inheritdoc />
@@ -111,10 +114,22 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         ArgumentNullException.ThrowIfNull(payload);
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId)
                       ?? throw new InvalidOperationException($"Channel {channelId} not found in guild {guildId}.");
-        var message = await channel
-            .SendMessageAsync(text: payload.Text, embed: payload.Embed, components: payload.Components)
-            .ConfigureAwait(false);
-        return message.Id;
+        if (payload.Attachment is not { } attachment)
+        {
+            var message = await channel
+                .SendMessageAsync(text: payload.Text, embed: payload.Embed, components: payload.Components)
+                .ConfigureAwait(false);
+            return message.Id;
+        }
+
+        var stream = new MemoryStream(attachment.Bytes);
+        await using (stream.ConfigureAwait(false))
+        {
+            var message = await channel.SendFileAsync(stream, attachment.FileName, text: payload.Text,
+                    embed: payload.Embed, allowedMentions: AllowedMentions.None, components: payload.Components)
+                .ConfigureAwait(false);
+            return message.Id;
+        }
     }
 
     /// <inheritdoc />
@@ -128,6 +143,8 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId)
                       ?? throw new InvalidOperationException($"Channel {channelId} not found in guild {guildId}.");
 
+        // Attachments are deliberately left untouched: the reconciler only edits a message whose attachment
+        // already matches the payload, so re-uploading it here would burn bandwidth on every pass.
         await channel.ModifyMessageAsync(messageId, props =>
         {
             props.Content = payload.Text;

@@ -8,6 +8,7 @@ using RustMapsApi.V4;
 using RustMapsApi.V4.Models;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Abstractions.Map;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Features.Map.Hosting;
 using RustPlusBot.Features.Map.RustMaps;
@@ -44,6 +45,27 @@ public sealed class InfoMapHostedServiceTests
     /// </summary>
     private static CapturingEventBus CapturingBus() => new();
 
+    /// <summary>Ten monuments spread over the world, as RustMaps reports them (origin at the map centre).</summary>
+    private static List<Monument> RenderMonuments() =>
+    [
+        .. Enumerable.Range(0, 10).Select(i => new Monument
+        {
+            Coordinates = new Coordinates((i * 300) - 1500, 1500 - (i * 300))
+        })
+    ];
+
+    /// <summary>The same monuments as a server reports them over Rust+ (origin at the map corner).</summary>
+    /// <param name="worldSize">The world size whose half-width shifts the origin.</param>
+    private static IReadOnlyList<MonumentSnapshot> MatchingServerMonuments(int worldSize) =>
+    [
+        .. RenderMonuments().Select(m =>
+            new MonumentSnapshot("token", m.Coordinates!.X + (worldSize / 2f), m.Coordinates.Y + (worldSize / 2f)))
+    ];
+
+    /// <summary>Monuments from some other world entirely — none of them sit on a rendered one.</summary>
+    private static IReadOnlyList<MonumentSnapshot> ForeignServerMonuments() =>
+        [.. Enumerable.Range(0, 10).Select(i => new MonumentSnapshot("token", 100f + (i * 137f), 90f + (i * 211f)))];
+
     [Fact]
     public async Task Ready_key_publishes_InfoMapReadyEvent_once_per_requester()
     {
@@ -58,11 +80,14 @@ public sealed class InfoMapHostedServiceTests
                 {
                     ImageUrl = "https://img/plain.png",
                     ImageIconUrl = "https://img/icons.png",
-                    Url = "https://rustmaps/x"
+                    Url = "https://rustmaps/x",
+                    Monuments = RenderMonuments()
                 }, 200));
         var driver = new RustMapsGenerationDriver(client, coordinator, NullLogger<RustMapsGenerationDriver>.Instance);
 
         var query = Substitute.For<IRustServerQuery>();
+        query.GetMonumentsAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(MatchingServerMonuments(Key.Size));
         // Capture publishes off a substituted bus: the real InMemoryEventBus drops events published
         // before a subscriber is active, so collecting via a background subscription races the
         // service's first tick and flakes on slow CI runners.
@@ -87,7 +112,92 @@ public sealed class InfoMapHostedServiceTests
         Assert.Contains(received, e => e.GuildId == GuildA && e.ServerId == ServerA);
         Assert.Contains(received, e => e.GuildId == GuildB && e.ServerId == ServerB);
         Assert.Equal(RustMapsGenerationState.Ready, coordinator.Snapshot(Key).State);
-        Assert.Equal("https://img/icons.png", coordinator.GetReady(Key.Size, Key.Seed)!.ImageUrl);
+        var resolution = coordinator.Resolve(GuildA, ServerA, Key.Size, Key.Seed);
+        Assert.Equal(InfoMapStatus.Verified, resolution.Status);
+        Assert.Equal("https://img/icons.png", resolution.View!.ImageUrl);
+    }
+
+    [Fact]
+    public async Task A_render_of_a_different_world_is_announced_as_a_mismatch()
+    {
+        // The live bug: a server on a pre-generated level reports a seed whose RustMaps render is a
+        // different island. The render must be marked unusable for that server, not published as its map.
+        var coordinator = new RustMapsMapCoordinator();
+        coordinator.Register(Key, GuildA, ServerA);
+
+        var client = Substitute.For<IRustMapsClient>();
+        client.GetMapBySeedAndSizeAsync(Key.Size, Key.Seed, false, Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Success(
+                new MapInfo
+                {
+                    ImageUrl = "https://img/plain.png",
+                    ImageIconUrl = "https://img/icons.png",
+                    Monuments = RenderMonuments()
+                }, 200));
+        var driver = new RustMapsGenerationDriver(client, coordinator, NullLogger<RustMapsGenerationDriver>.Instance);
+
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetMonumentsAsync(GuildA, ServerA, Arg.Any<CancellationToken>()).Returns(ForeignServerMonuments());
+
+        using var bus = CapturingBus();
+        var service = new InfoMapHostedService(
+            bus, coordinator, driver, query, ShortPollOptions(),
+            ScopeFactory(Substitute.For<IConnectionStore>()), NullLogger<InfoMapHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            await bus.WaitForAsync(1);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+
+        Assert.Equal(InfoMapStatus.Mismatched, coordinator.Resolve(GuildA, ServerA, Key.Size, Key.Seed).Status);
+    }
+
+    [Fact]
+    public async Task An_undecidable_render_is_not_announced_and_stays_pending()
+    {
+        // No monuments from the server (offline, or the map window has not resolved): nothing to judge on,
+        // so the render is withheld rather than guessed at — and the next tick tries again.
+        var coordinator = new RustMapsMapCoordinator();
+        coordinator.Register(Key, GuildA, ServerA);
+
+        var client = Substitute.For<IRustMapsClient>();
+        client.GetMapBySeedAndSizeAsync(Key.Size, Key.Seed, false, Arg.Any<CancellationToken>())
+            .Returns(Result<MapInfo>.Success(
+                new MapInfo
+                {
+                    ImageUrl = "https://img/plain.png",
+                    ImageIconUrl = "https://img/icons.png",
+                    Monuments = RenderMonuments()
+                }, 200));
+        var driver = new RustMapsGenerationDriver(client, coordinator, NullLogger<RustMapsGenerationDriver>.Instance);
+
+        var query = Substitute.For<IRustServerQuery>();
+        query.GetMonumentsAsync(GuildA, ServerA, Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        using var bus = CapturingBus();
+        var service = new InfoMapHostedService(
+            bus, coordinator, driver, query, ShortPollOptions(),
+            ScopeFactory(Substitute.For<IConnectionStore>()), NullLogger<InfoMapHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            // Give the loop several poll intervals to prove the absence of a publish, not just its lateness.
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+
+        Assert.Empty(bus.Received);
+        Assert.Equal(InfoMapStatus.Pending, coordinator.Resolve(GuildA, ServerA, Key.Size, Key.Seed).Status);
     }
 
     [Fact]
@@ -106,13 +216,16 @@ public sealed class InfoMapHostedServiceTests
                 {
                     ImageUrl = "https://img/plain.png",
                     ImageIconUrl = "https://img/icons.png",
-                    Url = "https://rustmaps/x"
+                    Url = "https://rustmaps/x",
+                    Monuments = RenderMonuments()
                 }, 200));
         var driver = new RustMapsGenerationDriver(client, coordinator, NullLogger<RustMapsGenerationDriver>.Instance);
 
         var query = Substitute.For<IRustServerQuery>();
         query.GetWorldAsync(GuildA, serverId, Arg.Any<CancellationToken>())
             .Returns(new WorldSnapshot((uint)Key.Size, (uint)Key.Seed));
+        query.GetMonumentsAsync(GuildA, serverId, Arg.Any<CancellationToken>())
+            .Returns(MatchingServerMonuments(Key.Size));
 
         var store = Substitute.For<IConnectionStore>();
         IReadOnlyList<(ulong GuildId, Guid ServerId)> connectable = [(GuildA, serverId)];
@@ -216,6 +329,14 @@ public sealed class InfoMapHostedServiceTests
         public void SetFailed(RustMapsMapKey key) => inner.SetFailed(key);
 
         public void SetLimitReached(RustMapsMapKey key) => inner.SetLimitReached(key);
+
+        public void SetMatch(RustMapsMapKey key, ulong guildId, Guid serverId, RustMapsMapMatch match) =>
+            inner.SetMatch(key, guildId, serverId, match);
+
+        public RustMapsMapMatch MatchFor(RustMapsMapKey key, ulong guildId, Guid serverId) =>
+            inner.MatchFor(key, guildId, serverId);
+
+        public IReadOnlyList<RustMapsMapKey> ReadyKeys() => inner.ReadyKeys();
 
         public IReadOnlyList<RustMapsMapKey> PendingKeys() => inner.PendingKeys();
 
