@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -31,7 +32,9 @@ public sealed class MapRefreshTests
 {
     private const ulong Guild = 1UL;
     private const ulong MapChannel = 777UL;
+    private const ulong SecondMapChannel = 778UL;
     private static readonly Guid Server = Guid.NewGuid();
+    private static readonly Guid SecondServer = Guid.NewGuid();
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
     private static readonly MapDimensions Dims = new(2000, 2000, 100, 4000);
 
@@ -106,7 +109,7 @@ public sealed class MapRefreshTests
         // A missed marker delta would otherwise freeze #map until the next connect. The tick is the backstop:
         // once a server is known-connected it must keep repainting on its own.
         using var h = Harness.Create(tick: TimeSpan.FromMilliseconds(20));
-        h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Connected());
+        h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Connected(Server));
 
         await h.Service.StartAsync(CancellationToken.None);
         try
@@ -126,7 +129,7 @@ public sealed class MapRefreshTests
     }
 
     [Fact]
-    public async Task A_server_that_is_no_longer_connected_drops_out_of_the_tick_and_loses_its_cached_base_map()
+    public async Task A_server_that_is_no_longer_connected_loses_its_cached_base_map()
     {
         // The base map is static per wipe, so it is cached; a disconnect is the signal that the next
         // connection may be a different world and the cached tile must not be reused.
@@ -157,13 +160,76 @@ public sealed class MapRefreshTests
     }
 
     [Fact]
+    public async Task A_server_that_is_no_longer_connected_drops_out_of_the_periodic_tick()
+    {
+        // The tick walks the set of connected servers. A server that dropped off must leave that set, or
+        // #map keeps being re-uploaded for a world the bot is no longer watching.
+        using var h = Harness.Create(tick: TimeSpan.FromMilliseconds(20));
+        h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Connected(Server));
+        h.ConnectionStore.GetStateAsync(Guild, SecondServer, Arg.Any<CancellationToken>())
+            .Returns(Connected(SecondServer));
+
+        int afterDisconnect;
+        await h.Service.StartAsync(CancellationToken.None);
+        try
+        {
+            await h.PublishUntilAsync(() => new ConnectionStatusChangedEvent(Guild, Server, true, false),
+                h.PostsToReachesAsync(MapChannel, 1));
+
+            // Nothing is published here, so reaching three posts can only be the tick repainting it: the
+            // server really is on the tick before the disconnect under test.
+            await h.PostsToReachesAsync(MapChannel, 3).WaitAsync(Patience);
+
+            // A second server stays connected throughout. Its posts are the heartbeat that proves the tick
+            // kept firing afterwards, which is what makes "stopped repainting" mean something.
+            await h.PublishUntilAsync(() => new ConnectionStatusChangedEvent(Guild, SecondServer, true, false),
+                h.PostsToReachesAsync(SecondMapChannel, 1));
+
+            var offlineReads = 0;
+            var handled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(_ =>
+            {
+                // Only reads that see the offline state count, so status events queued before the store was
+                // switched over cannot satisfy the fence. The status loop consumes sequentially, so a second
+                // offline read proves the first one's handler - the one that drops the server from the tick -
+                // already ran to completion.
+                if (Interlocked.Increment(ref offlineReads) == 2)
+                {
+                    handled.TrySetResult();
+                }
+
+                return Task.FromResult<ConnectionState?>(null);
+            });
+            await h.PublishUntilAsync(() => new ConnectionStatusChangedEvent(Guild, Server, false, true),
+                handled.Task);
+
+            // Nothing is published from here on, so every further post comes from the tick. The tick reads
+            // a snapshot of the connected set, so the iteration that was already in flight when the server
+            // was dropped may still repaint it once. Two heartbeat posts drain that: they come from two
+            // different iterations, and the second one cannot have started until the first - which is the
+            // in-flight one at worst - had finished.
+            await h.PostsToReachesAsync(SecondMapChannel, h.PostsTo(SecondMapChannel) + 2).WaitAsync(Patience);
+
+            // From here the disconnected server must never be repainted again, however many ticks fire.
+            afterDisconnect = h.PostsTo(MapChannel);
+            await h.PostsToReachesAsync(SecondMapChannel, h.PostsTo(SecondMapChannel) + 3).WaitAsync(Patience);
+        }
+        finally
+        {
+            await h.Service.StopAsync(CancellationToken.None);
+        }
+
+        Assert.Equal(afterDisconnect, h.PostsTo(MapChannel));
+    }
+
+    [Fact]
     public async Task A_repaint_that_throws_inside_the_tick_costs_that_repaint_and_not_the_tick()
     {
         // The tick is the only thing keeping #map current for a server whose deltas were missed. One
         // Discord or Rust+ failure inside it must not end the loop for the rest of the process.
         using var h = Harness.Create(tick: TimeSpan.FromMilliseconds(20),
             locatorFault: new TimeoutException("Discord did not answer."));
-        h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Connected());
+        h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Connected(Server));
 
         await h.Service.StartAsync(CancellationToken.None);
         try
@@ -248,9 +314,9 @@ public sealed class MapRefreshTests
             .Returns(_ => stream().Cast<ConnectionStatusChangedEvent>());
     }
 
-    private static ConnectionState Connected() => new()
+    private static ConnectionState Connected(Guid serverId) => new()
     {
-        GuildId = Guild, RustServerId = Server, Status = ConnectionStatus.Connected
+        GuildId = Guild, RustServerId = serverId, Status = ConnectionStatus.Connected
     };
 
     private static CountingClock FixedClock() => new(TimeSpan.Zero);
@@ -326,12 +392,16 @@ public sealed class MapRefreshTests
 
     private sealed class Harness : IDisposable
     {
+        private readonly ConcurrentDictionary<ulong, List<(int Count, TaskCompletionSource Tcs)>>
+            _channelPostTargets = new();
+
         private readonly List<(int Count, TaskCompletionSource Tcs)> _locatorTargets = [];
         private readonly List<(int Count, TaskCompletionSource Tcs)> _postTargets = [];
         private readonly TaskCompletionSource _statusHandled = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _baseMapFetches;
         private int _locatorFaults;
         private int _posts;
+        private readonly ConcurrentDictionary<ulong, int> _postsByChannel = new();
         private int _statusReads;
 
         public int BaseMapFetches => Volatile.Read(ref _baseMapFetches);
@@ -384,7 +454,7 @@ public sealed class MapRefreshTests
             var locator = Substitute.For<IMapChannelLocator>();
 
             var query = Substitute.For<IRustServerQuery>();
-            query.GetMapDimensionsAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Dims);
+            query.GetMapDimensionsAsync(Guild, Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Dims);
 
             var inProcessBus = new InMemoryEventBus();
             var harness = new Harness
@@ -398,9 +468,9 @@ public sealed class MapRefreshTests
 
             // One cache instance for both the composer and the service: the service clears the very cache
             // the composer reads, which is how a disconnect forces the next base map to be re-fetched.
-            locator.GetChannelIdAsync(Guild, Server, Arg.Any<CancellationToken>())
-                .Returns(_ => locatorFault is null
-                    ? Task.FromResult((ulong?)MapChannel)
+            locator.GetChannelIdAsync(Guild, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+                .Returns(c => locatorFault is null
+                    ? Task.FromResult((ulong?)ChannelFor(c.ArgAt<Guid>(1)))
                     : throw harness.CountLocatorFault(locatorFault));
             var cache = new BaseMapCache([
                 new FakeBaseMapSource(baseMapAvailable ? BaseJpeg() : null, harness.OnBaseMapFetch)
@@ -412,7 +482,7 @@ public sealed class MapRefreshTests
 
             harness.Poster.PostAsync(Arg.Any<ulong>(), Arg.Any<byte[]>(), Arg.Any<MapLegend?>(),
                     Arg.Any<CancellationToken>())
-                .Returns(_ => harness.OnPostAsync());
+                .Returns(c => harness.OnPostAsync(c.Arg<ulong>()));
             connectionStore.When(s => s.GetStateAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()))
                 .Do(_ => harness.OnStatusRead());
 
@@ -427,6 +497,18 @@ public sealed class MapRefreshTests
         }
 
         public Task PostCountReachesAsync(int count) => WaitForCountAsync(_postTargets, count, Posts);
+
+        /// <summary>How many posts one channel has received so far.</summary>
+        /// <param name="channelId">The channel to count.</param>
+        /// <returns>The post count for that channel.</returns>
+        public int PostsTo(ulong channelId) => _postsByChannel.GetValueOrDefault(channelId);
+
+        /// <summary>Completes once one channel has received <paramref name="count"/> posts.</summary>
+        /// <param name="channelId">The channel to watch.</param>
+        /// <param name="count">The post count to wait for.</param>
+        /// <returns>A task that completes when that channel has been posted to that many times.</returns>
+        public Task PostsToReachesAsync(ulong channelId, int count) =>
+            WaitForCountAsync(TargetsFor(channelId), count, PostsTo(channelId));
 
         /// <summary>Completes once the locator has failed <paramref name="count"/> times.</summary>
         /// <param name="count">How many failed lookups to wait for.</param>
@@ -462,6 +544,11 @@ public sealed class MapRefreshTests
             await until.WaitAsync(Patience);
         }
 
+        /// <summary>The #map channel a server posts to; each server gets its own so posts are separable.</summary>
+        /// <param name="serverId">The server being repainted.</param>
+        /// <returns>The channel snowflake for that server.</returns>
+        private static ulong ChannelFor(Guid serverId) => serverId == SecondServer ? SecondMapChannel : MapChannel;
+
         private static byte[] BaseJpeg()
         {
             using var img = new Image<Rgba32>(64, 64, new Rgba32(0, 128, 0));
@@ -480,11 +567,18 @@ public sealed class MapRefreshTests
 
         private void OnBaseMapFetch() => Interlocked.Increment(ref _baseMapFetches);
 
-        private Task OnPostAsync()
+        private Task OnPostAsync(ulong channelId)
         {
+            ReleaseReached(TargetsFor(channelId), _postsByChannel.AddOrUpdate(channelId, 1, (_, n) => n + 1));
             ReleaseReached(_postTargets, Interlocked.Increment(ref _posts));
             return Task.CompletedTask;
         }
+
+        /// <summary>The waiter list for one channel, created on first use.</summary>
+        /// <param name="channelId">The channel the waiters are watching.</param>
+        /// <returns>That channel's (target, signal) pairs.</returns>
+        private List<(int Count, TaskCompletionSource Tcs)> TargetsFor(ulong channelId) =>
+            _channelPostTargets.GetOrAdd(channelId, _ => []);
 
         private void OnStatusRead()
         {

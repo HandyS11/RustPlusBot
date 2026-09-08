@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using RustPlusBot.Features.Pairing.Listening;
 
 namespace RustPlusBot.Features.Pairing.Tests.Fakes;
@@ -6,6 +7,7 @@ namespace RustPlusBot.Features.Pairing.Tests.Fakes;
 /// <summary>A scripted <see cref="IPairingSource"/>: each created listener returns the next queued outcome.</summary>
 internal sealed class FakePairingSource : IPairingSource
 {
+    private readonly ConcurrentQueue<long> _createTimestamps = new();
     private readonly ConcurrentQueue<PairingConnectOutcome> _outcomes = new();
     private bool _blockUntilCancelled;
 
@@ -16,6 +18,13 @@ internal sealed class FakePairingSource : IPairingSource
 
     /// <summary>How many listeners have been created.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
+
+    /// <summary>
+    /// A <see cref="Stopwatch"/> timestamp per <see cref="Create"/> call, in call order. Lets a test measure
+    /// the interval the supervisor actually waited between retries, which is otherwise invisible: the
+    /// backoff is realised by an internal <c>Task.Delay</c>.
+    /// </summary>
+    public IReadOnlyCollection<long> CreateTimestamps => _createTimestamps;
 
     /// <summary>How many created listeners have been disposed.</summary>
     public int DisposeCount => Volatile.Read(ref _disposeCount);
@@ -35,6 +44,7 @@ internal sealed class FakePairingSource : IPairingSource
         Func<PairingNotification, CancellationToken, Task> onNotification)
     {
         Interlocked.Increment(ref _createCount);
+        _createTimestamps.Enqueue(Stopwatch.GetTimestamp());
         LastCallback = onNotification;
         if (_creationFault is not null)
         {

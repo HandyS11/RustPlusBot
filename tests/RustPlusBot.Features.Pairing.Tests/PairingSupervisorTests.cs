@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -316,25 +317,56 @@ public sealed class PairingSupervisorTests
         await h.Handler.Received(2).HandleAsync(10UL, 99UL, note, Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// Repeated probe timeouts must back off and then STOP growing at MaxRetryDelay. An uncapped doubling
+    /// walks an owner whose FCM push channel is briefly unavailable out to hours between attempts, so their
+    /// pairing never recovers on its own — the delay must saturate instead.
+    /// </summary>
+    /// <remarks>
+    /// With Initial=100ms and Max=400ms the retry intervals are 100, 200, 400, 400, 400: the 4th→5th and
+    /// 5th→6th gaps are both the cap. Uncapped they would be 800 and 1600, so comparing those two gaps to
+    /// each other — rather than to an absolute wall-clock budget — separates the two behaviours by 800ms
+    /// while staying immune to a uniformly slow runner: scheduling jitter inflates both gaps, doubling
+    /// does not.
+    /// </remarks>
     [Fact]
     public async Task Retries_stop_growing_once_the_backoff_reaches_its_ceiling()
     {
         var source = new FakePairingSource();
         source.EnqueueOutcome(PairingConnectOutcome.Timeout);
         source.EnqueueOutcome(PairingConnectOutcome.Timeout);
+        source.EnqueueOutcome(PairingConnectOutcome.Timeout);
+        source.EnqueueOutcome(PairingConnectOutcome.Timeout);
+        source.EnqueueOutcome(PairingConnectOutcome.Timeout);
         source.EnqueueOutcome(PairingConnectOutcome.Connected);
         await using var h = CreateHarness(source, new PairingOptions
         {
             ProbeTimeout = TimeSpan.FromSeconds(1),
-            InitialRetryDelay = TimeSpan.FromMilliseconds(5),
-            MaxRetryDelay = TimeSpan.FromMilliseconds(5),
+            InitialRetryDelay = TimeSpan.FromMilliseconds(100),
+            MaxRetryDelay = TimeSpan.FromMilliseconds(400),
         });
         await SeedRegistrationAsync(h.Provider, 10UL, 99UL);
 
         Assert.Equal(PairingConnectOutcome.Timeout, await h.Supervisor.EnsureListenerAsync(10UL, 99UL));
 
         await h.Source.ConnectedSignal.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        Assert.True(h.Source.CreateCount >= 3, $"the retry loop stopped early (creates: {h.Source.CreateCount})");
+        var attempts = h.Source.CreateTimestamps.ToArray();
+        Assert.True(attempts.Length >= 6, $"expected 6 connect attempts, saw {attempts.Length}");
+        var beforeCap = Stopwatch.GetElapsedTime(attempts[3], attempts[4]);
+        var atCap = Stopwatch.GetElapsedTime(attempts[4], attempts[5]);
+
+        // Task.Delay never fires early, so both gaps are at least the cap; this pins that the backoff had
+        // actually reached it rather than still ramping up.
+        Assert.True(
+            beforeCap >= TimeSpan.FromMilliseconds(350),
+            $"attempt 4->5 should have waited the 400ms cap, waited {beforeCap.TotalMilliseconds:F0}ms");
+
+        // The load-bearing assertion: the next gap must NOT have doubled. 250ms of slack absorbs scheduler
+        // jitter; an uncapped backoff would be 800ms longer, far outside it.
+        Assert.True(
+            atCap <= beforeCap + TimeSpan.FromMilliseconds(250),
+            $"backoff kept growing past the cap: {beforeCap.TotalMilliseconds:F0}ms then "
+            + $"{atCap.TotalMilliseconds:F0}ms");
     }
 
     [Fact]

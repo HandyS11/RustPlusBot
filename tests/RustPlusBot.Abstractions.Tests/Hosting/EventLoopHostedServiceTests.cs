@@ -88,6 +88,40 @@ public sealed class EventLoopHostedServiceTests
     }
 
     [Fact]
+    public async Task StopAsync_ReturnsOnACancelledHostToken_RatherThanHangingOnAnUnjoinableLoop()
+    {
+        var bus = new InMemoryEventBus();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var neverCompletes = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var subject = new Subject(bus)
+        {
+            OnPing = async _ =>
+            {
+                entered.TrySetResult();
+
+                // Deliberately not cancellable: this is the handler that would hang shutdown forever.
+                await neverCompletes.Task.ConfigureAwait(false);
+            },
+        };
+        await subject.StartAsync(CancellationToken.None);
+
+        await bus.PublishAsync(new Ping(1));
+        await entered.Task; // The ping loop is stuck inside the handler and cancelling it changes nothing.
+
+        using var host = new CancellationTokenSource();
+        await host.CancelAsync(); // IHostedService's token: "stop taking your time".
+
+        // Without honouring the token this would never complete; the timeout turns a hang into a failure.
+        await subject.StopAsync(host.Token).WaitAsync(TimeSpan.FromSeconds(10));
+
+        // Proof it returned instead of joining: the blocked handler still has not finished.
+        Assert.Empty(subject.Pings);
+
+        neverCompletes.SetResult();
+        await WaitForAsync(() => subject.Pings.Count == 1); // Let the abandoned loop unwind.
+    }
+
+    [Fact]
     public async Task StartAsync_Throws_WhenALoopWasCreatedButNotYielded()
     {
         // A registration built and dropped has already subscribed, and nothing will ever drain it: on the

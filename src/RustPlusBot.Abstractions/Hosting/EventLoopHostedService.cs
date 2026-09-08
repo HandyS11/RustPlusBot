@@ -21,6 +21,12 @@ namespace RustPlusBot.Abstractions.Hosting;
 /// A handler that throws costs its own event and nothing else: the subscription stays live. Only a fault
 /// in the stream itself ends a loop, and that is logged and contained so the host survives.
 /// </para>
+/// <para>
+/// <see cref="StopAsync"/> cancels the loops and joins them, but only for as long as the host's stop token
+/// allows: that token is the host saying "stop taking your time", so once it is cancelled the join is
+/// abandoned (with a warning) instead of hanging past the stop deadline behind a handler that never
+/// returns.
+/// </para>
 /// </remarks>
 public abstract partial class EventLoopHostedService : IHostedService, IDisposable
 {
@@ -104,12 +110,21 @@ public abstract partial class EventLoopHostedService : IHostedService, IDisposab
             try
             {
 #pragma warning disable VSTHRD003 // Our own loop tasks, joined on stop.
-                await loop.ConfigureAwait(false);
+                await loop.WaitAsync(cancellationToken).ConfigureAwait(false);
 #pragma warning restore VSTHRD003
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // The host is out of patience. Its token says "stop taking your time", so give up the
+                // join and let shutdown proceed rather than hanging past the stop deadline on a loop
+                // stuck in a handler that does not observe cancellation. The remaining loops are
+                // abandoned deliberately: they are already cancelled and the process is going away.
+                LogStopAbandonedLoops(_logger);
+                return;
             }
             catch (OperationCanceledException)
             {
-                // Expected on shutdown.
+                // The loop's own cancellation, from StoppingToken. Expected on shutdown; join the rest.
             }
         }
     }
@@ -173,6 +188,11 @@ public abstract partial class EventLoopHostedService : IHostedService, IDisposab
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The {LoopName} loop faulted.")]
     private static partial void LogLoopFaulted(ILogger logger, Exception exception, string loopName);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "The host's stop deadline elapsed before every event loop finished; abandoning the join.")]
+    private static partial void LogStopAbandonedLoops(ILogger logger);
 
     private async Task RunLoopAsync(EventLoopRegistration registration)
     {
