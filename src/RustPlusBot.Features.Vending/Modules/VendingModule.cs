@@ -79,45 +79,34 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
 
     private async Task SearchAsync(string item, string? server)
     {
-        if (Context.Guild is null)
+        if (await DeferAndResolveAsync(server).ConfigureAwait(false) is not { } d)
         {
-            await RespondAsync(MustBeUsedInServer, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
+        await using (d.Scope.ConfigureAwait(false))
         {
-            var sp = scope.ServiceProvider;
-            var loc = sp.GetRequiredService<ILocalizer>();
-            var resolved = await ResolveAsync(sp, server).ConfigureAwait(false);
-            if (resolved is not { } ctx)
-            {
-                return;
-            }
-
-            var items = sp.GetRequiredService<IItemDatabase>();
+            var items = d.Sp.GetRequiredService<IItemDatabase>();
             switch (items.Resolve(item))
             {
                 case ItemMatch.Found found:
-                    var mapSettings = sp.GetRequiredService<IMapSettingsStore>();
-                    var settings = await mapSettings.GetAsync(ctx.GuildId, ctx.ServerId).ConfigureAwait(false);
-                    var readModel = sp.GetRequiredService<IVendingReadModel>();
+                    var mapSettings = d.Sp.GetRequiredService<IMapSettingsStore>();
+                    var settings = await mapSettings.GetAsync(d.Ctx.GuildId, d.Ctx.ServerId).ConfigureAwait(false);
+                    var readModel = d.Sp.GetRequiredService<IVendingReadModel>();
                     // IVendingReadModel.Search contracts its result as already ordered, so re-ordering
                     // here would only be a second sort over the same comparison.
-                    var offers = readModel.Search(ctx.GuildId, ctx.ServerId, found.Item.Id, settings.GridStyle);
+                    var offers = readModel.Search(d.Ctx.GuildId, d.Ctx.ServerId, found.Item.Id, settings.GridStyle);
                     var (shown, more) = VendingSearch.Take(offers, SearchLimit);
-                    var renderer = sp.GetRequiredService<VendingEmbedRenderer>();
-                    var embed = renderer.RenderSearch(found.Item.Name, shown, more, ctx.Culture);
+                    var renderer = d.Sp.GetRequiredService<VendingEmbedRenderer>();
+                    var embed = renderer.RenderSearch(found.Item.Name, shown, more, d.Ctx.Culture);
                     await FollowupAsync(ephemeral: true, embed: embed).ConfigureAwait(false);
                     break;
                 case ItemMatch.Ambiguous ambiguous:
-                    await FollowupAsync(Ambiguous(loc, ctx.Culture, ambiguous.Candidates.Select(c => c.Name)),
+                    await FollowupAsync(Ambiguous(d.Loc, d.Ctx.Culture, ambiguous.Candidates.Select(c => c.Name)),
                         ephemeral: true).ConfigureAwait(false);
                     break;
                 default:
-                    await FollowupAsync(NotFound(loc, ctx.Culture, item), ephemeral: true).ConfigureAwait(false);
+                    await FollowupAsync(NotFound(d.Loc, d.Ctx.Culture, item), ephemeral: true).ConfigureAwait(false);
                     break;
             }
         }
@@ -131,24 +120,15 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
         bool blueprint,
         string? server)
     {
-        if (Context.Guild is null)
+        if (await DeferAndResolveAsync(server).ConfigureAwait(false) is not { } d)
         {
-            await RespondAsync(MustBeUsedInServer, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
+        await using (d.Scope.ConfigureAwait(false))
         {
-            var sp = scope.ServiceProvider;
-            var loc = sp.GetRequiredService<ILocalizer>();
-            var resolved = await ResolveAsync(sp, server).ConfigureAwait(false);
-            if (resolved is not { } ctx)
-            {
-                return;
-            }
-
+            var loc = d.Loc;
+            var ctx = d.Ctx;
             if (price < 1 || quantity < 1)
             {
                 await FollowupAsync(loc.Get("vending.track.badprice", ctx.Culture), ephemeral: true)
@@ -156,7 +136,7 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
                 return;
             }
 
-            var items = sp.GetRequiredService<IItemDatabase>();
+            var items = d.Sp.GetRequiredService<IItemDatabase>();
             if (!TryResolveOne(items, item, loc, ctx.Culture, out var itemRecord, out var itemError))
             {
                 await FollowupAsync(itemError, ephemeral: true).ConfigureAwait(false);
@@ -175,7 +155,7 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
             // grid-registration path (!vtrack) still gets this right for the rare case, since it reads
             // the flag off the real machine rather than asking a human to spell it out.
             var key = new ListingKey(itemRecord.Id, blueprint, currencyRecord.Id, CurrencyIsBlueprint: false);
-            var trackService = sp.GetRequiredService<IVendingTrackService>();
+            var trackService = d.Sp.GetRequiredService<IVendingTrackService>();
             await trackService
                 .TrackListingAsync(ctx.GuildId, ctx.ServerId, key, quantity, price, Context.User.Id,
                     CancellationToken.None)
@@ -190,25 +170,16 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
 
     private async Task UntrackTargetCommandAsync(string target, string? server)
     {
-        if (Context.Guild is null)
+        if (await DeferAndResolveAsync(server).ConfigureAwait(false) is not { } d)
         {
-            await RespondAsync(MustBeUsedInServer, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
+        await using (d.Scope.ConfigureAwait(false))
         {
-            var sp = scope.ServiceProvider;
-            var loc = sp.GetRequiredService<ILocalizer>();
-            var resolved = await ResolveAsync(sp, server).ConfigureAwait(false);
-            if (resolved is not { } ctx)
-            {
-                return;
-            }
-
-            var items = sp.GetRequiredService<IItemDatabase>();
+            var loc = d.Loc;
+            var ctx = d.Ctx;
+            var items = d.Sp.GetRequiredService<IItemDatabase>();
             var parsed = ParseTarget(target, items);
             if (parsed is null)
             {
@@ -217,7 +188,7 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
                 return;
             }
 
-            var trackService = sp.GetRequiredService<IVendingTrackService>();
+            var trackService = d.Sp.GetRequiredService<IVendingTrackService>();
             var removed = parsed.Value.Grid is { } grid
                 ? await trackService.UntrackGridAsync(ctx.GuildId, ctx.ServerId, grid, CancellationToken.None)
                     .ConfigureAwait(false)
@@ -233,26 +204,17 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
 
     private async Task ShowTrackedCommandAsync(string? server)
     {
-        if (Context.Guild is null)
+        if (await DeferAndResolveAsync(server).ConfigureAwait(false) is not { } d)
         {
-            await RespondAsync(MustBeUsedInServer, ephemeral: true).ConfigureAwait(false);
             return;
         }
 
-        await DeferAsync(ephemeral: true).ConfigureAwait(false);
-        var scope = scopeFactory.CreateAsyncScope();
-        await using (scope.ConfigureAwait(false))
+        await using (d.Scope.ConfigureAwait(false))
         {
-            var sp = scope.ServiceProvider;
-            var loc = sp.GetRequiredService<ILocalizer>();
-            var resolved = await ResolveAsync(sp, server).ConfigureAwait(false);
-            if (resolved is not { } ctx)
-            {
-                return;
-            }
-
-            var trackService = sp.GetRequiredService<IVendingTrackService>();
-            var items = sp.GetRequiredService<IItemDatabase>();
+            var loc = d.Loc;
+            var ctx = d.Ctx;
+            var trackService = d.Sp.GetRequiredService<IVendingTrackService>();
+            var items = d.Sp.GetRequiredService<IItemDatabase>();
             var summary = await trackService.GetTrackedAsync(ctx.GuildId, ctx.ServerId, CancellationToken.None)
                 .ConfigureAwait(false);
 
@@ -280,6 +242,35 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
 
             await FollowupAsync(ephemeral: true, embed: builder.Build()).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Guards a slash command against use outside a guild, defers the response, opens the per-interaction
+    /// DI scope, and resolves the target server. Every command handler above needs exactly this sequence
+    /// before doing its own work.
+    /// </summary>
+    /// <param name="server">The raw server argument (a server id string) or null.</param>
+    /// <returns>The open scope plus resolved context, or null when a guard already replied.</returns>
+    private async Task<DeferredScope?> DeferAndResolveAsync(string? server)
+    {
+        if (Context.Guild is null)
+        {
+            await RespondAsync(MustBeUsedInServer, ephemeral: true).ConfigureAwait(false);
+            return null;
+        }
+
+        await DeferAsync(ephemeral: true).ConfigureAwait(false);
+        var scope = scopeFactory.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+        var loc = sp.GetRequiredService<ILocalizer>();
+        var resolved = await ResolveAsync(sp, server).ConfigureAwait(false);
+        if (resolved is not { } ctx)
+        {
+            await scope.DisposeAsync().ConfigureAwait(false);
+            return null;
+        }
+
+        return new DeferredScope(scope, sp, loc, ctx);
     }
 
     /// <summary>Resolves the target server for this interaction, replying with a localized error on failure.</summary>
@@ -447,6 +438,13 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     }
 
     private readonly record struct ResolvedContext(ulong GuildId, Guid ServerId, string Culture);
+
+    /// <summary>The per-interaction scope, DI provider, localizer, and resolved context <see cref="DeferAndResolveAsync"/> hands back.</summary>
+    /// <param name="Scope">The open per-interaction DI scope; the caller owns disposal.</param>
+    /// <param name="Sp">The scope's service provider.</param>
+    /// <param name="Loc">The localizer resolved from the scope.</param>
+    /// <param name="Ctx">The resolved guild/server/culture.</param>
+    private readonly record struct DeferredScope(AsyncServiceScope Scope, IServiceProvider Sp, ILocalizer Loc, ResolvedContext Ctx);
 
     private readonly record struct ParsedTarget(string? Grid, ListingKey? Listing, string Display);
 }
