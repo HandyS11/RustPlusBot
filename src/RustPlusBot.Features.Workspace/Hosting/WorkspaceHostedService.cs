@@ -1,8 +1,8 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RustPlusBot.Abstractions.Events;
+using RustPlusBot.Abstractions.Hosting;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Features.Workspace.Registry;
 using RustPlusBot.Persistence.Workspace;
@@ -18,26 +18,31 @@ internal sealed class WorkspaceHostedService(
     DiscordSocketClient client,
     IEventBus eventBus,
     IServiceScopeFactory scopeFactory,
-    ILogger<WorkspaceHostedService> logger) : IHostedService, IDisposable
+    ILogger<WorkspaceHostedService> logger) : EventLoopHostedService(eventBus, logger)
 {
-    private readonly CancellationTokenSource _cts = new();
-    private Task? _connectionStatusLoop;
-    private Task? _infoMapReadyLoop;
-    private Task? _serverCredentialsLoop;
-    private Task? _serverRegisteredLoop;
     private bool _startupDone;
 
     /// <inheritdoc />
-    public void Dispose() => _cts.Dispose();
+    protected override IEnumerable<EventLoopRegistration> Loops =>
+    [
+        Loop<ServerRegisteredEvent>("workspace server-registered reconcile",
+            (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct)),
+        Loop<ConnectionStatusChangedEvent>("workspace connection-status reconcile",
+            (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct)),
+        Loop<ServerCredentialsChangedEvent>("workspace server-credentials reconcile",
+            (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct)),
+        Loop<InfoMapReadyEvent>("workspace info-map-ready reconcile",
+            (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct)),
+    ];
 
     /// <inheritdoc />
-    public Task StartAsync(CancellationToken cancellationToken)
+    protected override void OnStarting()
     {
         // Force the workspace registry's construction now, synchronously, before any heal work is
         // queued. Its constructor throws when a channel spec names a capability with no registered
         // provider. Every other place below resolves it lazily inside a broad catch, so a misconfigured
         // host would otherwise start cleanly and only fault quietly on the first reconcile. Resolving it
-        // here, outside any try or catch, lets that exception propagate out of this method so the host
+        // here, outside any try or catch, lets that exception propagate out of StartAsync so the host
         // genuinely fails to start instead.
         using (var scope = scopeFactory.CreateScope())
         {
@@ -46,40 +51,13 @@ internal sealed class WorkspaceHostedService(
 
         client.Ready += OnReadyAsync;
         client.ChannelDestroyed += OnChannelDestroyedAsync;
-        _serverRegisteredLoop = Task.Run(() => ConsumeServerRegisteredAsync(_cts.Token), CancellationToken.None);
-        _connectionStatusLoop = Task.Run(() => ConsumeConnectionStatusAsync(_cts.Token), CancellationToken.None);
-        _serverCredentialsLoop = Task.Run(() => ConsumeServerCredentialsAsync(_cts.Token), CancellationToken.None);
-        _infoMapReadyLoop = Task.Run(() => ConsumeInfoMapReadyAsync(_cts.Token), CancellationToken.None);
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public async Task StopAsync(CancellationToken cancellationToken)
+    protected override void OnStopping()
     {
         client.Ready -= OnReadyAsync;
         client.ChannelDestroyed -= OnChannelDestroyedAsync;
-        await _cts.CancelAsync().ConfigureAwait(false);
-        foreach (var loop in new[]
-                 {
-                     _serverRegisteredLoop, _connectionStatusLoop, _serverCredentialsLoop, _infoMapReadyLoop
-                 })
-        {
-            if (loop is null)
-            {
-                continue;
-            }
-
-            try
-            {
-#pragma warning disable VSTHRD003 // Avoid awaiting foreign Tasks — these are our own loop tasks, joined on stop.
-                await loop.ConfigureAwait(false);
-#pragma warning restore VSTHRD003
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected on shutdown.
-            }
-        }
     }
 
     private Task OnReadyAsync()
@@ -97,7 +75,7 @@ internal sealed class WorkspaceHostedService(
         // Healing sweeps every provisioned guild's channels over REST; doing it inline blocks the
         // gateway task and stalls event dispatch, so offload it. Failures must be caught here —
         // nothing awaits this.
-        _ = Task.Run(HealProvisionedGuildsAsync, _cts.Token);
+        _ = Task.Run(HealProvisionedGuildsAsync, StoppingToken);
         return Task.CompletedTask;
     }
 
@@ -110,9 +88,10 @@ internal sealed class WorkspaceHostedService(
             {
                 var store = scope.ServiceProvider.GetRequiredService<IWorkspaceStore>();
                 var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                foreach (var guildId in await store.GetProvisionedGuildIdsAsync(_cts.Token).ConfigureAwait(false))
+                foreach (var guildId in await store.GetProvisionedGuildIdsAsync(StoppingToken)
+                             .ConfigureAwait(false))
                 {
-                    await reconciler.HealGuildAsync(guildId, _cts.Token).ConfigureAwait(false);
+                    await reconciler.HealGuildAsync(guildId, StoppingToken).ConfigureAwait(false);
                 }
             }
         }
@@ -139,7 +118,7 @@ internal sealed class WorkspaceHostedService(
             await using (scope.ConfigureAwait(false))
             {
                 var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
-                await reconciler.HealGuildAsync(guildChannel.Guild.Id, _cts.Token).ConfigureAwait(false);
+                await reconciler.HealGuildAsync(guildChannel.Guild.Id, StoppingToken).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -153,10 +132,9 @@ internal sealed class WorkspaceHostedService(
     }
 
     /// <summary>
-    /// Reconciles one server in its own scope. Every consumer below runs this through
-    /// <c>EventBusConsumption.ConsumeAsync</c>, which absorbs its failures: the reconcile
-    /// talks to Discord over REST, where a timeout or a 5xx is routine, and one of those must never end
-    /// the subscription that drives the channels.
+    /// Reconciles one server in its own scope. Every loop above runs this through the base class's
+    /// consumption, which absorbs its failures: the reconcile talks to Discord over REST, where a timeout
+    /// or a 5xx is routine, and one of those must never end the subscription that drives the channels.
     /// </summary>
     /// <param name="guildId">The owning guild snowflake.</param>
     /// <param name="serverId">The server to reconcile.</param>
@@ -169,90 +147,6 @@ internal sealed class WorkspaceHostedService(
         {
             var reconciler = scope.ServiceProvider.GetRequiredService<IWorkspaceReconciler>();
             await reconciler.ReconcileServerAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    private async Task ConsumeConnectionStatusAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await eventBus.ConsumeAsync<ConnectionStatusChangedEvent>(
-                (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct),
-                ex => logger.LogError(ex, "Handling {EventType} failed; skipping that reconcile.",
-                    nameof(ConnectionStatusChangedEvent)),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Shutting down.
-        }
-        catch (Exception ex) // Broad catch is intentional: a faulting consumer must not crash the host.
-        {
-            logger.LogError(ex, "ConnectionStatusChanged consumer faulted.");
-        }
-    }
-
-    private async Task ConsumeServerCredentialsAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await eventBus.ConsumeAsync<ServerCredentialsChangedEvent>(
-                (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct),
-                ex => logger.LogError(ex, "Handling {EventType} failed; skipping that reconcile.",
-                    nameof(ServerCredentialsChangedEvent)),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Shutting down.
-        }
-        catch (Exception ex) // Broad catch is intentional: a faulting consumer must not crash the host.
-        {
-            logger.LogError(ex, "ServerCredentialsChanged consumer faulted.");
-        }
-    }
-
-    private async Task ConsumeInfoMapReadyAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await eventBus.ConsumeAsync<InfoMapReadyEvent>(
-                (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct),
-                ex => logger.LogError(ex, "Handling {EventType} failed; skipping that reconcile.",
-                    nameof(InfoMapReadyEvent)),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Shutting down.
-        }
-        catch (Exception ex) // Broad catch is intentional: a faulting consumer must not crash the host.
-        {
-            logger.LogError(ex, "InfoMapReady consumer faulted.");
-        }
-    }
-
-    private async Task ConsumeServerRegisteredAsync(CancellationToken cancellationToken)
-    {
-        // Subscription is registered when this loop first calls SubscribeAsync; the in-process bus does
-        // not replay, so events published before this point are not delivered. Fine here (the only 1a
-        // producer is the runtime-only simulate-server command); a real producer (1b FCM pairing) runs
-        // long after startup.
-        try
-        {
-            await eventBus.ConsumeAsync<ServerRegisteredEvent>(
-                (evt, ct) => ReconcileServerAsync(evt.GuildId, evt.ServerId, ct),
-                ex => logger.LogError(ex, "Handling {EventType} failed; skipping that reconcile.",
-                    nameof(ServerRegisteredEvent)),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Shutting down.
-        }
-        catch (Exception ex) // Broad catch is intentional: a faulting consumer must not crash the host.
-        {
-            logger.LogError(ex, "ServerRegistered consumer faulted.");
         }
     }
 }

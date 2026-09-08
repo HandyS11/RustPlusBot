@@ -105,7 +105,7 @@ public sealed class CommandsHostedServiceTests
             await Task.Delay(20);
         }
 
-        // The dispatch threw; the per-event catch swallowed it (LogDispatchFaulted) so the loop keeps running.
+        // The dispatch threw; EventLoopHostedService's per-event catch swallowed it, so the loop keeps running.
         await h.MuteStore.Received().GetPrefixAsync(10UL, serverId, Arg.Any<CancellationToken>());
         await h.Sender.DidNotReceive().SendAsync(
             Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
