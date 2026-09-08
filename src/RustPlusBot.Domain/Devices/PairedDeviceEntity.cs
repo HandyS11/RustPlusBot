@@ -4,9 +4,16 @@ namespace RustPlusBot.Domain.Devices;
 
 /// <summary>
 /// The identity and bookkeeping every paired smart device the bot manages carries: who owns it, which
-/// server and in-game entity it is, where its embed lives and whether it still answers. Not an entity
-/// type of its own — EF maps each derived device to its own table, this base only shares the columns.
+/// server and in-game entity it is, where its embed lives and whether it still answers.
 /// </summary>
+/// <remarks>
+/// This is a plain code-sharing base, deliberately <em>not</em> an EF Core entity type: <c>BotDbContext</c>
+/// calls <c>modelBuilder.Ignore&lt;PairedDeviceEntity&gt;()</c> so EF never maps it and never treats
+/// <see cref="Switches.SmartSwitch"/> and <see cref="StorageMonitors.SmartStorageMonitor"/> as an
+/// inheritance hierarchy. Without that <c>Ignore</c>, adding a <c>DbSet</c> or a navigation targeting this
+/// type would pull the base into the model and silently collapse both device tables into one
+/// table-per-hierarchy table. Each derived device keeps its own table; this base only shares the columns.
+/// </remarks>
 public abstract class PairedDeviceEntity
 {
     /// <summary>Surrogate primary key.</summary>

@@ -1,6 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using RustPlusBot.Domain.Devices;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Servers;
+using RustPlusBot.Domain.StorageMonitors;
+using RustPlusBot.Domain.Switches;
 
 namespace RustPlusBot.Persistence.Tests;
 
@@ -23,6 +28,31 @@ public sealed class BotDbContextTests
         var loaded = await context.GuildSettings.SingleAsync();
         Assert.Equal(guildId, loaded.GuildId);
         Assert.Equal("fr", loaded.Culture);
+    }
+
+    [Fact]
+    public void PairedDeviceEntity_IsNotAnEntityType_SoTheDeviceTablesNeverCollapseIntoOne()
+    {
+        var (context, connection) = SqliteContextFixture.Create();
+        using var _ = context;
+        using var __ = connection;
+
+        // The base is code-sharing only. If it ever entered the model, EF would map SmartSwitch and
+        // SmartStorageMonitor as one table-per-hierarchy table and the two device tables would merge.
+        Assert.Null(context.Model.FindEntityType(typeof(PairedDeviceEntity)));
+
+        // Not merely absent by omission: BotDbContext ignores it, so EF itself refuses to map it even if
+        // someone later adds a DbSet or a navigation that targets the base.
+        var designTimeModel = (IConventionModel)context.GetService<IDesignTimeModel>().Model;
+        Assert.True(designTimeModel.IsIgnored(typeof(PairedDeviceEntity)));
+
+        var smartSwitch = context.Model.FindEntityType(typeof(SmartSwitch));
+        var storageMonitor = context.Model.FindEntityType(typeof(SmartStorageMonitor));
+        Assert.NotNull(smartSwitch);
+        Assert.NotNull(storageMonitor);
+        Assert.Null(smartSwitch.BaseType);
+        Assert.Null(storageMonitor.BaseType);
+        Assert.NotEqual(smartSwitch.GetTableName(), storageMonitor.GetTableName());
     }
 
     [Fact]
