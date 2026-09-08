@@ -397,11 +397,11 @@ public sealed class MapRefreshTests
 
         private readonly List<(int Count, TaskCompletionSource Tcs)> _locatorTargets = [];
         private readonly List<(int Count, TaskCompletionSource Tcs)> _postTargets = [];
+        private readonly ConcurrentDictionary<ulong, int> _postsByChannel = new();
         private readonly TaskCompletionSource _statusHandled = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _baseMapFetches;
         private int _locatorFaults;
         private int _posts;
-        private readonly ConcurrentDictionary<ulong, int> _postsByChannel = new();
         private int _statusReads;
 
         public int BaseMapFetches => Volatile.Read(ref _baseMapFetches);
