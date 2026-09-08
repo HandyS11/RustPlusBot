@@ -1,5 +1,6 @@
 using Discord;
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Devices;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Domain.StorageMonitors;
 using RustPlusBot.Features.Devices.Pairing;
@@ -44,43 +45,6 @@ internal sealed class StorageMonitorPairingCoordinator(
         => renderer.RenderMonitor(entity, contents: null, culture);
 
     /// <inheritdoc />
-    protected override async Task<bool> ExistsAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        CancellationToken cancellationToken)
-    {
-        var store = services.GetRequiredService<IStorageMonitorStore>();
-        return await store.ExistsAsync(guildId, serverId, entityId, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    protected override async Task<SmartStorageMonitor> AddAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        string name,
-        ulong pairedByUserId,
-        CancellationToken cancellationToken)
-    {
-        var store = services.GetRequiredService<IStorageMonitorStore>();
-        return await store.AddAsync(guildId, serverId, entityId, name, pairedByUserId, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    protected override async Task SetMessageIdAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        ulong messageId,
-        CancellationToken cancellationToken)
-    {
-        var store = services.GetRequiredService<IStorageMonitorStore>();
-        await store.SetMessageIdAsync(guildId, serverId, entityId, messageId, cancellationToken)
-            .ConfigureAwait(false);
-    }
+    protected override IPairedDeviceStore<SmartStorageMonitor> Store(IServiceProvider services) =>
+        services.GetRequiredService<IStorageMonitorStore>();
 }

@@ -1,5 +1,6 @@
 using Discord;
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Devices;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Domain.Switches;
 using RustPlusBot.Features.Devices.Pairing;
@@ -42,43 +43,6 @@ internal sealed class SwitchPairingCoordinator(
         => renderer.RenderSwitch(entity, isActive: entity.LastIsActive, culture);
 
     /// <inheritdoc />
-    protected override async Task<bool> ExistsAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        CancellationToken cancellationToken)
-    {
-        var store = services.GetRequiredService<ISwitchStore>();
-        return await store.ExistsAsync(guildId, serverId, entityId, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    protected override async Task<SmartSwitch> AddAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        string name,
-        ulong pairedByUserId,
-        CancellationToken cancellationToken)
-    {
-        var store = services.GetRequiredService<ISwitchStore>();
-        return await store.AddAsync(guildId, serverId, entityId, name, pairedByUserId, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    protected override async Task SetMessageIdAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        ulong messageId,
-        CancellationToken cancellationToken)
-    {
-        var store = services.GetRequiredService<ISwitchStore>();
-        await store.SetMessageIdAsync(guildId, serverId, entityId, messageId, cancellationToken)
-            .ConfigureAwait(false);
-    }
+    protected override IPairedDeviceStore<SmartSwitch> Store(IServiceProvider services) =>
+        services.GetRequiredService<ISwitchStore>();
 }

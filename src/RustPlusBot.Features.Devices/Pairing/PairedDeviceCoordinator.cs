@@ -89,8 +89,8 @@ public abstract class PairedDeviceCoordinator<TPairedEvent, TEntity>(
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
-            var added = await AddAsync(
-                    scope.ServiceProvider, guildId, serverId, entityId, name, acceptingUserId, cancellationToken)
+            var store = Store(scope.ServiceProvider);
+            var added = await store.AddAsync(guildId, serverId, entityId, name, acceptingUserId, cancellationToken)
                 .ConfigureAwait(false);
 
             var channelId = await locator.GetChannelIdAsync(guildId, serverId, cancellationToken)
@@ -108,8 +108,7 @@ public abstract class PairedDeviceCoordinator<TPairedEvent, TEntity>(
                     .ConfigureAwait(false);
                 if (newMessageId is { } mid)
                 {
-                    await SetMessageIdAsync(
-                            scope.ServiceProvider, guildId, serverId, entityId, mid, cancellationToken)
+                    await store.SetMessageIdAsync(guildId, serverId, entityId, mid, cancellationToken)
                         .ConfigureAwait(false);
                 }
             }
@@ -150,60 +149,18 @@ public abstract class PairedDeviceCoordinator<TPairedEvent, TEntity>(
     /// <returns>The device embed and its control row.</returns>
     protected abstract (Embed Embed, MessageComponent Components) RenderAccepted(TEntity entity, string culture);
 
-    /// <summary>Asks the device store whether this identity is already managed.</summary>
+    /// <summary>Resolves the device type's store from a scope opened by this coordinator.</summary>
     /// <param name="services">The scoped provider to resolve the device store from.</param>
-    /// <param name="guildId">The guild id.</param>
-    /// <param name="serverId">The server id.</param>
-    /// <param name="entityId">The device entity id.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>True when a managed device with this identity exists.</returns>
-    protected abstract Task<bool> ExistsAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        CancellationToken cancellationToken);
-
-    /// <summary>Persists the accepted device and returns the stored row.</summary>
-    /// <param name="services">The scoped provider to resolve the device store from.</param>
-    /// <param name="guildId">The guild id.</param>
-    /// <param name="serverId">The server id.</param>
-    /// <param name="entityId">The device entity id.</param>
-    /// <param name="name">The display name to persist.</param>
-    /// <param name="pairedByUserId">The id of the user who accepted the pairing.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The persisted device.</returns>
-    protected abstract Task<TEntity> AddAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        string name,
-        ulong pairedByUserId,
-        CancellationToken cancellationToken);
-
-    /// <summary>Records the Discord message id the device embed now lives at.</summary>
-    /// <param name="services">The scoped provider to resolve the device store from.</param>
-    /// <param name="guildId">The guild id.</param>
-    /// <param name="serverId">The server id.</param>
-    /// <param name="entityId">The device entity id.</param>
-    /// <param name="messageId">The Discord embed message id.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A task that completes when the message id has been persisted.</returns>
-    protected abstract Task SetMessageIdAsync(
-        IServiceProvider services,
-        ulong guildId,
-        Guid serverId,
-        ulong entityId,
-        ulong messageId,
-        CancellationToken cancellationToken);
+    /// <returns>The device store for <typeparamref name="TEntity"/>.</returns>
+    protected abstract IPairedDeviceStore<TEntity> Store(IServiceProvider services);
 
     private async Task<bool> IsManagedAsync(ulong guildId, Guid serverId, ulong entityId, CancellationToken ct)
     {
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
-            return await ExistsAsync(scope.ServiceProvider, guildId, serverId, entityId, ct).ConfigureAwait(false);
+            return await Store(scope.ServiceProvider).ExistsAsync(guildId, serverId, entityId, ct)
+                .ConfigureAwait(false);
         }
     }
 
