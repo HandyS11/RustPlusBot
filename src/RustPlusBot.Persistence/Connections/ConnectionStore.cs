@@ -42,6 +42,18 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
 
         if (existing is null)
         {
+            // The row is FK'd to RustServers with ON DELETE CASCADE, so a deleted server takes its status
+            // row with it. A connection loop still running at that moment would insert a fresh row against
+            // the missing parent and die on the constraint violation. A server that is gone has no status
+            // to record: report "no change" rather than faulting the caller.
+            var serverExists = await context.RustServers
+                .AnyAsync(s => s.Id == serverId && s.GuildId == guildId, cancellationToken)
+                .ConfigureAwait(false);
+            if (!serverExists)
+            {
+                return false;
+            }
+
             context.ConnectionStates.Add(new ConnectionState
             {
                 RustServerId = serverId,

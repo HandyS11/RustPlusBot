@@ -483,6 +483,11 @@ internal sealed partial class ConnectionSupervisor(
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]
     private static partial void LogLoopFaulted(ILogger logger, Exception exception, Guid serverId);
 
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Socket for server {ServerId} threw while connecting; treating as unreachable and retrying.")]
+    private static partial void LogConnectThrew(ILogger logger, Exception exception, Guid serverId);
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Stored token for credential {CredentialId} is unreadable.")]
     private static partial void LogUnreadableToken(ILogger logger, Exception exception, Guid credentialId);
 
@@ -525,6 +530,18 @@ internal sealed partial class ConnectionSupervisor(
                 {
                     await connection.DisposeAsync().ConfigureAwait(false);
                     throw;
+                }
+#pragma warning disable CA1031 // Broad catch is intentional: see below — a throwing source must not end the loop.
+                catch (Exception ex)
+#pragma warning restore CA1031
+                {
+                    // A source that throws instead of reporting an outcome is still just an unreachable
+                    // server. Letting it escape reaches the outer catch and ENDS the loop, and nothing
+                    // re-arms a dead loop, so the server would stay offline until the process restarts.
+                    // Fall through as Unreachable: the branch below disposes the socket, publishes the
+                    // status and backs off, exactly as for a reported failure.
+                    LogConnectThrew(logger, ex, key.Server);
+                    outcome = SocketConnectOutcome.Unreachable;
                 }
 
                 if (outcome == SocketConnectOutcome.AuthRejected)

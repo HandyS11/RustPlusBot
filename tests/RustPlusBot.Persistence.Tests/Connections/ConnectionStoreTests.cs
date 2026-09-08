@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Connections;
@@ -70,6 +71,25 @@ public sealed class ConnectionStoreTests
         var state = await store.GetStateAsync(10UL, serverId);
         Assert.Equal(ConnectionStatus.Connected, state!.Status);
         Assert.Equal(6, state.PlayerCount);
+    }
+
+    /// <summary>
+    /// A connection loop can still be running when its server row is deleted (a guild purge racing the
+    /// loop). The status row is FK'd to RustServers, so inserting one for a server that is gone throws a
+    /// constraint violation and kills the loop. A deleted server has no status to record: write nothing.
+    /// </summary>
+    [Fact]
+    public async Task UpsertStatus_ForAServerThatIsGone_WritesNothingAndReportsNoChange()
+    {
+        var (store, context, conn) = Create();
+        await using var _ = conn;
+        await using var __ = context;
+
+        var changed = await store.UpsertStatusAsync(
+            10UL, Guid.NewGuid(), ConnectionStatus.NoCredentials, null, null);
+
+        Assert.False(changed);
+        Assert.Empty(await context.ConnectionStates.ToListAsync());
     }
 
     [Fact]

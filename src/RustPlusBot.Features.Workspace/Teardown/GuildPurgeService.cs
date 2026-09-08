@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Workspace.Reconciler;
 using RustPlusBot.Persistence;
 using RustPlusBot.Persistence.Servers;
@@ -10,11 +11,13 @@ namespace RustPlusBot.Features.Workspace.Teardown;
 /// <param name="servers">Server management (RemoveAsync cascades all per-server rows).</param>
 /// <param name="teardown">Removes provisioned Discord channels/categories/messages.</param>
 /// <param name="provisioningLock">Held across the whole purge to block concurrent reconciliation.</param>
+/// <param name="connections">Stops each server's connection loop before its row is deleted.</param>
 internal sealed class GuildPurgeService(
     BotDbContext context,
     IServerService servers,
     WorkspaceTeardownService teardown,
-    IProvisioningLock provisioningLock) : IGuildPurgeService
+    IProvisioningLock provisioningLock,
+    IServerConnectionStopper connections) : IGuildPurgeService
 {
     /// <inheritdoc />
     public async Task PurgeGuildAsync(ulong guildId, CancellationToken cancellationToken = default)
@@ -30,10 +33,15 @@ internal sealed class GuildPurgeService(
 
         // 2) Remove each server; the RustServer FK cascade clears its per-server rows
         //    (connection state, command/map settings, switches, alarms, storage monitors, credentials).
+        //    Stop the socket BEFORE each row delete, exactly as ServerRemovalService does for a single
+        //    server: a connection loop still running when its RustServer row goes away faults on the
+        //    connection-state foreign key at its next status write, and leaks its socket for the life of
+        //    the process. StopAsync joins the loop, so it is finished before the delete lands.
         var known = await servers.ListAsync(guildId, cancellationToken).ConfigureAwait(false);
-        foreach (var server in known)
+        foreach (var serverId in known.Select(server => server.Id))
         {
-            await servers.RemoveAsync(guildId, server.Id, cancellationToken).ConfigureAwait(false);
+            await connections.StopAsync(guildId, serverId).ConfigureAwait(false);
+            await servers.RemoveAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
         }
 
         // 3) Delete guild-keyed rows that have no cascade FK to RustServer (event subscriptions,
