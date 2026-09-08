@@ -36,6 +36,8 @@ internal static class ClanSnapshotDiffer
         AddIdentityChanges(changes, previous, current);
         AddMembershipChanges(changes, previous, current);
         AddRoleChanges(changes, previous, current);
+        AddInviteChanges(changes, previous, current);
+        AddAttributeChanges(changes, previous, current);
         return changes;
     }
 
@@ -80,12 +82,7 @@ internal static class ClanSnapshotDiffer
         }
     }
 
-    /// <summary>
-    /// Adds role promotions and demotions, then invite lifecycle changes and clan attribute
-    /// changes (logo, colour, score). The latter two groups are appended here — rather than in
-    /// <see cref="AddMembershipChanges"/>, which runs earlier — purely to keep the fixed emission
-    /// order: role changes, then invites, then attribute changes.
-    /// </summary>
+    /// <summary>Adds member role promotions and demotions, ordered ascending by Steam id.</summary>
     /// <param name="changes">The change list being built, appended to in emission order.</param>
     /// <param name="previous">The last known snapshot.</param>
     /// <param name="current">The new snapshot.</param>
@@ -113,9 +110,6 @@ internal static class ClanSnapshotDiffer
             var kind = newRole.Rank < oldRole.Rank ? ClanChangeKind.MemberPromoted : ClanChangeKind.MemberDemoted;
             changes.Add(new ClanChange(kind, id, RoleName: newRole.Name));
         }
-
-        AddInviteChanges(changes, previous, current);
-        AddAttributeChanges(changes, previous, current);
     }
 
     /// <summary>Adds sent, accepted and revoked invites, each ordered ascending by Steam id.</summary>
