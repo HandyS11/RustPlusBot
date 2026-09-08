@@ -20,17 +20,10 @@ internal sealed class StorageMonitorPairingCoordinator(
     IStorageMonitorChannelLocator locator,
     IStorageMonitorChannelPoster poster,
     StorageMonitorEmbedRenderer renderer)
-    : PairedDeviceCoordinator<StorageMonitorPairedEvent, SmartStorageMonitor>(scopeFactory, poster)
+    : PairedDeviceCoordinator<StorageMonitorPairedEvent, SmartStorageMonitor>(scopeFactory, locator, poster)
 {
     /// <inheritdoc />
     protected override string DefaultName(ulong entityId) => $"Storage Monitor {entityId}";
-
-    /// <inheritdoc />
-    protected override Task<ulong?> GetChannelIdAsync(
-        ulong guildId,
-        Guid serverId,
-        CancellationToken cancellationToken)
-        => locator.GetChannelIdAsync(guildId, serverId, cancellationToken);
 
     /// <inheritdoc />
     protected override (Embed Embed, MessageComponent Components) RenderPrompt(

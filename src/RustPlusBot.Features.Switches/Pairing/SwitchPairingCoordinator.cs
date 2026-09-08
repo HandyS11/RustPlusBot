@@ -20,17 +20,10 @@ internal sealed class SwitchPairingCoordinator(
     ISwitchChannelLocator locator,
     ISwitchChannelPoster poster,
     SwitchEmbedRenderer renderer)
-    : PairedDeviceCoordinator<SwitchPairedEvent, SmartSwitch>(scopeFactory, poster)
+    : PairedDeviceCoordinator<SwitchPairedEvent, SmartSwitch>(scopeFactory, locator, poster)
 {
     /// <inheritdoc />
     protected override string DefaultName(ulong entityId) => $"Switch {entityId}";
-
-    /// <inheritdoc />
-    protected override Task<ulong?> GetChannelIdAsync(
-        ulong guildId,
-        Guid serverId,
-        CancellationToken cancellationToken)
-        => locator.GetChannelIdAsync(guildId, serverId, cancellationToken);
 
     /// <inheritdoc />
     protected override (Embed Embed, MessageComponent Components) RenderPrompt(

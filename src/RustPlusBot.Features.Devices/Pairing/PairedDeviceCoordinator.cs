@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Discord;
 using Microsoft.Extensions.DependencyInjection;
+using RustPlusBot.Abstractions.Devices;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Devices.Posting;
 using RustPlusBot.Persistence.Workspace;
@@ -16,9 +17,11 @@ namespace RustPlusBot.Features.Devices.Pairing;
 /// <typeparam name="TPairedEvent">The device feature's paired-device event.</typeparam>
 /// <typeparam name="TEntity">The persisted device the store returns when the pairing is accepted.</typeparam>
 /// <param name="scopeFactory">Opens scopes for the scoped device/workspace stores.</param>
+/// <param name="locator">Resolves the device type's channel id.</param>
 /// <param name="poster">Posts/edits the device + prompt messages in the device type's channel.</param>
 public abstract class PairedDeviceCoordinator<TPairedEvent, TEntity>(
     IServiceScopeFactory scopeFactory,
+    IDeviceChannelLocator locator,
     IDeviceChannelPoster poster)
     where TPairedEvent : class, IPairedDeviceEvent
     where TEntity : class
@@ -45,7 +48,7 @@ public abstract class PairedDeviceCoordinator<TPairedEvent, TEntity>(
             return;
         }
 
-        var channelId = await GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
+        var channelId = await locator.GetChannelIdAsync(evt.GuildId, evt.ServerId, cancellationToken)
             .ConfigureAwait(false);
         if (channelId is not { } channel)
         {
@@ -90,7 +93,8 @@ public abstract class PairedDeviceCoordinator<TPairedEvent, TEntity>(
                     scope.ServiceProvider, guildId, serverId, entityId, name, acceptingUserId, cancellationToken)
                 .ConfigureAwait(false);
 
-            var channelId = await GetChannelIdAsync(guildId, serverId, cancellationToken).ConfigureAwait(false);
+            var channelId = await locator.GetChannelIdAsync(guildId, serverId, cancellationToken)
+                .ConfigureAwait(false);
             if (channelId is { } channel)
             {
                 var culture = await GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
@@ -127,13 +131,6 @@ public abstract class PairedDeviceCoordinator<TPairedEvent, TEntity>(
     /// <param name="entityId">The device entity id.</param>
     /// <returns>The default display name, e.g. <c>Switch 42</c>.</returns>
     protected abstract string DefaultName(ulong entityId);
-
-    /// <summary>Resolves the Discord channel this device type's embeds live in.</summary>
-    /// <param name="guildId">The guild id.</param>
-    /// <param name="serverId">The server id.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The channel id, or null when the channel is not provisioned.</returns>
-    protected abstract Task<ulong?> GetChannelIdAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken);
 
     /// <summary>Renders the transient "New device detected — Add it?" prompt.</summary>
     /// <param name="serverId">The server id.</param>
