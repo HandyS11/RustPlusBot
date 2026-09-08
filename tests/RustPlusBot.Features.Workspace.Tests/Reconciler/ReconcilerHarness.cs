@@ -112,7 +112,7 @@ internal sealed class ReconcilerHarness
             // The real #info map payload shows its upload through the embed, which is what makes Discord
             // fold the attachment into that embed — the shape the reconciler has to recognise again. The
             // embed is always present so the payload stays non-empty even when the upload is dropped.
-            var embed = new EmbedBuilder().WithTitle("map");
+            var embed = new EmbedBuilder().WithTitle(attachment.Title);
             if (attachment.ShownInEmbed && file is not null)
             {
                 embed.WithImageUrl($"attachment://{file.FileName}");
@@ -129,6 +129,9 @@ internal sealed class ReconcilerHarness
 internal sealed class AttachmentHolder(MessageAttachment? current, bool shownInEmbed = false)
 {
     public MessageAttachment? Current { get; set; } = current;
+
+    /// <summary>The embed title, mutable so a test can change the text around an unchanged upload.</summary>
+    public string Title { get; set; } = "map";
 
     public bool ShownInEmbed { get; } = shownInEmbed;
 }

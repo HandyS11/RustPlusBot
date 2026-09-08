@@ -4,8 +4,8 @@ using RustPlusBot.Features.Workspace.Registry;
 namespace RustPlusBot.Features.Workspace.Tests.Reconciler;
 
 /// <summary>
-/// Attachments are uploads, not text: the reconciler re-renders every pass, so a message carrying one must
-/// be posted once and then left alone, and only re-posted when the file itself changes.
+/// Attachments are uploads, not text: the reconciler re-renders every pass, so the file must be sent once
+/// and only re-sent when it actually changes — while the words around it stay editable in place.
 /// </summary>
 public sealed class WorkspaceReconcilerAttachmentTests
 {
@@ -16,7 +16,7 @@ public sealed class WorkspaceReconcilerAttachmentTests
         new(new MessageAttachment([1, 2, 3], fileName), shownInEmbed: true);
 
     [Fact]
-    public async Task Unchanged_attachment_is_neither_re_uploaded_nor_edited()
+    public async Task Unchanged_attachment_is_never_re_uploaded()
     {
         var holder = Holder("map-a.jpg");
         var harness = new ReconcilerHarness()
@@ -29,7 +29,6 @@ public sealed class WorkspaceReconcilerAttachmentTests
         await sut.ReconcileGlobalAsync(1);
 
         Assert.Equal(1, harness.Gateway.PostedMessages);
-        Assert.Equal(0, harness.Gateway.EditedMessages);
     }
 
     [Fact]
@@ -89,7 +88,7 @@ public sealed class WorkspaceReconcilerAttachmentTests
     }
 
     [Fact]
-    public async Task An_upload_shown_inside_the_embed_is_still_recognised_as_up_to_date()
+    public async Task An_upload_shown_inside_the_embed_is_still_recognised_as_the_same_file()
     {
         // Discord folds an attachment:// upload into the embed and reports an EMPTY attachments array, so
         // the file name has to be read back off the embed's CDN URL. Miss that and the reconciler decides
@@ -105,7 +104,28 @@ public sealed class WorkspaceReconcilerAttachmentTests
         await sut.ReconcileGlobalAsync(1);
 
         Assert.Equal(1, harness.Gateway.PostedMessages);
-        Assert.Equal(0, harness.Gateway.EditedMessages);
+    }
+
+    [Fact]
+    public async Task Text_around_an_unchanged_upload_is_still_edited_in_place()
+    {
+        // The upload is the only part an edit cannot carry. Everything else still has to follow the
+        // renderer — a guild switching culture would otherwise keep its map embed in the old language for
+        // as long as the map itself does not change, which is the whole wipe.
+        var holder = EmbeddedHolder("map-a.jpg");
+        var harness = new ReconcilerHarness()
+            .WithChannel(WorkspaceScope.Global, "information", "channel.information.name", 0)
+            .WithAttachmentMessage(WorkspaceScope.Global, "information.map", "information", holder);
+        var sut = harness.Build();
+        await sut.ReconcileGlobalAsync(1);
+
+        holder.Title = "carte";
+        await sut.ReconcileGlobalAsync(1);
+
+        var live = await harness.Store.GetMessageAsync(1, null, "information.map");
+        Assert.Equal(1, harness.Gateway.PostedMessages); // no repost: the file did not change
+        Assert.Equal(1, harness.Gateway.EditedMessages);
+        Assert.Equal("carte", harness.Gateway.LivePayload(live!.DiscordMessageId)!.Embed!.Title);
     }
 
     [Fact]

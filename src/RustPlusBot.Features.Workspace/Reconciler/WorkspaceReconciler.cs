@@ -301,7 +301,6 @@ internal sealed class WorkspaceReconciler(
                               && payload.Attachment is null;
 
                 ulong? liveId = null;
-                var upToDate = false;
                 if (!isEmpty)
                 {
                     var record = await backends.Store.GetMessageAsync(guildId, serverId, spec.Key, cancellationToken)
@@ -319,8 +318,9 @@ internal sealed class WorkspaceReconciler(
                         // exactly the file the payload asks for — including none at all. A message that
                         // drops its upload, such as a custom-map server whose RustMaps render later
                         // verifies, would otherwise keep the stale image alongside its new embed. The file
-                        // name identifies the content, so an unchanged one means "already posted, leave it
-                        // entirely alone": re-uploading costs its full size per server per reconcile pass.
+                        // name identifies the content: a message already carrying it is edited in place,
+                        // which leaves the upload alone (the edit never mentions attachments, and Discord
+                        // keeps them) while still applying text and embed changes — a culture switch, say.
                         if (!string.Equals(live.AttachmentFileName, payload.Attachment?.FileName,
                                 StringComparison.Ordinal))
                         {
@@ -329,14 +329,10 @@ internal sealed class WorkspaceReconciler(
                                 .ConfigureAwait(false);
                             liveId = null;
                         }
-                        else if (payload.Attachment is not null)
-                        {
-                            upToDate = true;
-                        }
                     }
                 }
 
-                items.Add(new MessageItem(spec, payload, isEmpty, liveId, upToDate));
+                items.Add(new MessageItem(spec, payload, isEmpty, liveId));
             }
 
             // Discord orders messages by creation time. If an earlier-declared message still needs to be
@@ -355,7 +351,7 @@ internal sealed class WorkspaceReconciler(
                             .ConfigureAwait(false);
                         items[k] = items[k] with
                         {
-                            LiveId = null, UpToDate = false
+                            LiveId = null
                         };
                     }
                 }
@@ -363,7 +359,7 @@ internal sealed class WorkspaceReconciler(
 
             foreach (var item in items)
             {
-                if (item.IsEmpty || item.UpToDate)
+                if (item.IsEmpty)
                 {
                     continue;
                 }
@@ -402,11 +398,5 @@ internal sealed class WorkspaceReconciler(
     /// <param name="Payload">The freshly rendered content.</param>
     /// <param name="IsEmpty">True if the renderer had nothing to show (skipped entirely).</param>
     /// <param name="LiveId">The snowflake of the currently-live message, or null if it must be posted.</param>
-    /// <param name="UpToDate">True if the live message already carries this payload's attachment (leave it alone).</param>
-    private sealed record MessageItem(
-        MessageSpec Spec,
-        MessagePayload Payload,
-        bool IsEmpty,
-        ulong? LiveId,
-        bool UpToDate = false);
+    private sealed record MessageItem(MessageSpec Spec, MessagePayload Payload, bool IsEmpty, ulong? LiveId);
 }

@@ -196,6 +196,12 @@ internal sealed class FakeWorkspaceGateway : IWorkspaceGateway
 
     public IReadOnlyList<string> GetMissingBotPermissions(ulong guildId) => MissingPermissions;
 
+    /// <summary>The payload a live message currently carries, after any edits.</summary>
+    /// <param name="messageId">The message snowflake.</param>
+    /// <returns>The current payload, or null when no such message is live.</returns>
+    public MessagePayload? LivePayload(ulong messageId) =>
+        _messages.TryGetValue(messageId, out var message) ? message.Payload : null;
+
     /// <summary>The category's channel ids in on-screen order (position, then snowflake).</summary>
     /// <param name="categoryId">The category whose channels to list.</param>
     public IReadOnlyList<ulong> ChannelOrder(ulong categoryId) =>
