@@ -62,8 +62,11 @@ public sealed class MapRendererTests
     {
         var renderer = CreateRenderer();
 
-        var bytes = renderer.Render(BaseJpeg(), Projection, markers: [], monuments: [], players: [], rigs: [],
-            MapLayerSet.AllOn);
+        var bytes = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = BaseJpeg(), Projection = Projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            Layers = MapLayerSet.AllOn,
+        });
 
         using var result = Image.Load<Rgba32>(bytes);
         Assert.Equal(MapRenderer.OutputSize, result.Width);
@@ -76,12 +79,21 @@ public sealed class MapRendererTests
         var renderer = CreateRenderer();
         var jpeg = BaseJpeg();
 
-        var without = renderer.Render(jpeg, Projection, markers: [], monuments: [], players: [], rigs: [],
-            new MapLayerSet(false, true, false, false, false, false));
-        var with = renderer.Render(jpeg, Projection,
-            markers: [new MarkerPlacement(MarkerKind.CargoShip, 512f, 512f, null, [])],
-            monuments: [], players: [], rigs: [],
-            new MapLayerSet(false, true, false, false, false, false));
+        var without = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = jpeg, Projection = Projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            Layers = new MapLayerSet(false, true, false, false, false, false),
+        });
+        var with = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = jpeg,
+            Projection = Projection,
+            Markers = [new MarkerPlacement(MarkerKind.CargoShip, 512f, 512f, null, [])],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
+            Layers = new MapLayerSet(false, true, false, false, false, false),
+        });
 
         Assert.NotEqual(without, with); // The drawn marker changes the bytes.
     }
@@ -108,7 +120,11 @@ public sealed class MapRendererTests
             new RigPlacement(RigKind.Large, 400, 400, Active: true)
         };
 
-        var png = renderer.Render(BaseJpeg(), Projection, markers, monuments, players, rigs, MapLayerSet.AllOn);
+        var png = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = BaseJpeg(), Projection = Projection, Markers = markers, Monuments = monuments,
+            Players = players, Rigs = rigs, Layers = MapLayerSet.AllOn,
+        });
 
         using var img = Image.Load(png); // throws if not a valid image
         Assert.Equal(MapRenderer.OutputSize, img.Width);
@@ -122,11 +138,21 @@ public sealed class MapRendererTests
         var baseJpeg = SolidJpeg(2000);
         var (px, py) = projection.ToPixel(2000f, 2000f);
 
-        var without = renderer.Render(baseJpeg, projection, [], [], [], [],
-            new MapLayerSet(false, false, false, false, false, false));
-        var with = renderer.Render(baseJpeg, projection, [],
-            [new MonumentPlacement("oil_rig_small", px, py)], [], [],
-            new MapLayerSet(false, false, true, false, false, false));
+        var without = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg, Projection = projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            Layers = new MapLayerSet(false, false, false, false, false, false),
+        });
+        var with = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [],
+            Monuments = [new MonumentPlacement("oil_rig_small", px, py)],
+            Players = [],
+            Rigs = [],
+            Layers = new MapLayerSet(false, false, true, false, false, false),
+        });
 
         var bounds = ChangedPixelBounds(without, with);
         Assert.True(bounds.Width <= MapRenderStyle.MonumentIconSize + 2,
@@ -144,13 +170,30 @@ public sealed class MapRendererTests
         var (bx, by) = projection.ToPixel(2000f, 2000f);
         var layers = new MapLayerSet(false, true, false, false, false, false);
 
-        var without = renderer.Render(baseJpeg, projection,
-            [new MarkerPlacement(MarkerKind.CargoShip, bx, by, null, [])], [], [], [], layers);
-        var with = renderer.Render(baseJpeg, projection,
-        [
-            new MarkerPlacement(MarkerKind.CargoShip, bx, by, null,
-                [new PointF(ax, ay), new PointF(bx, by)])
-        ], [], [], [], layers);
+        var without = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [new MarkerPlacement(MarkerKind.CargoShip, bx, by, null, [])],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
+            Layers = layers,
+        });
+        var with = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers =
+            [
+                new MarkerPlacement(MarkerKind.CargoShip, bx, by, null,
+                    [new PointF(ax, ay), new PointF(bx, by)])
+            ],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
+            Layers = layers,
+        });
 
         var bounds = ChangedPixelBounds(without, with);
         // The trail spans from A to B — far wider than the icon alone.
@@ -168,8 +211,16 @@ public sealed class MapRendererTests
         var layers = new MapLayerSet(Grid: true, Markers: false, Monuments: false, Vendor: false,
             Players: false, Rigs: false);
 
-        var inGame = renderer.Render(baseJpeg, projection, [], [], [], [], layers);
-        var rustPlus = renderer.Render(baseJpeg, projection, [], [], [], [], layers, MapGridStyle.RustPlus);
+        var inGame = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg, Projection = projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            Layers = layers,
+        });
+        var rustPlus = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg, Projection = projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            Layers = layers, GridStyle = MapGridStyle.RustPlus,
+        });
 
         Assert.False(inGame.AsSpan().SequenceEqual(rustPlus));
     }
@@ -183,10 +234,26 @@ public sealed class MapRendererTests
         var (px, py) = projection.ToPixel(2000f, 2000f);
         var layers = new MapLayerSet(false, true, false, false, false, false);
 
-        var unrotated = renderer.Render(baseJpeg, projection,
-            [new MarkerPlacement(MarkerKind.CargoShip, px, py, null, [])], [], [], [], layers);
-        var rotated = renderer.Render(baseJpeg, projection,
-            [new MarkerPlacement(MarkerKind.CargoShip, px, py, 45f, [])], [], [], [], layers);
+        var unrotated = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [new MarkerPlacement(MarkerKind.CargoShip, px, py, null, [])],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
+            Layers = layers,
+        });
+        var rotated = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [new MarkerPlacement(MarkerKind.CargoShip, px, py, 45f, [])],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
+            Layers = layers,
+        });
 
         Assert.False(unrotated.AsSpan().SequenceEqual(rotated));
     }
@@ -201,9 +268,21 @@ public sealed class MapRendererTests
         var layers = new MapLayerSet(false, false, false, false, true, false);
         var red = SixLabors.ImageSharp.Color.ParseHex("E03131");
 
-        var without = renderer.Render(baseJpeg, projection, [], [], [], [], layers);
-        var with = renderer.Render(baseJpeg, projection, [], [],
-            [new PlayerPlacement("A", px, py, IsAlive: true, IsOnline: true, red)], [], layers);
+        var without = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg, Projection = projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            Layers = layers,
+        });
+        var with = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [],
+            Monuments = [],
+            Players = [new PlayerPlacement("A", px, py, IsAlive: true, IsOnline: true, red)],
+            Rigs = [],
+            Layers = layers,
+        });
 
         Assert.False(without.AsSpan().SequenceEqual(with));
         // A red-dominant pixel must appear where the cross was drawn.
@@ -234,10 +313,26 @@ public sealed class MapRendererTests
         var layers = new MapLayerSet(false, false, false, false, true, false);
         var blue = SixLabors.ImageSharp.Color.ParseHex("1971C2");
 
-        var alive = renderer.Render(baseJpeg, projection, [], [],
-            [new PlayerPlacement("A", px, py, IsAlive: true, IsOnline: true, blue)], [], layers);
-        var dead = renderer.Render(baseJpeg, projection, [], [],
-            [new PlayerPlacement("A", px, py, IsAlive: false, IsOnline: true, blue)], [], layers);
+        var alive = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [],
+            Monuments = [],
+            Players = [new PlayerPlacement("A", px, py, IsAlive: true, IsOnline: true, blue)],
+            Rigs = [],
+            Layers = layers,
+        });
+        var dead = renderer.Render(new MapRenderRequest
+        {
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [],
+            Monuments = [],
+            Players = [new PlayerPlacement("A", px, py, IsAlive: false, IsOnline: true, blue)],
+            Rigs = [],
+            Layers = layers,
+        });
 
         Assert.False(alive.AsSpan().SequenceEqual(dead)); // '+' vs 'x'
     }

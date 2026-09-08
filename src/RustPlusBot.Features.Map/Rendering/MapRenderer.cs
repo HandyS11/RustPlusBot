@@ -37,70 +37,60 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
     }
 
     /// <summary>Renders the map tile plus the requested overlay layers to PNG bytes.</summary>
-    /// <param name="baseJpeg">The raw base-map JPEG bytes.</param>
-    /// <param name="projection">The world-to-pixel projection (world size, base image dims, ocean margin).</param>
-    /// <param name="markers">Marker placements already projected to pixel coordinates.</param>
-    /// <param name="monuments">Monument placements already projected to pixel coordinates.</param>
-    /// <param name="players">Player placements already projected to pixel coordinates.</param>
-    /// <param name="rigs">Oil-rig placements already projected to pixel coordinates.</param>
-    /// <param name="layers">Which overlay layers to draw.</param>
-    /// <param name="gridStyle">Which grid convention to draw (in-game F1 map, or Rust+/RustMaps).</param>
-    /// <param name="tunnels">Train-tunnel placements already projected to pixel coordinates.</param>
+    /// <param name="request">The base image, projection, and overlay data to render.</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
-    public byte[] Render(byte[] baseJpeg,
-        MapProjection projection,
-        IReadOnlyList<MarkerPlacement> markers,
-        IReadOnlyList<MonumentPlacement> monuments,
-        IReadOnlyList<PlayerPlacement> players,
-        IReadOnlyList<RigPlacement> rigs,
-        MapLayerSet layers,
-        MapGridStyle gridStyle = MapGridStyle.InGame,
-        IReadOnlyList<MonumentPlacement>? tunnels = null)
+    /// <remarks>
+    /// <see cref="MapRenderRequest"/> is internal, so this method is internal rather than public — every
+    /// caller (<see cref="Composing.MapComposer"/> and the map test suite) lives in this assembly or a
+    /// friend assembly.
+    /// </remarks>
+    internal byte[] Render(MapRenderRequest request)
     {
-        ArgumentNullException.ThrowIfNull(baseJpeg);
-        ArgumentNullException.ThrowIfNull(projection);
-        ArgumentNullException.ThrowIfNull(markers);
-        ArgumentNullException.ThrowIfNull(monuments);
-        ArgumentNullException.ThrowIfNull(players);
-        ArgumentNullException.ThrowIfNull(rigs);
-        ArgumentNullException.ThrowIfNull(layers);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.BaseJpeg);
+        ArgumentNullException.ThrowIfNull(request.Projection);
+        ArgumentNullException.ThrowIfNull(request.Markers);
+        ArgumentNullException.ThrowIfNull(request.Monuments);
+        ArgumentNullException.ThrowIfNull(request.Players);
+        ArgumentNullException.ThrowIfNull(request.Rigs);
+        ArgumentNullException.ThrowIfNull(request.Layers);
 
-        using var image = Image.Load<Rgba32>(baseJpeg);
+        using var image = Image.Load<Rgba32>(request.BaseJpeg);
         image.Mutate(ctx => ctx.Resize(OutputSize, OutputSize));
 
-        if (layers.Grid)
+        if (request.Layers.Grid)
         {
-            DrawGrid(image, projection, gridStyle);
+            DrawGrid(image, request.Projection, request.GridStyle);
         }
 
-        if (layers.Monuments)
+        if (request.Layers.Monuments)
         {
-            DrawMonuments(image, monuments);
+            DrawMonuments(image, request.Monuments);
         }
 
-        if (layers.Tunnels && tunnels is { Count: > 0 })
+        if (request.Layers.Tunnels && request.Tunnels is { Count: > 0 })
         {
-            DrawMonuments(image, tunnels);
+            DrawMonuments(image, request.Tunnels);
         }
 
-        if (layers.Markers || layers.Vendor)
+        if (request.Layers.Markers || request.Layers.Vendor)
         {
-            DrawTrails(image, markers);
+            DrawTrails(image, request.Markers);
         }
 
-        if (layers.Markers)
+        if (request.Layers.Markers)
         {
-            DrawMarkers(image, markers);
+            DrawMarkers(image, request.Markers);
         }
 
-        if (layers.Rigs)
+        if (request.Layers.Rigs)
         {
-            DrawRigs(image, rigs);
+            DrawRigs(image, request.Rigs);
         }
 
-        if (layers.Players)
+        if (request.Layers.Players)
         {
-            DrawPlayers(image, players);
+            DrawPlayers(image, request.Players);
         }
 
         using var ms = new MemoryStream();
