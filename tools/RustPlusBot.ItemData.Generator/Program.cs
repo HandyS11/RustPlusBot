@@ -74,9 +74,8 @@ internal static class Program
         var nameIds = new HashSet<int>(names.Keys);
         ReportOrphans(nameIds, recycleYields, craftRecipes, researchCosts, decayInfos, upkeepCosts);
 
-        var items = BuildItems(names, stackSizes, despawnSeconds, recycleYields, craftRecipes, researchCosts,
-            decayInfos,
-            upkeepCosts);
+        var items = BuildItems(new ItemLookups(names, stackSizes, despawnSeconds, recycleYields, craftRecipes,
+            researchCosts, decayInfos, upkeepCosts));
 
         var dataset = new ItemDataset(
             5,
@@ -137,26 +136,18 @@ internal static class Program
         return (argList[outIdx + 1], rustplusDir, minItems);
     }
 
-    private static List<ItemRecord> BuildItems(
-        IReadOnlyDictionary<int, string> names,
-        IReadOnlyDictionary<int, int> stackSizes,
-        IReadOnlyDictionary<int, int> despawnSeconds,
-        IReadOnlyDictionary<int, RecycleYield> recycleYields,
-        IReadOnlyDictionary<int, CraftRecipe> craftRecipes,
-        IReadOnlyDictionary<int, ResearchCost> researchCosts,
-        IReadOnlyDictionary<int, DecayInfo> decayInfos,
-        IReadOnlyDictionary<int, UpkeepCost> upkeepCosts) =>
+    private static List<ItemRecord> BuildItems(ItemLookups lookups) =>
     [
-        .. names.Select(kv =>
+        .. lookups.Names.Select(kv =>
         {
             var id = kv.Key;
-            var stackSize = stackSizes.TryGetValue(id, out var ss) ? ss : 1;
-            var despawn = despawnSeconds.TryGetValue(id, out var ds) ? (int?)ds : null;
-            var recycle = recycleYields.TryGetValue(id, out var ry) ? ry : null;
-            var craft = craftRecipes.TryGetValue(id, out var cr) ? cr : null;
-            var research = researchCosts.TryGetValue(id, out var rc) ? rc : null;
-            var decay = decayInfos.TryGetValue(id, out var di) ? di : null;
-            var upkeep = upkeepCosts.TryGetValue(id, out var uc) ? uc : null;
+            var stackSize = lookups.StackSizes.TryGetValue(id, out var ss) ? ss : 1;
+            var despawn = lookups.DespawnSeconds.TryGetValue(id, out var ds) ? (int?)ds : null;
+            var recycle = lookups.RecycleYields.TryGetValue(id, out var ry) ? ry : null;
+            var craft = lookups.CraftRecipes.TryGetValue(id, out var cr) ? cr : null;
+            var research = lookups.ResearchCosts.TryGetValue(id, out var rc) ? rc : null;
+            var decay = lookups.DecayInfos.TryGetValue(id, out var di) ? di : null;
+            var upkeep = lookups.UpkeepCosts.TryGetValue(id, out var uc) ? uc : null;
             return new ItemRecord(id, kv.Value, stackSize, despawn, recycle, craft, research, decay, upkeep);
         }),
     ];
