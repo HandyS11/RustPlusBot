@@ -8,13 +8,13 @@ using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Domain.Vending;
 using RustPlusBot.Features.ItemData;
+using RustPlusBot.Features.Vending.Evaluating;
 using RustPlusBot.Features.Vending.Indexing;
 using RustPlusBot.Features.Vending.Posting;
 using RustPlusBot.Features.Vending.Relaying;
 using RustPlusBot.Features.Vending.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
-using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Vending;
 using RustPlusBot.Persistence.Workspace;
 
@@ -331,6 +331,147 @@ public sealed class VendingNotificationRelayTests
         Assert.True(h.Index.HasData(GuildId, h.ServerId));
     }
 
+    [Fact]
+    public async Task UnknownWorldSize_StillFeedsSearchButReconcilesNothing()
+    {
+        // Map dimensions are fetched once per connection and can fail. Grid maths on a zero world size
+        // bins every machine on the server into one cell, so reconciling would post undercut and
+        // sell-out notices against a map that does not exist. The prices are still true, though, and
+        // /vending must keep answering from them.
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+
+        await h.Relay.HandleObservedAsync(
+            h.ObservedWithoutDimensions(MyMachine(cost: 10, stock: 0), RivalMachine(cost: 8)), h.Ct);
+
+        Assert.True(h.Index.HasData(GuildId, h.ServerId));
+        await h.Locator.DidNotReceiveWithAnyArgs().GetChannelIdAsync(default, Guid.Empty, default);
+        await h.Poster.DidNotReceiveWithAnyArgs().EnsureAsync(default, default, default!, default);
+    }
+
+    [Fact]
+    public async Task NothingTrackedAndNothingPosted_StopsBeforeReadingSettingsAndCulture()
+    {
+        // Every connected server publishes this event every few seconds whether or not anyone has ever
+        // run !vtrack. Falling through would cost two extra database round-trips per server per poll to
+        // reach a reconciliation that is guaranteed to be empty on both sides.
+        var h = Harness.Create();
+
+        await h.Relay.HandleObservedAsync(h.Observed(MyMachine(cost: 10, stock: 0), RivalMachine(cost: 8)), h.Ct);
+
+        await h.Workspace.DidNotReceiveWithAnyArgs().GetCultureAsync(default, default);
+        await h.Poster.DidNotReceiveWithAnyArgs().EnsureAsync(default, default, default!, default);
+    }
+
+    [Fact]
+    public async Task FirstSellOut_PostsAndStoresTheMessageIdAndSignature()
+    {
+        // The mirror of the undercut first-post case: nothing is persisted yet, so the id the poster
+        // hands back has to be stored or the next poll cannot find the message to edit.
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Poster.EnsureAsync(default, default, default!, default).ReturnsForAnyArgs(777UL);
+
+        await h.Relay.HandleObservedAsync(h.Observed(MyMachine(cost: 10, stock: 0)), h.Ct);
+
+        await h.Poster.Received(1).EnsureAsync(
+            Arg.Any<ulong>(), null, Arg.Any<Embed>(), Arg.Any<CancellationToken>());
+        await h.Store.Received(1).UpsertStockNotificationAsync(
+            GuildId, h.ServerId, 1UL, 777UL, PipeDry, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RestockAfterAWhollyEmptyShop_DeletesTheStockMessage()
+    {
+        // "*" is the maximal sold-out set, so leaving it for anything else can only mean the owner put
+        // something back. The stale "shop is empty" message must go rather than be quietly edited.
+        var h = Harness.Create();
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Store.ListStockNotificationsAsync(default, Guid.Empty, default).ReturnsForAnyArgs(
+        [
+            StockNotification(machineId: 1UL, messageId: 777UL, signature: StockNotice.EmptyMachineSignature),
+        ]);
+
+        await h.Relay.HandleObservedAsync(
+            h.Observed(MyShop(Sell(PipeId, cost: 10, stock: 0), Sell(ClothId, cost: 5, stock: 4))), h.Ct);
+
+        await h.Poster.Received(1).DeleteMessageAsync(Arg.Any<ulong>(), 777UL, Arg.Any<CancellationToken>());
+        await h.Store.Received(1).RemoveStockNotificationAsync(
+            GuildId, h.ServerId, 1UL, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandRegisteredListing_IsDefendedEvenWithNoMachineOfOurOwn()
+    {
+        // A team that sells from a base with no registered grid cell still gets undercut alerts: the
+        // listing they typed in is the reference price, and the persisted quantity and cost have to
+        // reach the evaluator intact or the comparison is against the wrong price.
+        var h = Harness.Create();
+        h.Store.ListListingsAsync(default, Guid.Empty, default).ReturnsForAnyArgs(
+        [
+            new VendingListingTrack
+            {
+                GuildId = GuildId,
+                ItemId = PipeId,
+                ItemIsBlueprint = false,
+                CurrencyId = Scrap,
+                CurrencyIsBlueprint = false,
+                Quantity = 1,
+                CostPerOrder = 10,
+            },
+        ]);
+        h.Poster.EnsureAsync(default, default, default!, default).ReturnsForAnyArgs(555UL);
+
+        await h.Relay.HandleObservedAsync(h.Observed(RivalMachine(cost: 8)), h.Ct);
+
+        await h.Store.Received(1).UpsertNotificationAsync(
+            GuildId, h.ServerId, Pipe, 555UL, 1, 10, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MoreNoticesThanTheCap_KeepsTheSameOnesEveryPoll()
+    {
+        // Two of our listings are being undercut but the server is capped at one notice. Which one
+        // survives must not depend on dictionary order, or the bot would delete and repost a different
+        // message every five seconds forever; ordering by listing identity makes cloth (the lower item
+        // id) the stable survivor.
+        var h = Harness.Create(maxNotifications: 1);
+        h.Store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([MyGrid]);
+        h.Poster.EnsureAsync(default, default, default!, default).ReturnsForAnyArgs(555UL);
+
+        await h.Relay.HandleObservedAsync(
+            h.Observed(
+                MyShop(Sell(PipeId, cost: 10, stock: 5), Sell(ClothId, cost: 10, stock: 5)),
+                new VendingMachineSnapshot(2UL, RivalX, RivalY, "Rival", false,
+                [
+                    new VendingOfferSnapshot(PipeId, false, 1, Scrap, false, 8, 5),
+                    new VendingOfferSnapshot(ClothId, false, 1, Scrap, false, 8, 5),
+                ])),
+            h.Ct);
+
+        await h.Poster.Received(1).EnsureAsync(
+            Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<Embed>(), Arg.Any<CancellationToken>());
+        await h.Store.Received(1).UpsertNotificationAsync(
+            GuildId, h.ServerId, new ListingKey(ClothId, false, Scrap, false), 555UL, 1, 10,
+            Arg.Any<CancellationToken>());
+        await h.Store.DidNotReceive().UpsertNotificationAsync(
+            GuildId, h.ServerId, Pipe, Arg.Any<ulong>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Reconnect_LeavesTheIndexAlone()
+    {
+        // Only a disconnect drops the index. Clearing it on the connected edge too would blank /vending
+        // for the whole gap between reconnecting and the first marker poll landing.
+        var h = Harness.Create();
+        h.Index.Replace(GuildId, h.ServerId, WorldSize, [MyMachine(cost: 10, stock: 5)]);
+
+        await h.Relay.HandleConnectionStatusAsync(h.Connected(), h.Ct);
+
+        Assert.True(h.Index.HasData(GuildId, h.ServerId));
+    }
+
     /// <summary>The relay under test plus the doubles the assertions inspect.</summary>
     private sealed class Harness
     {
@@ -340,6 +481,7 @@ public sealed class VendingNotificationRelayTests
             IVendingStore store,
             IVendingChannelLocator locator,
             IVendingChannelPoster poster,
+            IWorkspaceStore workspace,
             Guid serverId)
         {
             Relay = relay;
@@ -347,6 +489,7 @@ public sealed class VendingNotificationRelayTests
             Store = store;
             Locator = locator;
             Poster = poster;
+            Workspace = workspace;
             ServerId = serverId;
         }
 
@@ -360,31 +503,17 @@ public sealed class VendingNotificationRelayTests
 
         public IVendingChannelPoster Poster { get; }
 
+        public IWorkspaceStore Workspace { get; }
+
         public Guid ServerId { get; }
 
         public CancellationToken Ct { get; } = CancellationToken.None;
 
-        public static Harness Create(ulong? channelId = 999UL)
+        public static Harness Create(ulong? channelId = 999UL, int maxNotifications = 50)
         {
             var serverId = Guid.NewGuid();
 
-            var store = Substitute.For<IVendingStore>();
-            store.ListGridsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([]);
-            store.ListListingsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([]);
-            store.ListNotificationsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([]);
-            store.ListStockNotificationsAsync(default, Guid.Empty, default).ReturnsForAnyArgs([]);
-
-            var settings = Substitute.For<IMapSettingsStore>();
-            settings.GetAsync(default, Guid.Empty, default).ReturnsForAnyArgs(MapLayerSettings.AllOn);
-
-            var workspace = Substitute.For<IWorkspaceStore>();
-            workspace.GetCultureAsync(default, default).ReturnsForAnyArgs("en");
-
-            var services = new ServiceCollection();
-            services.AddScoped(_ => store);
-            services.AddScoped(_ => settings);
-            services.AddScoped(_ => workspace);
-            var provider = services.BuildServiceProvider();
+            var (provider, store, workspace) = VendingScopeFixture.Create();
 
             var locator = Substitute.For<IVendingChannelLocator>();
             locator.GetChannelIdAsync(default, Guid.Empty, default).ReturnsForAnyArgs(channelId);
@@ -403,14 +532,25 @@ public sealed class VendingNotificationRelayTests
                 locator,
                 poster,
                 renderer,
-                Options.Create(new VendingOptions()),
+                Options.Create(new VendingOptions
+                {
+                    MaxNotificationsPerServer = maxNotifications
+                }),
                 NullLogger<VendingNotificationRelay>.Instance);
 
-            return new Harness(relay, index, store, locator, poster, serverId);
+            return new Harness(relay, index, store, locator, poster, workspace, serverId);
         }
 
         public VendingMachinesObservedEvent Observed(params VendingMachineSnapshot[] machines) =>
             new(GuildId, ServerId, WorldSize, machines);
+
+        /// <summary>An observed event whose world size the map fetch never supplied.</summary>
+        /// <param name="machines">The observed machines.</param>
+        /// <returns>The event, with a zero world size.</returns>
+        public VendingMachinesObservedEvent ObservedWithoutDimensions(params VendingMachineSnapshot[] machines) =>
+            new(GuildId, ServerId, 0, machines);
+
+        public ConnectionStatusChangedEvent Connected() => new(GuildId, ServerId, true, true);
 
         public ConnectionStatusChangedEvent Disconnected() => new(GuildId, ServerId, false, true);
     }

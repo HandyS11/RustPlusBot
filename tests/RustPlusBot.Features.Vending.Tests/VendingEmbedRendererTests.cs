@@ -1,7 +1,9 @@
+using System.Globalization;
 using Discord;
 using NSubstitute;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Features.ItemData;
+using RustPlusBot.Features.ItemData.Data;
 using RustPlusBot.Features.Vending.Evaluating;
 using RustPlusBot.Features.Vending.Rendering;
 using RustPlusBot.Localization;
@@ -95,6 +97,96 @@ public sealed class VendingEmbedRendererTests
 
         Assert.Contains("vending.listing.blueprint", embed.Title, StringComparison.Ordinal);
         Assert.Contains("vending.listing.blueprint", embed.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RenderStock_UnnamedShop_FallsBackToTheGridInTheTitle()
+    {
+        // A machine with no shopfront name would otherwise title as an empty string, leaving the owner
+        // no way to tell which of their machines ran dry.
+        var renderer = Create();
+        var notice = new StockNotice(1UL, ShopName: null, "D7", MachineEmpty: true, []);
+
+        Assert.Contains("D7", renderer.RenderStock(notice, "en").Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RenderSearch_NullItemName_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => Create().RenderSearch(null!, [], 0, "en"));
+
+    [Fact]
+    public void RenderSearch_NullOffers_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => Create().RenderSearch("Pipe", null!, 0, "en"));
+
+    [Fact]
+    public void RenderSearch_NoMatches_SaysSoInsteadOfRenderingAnEmptyTable()
+    {
+        var renderer = Create();
+
+        var embed = renderer.RenderSearch("Pipe", [], 0, "en");
+
+        Assert.Contains("vending.search.none|Pipe", embed.Description, StringComparison.Ordinal);
+        Assert.Null(embed.Footer);
+    }
+
+    [Fact]
+    public void RenderSearch_SoldOutOfferIsMarkedDifferentlyFromAnInStockOne()
+    {
+        // A sold-out machine is still a real search hit — the price is informative — but sending a
+        // player across the map to a shelf with nothing on it is the worst possible answer.
+        var renderer = Create();
+
+        var description = renderer.RenderSearch(
+            "Pipe",
+            [
+                new VendingOffer(1UL, "Shop", "A1", Pipe, 1, 8, 4),
+                new VendingOffer(2UL, "Shop", "B2", Pipe, 1, 6, 0),
+            ],
+            0,
+            "en").Description;
+
+        var rows = description.Split('\n');
+        Assert.Equal(2, rows.Length);
+        Assert.Contains("vending.search.instock|4", rows[0], StringComparison.Ordinal);
+        Assert.Contains("A1", rows[0], StringComparison.Ordinal);
+        Assert.Contains("vending.search.soldout", rows[1], StringComparison.Ordinal);
+        Assert.Contains("B2", rows[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RenderSearch_HiddenMatches_AreReportedInTheFooter()
+    {
+        // The caller has already truncated, so the count it hands in is the only record that anything
+        // was left out; dropping it would present a partial list as the whole market.
+        var renderer = Create();
+
+        var embed = renderer.RenderSearch("Pipe", [new VendingOffer(1UL, "Shop", "A1", Pipe, 1, 8, 4)], 7, "en");
+
+        Assert.Equal("vending.search.more|7", embed.Footer?.Text);
+        Assert.Single(embed.Description.Split('\n'));
+    }
+
+    [Fact]
+    public void RenderSearch_ResolvesItemAndCurrencyNames_FallingBackToTheRawIdWhenUnknown()
+    {
+        // The dataset ships with the bot and the server does not, so a Rust update can introduce an id
+        // the bot has never heard of. Printing the raw id is ugly but honest; printing nothing at all
+        // would leave the row unreadable.
+        var localizer = Substitute.For<ILocalizer>();
+        localizer.Get(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<object[]>())
+            .Returns(ci => $"{ci.ArgAt<string>(0)}|{string.Join('|', ci.ArgAt<object[]>(2))}");
+        var items = Substitute.For<IItemDatabase>();
+        items.GetById(Pipe.CurrencyId).Returns(new ItemRecord(
+            Pipe.CurrencyId, "Scrap", 1000, null, null, null, null, null, null));
+        var renderer = new VendingEmbedRenderer(items, localizer);
+
+        var description = renderer
+            .RenderSearch("Pipe", [new VendingOffer(1UL, "Shop", "A1", Pipe, 1, 8, 4)], 0, "en")
+            .Description;
+
+        Assert.Contains("8 Scrap", description, StringComparison.Ordinal);
+        Assert.Contains(
+            Pipe.ItemId.ToString(CultureInfo.InvariantCulture), description, StringComparison.Ordinal);
     }
 
     private static VendingOffer Rival(int index) =>
