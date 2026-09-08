@@ -11,6 +11,9 @@ namespace RustPlusBot.Features.Clans.Messages;
 /// </summary>
 internal static class ClanMessageShell
 {
+    /// <summary>The payload that leaves whatever is on screen untouched.</summary>
+    private static MessagePayload Inert => new(null, null, null);
+
     /// <summary>
     ///     Loads the clan snapshot for <paramref name="context"/> and hands it to <paramref name="render"/>,
     ///     or returns an inert payload when the context has no server or the server has no clan.
@@ -40,7 +43,4 @@ internal static class ClanMessageShell
             ? Inert
             : await render(clan, serverId, context.Culture).ConfigureAwait(false);
     }
-
-    /// <summary>The payload that leaves whatever is on screen untouched.</summary>
-    private static MessagePayload Inert => new(null, null, null);
 }

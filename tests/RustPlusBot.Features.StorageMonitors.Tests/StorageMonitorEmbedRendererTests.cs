@@ -60,12 +60,12 @@ public sealed class StorageMonitorEmbedRendererTests
     /// <param name="offsetSeconds">Seconds from now until protection expires.</param>
     /// <param name="expected">The compact duration the embed must show.</param>
     [Theory]
-    [InlineData((25 * 3600) + 1800, "1d 1h")]   // over a day: days + leftover hours
-    [InlineData((24 * 3600) + 1800, "1d 0h")]   // exactly on the day boundary
-    [InlineData(5400 + 30, "1h 30m")]         // 90 minutes: hours + leftover minutes
-    [InlineData(3600 + 30, "1h 0m")]          // exactly on the hour boundary
-    [InlineData(45, "0m")]                    // under a minute truncates to zero minutes
-    [InlineData(-3600, "0m")]                 // already expired clamps to zero
+    [InlineData((25 * 3600) + 1800, "1d 1h")] // over a day: days + leftover hours
+    [InlineData((24 * 3600) + 1800, "1d 0h")] // exactly on the day boundary
+    [InlineData(5400 + 30, "1h 30m")] // 90 minutes: hours + leftover minutes
+    [InlineData(3600 + 30, "1h 0m")] // exactly on the hour boundary
+    [InlineData(45, "0m")] // under a minute truncates to zero minutes
+    [InlineData(-3600, "0m")] // already expired clamps to zero
     public void RenderMonitor_ProtectionRemaining_UsesCompactDuration(int offsetSeconds, string expected)
     {
         var renderer = Create(out _);

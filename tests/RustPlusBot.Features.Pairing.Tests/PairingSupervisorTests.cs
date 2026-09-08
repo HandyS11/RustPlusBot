@@ -1,8 +1,8 @@
+using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using System.Security.Cryptography;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using RustPlusBot.Abstractions.Credentials;

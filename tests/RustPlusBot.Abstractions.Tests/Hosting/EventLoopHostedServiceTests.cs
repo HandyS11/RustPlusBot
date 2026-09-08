@@ -94,8 +94,7 @@ public sealed class EventLoopHostedServiceTests
         // unbounded in-process bus that is a silent leak, so starting must fail loudly instead.
         var subject = new DroppedLoopSubject(new InMemoryEventBus());
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => subject.StartAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => subject.StartAsync(CancellationToken.None));
 
         Assert.Contains("must be yielded", ex.Message, StringComparison.Ordinal);
         Assert.Contains("2 were created but 1 were yielded", ex.Message, StringComparison.Ordinal);

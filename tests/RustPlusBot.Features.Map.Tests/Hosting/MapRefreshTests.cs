@@ -326,9 +326,9 @@ public sealed class MapRefreshTests
 
     private sealed class Harness : IDisposable
     {
+        private readonly List<(int Count, TaskCompletionSource Tcs)> _locatorTargets = [];
         private readonly List<(int Count, TaskCompletionSource Tcs)> _postTargets = [];
         private readonly TaskCompletionSource _statusHandled = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly List<(int Count, TaskCompletionSource Tcs)> _locatorTargets = [];
         private int _baseMapFetches;
         private int _locatorFaults;
         private int _posts;
@@ -355,6 +355,12 @@ public sealed class MapRefreshTests
         public required InMemoryEventBus Bus { get; init; }
 
         public Task WhenStatusHandled => _statusHandled.Task;
+
+        public void Dispose()
+        {
+            Service.Dispose();
+            Provider.Dispose();
+        }
 
         public static Harness Create(
             CountingClock? clock = null,
@@ -418,12 +424,6 @@ public sealed class MapRefreshTests
                 }),
                 scopeFactory, NullLogger<MapHostedService>.Instance);
             return harness;
-        }
-
-        public void Dispose()
-        {
-            Service.Dispose();
-            Provider.Dispose();
         }
 
         public Task PostCountReachesAsync(int count) => WaitForCountAsync(_postTargets, count, Posts);

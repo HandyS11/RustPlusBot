@@ -270,6 +270,14 @@ public sealed class WorkspaceGatewayHookTests
 
         public required IWorkspaceStore Store { get; init; }
 
+        public void Dispose()
+        {
+            Service.Dispose();
+            Provider.Dispose();
+            Log.Dispose();
+            _heals.Dispose();
+        }
+
         public static Harness Create()
         {
             var reconciler = Substitute.For<IWorkspaceReconciler>();
@@ -296,14 +304,6 @@ public sealed class WorkspaceGatewayHookTests
             harness.Service = new WorkspaceHostedService(harness.Client, harness.Bus,
                 provider.GetRequiredService<IServiceScopeFactory>(), harness.Log);
             return harness;
-        }
-
-        public void Dispose()
-        {
-            Service.Dispose();
-            Provider.Dispose();
-            Log.Dispose();
-            _heals.Dispose();
         }
 
         /// <summary>Republishes until the reconciler has been asked to reconcile a server.</summary>
@@ -358,9 +358,9 @@ public sealed class WorkspaceGatewayHookTests
     {
         private readonly SemaphoreSlim _errors = new(0);
 
-        public void Dispose() => _errors.Dispose();
-
         public ConcurrentBag<Exception> Errors { get; } = [];
+
+        public void Dispose() => _errors.Dispose();
 
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull => NullLogger.Instance.BeginScope(state);

@@ -17,6 +17,9 @@ namespace RustPlusBot.Persistence.Devices;
 public abstract class PairedDeviceStore<TEntity>(BotDbContext context, IClock clock) : IPairedDeviceStore<TEntity>
     where TEntity : PairedDeviceEntity, new()
 {
+    /// <summary>The device's table.</summary>
+    private DbSet<TEntity> Set => context.Set<TEntity>();
+
     /// <inheritdoc />
     public async Task<TEntity> AddAsync(
         ulong guildId,
@@ -160,9 +163,6 @@ public abstract class PairedDeviceStore<TEntity>(BotDbContext context, IClock cl
         Set.Remove(entity);
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
-
-    /// <summary>The device's table.</summary>
-    private DbSet<TEntity> Set => context.Set<TEntity>();
 
     /// <summary>Loads a device by identity, applies <paramref name="mutate"/> and saves; no-op when absent.</summary>
     /// <param name="guildId">Owning Discord guild snowflake.</param>

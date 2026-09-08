@@ -8,9 +8,9 @@ internal sealed class FakePairingSource : IPairingSource
 {
     private readonly ConcurrentQueue<PairingConnectOutcome> _outcomes = new();
     private bool _blockUntilCancelled;
-    private Exception? _creationFault;
 
     private int _createCount;
+    private Exception? _creationFault;
 
     private int _disposeCount;
 
@@ -25,6 +25,9 @@ internal sealed class FakePairingSource : IPairingSource
 
     /// <summary>Signaled when the first Connected outcome fires.</summary>
     public TaskCompletionSource ConnectedSignal { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Signalled once a blocking listener has entered <c>ConnectAsync</c>.</summary>
+    public TaskCompletionSource Connecting { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <inheritdoc />
     public IPairingListener Create(
@@ -58,9 +61,6 @@ internal sealed class FakePairingSource : IPairingSource
     /// <summary>Makes every later <see cref="Create"/> throw, modelling an unusable credentials blob.</summary>
     /// <param name="fault">The exception creation reports.</param>
     public void FailCreation(Exception fault) => _creationFault = fault;
-
-    /// <summary>Signalled once a blocking listener has entered <c>ConnectAsync</c>.</summary>
-    public TaskCompletionSource Connecting { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private sealed class FakeListener(PairingConnectOutcome outcome, Action onConnected, Action onDisposed)
         : IPairingListener

@@ -31,11 +31,11 @@ public sealed class VendingTrackServiceTests
 
     private static readonly ListingKey Pipe = new(PipeId, false, Scrap, false);
 
-    private readonly IVendingStore _store = Substitute.For<IVendingStore>();
-
     private readonly VendingIndex _index = new();
 
     private readonly VendingTrackService _service;
+
+    private readonly IVendingStore _store = Substitute.For<IVendingStore>();
 
     /// <summary>Builds the service over a substituted store and a real, initially empty index.</summary>
     public VendingTrackServiceTests()
@@ -52,8 +52,8 @@ public sealed class VendingTrackServiceTests
 
     [Fact]
     public async Task TrackGrid_NullGrid_Throws() =>
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _service.TrackGridAsync(GuildId, ServerId, null!, 1UL, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            _service.TrackGridAsync(GuildId, ServerId, null!, 1UL, CancellationToken.None));
 
     [Fact]
     public async Task TrackGrid_ServerNeverPolled_ReportsInvalidAndRegistersNothing()
@@ -120,8 +120,8 @@ public sealed class VendingTrackServiceTests
 
     [Fact]
     public async Task UntrackGrid_NullGrid_Throws() =>
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _service.UntrackGridAsync(GuildId, ServerId, null!, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            _service.UntrackGridAsync(GuildId, ServerId, null!, CancellationToken.None));
 
     [Fact]
     public async Task UntrackGrid_NormalisesBeforeAskingTheStore()

@@ -444,7 +444,11 @@ public sealed class VendingModule(IServiceScopeFactory scopeFactory) : Interacti
     /// <param name="Sp">The scope's service provider.</param>
     /// <param name="Loc">The localizer resolved from the scope.</param>
     /// <param name="Ctx">The resolved guild/server/culture.</param>
-    private readonly record struct DeferredScope(AsyncServiceScope Scope, IServiceProvider Sp, ILocalizer Loc, ResolvedContext Ctx);
+    private readonly record struct DeferredScope(
+        AsyncServiceScope Scope,
+        IServiceProvider Sp,
+        ILocalizer Loc,
+        ResolvedContext Ctx);
 
     private readonly record struct ParsedTarget(string? Grid, ListingKey? Listing, string Display);
 }

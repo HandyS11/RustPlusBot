@@ -417,8 +417,8 @@ public sealed class InfoMapHostedServiceTests
         var bus = Substitute.For<IEventBus>();
         bus.SubscribeAsync<ConnectionStatusChangedEvent>(Arg.Any<CancellationToken>())
             .Returns(_ => OneElement.ToAsyncEnumerable()
-                .Select<int, ConnectionStatusChangedEvent>(
-                    _ => throw new InvalidOperationException("the subscription broke.")));
+                .Select<int, ConnectionStatusChangedEvent>(_ =>
+                    throw new InvalidOperationException("the subscription broke.")));
         using var service = NoTickService(bus, new RustMapsMapCoordinator(), Substitute.For<IRustServerQuery>(),
             Substitute.For<IConnectionStore>());
 

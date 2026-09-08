@@ -191,6 +191,8 @@ internal static class ClanSnapshotDiffer
         HashSet<ulong> currentInvites,
         Dictionary<ulong, ClanMemberSnapshot> previousMembers,
         Dictionary<ulong, ClanMemberSnapshot> currentMembers) =>
-        [.. previousInvites.Where(id =>
-            !currentInvites.Contains(id) && currentMembers.ContainsKey(id) && !previousMembers.ContainsKey(id))];
+    [
+        .. previousInvites.Where(id =>
+            !currentInvites.Contains(id) && currentMembers.ContainsKey(id) && !previousMembers.ContainsKey(id))
+    ];
 }

@@ -64,7 +64,12 @@ public sealed class MapRendererTests
 
         var bytes = renderer.Render(new MapRenderRequest
         {
-            BaseJpeg = BaseJpeg(), Projection = Projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            BaseJpeg = BaseJpeg(),
+            Projection = Projection,
+            Markers = [],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
             Layers = MapLayerSet.AllOn,
         });
 
@@ -81,7 +86,12 @@ public sealed class MapRendererTests
 
         var without = renderer.Render(new MapRenderRequest
         {
-            BaseJpeg = jpeg, Projection = Projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            BaseJpeg = jpeg,
+            Projection = Projection,
+            Markers = [],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
             Layers = new MapLayerSet(false, true, false, false, false, false),
         });
         var with = renderer.Render(new MapRenderRequest
@@ -122,8 +132,13 @@ public sealed class MapRendererTests
 
         var png = renderer.Render(new MapRenderRequest
         {
-            BaseJpeg = BaseJpeg(), Projection = Projection, Markers = markers, Monuments = monuments,
-            Players = players, Rigs = rigs, Layers = MapLayerSet.AllOn,
+            BaseJpeg = BaseJpeg(),
+            Projection = Projection,
+            Markers = markers,
+            Monuments = monuments,
+            Players = players,
+            Rigs = rigs,
+            Layers = MapLayerSet.AllOn,
         });
 
         using var img = Image.Load(png); // throws if not a valid image
@@ -140,7 +155,12 @@ public sealed class MapRendererTests
 
         var without = renderer.Render(new MapRenderRequest
         {
-            BaseJpeg = baseJpeg, Projection = projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
             Layers = new MapLayerSet(false, false, false, false, false, false),
         });
         var with = renderer.Render(new MapRenderRequest
@@ -213,13 +233,24 @@ public sealed class MapRendererTests
 
         var inGame = renderer.Render(new MapRenderRequest
         {
-            BaseJpeg = baseJpeg, Projection = projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
             Layers = layers,
         });
         var rustPlus = renderer.Render(new MapRenderRequest
         {
-            BaseJpeg = baseJpeg, Projection = projection, Markers = [], Monuments = [], Players = [], Rigs = [],
-            Layers = layers, GridStyle = MapGridStyle.RustPlus,
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
+            Layers = layers,
+            GridStyle = MapGridStyle.RustPlus,
         });
 
         Assert.False(inGame.AsSpan().SequenceEqual(rustPlus));
@@ -270,7 +301,12 @@ public sealed class MapRendererTests
 
         var without = renderer.Render(new MapRenderRequest
         {
-            BaseJpeg = baseJpeg, Projection = projection, Markers = [], Monuments = [], Players = [], Rigs = [],
+            BaseJpeg = baseJpeg,
+            Projection = projection,
+            Markers = [],
+            Monuments = [],
+            Players = [],
+            Rigs = [],
             Layers = layers,
         });
         var with = renderer.Render(new MapRenderRequest

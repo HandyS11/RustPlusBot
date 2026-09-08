@@ -32,7 +32,8 @@ public sealed class ClanInvitesMessageRenderer(
     public ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
         CancellationToken cancellationToken) =>
         ClanMessageShell.RenderAsync(store, context,
-            (clan, serverId, culture) => RenderInvitesAsync(context.GuildId, serverId, clan, culture, cancellationToken),
+            (clan, serverId, culture) =>
+                RenderInvitesAsync(context.GuildId, serverId, clan, culture, cancellationToken),
             cancellationToken);
 
     private async ValueTask<MessagePayload> RenderInvitesAsync(

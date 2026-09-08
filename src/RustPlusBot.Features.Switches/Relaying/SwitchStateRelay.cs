@@ -135,10 +135,14 @@ internal sealed class SwitchStateRelay(
         }
     }
 
-    private static Task UpdateStateAsync(ISwitchStore store, SwitchStateChangedEvent evt, CancellationToken cancellationToken) =>
+    private static Task UpdateStateAsync(ISwitchStore store,
+        SwitchStateChangedEvent evt,
+        CancellationToken cancellationToken) =>
         store.UpdateStateAsync(evt.GuildId, evt.ServerId, evt.EntityId, evt.IsActive, cancellationToken);
 
-    private static Task UpdateStateAsync(ISwitchStore store, SmartDeviceTriggeredEvent evt, CancellationToken cancellationToken) =>
+    private static Task UpdateStateAsync(ISwitchStore store,
+        SmartDeviceTriggeredEvent evt,
+        CancellationToken cancellationToken) =>
         store.UpdateStateAsync(evt.GuildId, evt.ServerId, evt.EntityId, evt.IsActive, cancellationToken);
 
     /// <summary>Handles a connection-status change: a drop from Connected marks its switch embeds unreachable.</summary>

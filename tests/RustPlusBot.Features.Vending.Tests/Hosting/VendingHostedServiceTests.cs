@@ -120,8 +120,8 @@ public sealed class VendingHostedServiceTests
         var h = Harness.Create();
         await using var _ = h;
         h.Store.ListNotificationsAsync(Guild, Poison, Arg.Any<CancellationToken>())
-            .Returns<IReadOnlyList<VendingNotification>>(
-                __ => throw new InvalidOperationException("transient store failure"));
+            .Returns<IReadOnlyList<VendingNotification>>(__ =>
+                throw new InvalidOperationException("transient store failure"));
         var purged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         h.Store.When(s => s.PurgeGridsAsync(Guild, Healthy, Arg.Any<CancellationToken>()))
             .Do(__ => purged.TrySetResult());
@@ -233,6 +233,13 @@ public sealed class VendingHostedServiceTests
 
         public IVendingChannelLocator Locator { get; }
 
+        public async ValueTask DisposeAsync()
+        {
+            await Service.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            Service.Dispose();
+            await _provider.DisposeAsync().ConfigureAwait(false);
+        }
+
         public static Harness Create(IEventBus? bus = null, ILogger<VendingHostedService>? logger = null)
         {
             var (provider, store, _) = VendingScopeFixture.Create();
@@ -259,13 +266,6 @@ public sealed class VendingHostedServiceTests
                 eventBus, relay, purger, logger ?? NullLogger<VendingHostedService>.Instance);
             return new Harness(service, eventBus, index, store, locator, provider);
         }
-
-        public async ValueTask DisposeAsync()
-        {
-            await Service.StopAsync(CancellationToken.None).ConfigureAwait(false);
-            Service.Dispose();
-            await _provider.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
     /// <summary>A bus whose subscriptions either fault on first read or end without yielding.</summary>
@@ -284,9 +284,8 @@ public sealed class VendingHostedServiceTests
     /// <param name="faulted">True to throw on the first read; false to report the end of the stream.</param>
     private sealed class StubStream<T>(bool faulted) : IAsyncEnumerable<T>, IAsyncEnumerator<T>
     {
-        public T Current => default!;
-
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) => this;
+        public T Current => default!;
 
         public ValueTask<bool> MoveNextAsync() => faulted
             ? ValueTask.FromException<bool>(new InvalidOperationException("subscription faulted"))

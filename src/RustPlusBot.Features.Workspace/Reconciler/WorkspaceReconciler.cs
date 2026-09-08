@@ -158,6 +158,7 @@ internal sealed class WorkspaceReconciler(
             cancellationToken).ConfigureAwait(false);
         return categoryId;
     }
+
     /// <summary>Brings the scope's channels to their declared state and reports where each one lives.</summary>
     /// <param name="guildId">The Discord guild.</param>
     /// <param name="serverId">The Rust server the scope belongs to, or null for the global scope.</param>

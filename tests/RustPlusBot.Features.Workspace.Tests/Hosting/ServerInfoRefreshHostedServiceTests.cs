@@ -11,6 +11,8 @@ namespace RustPlusBot.Features.Workspace.Tests.Hosting;
 
 public sealed class ServerInfoRefreshHostedServiceTests
 {
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+
     [Fact]
     public void Interval_is_clamped_to_a_one_second_floor()
     {
@@ -171,8 +173,8 @@ public sealed class ServerInfoRefreshHostedServiceTests
         await using var provider = Provider(store, refresher);
         using var service = Service(provider);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => service.RefreshDueServersAsync(CancellationToken.None));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.RefreshDueServersAsync(CancellationToken.None));
         await refresher.DidNotReceive().RefreshAsync(2UL, second, Arg.Any<CancellationToken>());
     }
 
@@ -187,9 +189,25 @@ public sealed class ServerInfoRefreshHostedServiceTests
         await using var provider = Provider(store, refresher);
         using var service = Service(provider);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => service.RefreshDueServersAsync(CancellationToken.None));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.RefreshDueServersAsync(CancellationToken.None));
     }
+
+    private static ServiceProvider Provider(IConnectionStore store, IServerInfoRefresher refresher)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => store);
+        services.AddScoped(_ => refresher);
+        return services.BuildServiceProvider();
+    }
+
+    private static ServerInfoRefreshHostedService Service(ServiceProvider provider) =>
+        new(Options.Create(new WorkspaceOptions
+            {
+                InfoRefreshInterval = TimeSpan.FromSeconds(1)
+            }),
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<ServerInfoRefreshHostedService>.Instance);
 
 #pragma warning disable S2699 // The implicit assertion is "no exception is thrown".
     [Fact]
@@ -215,22 +233,4 @@ public sealed class ServerInfoRefreshHostedServiceTests
         await service.StopAsync(new CancellationToken(canceled: true));
     }
 #pragma warning restore S2699
-
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
-
-    private static ServiceProvider Provider(IConnectionStore store, IServerInfoRefresher refresher)
-    {
-        var services = new ServiceCollection();
-        services.AddScoped(_ => store);
-        services.AddScoped(_ => refresher);
-        return services.BuildServiceProvider();
-    }
-
-    private static ServerInfoRefreshHostedService Service(ServiceProvider provider) =>
-        new(Options.Create(new WorkspaceOptions
-            {
-                InfoRefreshInterval = TimeSpan.FromSeconds(1)
-            }),
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<ServerInfoRefreshHostedService>.Instance);
 }

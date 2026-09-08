@@ -130,8 +130,7 @@ public sealed class VendingStoreTests
         await using var _ = conn;
         await using var __ = context;
 
-        await Assert.ThrowsAsync<DbUpdateException>(
-            () => store.AddGridAsync(10UL, Guid.NewGuid(), "D7", 1UL));
+        await Assert.ThrowsAsync<DbUpdateException>(() => store.AddGridAsync(10UL, Guid.NewGuid(), "D7", 1UL));
     }
 
     [Fact]
@@ -409,8 +408,8 @@ public sealed class VendingStoreTests
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
 
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => store.UpsertStockNotificationAsync(10UL, serverId, 1UL, 777UL, null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            store.UpsertStockNotificationAsync(10UL, serverId, 1UL, 777UL, null!));
     }
 
     [Fact]

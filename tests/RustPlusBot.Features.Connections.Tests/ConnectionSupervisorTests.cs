@@ -1119,7 +1119,10 @@ public sealed class ConnectionSupervisorTests
     [Fact]
     public async Task Stop_while_connecting_disposes_the_socket_and_returns()
     {
-        var source = new FakeRustSocketSource { LastConnectionSetup = c => c.BlockConnectUntilCancelled = true };
+        var source = new FakeRustSocketSource
+        {
+            LastConnectionSetup = c => c.BlockConnectUntilCancelled = true
+        };
         await using var h = CreateHarness(source);
         var (serverId, _, _) = await SeedAsync(h.Provider);
 
@@ -1390,12 +1393,12 @@ public sealed class ConnectionSupervisorTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => h.Supervisor.GetMapImageAsync(10UL, serverId, cancelled.Token));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => h.Supervisor.GetMapDimensionsAsync(10UL, serverId, cancelled.Token));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => h.Supervisor.GetMonumentsAsync(10UL, serverId, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            h.Supervisor.GetMapImageAsync(10UL, serverId, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            h.Supervisor.GetMapDimensionsAsync(10UL, serverId, cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            h.Supervisor.GetMonumentsAsync(10UL, serverId, cancelled.Token));
 
         await h.Supervisor.StopAllAsync();
     }
@@ -1421,8 +1424,8 @@ public sealed class ConnectionSupervisorTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => h.Supervisor.SendAsync(ChatChannelKind.Team, 10UL, serverId, "hi", cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            h.Supervisor.SendAsync(ChatChannelKind.Team, 10UL, serverId, "hi", cancelled.Token));
 
         // An unroutable channel is a caller bug, not a transport failure: report it, do not throw.
         Assert.Equal(
@@ -1589,7 +1592,12 @@ public sealed class ConnectionSupervisorTests
         conn.RaiseClanMessage(new ClanChatLine(100UL, "Alice", "hi", DateTimeOffset.UnixEpoch));
         conn.RaiseSmartDeviceTriggered(42UL, isActive: true);
         conn.RaiseStorageMonitorTriggered(43UL, new StorageContentsSnapshot(null, null, null, []));
-        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [online with { IsOnline = false }]));
+        conn.RaiseTeamChanged(new TeamInfoSnapshot(100UL, [
+            online with
+            {
+                IsOnline = false
+            }
+        ]));
 
         Assert.Contains(h.Logs.Records, r => r.Message.Contains("received team message", StringComparison.Ordinal));
         Assert.Contains(h.Logs.Records, r => r.Message.Contains("a clan message", StringComparison.Ordinal));

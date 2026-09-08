@@ -7,21 +7,21 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Connections;
-using ConnectionState = RustPlusBot.Domain.Connections.ConnectionState;
 using RustPlusBot.Features.Connections;
 using RustPlusBot.Features.Connections.Listening;
 using RustPlusBot.Features.Events.Classifying;
-using RustPlusBot.Features.Events.Tests.Fakes;
 using RustPlusBot.Features.Events.Hosting;
 using RustPlusBot.Features.Events.Posting;
 using RustPlusBot.Features.Events.Relaying;
 using RustPlusBot.Features.Events.Rendering;
 using RustPlusBot.Features.Events.State;
+using RustPlusBot.Features.Events.Tests.Fakes;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Localization;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Map;
 using RustPlusBot.Persistence.Workspace;
+using ConnectionState = RustPlusBot.Domain.Connections.ConnectionState;
 
 namespace RustPlusBot.Features.Events.Tests.Hosting;
 
@@ -324,6 +324,12 @@ public sealed class EventsHostedServiceTests
 
         public required EventStores Stores { get; init; }
 
+        public async ValueTask DisposeAsync()
+        {
+            Service.Dispose();
+            await Provider.DisposeAsync();
+        }
+
         public static Harness Create(TimeSpan? rigTick = null, IEventBus? bus = null)
         {
             var clock = new MutableClock();
@@ -387,12 +393,6 @@ public sealed class EventsHostedServiceTests
             }
 
             return Task.FromResult(state);
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            Service.Dispose();
-            await Provider.DisposeAsync();
         }
 
         /// <summary>Completes once the relay has posted an embed, so assertions never race the loop.</summary>

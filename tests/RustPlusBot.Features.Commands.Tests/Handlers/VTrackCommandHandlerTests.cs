@@ -11,9 +11,9 @@ public sealed class VTrackCommandHandlerTests
 {
     private static readonly Guid ServerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-    private readonly IVendingTrackService _trackService = Substitute.For<IVendingTrackService>();
-
     private readonly VTrackCommandHandler _handler;
+
+    private readonly IVendingTrackService _trackService = Substitute.For<IVendingTrackService>();
 
     /// <summary>Builds the handler over a substituted track service and the real localizer.</summary>
     public VTrackCommandHandlerTests() => _handler = new VTrackCommandHandler(_trackService, new ResxLocalizer());
@@ -68,6 +68,5 @@ public sealed class VTrackCommandHandlerTests
 
     [Fact]
     public async Task NullContext_Throws() =>
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => _handler.ExecuteAsync(null!, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _handler.ExecuteAsync(null!, CancellationToken.None));
 }
