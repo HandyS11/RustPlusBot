@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,9 @@ public sealed class ConnectionSupervisorTests
         FakeRustSocketSource source,
         TimeSpan? teamPollInterval = null,
         Func<string, string>? unprotect = null,
-        IEventBus? eventBus = null)
+        IEventBus? eventBus = null,
+        TimeSpan? initialRetryDelay = null,
+        TimeSpan? maxRetryDelay = null)
     {
         var protector = Substitute.For<ICredentialProtector>();
         protector.Unprotect(Arg.Any<string>()).Returns(c => (unprotect ?? (token => token))(c.Arg<string>()));
@@ -69,8 +72,8 @@ public sealed class ConnectionSupervisorTests
         services.AddSingleton(Options.Create(new ConnectionOptions
         {
             ConnectTimeout = TimeSpan.FromSeconds(1),
-            InitialRetryDelay = TimeSpan.FromMilliseconds(5),
-            MaxRetryDelay = TimeSpan.FromMilliseconds(20),
+            InitialRetryDelay = initialRetryDelay ?? TimeSpan.FromMilliseconds(5),
+            MaxRetryDelay = maxRetryDelay ?? TimeSpan.FromMilliseconds(20),
             HeartbeatInterval = TimeSpan.FromMilliseconds(20),
             HeartbeatTimeout = TimeSpan.FromMilliseconds(200),
             MarkerPollInterval = TimeSpan.FromMilliseconds(20),
@@ -1430,10 +1433,24 @@ public sealed class ConnectionSupervisorTests
     }
 
     /// <summary>
-    /// Rig detection keys off oil-rig monuments and CH47 markers only. An unrecognised monument token and a
-    /// non-CH47 marker sitting on the rig must both be ignored, or every cargo ship passing an oil rig
+    /// Rig detection keys off oil-rig monuments and CH47 markers only. A non-CH47 marker parked ON a rig
+    /// and an unrecognised monument token must both be ignored, or every cargo ship passing an oil rig
     /// would ping the guild.
     /// </summary>
+    /// <remarks>
+    /// The script separates the two rigs so the guard is observable in the event ORDER, which the bus
+    /// preserves within a subscription:
+    /// <list type="bullet">
+    /// <item>poll 1 — empty baseline.</item>
+    /// <item>poll 2 — a cargo ship parked on the SMALL rig. Must publish nothing.</item>
+    /// <item>poll 3 — a CH47 on the LARGE rig. Must publish Activated(Large).</item>
+    /// <item>poll 4 — a CH47 on the SMALL rig. Publishes Activated(Small); this is the barrier.</item>
+    /// </list>
+    /// Waiting for the barrier event guarantees every earlier publish has already been delivered, so the
+    /// expected sequence is exactly [Large, Small]. Drop the CH47 guard and poll 2's cargo ship activates
+    /// the small rig first, making the sequence [Small, Large, …] — the assertion fails on ORDER, never on
+    /// a race.
+    /// </remarks>
     [Fact]
     public async Task Non_rig_monuments_and_non_chinook_markers_never_activate_a_rig()
     {
@@ -1443,9 +1460,12 @@ public sealed class ConnectionSupervisorTests
         source.SetMonuments([
             new MonumentSnapshot("lighthouse", 1000f, 1000f), // not a rig: must never produce an event
             new MonumentSnapshot("oil_rig_small", 1000f, 1000f),
+            new MonumentSnapshot("large_oil_rig", 5000f, 5000f),
         ]);
-        source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.CargoShip, 1000f, 1000f, null)]); // poll 1
-        source.EnqueueMarkers([new MapMarkerSnapshot(2UL, MarkerKind.Chinook, 1000f, 1000f, null)]); // poll 2
+        source.EnqueueMarkers([]); // poll 1: baseline
+        source.EnqueueMarkers([new MapMarkerSnapshot(1UL, MarkerKind.CargoShip, 1000f, 1000f, null)]); // poll 2
+        source.EnqueueMarkers([new MapMarkerSnapshot(2UL, MarkerKind.Chinook, 5000f, 5000f, null)]); // poll 3
+        source.EnqueueMarkers([new MapMarkerSnapshot(3UL, MarkerKind.Chinook, 1000f, 1000f, null)]); // poll 4
         await using var h = CreateHarness(source);
         var (serverId, _, _) = await SeedAsync(h.Provider);
 
@@ -1462,12 +1482,15 @@ public sealed class ConnectionSupervisorTests
             CancellationToken.None);
 
         await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
-        await WaitUntilAsync(() => !rigEvents.IsEmpty, cts.Token);
 
-        // Exactly one: the cargo ship on the rig (poll 1) and the lighthouse produced nothing.
-        var evt = Assert.Single(rigEvents);
-        Assert.Equal(RigKind.Small, evt.Rig);
-        Assert.Equal(RigEventKind.Activated, evt.Kind);
+        // Barrier: the small-rig activation is published last, so once two events have arrived every
+        // earlier publish has been delivered too — a spurious one cannot merely be "not yet observed".
+        await WaitUntilAsync(() => rigEvents.Count >= 2, cts.Token);
+
+        RigKind[] expected = [RigKind.Large, RigKind.Small];
+        RigKind[] observed = [.. rigEvents.Select(e => e.Rig)];
+        Assert.Equal(expected, observed);
+        Assert.All(rigEvents, e => Assert.Equal(RigEventKind.Activated, e.Kind));
 
         await h.Supervisor.StopAllAsync();
         await cts.CancelAsync();
@@ -1617,14 +1640,20 @@ public sealed class ConnectionSupervisorTests
     }
 
     /// <summary>
-    /// Repeated unreachable connects must back off and then CAP at MaxRetryDelay. An uncapped doubling
-    /// walks a temporarily-down server out to hours between attempts, so it never comes back on its own.
+    /// Repeated unreachable connects must back off and then STOP growing at MaxRetryDelay. An uncapped
+    /// doubling walks a temporarily-down server out to hours between attempts, so it never comes back on
+    /// its own — the delay must saturate instead.
     /// </summary>
+    /// <remarks>
+    /// With Initial=100ms and Max=400ms the intervals are 100, 200, 400, 400, 400: the 4th→5th and 5th→6th
+    /// gaps are both the cap. Uncapped they would be 800 and 1600, so comparing those two gaps to each
+    /// other — rather than to an absolute wall-clock budget — separates the two behaviours by 800ms while
+    /// staying immune to a uniformly slow runner: scheduling jitter inflates both gaps, doubling does not.
+    /// </remarks>
     [Fact]
     public async Task Reconnect_backoff_stops_growing_at_the_configured_cap()
     {
         var source = new FakeRustSocketSource();
-        // 5ms, 10ms, then the 20ms cap for every further attempt (harness values).
         source.EnqueueConnect(SocketConnectOutcome.Unreachable);
         source.EnqueueConnect(SocketConnectOutcome.Unreachable);
         source.EnqueueConnect(SocketConnectOutcome.Unreachable);
@@ -1632,7 +1661,10 @@ public sealed class ConnectionSupervisorTests
         source.EnqueueConnect(SocketConnectOutcome.Unreachable);
         source.EnqueueConnect(SocketConnectOutcome.Connected);
         source.EnqueueHeartbeat(HeartbeatResult.Ok(4));
-        await using var h = CreateHarness(source);
+        await using var h = CreateHarness(
+            source,
+            initialRetryDelay: TimeSpan.FromMilliseconds(100),
+            maxRetryDelay: TimeSpan.FromMilliseconds(400));
         var (serverId, credA, _) = await SeedAsync(h.Provider);
 
         await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
@@ -1640,9 +1672,26 @@ public sealed class ConnectionSupervisorTests
         var state = await WaitForStateAsync(
             h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 4);
         Assert.NotNull(state);
-        Assert.True(source.CreateCount >= 6, "every unreachable attempt should have been retried");
         // Unreachable is a transport problem: the credential must survive all of it.
         Assert.Equal(CredentialStatus.Active, await CredStatusAsync(h.Provider, credA));
+
+        var attempts = source.CreateTimestamps.ToArray();
+        Assert.True(attempts.Length >= 6, $"expected 6 connect attempts, saw {attempts.Length}");
+        var beforeCap = Stopwatch.GetElapsedTime(attempts[3], attempts[4]);
+        var atCap = Stopwatch.GetElapsedTime(attempts[4], attempts[5]);
+
+        // Task.Delay never fires early, so both gaps are at least the cap; this pins that the backoff had
+        // actually reached it rather than still ramping up.
+        Assert.True(
+            beforeCap >= TimeSpan.FromMilliseconds(350),
+            $"attempt 4->5 should have waited the {400}ms cap, waited {beforeCap.TotalMilliseconds:F0}ms");
+
+        // The load-bearing assertion: the next gap must NOT have doubled. 250ms of slack absorbs scheduler
+        // jitter; an uncapped backoff would be 800ms longer, far outside it.
+        Assert.True(
+            atCap <= beforeCap + TimeSpan.FromMilliseconds(250),
+            $"backoff kept growing past the cap: {beforeCap.TotalMilliseconds:F0}ms then "
+            + $"{atCap.TotalMilliseconds:F0}ms");
     }
 
     private static Task WaitForLogAsync(Harness h, LogLevel level, string fragment, CancellationToken ct) =>

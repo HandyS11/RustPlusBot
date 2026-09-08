@@ -19,6 +19,7 @@ namespace RustPlusBot.Features.Connections.Tests.Fakes;
 internal sealed class FakeRustSocketSource : IRustSocketSource
 {
     private readonly ConcurrentQueue<SocketConnectOutcome> _connectOutcomes = new();
+    private readonly ConcurrentQueue<long> _createTimestamps = new();
     private readonly ConcurrentQueue<HeartbeatResult> _heartbeats = new();
     private readonly Dictionary<ulong, DeviceReachability> _pendingDeviceReachabilityOverrides = [];
     private readonly Dictionary<ulong, bool?> _pendingDeviceStates = [];
@@ -34,6 +35,13 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
 
     /// <summary>Number of times <see cref="Create"/> has been called. Safe to read from any thread.</summary>
     public int CreateCount => Volatile.Read(ref _createCount);
+
+    /// <summary>
+    /// A <see cref="System.Diagnostics.Stopwatch"/> timestamp per <see cref="Create"/> call, in call order.
+    /// Lets a test measure the interval the supervisor actually waited between reconnect attempts, which is
+    /// otherwise invisible: the backoff is realised by an internal <c>Task.Delay</c>.
+    /// </summary>
+    public IReadOnlyCollection<long> CreateTimestamps => _createTimestamps;
 
     /// <summary>The IP address passed to the most recent <see cref="Create"/> call. Read after the operation under test has settled.</summary>
     public string? LastIp { get; private set; }
@@ -52,6 +60,7 @@ internal sealed class FakeRustSocketSource : IRustSocketSource
     public IRustServerConnection Create(string ip, int port, ulong steamId, string playerToken)
     {
         Interlocked.Increment(ref _createCount);
+        _createTimestamps.Enqueue(System.Diagnostics.Stopwatch.GetTimestamp());
         LastIp = ip;
         LastSteamId = steamId;
         var outcome = _connectOutcomes.TryDequeue(out var next) ? next : SocketConnectOutcome.Connected;
