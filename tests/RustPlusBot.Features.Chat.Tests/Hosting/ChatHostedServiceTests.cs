@@ -23,7 +23,7 @@ public sealed class ChatHostedServiceTests
     private const ulong ClanChannel = 666UL;
 
     private static (ChatHostedService Service, InMemoryEventBus Bus, IChatWebhookPoster Poster, IClanStore ClanStore)
-        Build()
+        Build(IEventBus? overrideBus = null)
     {
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
@@ -63,7 +63,7 @@ public sealed class ChatHostedServiceTests
         var client = new DiscordSocketClient();
         var service = new ChatHostedService(
             client,
-            bus,
+            overrideBus ?? bus,
             relay,
             processor,
             hostScopeFactory,
@@ -170,6 +170,111 @@ public sealed class ChatHostedServiceTests
         await poster.Received().PostAsync(ChatChannelKind.Team, Arg.Any<ulong>(), "Bob", "boom",
             Arg.Any<CancellationToken>());
         await service.StopAsync(default);
+    }
+
+    [Fact]
+    public async Task A_clan_line_is_still_relayed_when_recording_the_senders_name_fails()
+    {
+        // Clan members arrive as Steam ids only, so chat is where their names are learned — but a failed
+        // name write is cosmetic, and losing the clan line because of it is not.
+        var (service, bus, poster, clanStore) = Build();
+        clanStore.RecordNameAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<ulong>(), Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .ThrowsAsync(new TimeoutException("database is locked"));
+        await service.StartAsync(default);
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+        while (DateTimeOffset.UtcNow < deadline && !Posted(poster))
+        {
+            await bus.PublishAsync(
+                new ClanMessageReceivedEvent(10UL, Guid.NewGuid(), 7UL, "dave", "hi clan", FromActivePlayer: false));
+            await Task.Delay(20);
+        }
+
+        await service.StopAsync(default);
+
+        await poster.Received()
+            .PostAsync(ChatChannelKind.Clan, ClanChannel, "dave", "hi clan", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_failing_clan_relay_costs_its_own_line_and_not_the_subscription()
+    {
+        // Posting goes through a Discord webhook, where a 5xx is routine. Letting it escape the consumer
+        // would end the clan subscription and #clan-chat would stay silent until the bot restarted.
+        var (service, bus, poster, _) = Build();
+        var attempts = 0;
+        poster.PostAsync(ChatChannelKind.Clan, Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(_ => Interlocked.Increment(ref attempts) == 1
+                ? throw new TimeoutException("Discord did not answer.")
+                : Task.CompletedTask);
+        await service.StartAsync(default);
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(20);
+        var line = 0;
+        while (DateTimeOffset.UtcNow < deadline && Volatile.Read(ref attempts) < 2)
+        {
+            await bus.PublishAsync(new ClanMessageReceivedEvent(10UL, Guid.NewGuid(), 7UL, "dave",
+                $"hi clan {++line}", FromActivePlayer: false));
+            await Task.Delay(20);
+        }
+
+        await service.StopAsync(default);
+
+        Assert.True(Volatile.Read(ref attempts) >= 2,
+            $"the clan consumer stopped after the first post threw (attempts: {attempts})");
+    }
+
+#pragma warning disable S2699 // The implicit assertion is "no exception is thrown".
+    [Fact]
+    public async Task StopAsync_without_a_start_completes()
+    {
+        var (service, _, _, _) = Build();
+
+        await service.StopAsync(default);
+    }
+#pragma warning restore S2699
+
+    [Fact]
+    public async Task A_subscription_that_ends_does_not_stop_the_host_from_shutting_down()
+    {
+        var bus = Substitute.For<IEventBus>();
+        StubStreams(bus, static () => AsyncEnumerable.Empty<object>());
+        var (service, _, _, _) = Build(bus);
+        await service.StartAsync(default);
+
+        var stop = service.StopAsync(default);
+        await stop;
+
+        Assert.True(stop.IsCompletedSuccessfully);
+    }
+
+    [Fact]
+    public async Task A_faulting_bus_ends_the_loops_without_faulting_the_host()
+    {
+        // A loop that ends because the stream itself broke must be contained: rethrowing it out of the
+        // joined task would fail the host's shutdown on the way down.
+        var bus = Substitute.For<IEventBus>();
+        StubStreams(bus, static () => throw new InvalidOperationException("the subscription broke."));
+        var (service, _, _, _) = Build(bus);
+        await service.StartAsync(default);
+
+        var stop = service.StopAsync(default);
+        await stop;
+
+        Assert.True(stop.IsCompletedSuccessfully);
+    }
+
+    /// <summary>Stubs every stream this service subscribes to with the same factory.</summary>
+    /// <param name="bus">The substituted bus.</param>
+    /// <param name="stream">Produces the stream, or throws to fault it.</param>
+    private static void StubStreams(IEventBus bus, Func<IAsyncEnumerable<object>> stream)
+    {
+        bus.SubscribeAsync<TeamMessageReceivedEvent>(Arg.Any<CancellationToken>())
+            .Returns(_ => stream().Cast<TeamMessageReceivedEvent>());
+        bus.SubscribeAsync<ClanMessageReceivedEvent>(Arg.Any<CancellationToken>())
+            .Returns(_ => stream().Cast<ClanMessageReceivedEvent>());
     }
 }
 
