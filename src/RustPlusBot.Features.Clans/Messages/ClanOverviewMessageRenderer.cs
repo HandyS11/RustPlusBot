@@ -31,26 +31,21 @@ public sealed class ClanOverviewMessageRenderer(
     public string MessageKey => Key;
 
     /// <inheritdoc />
-    public async ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
+    public ValueTask<MessagePayload> RenderAsync(MessageRenderContext context,
+        CancellationToken cancellationToken) =>
+        ClanMessageShell.RenderAsync(store, context,
+            (clan, serverId, culture) => RenderClanAsync(context.GuildId, serverId, clan, culture, cancellationToken),
+            cancellationToken);
+
+    private async ValueTask<MessagePayload> RenderClanAsync(
+        ulong guildId,
+        Guid serverId,
+        ClanSnapshot clan,
+        string culture,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        if (context.ServerId is not Guid serverId)
-        {
-            return new MessagePayload(null, null, null);
-        }
-
-        var clan = await store.GetAsync(context.GuildId, serverId, cancellationToken).ConfigureAwait(false);
-        if (clan is null)
-        {
-            // The clan channel only exists while a clan does, so there is no provisioned message to
-            // edit here. An empty payload keeps this key inert on clanless servers.
-            return new MessagePayload(null, null, null);
-        }
-
-        var culture = context.Culture;
         var leader = LeaderOf(clan);
-        var resolved = await ResolveNamesAsync(context.GuildId, serverId, clan, leader, cancellationToken)
+        var resolved = await ResolveNamesAsync(guildId, serverId, clan, leader, cancellationToken)
             .ConfigureAwait(false);
 
         var embed = new EmbedBuilder()
@@ -74,7 +69,7 @@ public sealed class ClanOverviewMessageRenderer(
 
         embed.AddField(localizer.Get("clan.overview.motd", culture), Motd(clan, resolved, culture));
 
-        var components = await BuildComponentsAsync(context.GuildId, serverId, clan, culture, cancellationToken)
+        var components = await BuildComponentsAsync(guildId, serverId, clan, culture, cancellationToken)
             .ConfigureAwait(false);
 
         return new MessagePayload(null, embed.Build(), components);
