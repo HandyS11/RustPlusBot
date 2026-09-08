@@ -125,11 +125,14 @@ public sealed partial class RustMapsGenerationDriver(
     /// <summary>
     /// Stores the ready render's URL. ImageIconUrl (map_icons.png) is the render WITH monument icon
     /// markers; ImageUrl (map_raw_normalized.png) is plain terrain with no markers. Prefer the iconned one.
+    /// The monument list rides along: it is what each requesting server's own monuments are checked against
+    /// before the render is ever shown.
     /// </summary>
     /// <param name="key">The map key.</param>
     /// <param name="info">The RustMaps map info.</param>
     private void SetReady(RustMapsMapKey key, MapInfo info) =>
-        coordinator.SetReady(key, new RustMapsReadyMap(info.ImageIconUrl ?? info.ImageUrl!, info.Url));
+        coordinator.SetReady(key,
+            new RustMapsReadyMap(info.ImageIconUrl ?? info.ImageUrl!, info.Url, info.Monuments ?? []));
 
     private static bool IsExhausted(MapGenerationStat? stat) => stat is { } s && s.Current >= s.Allowed;
 

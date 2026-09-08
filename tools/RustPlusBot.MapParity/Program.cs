@@ -63,11 +63,13 @@ overlay.Mutate(ctx =>
             continue;
         }
 
-        var (px, py) = projection.ToPixel(c.X, c.Y);
+        // RustMaps coordinates are centred on the map; MapProjection expects Rust+'s corner origin.
+        var (px, py) = projection.ToPixel(c.X + (size / 2f), c.Y + (size / 2f));
         ctx.DrawLine(Color.Magenta, 2f, new PointF(px - 12, py), new PointF(px + 12, py));
         ctx.DrawLine(Color.Magenta, 2f, new PointF(px, py - 12), new PointF(px, py + 12));
         Console.WriteLine(
-            $"{monument.Type,-30} world=({c.X,6},{c.Y,6}) grid={MapGrid.LabelFor(c.X, c.Y, (uint)size)} px=({px:F0},{py:F0})");
+            $"{monument.Type,-30} world=({c.X,6},{c.Y,6}) "
+            + $"grid={MapGrid.LabelFor(c.X + (size / 2f), c.Y + (size / 2f), (uint)size)} px=({px:F0},{py:F0})");
     }
 });
 await overlay.SaveAsPngAsync(Path.Combine(outDir, "overlay.png")).ConfigureAwait(false);

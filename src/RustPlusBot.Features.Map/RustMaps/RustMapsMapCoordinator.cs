@@ -9,12 +9,54 @@ public sealed class RustMapsMapCoordinator : IRustMapsMapCoordinator, IInfoMapRe
     private readonly ConcurrentDictionary<RustMapsMapKey, Entry> _byKey = new();
 
     /// <inheritdoc />
-    public InfoMapView? GetReady(int size, int seed)
+    public InfoMapResolution Resolve(ulong guildId, Guid serverId, int size, int seed)
     {
-        var snap = Snapshot(new RustMapsMapKey(size, seed));
-        return snap is { State: RustMapsGenerationState.Ready, Ready: { } r }
-            ? new InfoMapView(r.ImageUrl, r.RustMapsUrl)
-            : null;
+        var key = new RustMapsMapKey(size, seed);
+        if (Snapshot(key) is not { State: RustMapsGenerationState.Ready, Ready: { } ready })
+        {
+            return InfoMapResolution.Pending;
+        }
+
+        // A render is withheld until it has been checked against this server: seed + size do not identify a
+        // world, so an unverified render may be a different island (see RustMapsMapMatcher).
+        return MatchFor(key, guildId, serverId) switch
+        {
+            RustMapsMapMatch.Match => new InfoMapResolution(InfoMapStatus.Verified,
+                new InfoMapView(ready.ImageUrl, ready.RustMapsUrl)),
+            RustMapsMapMatch.Mismatch => new InfoMapResolution(InfoMapStatus.Mismatched, null),
+            _ => InfoMapResolution.Pending,
+        };
+    }
+
+    /// <inheritdoc />
+    public void SetMatch(RustMapsMapKey key, ulong guildId, Guid serverId, RustMapsMapMatch match)
+    {
+        if (match == RustMapsMapMatch.Unknown)
+        {
+            return;
+        }
+
+        var entry = _byKey.GetOrAdd(key, static _ => new Entry());
+        lock (entry.Gate)
+        {
+            entry.Matches[(guildId, serverId)] = match;
+        }
+    }
+
+    /// <inheritdoc />
+    public RustMapsMapMatch MatchFor(RustMapsMapKey key, ulong guildId, Guid serverId)
+    {
+        if (!_byKey.TryGetValue(key, out var entry))
+        {
+            return RustMapsMapMatch.Unknown;
+        }
+
+        lock (entry.Gate)
+        {
+            return entry.Matches.TryGetValue((guildId, serverId), out var match)
+                ? match
+                : RustMapsMapMatch.Unknown;
+        }
     }
 
     /// <inheritdoc />
@@ -78,23 +120,12 @@ public sealed class RustMapsMapCoordinator : IRustMapsMapCoordinator, IInfoMapRe
     public void SetLimitReached(RustMapsMapKey key) => SetTerminal(key, RustMapsGenerationState.LimitReached);
 
     /// <inheritdoc />
-    public IReadOnlyList<RustMapsMapKey> PendingKeys()
-    {
-        var pending = new List<RustMapsMapKey>();
-        foreach (var (key, entry) in _byKey)
-        {
-            lock (entry.Gate)
-            {
-                if (entry.Requesters.Count > 0
-                    && entry.State is RustMapsGenerationState.Idle or RustMapsGenerationState.Generating)
-                {
-                    pending.Add(key);
-                }
-            }
-        }
+    public IReadOnlyList<RustMapsMapKey> ReadyKeys() =>
+        KeysWhere(static state => state is RustMapsGenerationState.Ready);
 
-        return pending;
-    }
+    /// <inheritdoc />
+    public IReadOnlyList<RustMapsMapKey> PendingKeys() =>
+        KeysWhere(static state => state is RustMapsGenerationState.Idle or RustMapsGenerationState.Generating);
 
     /// <inheritdoc />
     public IReadOnlyList<(ulong Guild, Guid Server)> Requesters(RustMapsMapKey key)
@@ -108,6 +139,25 @@ public sealed class RustMapsMapCoordinator : IRustMapsMapCoordinator, IInfoMapRe
         {
             return [.. entry.Requesters];
         }
+    }
+
+    /// <summary>Keys with at least one requester whose state satisfies a predicate.</summary>
+    /// <param name="statePredicate">The state filter.</param>
+    private List<RustMapsMapKey> KeysWhere(Func<RustMapsGenerationState, bool> statePredicate)
+    {
+        var keys = new List<RustMapsMapKey>();
+        foreach (var (key, entry) in _byKey)
+        {
+            lock (entry.Gate)
+            {
+                if (entry.Requesters.Count > 0 && statePredicate(entry.State))
+                {
+                    keys.Add(key);
+                }
+            }
+        }
+
+        return keys;
     }
 
     private void SetTerminal(RustMapsMapKey key, RustMapsGenerationState state)
@@ -126,5 +176,6 @@ public sealed class RustMapsMapCoordinator : IRustMapsMapCoordinator, IInfoMapRe
         public string? MapId { get; set; }
         public RustMapsReadyMap? Ready { get; set; }
         public HashSet<(ulong Guild, Guid Server)> Requesters { get; } = [];
+        public Dictionary<(ulong Guild, Guid Server), RustMapsMapMatch> Matches { get; } = [];
     }
 }

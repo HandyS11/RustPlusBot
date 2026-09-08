@@ -1,3 +1,4 @@
+using Discord;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using RustPlusBot.Features.Workspace.Gateway;
@@ -42,6 +43,21 @@ internal sealed class ReconcilerHarness
         return this;
     }
 
+    /// <summary>Declares a message whose renderer attaches a file, re-read from the mutable holder each render.</summary>
+    /// <param name="scope">The workspace scope.</param>
+    /// <param name="key">The message key.</param>
+    /// <param name="channelKey">The channel the message lives in.</param>
+    /// <param name="attachment">The attachment holder; assign to it to simulate the image changing.</param>
+    public ReconcilerHarness WithAttachmentMessage(WorkspaceScope scope,
+        string key,
+        string channelKey,
+        AttachmentHolder attachment)
+    {
+        _messageProviders.Add(new StubMessageProvider([new MessageSpec(scope, key, channelKey)]));
+        _renderers.Add(new AttachmentRenderer(key, attachment));
+        return this;
+    }
+
     public ReconcilerHarness WithCapability(string capability, bool available)
     {
         _capabilityProviders.Add(new StubCapabilityProvider(capability, available));
@@ -83,6 +99,41 @@ internal sealed class ReconcilerHarness
         public ValueTask<bool> IsAvailableAsync(ulong guildId, Guid? serverId, CancellationToken cancellationToken) =>
             ValueTask.FromResult(available);
     }
+
+    private sealed class AttachmentRenderer(string key, AttachmentHolder attachment) : IMessageRenderer
+    {
+        public string MessageKey { get; } = key;
+
+        public ValueTask<MessagePayload>
+            RenderAsync(MessageRenderContext context, CancellationToken cancellationToken)
+        {
+            var file = attachment.Current;
+
+            // The real #info map payload shows its upload through the embed, which is what makes Discord
+            // fold the attachment into that embed — the shape the reconciler has to recognise again. The
+            // embed is always present so the payload stays non-empty even when the upload is dropped.
+            var embed = new EmbedBuilder().WithTitle(attachment.Title);
+            if (attachment.ShownInEmbed && file is not null)
+            {
+                embed.WithImageUrl($"attachment://{file.FileName}");
+            }
+
+            return ValueTask.FromResult(new MessagePayload(null, embed.Build(), null, file));
+        }
+    }
+}
+
+/// <summary>A mutable attachment slot, so a test can change the file a renderer returns between passes.</summary>
+/// <param name="current">The attachment the renderer starts out returning.</param>
+/// <param name="shownInEmbed">True to reference the upload from the embed, as the #info map does.</param>
+internal sealed class AttachmentHolder(MessageAttachment? current, bool shownInEmbed = false)
+{
+    public MessageAttachment? Current { get; set; } = current;
+
+    /// <summary>The embed title, mutable so a test can change the text around an unchanged upload.</summary>
+    public string Title { get; set; } = "map";
+
+    public bool ShownInEmbed { get; } = shownInEmbed;
 }
 
 internal sealed class ReconcilerBuilderReusing(ReconcilerHarness source)

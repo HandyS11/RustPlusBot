@@ -31,6 +31,25 @@ public interface IRustMapsMapCoordinator
     /// <param name="key">The (size, seed) map key.</param>
     void SetLimitReached(RustMapsMapKey key);
 
+    /// <summary>
+    /// Records whether a ready render actually depicts the world one server runs. A verdict is decided once
+    /// per (key, server) and never revised for that key — the map is fixed for a wipe.
+    /// </summary>
+    /// <param name="key">The (size, seed) map key.</param>
+    /// <param name="guildId">The requesting guild's id.</param>
+    /// <param name="serverId">The requesting server's id.</param>
+    /// <param name="match">The verdict; <see cref="RustMapsMapMatch.Unknown"/> is not recorded.</param>
+    void SetMatch(RustMapsMapKey key, ulong guildId, Guid serverId, RustMapsMapMatch match);
+
+    /// <summary>The verdict recorded for a (key, server), or Unknown while none has been decided.</summary>
+    /// <param name="key">The (size, seed) map key.</param>
+    /// <param name="guildId">The requesting guild's id.</param>
+    /// <param name="serverId">The requesting server's id.</param>
+    RustMapsMapMatch MatchFor(RustMapsMapKey key, ulong guildId, Guid serverId);
+
+    /// <summary>Ready keys with at least one requester (the renders awaiting or holding a match verdict).</summary>
+    IReadOnlyList<RustMapsMapKey> ReadyKeys();
+
     /// <summary>Keys with at least one requester still in Idle or Generating.</summary>
     IReadOnlyList<RustMapsMapKey> PendingKeys();
 

@@ -87,7 +87,7 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
     }
 
     /// <inheritdoc />
-    public async Task<bool> MessageExistsAsync(ulong guildId,
+    public async Task<LiveMessage?> GetLiveMessageAsync(ulong guildId,
         ulong channelId,
         ulong messageId,
         CancellationToken cancellationToken)
@@ -95,11 +95,14 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId);
         if (channel is null)
         {
-            return false;
+            return null;
         }
 
-        var message = await channel.GetMessageAsync(messageId).ConfigureAwait(false);
-        return message is not null;
+        var message = await channel.GetMessageAsync(messageId, Options(cancellationToken)).ConfigureAwait(false);
+        return message is null
+            ? null
+            : LiveMessage.From(message.Id, message.Attachments.FirstOrDefault()?.Filename,
+                message.Embeds.FirstOrDefault()?.Image?.Url);
     }
 
     /// <inheritdoc />
@@ -111,10 +114,24 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         ArgumentNullException.ThrowIfNull(payload);
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId)
                       ?? throw new InvalidOperationException($"Channel {channelId} not found in guild {guildId}.");
-        var message = await channel
-            .SendMessageAsync(text: payload.Text, embed: payload.Embed, components: payload.Components)
-            .ConfigureAwait(false);
-        return message.Id;
+        if (payload.Attachment is not { } attachment)
+        {
+            var message = await channel
+                .SendMessageAsync(text: payload.Text, embed: payload.Embed, options: Options(cancellationToken),
+                    components: payload.Components)
+                .ConfigureAwait(false);
+            return message.Id;
+        }
+
+        var stream = new MemoryStream(attachment.Bytes);
+        await using (stream.ConfigureAwait(false))
+        {
+            var message = await channel.SendFileAsync(stream, attachment.FileName, text: payload.Text,
+                    embed: payload.Embed, options: Options(cancellationToken),
+                    allowedMentions: AllowedMentions.None, components: payload.Components)
+                .ConfigureAwait(false);
+            return message.Id;
+        }
     }
 
     /// <inheritdoc />
@@ -128,12 +145,16 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         var channel = client.GetGuild(guildId)?.GetTextChannel(channelId)
                       ?? throw new InvalidOperationException($"Channel {channelId} not found in guild {guildId}.");
 
+        // Attachments are deliberately left unmentioned, which is what keeps them: Discord retains the
+        // existing upload (and the embed's attachment:// reference to it) when an edit does not carry an
+        // attachments field. The reconciler only edits a message whose upload already matches the payload,
+        // so re-uploading here would burn its full size on every pass for no change.
         await channel.ModifyMessageAsync(messageId, props =>
         {
             props.Content = payload.Text;
             props.Embed = payload.Embed;
             props.Components = payload.Components;
-        }).ConfigureAwait(false);
+        }, Options(cancellationToken)).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -150,10 +171,7 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
 
         try
         {
-            await channel.DeleteMessageAsync(messageId, new RequestOptions
-                {
-                    CancelToken = cancellationToken
-                })
+            await channel.DeleteMessageAsync(messageId, Options(cancellationToken))
                 .ConfigureAwait(false);
         }
         catch (HttpException ex) when (ex.HttpCode == System.Net.HttpStatusCode.NotFound)
@@ -268,6 +286,15 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
 
     private SocketGuild GetGuild(ulong guildId) =>
         client.GetGuild(guildId) ?? throw new InvalidOperationException($"Guild {guildId} not available to the bot.");
+
+    /// <summary>Wraps a token as Discord.Net request options, so REST calls unwind on shutdown.</summary>
+    /// <param name="cancellationToken">The token to attach.</param>
+    /// <returns>Request options carrying the token.</returns>
+    private static RequestOptions Options(CancellationToken cancellationToken) =>
+        new()
+        {
+            CancelToken = cancellationToken
+        };
 
     private static Task ApplyOverwritesAsync(SocketGuild guild, ITextChannel channel, ChannelPermissionProfile profile)
     {

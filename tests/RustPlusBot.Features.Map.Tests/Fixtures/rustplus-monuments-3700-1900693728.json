@@ -1,0 +1,317 @@
+[
+  {
+    "token": "ferryterminal",
+    "x": 455.57056,
+    "y": 3232.2437
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 455,
+    "y": 3212
+  },
+  {
+    "token": "harbor_2_display_name",
+    "x": 3200.915,
+    "y": 3219.985
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 3167,
+    "y": 3188
+  },
+  {
+    "token": "fishing_village_display_name",
+    "x": 1871.6166,
+    "y": 3528.7393
+  },
+  {
+    "token": "large_fishing_village_display_name",
+    "x": 884.7087,
+    "y": 204.31482
+  },
+  {
+    "token": "fishing_village_display_name",
+    "x": 261.8141,
+    "y": 1992.4299
+  },
+  {
+    "token": "AbandonedMilitaryBase",
+    "x": 2341.8176,
+    "y": 596.58875
+  },
+  {
+    "token": "arctic_base_a",
+    "x": 3203.6511,
+    "y": 2451.0178
+  },
+  {
+    "token": "outpost",
+    "x": 1843.0385,
+    "y": 1813.2595
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 1820,
+    "y": 1913
+  },
+  {
+    "token": "military_tunnels_display_name",
+    "x": 3082.8853,
+    "y": 1276.081
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 3101,
+    "y": 1187
+  },
+  {
+    "token": "power_plant_display_name",
+    "x": 729.43274,
+    "y": 2629.557
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 677,
+    "y": 2561
+  },
+  {
+    "token": "airfield_display_name",
+    "x": 2575.2466,
+    "y": 3048.952
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 2696,
+    "y": 3185
+  },
+  {
+    "token": "train_yard_display_name",
+    "x": 671.50183,
+    "y": 815.3335
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 629,
+    "y": 872.00006
+  },
+  {
+    "token": "water_treatment_plant_display_name",
+    "x": 1826.6873,
+    "y": 1225.529
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 1943,
+    "y": 1301
+  },
+  {
+    "token": "excavator",
+    "x": 1242.88,
+    "y": 1884.7
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 1160,
+    "y": 1832
+  },
+  {
+    "token": "launchsite",
+    "x": 2589.3909,
+    "y": 2095.4932
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 2480,
+    "y": 2267
+  },
+  {
+    "token": "missile_silo_monument",
+    "x": 3108.8643,
+    "y": 699.90967
+  },
+  {
+    "token": "dome_monument_name",
+    "x": 1621.8866,
+    "y": 2751.3364
+  },
+  {
+    "token": "junkyard_display_name",
+    "x": 982.07184,
+    "y": 3347.4233
+  },
+  {
+    "token": "apartmentcomplex",
+    "x": 1994.5237,
+    "y": 2910.9585
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 2090,
+    "y": 2963
+  },
+  {
+    "token": "satellite_dish_display_name",
+    "x": 3204.746,
+    "y": 1736.6146
+  },
+  {
+    "token": "sewer_display_name",
+    "x": 436.61572,
+    "y": 1659.6066
+  },
+  {
+    "token": "stables_a",
+    "x": 3247.3452,
+    "y": 2765.7935
+  },
+  {
+    "token": "stables_b",
+    "x": 2142.149,
+    "y": 1535.7397
+  },
+  {
+    "token": "mining_quarry_hqm_display_name",
+    "x": 340.77527,
+    "y": 1134.6753
+  },
+  {
+    "token": "mining_quarry_sulfur_display_name",
+    "x": 2812.9473,
+    "y": 351.2776
+  },
+  {
+    "token": "mining_quarry_stone_display_name",
+    "x": 1534.9883,
+    "y": 494.27966
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 1454,
+    "y": 3146
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 2696,
+    "y": 482
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 3455,
+    "y": 2513
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 386,
+    "y": 1361
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 1355,
+    "y": 398
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 2417,
+    "y": 1601
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 1397,
+    "y": 1313
+  },
+  {
+    "token": "train_tunnel_display_name",
+    "x": 1436,
+    "y": 2306
+  },
+  {
+    "token": "train_tunnel_link_display_name",
+    "x": 1994,
+    "y": 2498
+  },
+  {
+    "token": "gas_station",
+    "x": 1117.1923,
+    "y": 1447.9841
+  },
+  {
+    "token": "supermarket",
+    "x": 2530.9836,
+    "y": 1457.592
+  },
+  {
+    "token": "gas_station",
+    "x": 2058.0212,
+    "y": 2269.6108
+  },
+  {
+    "token": "mining_outpost_display_name",
+    "x": 1042.4512,
+    "y": 2364.5142
+  },
+  {
+    "token": "mining_outpost_display_name",
+    "x": 642.7783,
+    "y": 3155.0376
+  },
+  {
+    "token": "mining_outpost_display_name",
+    "x": 3122.6045,
+    "y": 2996.074
+  },
+  {
+    "token": "underwater_lab",
+    "x": 3575.2998,
+    "y": 3661.8315
+  },
+  {
+    "token": "assets/bundled/prefabs/autospawn/monument/underwater_lab/underwater_lab_c.prefab",
+    "x": 3575.2998,
+    "y": 3661.8315
+  },
+  {
+    "token": "underwater_lab",
+    "x": 76.96301,
+    "y": 101.91345
+  },
+  {
+    "token": "assets/bundled/prefabs/autospawn/monument/underwater_lab/underwater_lab_a.prefab",
+    "x": 76.96301,
+    "y": 101.91345
+  },
+  {
+    "token": "assets/bundled/prefabs/autospawn/underwater-lab-base/module_900x900_2way_moonpool.prefab",
+    "x": 3527.8872,
+    "y": 3663.2703
+  },
+  {
+    "token": "assets/bundled/prefabs/autospawn/underwater-lab-base/module_900x900_2way_moonpool.prefab",
+    "x": 3564.5264,
+    "y": 3697.751
+  },
+  {
+    "token": "assets/bundled/prefabs/autospawn/underwater-lab-base/module_900x900_2way_moonpool.prefab",
+    "x": 106.328735,
+    "y": 109.064575
+  },
+  {
+    "token": "large_oil_rig",
+    "x": 1978.3301,
+    "y": -340.83423
+  },
+  {
+    "token": "oil_rig_small",
+    "x": 4036.9702,
+    "y": 1540.4893
+  },
+  {
+    "token": "lighthouse_display_name",
+    "x": 3361.5742,
+    "y": 3018.727
+  },
+  {
+    "token": "lighthouse_display_name",
+    "x": 1403.0374,
+    "y": 3390.4915
+  }
+]
