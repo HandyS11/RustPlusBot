@@ -217,6 +217,16 @@ public sealed class DatasetValidatorTests
         Assert.Contains(errors, e => e.Contains("empty code", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>A smelter whose conversions are all internally consistent should produce no errors.</summary>
+    [Fact]
+    public void GoodSmelter_hasNoErrors()
+    {
+        var ds = WithSmelters(new Smelter("100", "Furnace",
+            [new SmeltConversion(1, 2, 1, 1, 1, 3)]));
+        var errors = DatasetValidator.Validate(ds, new ValidationOptions(MinItemCount: 1));
+        Assert.Empty(errors);
+    }
+
     [Fact]
     public void SmelterWithNoConversions_isError()
     {

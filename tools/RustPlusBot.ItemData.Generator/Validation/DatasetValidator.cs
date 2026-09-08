@@ -142,51 +142,100 @@ internal static class DatasetValidator
         List<string> errors)
     {
         var smelters = dataset.Smelters ?? [];
+        ValidateSmelterCount(smelters, options, errors);
+
+        foreach (var smelter in smelters)
+        {
+            ValidateSmelterHasConversions(smelter, errors);
+
+            foreach (var conversion in smelter.Conversions)
+            {
+                ValidateSmelterConversionInputReference(smelter, conversion, ids, errors);
+                ValidateSmelterConversionOutputReference(smelter, conversion, ids, errors);
+                ValidateSmelterConversionOutputQuantity(smelter, conversion, errors);
+                ValidateSmelterConversionTime(smelter, conversion, errors);
+                ValidateSmelterConversionWoodQuantity(smelter, conversion, errors);
+                ValidateSmelterConversionOutputProbability(smelter, conversion, errors);
+            }
+        }
+    }
+
+    private static void ValidateSmelterCount(IReadOnlyList<Smelter> smelters,
+        ValidationOptions options,
+        List<string> errors)
+    {
         if (smelters.Count < options.MinSmelterCount)
         {
             errors.Add($"smelter count {smelters.Count} below minimum {options.MinSmelterCount}");
         }
+    }
 
-        foreach (var smelter in smelters)
+    private static void ValidateSmelterHasConversions(Smelter smelter, List<string> errors)
+    {
+        if (smelter.Conversions.Count == 0)
         {
-            if (smelter.Conversions.Count == 0)
-            {
-                errors.Add($"smelter {smelter.Name}: has no conversions");
-            }
+            errors.Add($"smelter {smelter.Name}: has no conversions");
+        }
+    }
 
-            foreach (var c in smelter.Conversions)
-            {
-                if (!ids.Contains(c.InputId))
-                {
-                    errors.Add($"smelter {smelter.Name}: conversion references unknown input id {c.InputId}");
-                }
+    private static void ValidateSmelterConversionInputReference(Smelter smelter,
+        SmeltConversion conversion,
+        HashSet<int> ids,
+        List<string> errors)
+    {
+        if (!ids.Contains(conversion.InputId))
+        {
+            errors.Add($"smelter {smelter.Name}: conversion references unknown input id {conversion.InputId}");
+        }
+    }
 
-                if (!ids.Contains(c.OutputId))
-                {
-                    errors.Add($"smelter {smelter.Name}: conversion references unknown output id {c.OutputId}");
-                }
+    private static void ValidateSmelterConversionOutputReference(Smelter smelter,
+        SmeltConversion conversion,
+        HashSet<int> ids,
+        List<string> errors)
+    {
+        if (!ids.Contains(conversion.OutputId))
+        {
+            errors.Add($"smelter {smelter.Name}: conversion references unknown output id {conversion.OutputId}");
+        }
+    }
 
-                if (c.OutputQuantity <= 0)
-                {
-                    errors.Add($"smelter {smelter.Name}: non-positive output quantity {c.OutputQuantity}");
-                }
+    private static void ValidateSmelterConversionOutputQuantity(Smelter smelter,
+        SmeltConversion conversion,
+        List<string> errors)
+    {
+        if (conversion.OutputQuantity <= 0)
+        {
+            errors.Add($"smelter {smelter.Name}: non-positive output quantity {conversion.OutputQuantity}");
+        }
+    }
 
-                if (c.TimeSeconds <= 0)
-                {
-                    errors.Add($"smelter {smelter.Name}: non-positive time {c.TimeSeconds}");
-                }
+    private static void ValidateSmelterConversionTime(Smelter smelter, SmeltConversion conversion, List<string> errors)
+    {
+        if (conversion.TimeSeconds <= 0)
+        {
+            errors.Add($"smelter {smelter.Name}: non-positive time {conversion.TimeSeconds}");
+        }
+    }
 
-                if (c.WoodQuantity < 0)
-                {
-                    errors.Add($"smelter {smelter.Name}: negative wood quantity {c.WoodQuantity}");
-                }
+    private static void ValidateSmelterConversionWoodQuantity(Smelter smelter,
+        SmeltConversion conversion,
+        List<string> errors)
+    {
+        if (conversion.WoodQuantity < 0)
+        {
+            errors.Add($"smelter {smelter.Name}: negative wood quantity {conversion.WoodQuantity}");
+        }
+    }
 
-                if (c.OutputProbability is <= 0 or > 1)
-                {
-                    errors.Add(
-                        $"smelter {smelter.Name}: output probability {c.OutputProbability} out of range (0,1]");
-                }
-            }
+    private static void ValidateSmelterConversionOutputProbability(Smelter smelter,
+        SmeltConversion conversion,
+        List<string> errors)
+    {
+        if (conversion.OutputProbability is <= 0 or > 1)
+        {
+            errors.Add(
+                $"smelter {smelter.Name}: output probability {conversion.OutputProbability} out of range (0,1]");
         }
     }
 
