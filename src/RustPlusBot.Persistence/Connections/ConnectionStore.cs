@@ -42,7 +42,16 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
 
         if (existing is null)
         {
-            context.ConnectionStates.Add(new ConnectionState
+            // The row is FK'd to RustServers with ON DELETE CASCADE, so a deleted server takes its status
+            // row with it. A connection loop still running at that moment would insert a fresh row against
+            // the missing parent and die on the constraint violation. A server that is gone has no status
+            // to record: report "no change" rather than faulting the caller.
+            if (!await ServerExistsAsync().ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            var added = context.ConnectionStates.Add(new ConnectionState
             {
                 RustServerId = serverId,
                 GuildId = guildId,
@@ -51,7 +60,26 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
                 ActiveCredentialId = activeCredentialId,
                 UpdatedAt = clock.UtcNow,
             });
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (DbUpdateException)
+            {
+                // The check above and this insert are two round trips, so the server can still be deleted
+                // in between. Drop the doomed entity (it would be retried by the next SaveChanges on this
+                // context) and re-check: only a vanished parent is expected here, so anything else — a
+                // genuine store failure — must still surface to the caller.
+                added.State = EntityState.Detached;
+                if (await ServerExistsAsync().ConfigureAwait(false))
+                {
+                    throw;
+                }
+
+                return false;
+            }
+
             return true;
         }
 
@@ -68,6 +96,9 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
         existing.UpdatedAt = clock.UtcNow;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return true;
+
+        Task<bool> ServerExistsAsync() => context.RustServers
+            .AnyAsync(s => s.Id == serverId && s.GuildId == guildId, cancellationToken);
     }
 
     /// <inheritdoc />

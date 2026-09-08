@@ -1,6 +1,7 @@
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
@@ -39,6 +40,9 @@ public sealed class ConnectionRegistrationTests
 
         Assert.NotNull(provider.GetRequiredService<IConnectionSupervisor>());
         Assert.NotNull(provider.GetRequiredService<IBotTeamChatSender>());
+        // The workspace purge stops connections through this seam; an unregistered stopper
+        // breaks GuildPurgeService at resolve time, not at compile time.
+        Assert.NotNull(provider.GetRequiredService<IServerConnectionStopper>());
         await using var scope = provider.CreateAsyncScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IConnectionStore>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IServerRemovalService>());

@@ -1080,13 +1080,69 @@ public sealed class ConnectionSupervisorTests
     }
 
     /// <summary>
-    /// A socket library that throws while connecting (rather than reporting an outcome) must not take the
-    /// host down, and must leave the supervisor able to start the server again. The loop itself ends — that
-    /// is the documented contract of the outer catch — so the regression this pins is that the failure is
-    /// LOGGED and CONTAINED rather than silently swallowed or propagated.
+    /// A socket library that throws while connecting (rather than reporting an outcome) must be treated as
+    /// the Unreachable it is: back off and try again on the SAME loop. Ending the loop strands the server —
+    /// nothing re-arms a dead one (EnsureConnectionAsync fires only on registration, a credential change, or
+    /// a button press), so it stays offline until the process restarts.
     /// </summary>
     [Fact]
-    public async Task Faulting_connect_is_logged_and_leaves_the_supervisor_restartable()
+    public async Task Faulting_connect_is_retried_by_the_same_loop()
+    {
+        var source = new FakeRustSocketSource();
+        source.LastConnectionSetup = c =>
+        {
+            if (source.CreateCount == 1)
+            {
+                c.ConnectFault = new InvalidOperationException("socket library faulted");
+            }
+        };
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(9));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        // Started ONCE: the recovery has to come from the loop itself, not a second EnsureConnectionAsync.
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId);
+
+        var state = await WaitForStateAsync(
+            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 9);
+        Assert.NotNull(state);
+    }
+
+    /// <summary>
+    /// The socket created for a connect attempt that throws must still be disposed: the loop holds the only
+    /// reference, so a retry storm against a broken server would otherwise leak one half-open WebSocket per
+    /// attempt, forever.
+    /// </summary>
+    [Fact]
+    public async Task Faulting_connect_disposes_the_socket_it_created()
+    {
+        var source = new FakeRustSocketSource();
+        FakeRustSocketSource.FakeConnection? faulted = null;
+        source.LastConnectionSetup = c =>
+        {
+            if (source.CreateCount == 1)
+            {
+                c.ConnectFault = new InvalidOperationException("socket library faulted");
+                faulted = c;
+            }
+        };
+        source.EnqueueHeartbeat(HeartbeatResult.Ok(9));
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => faulted is { DisposeCount: > 0 }, cts.Token);
+
+        Assert.Equal(1, faulted!.DisposeCount);
+    }
+
+    /// <summary>
+    /// A throwing socket library is a defect in the library or its wrapper, not a normal unreachable server.
+    /// The retry keeps the bot alive but must not hide it: the exception has to reach the log.
+    /// </summary>
+    [Fact]
+    public async Task Faulting_connect_is_logged()
     {
         var source = new FakeRustSocketSource();
         source.LastConnectionSetup = c =>
@@ -1102,14 +1158,48 @@ public sealed class ConnectionSupervisorTests
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
-        await WaitForLogAsync(h, LogLevel.Error, "faulted", cts.Token);
 
-        // The second attempt gets a healthy socket: nothing about the fault is sticky.
+        await WaitForLogAsync(h, LogLevel.Warning, "threw while connecting", cts.Token);
+
+        // The exception itself must ride along: the message alone says a socket misbehaved, not how.
+        var record = h.Logs.Records.Single(r => r.Level == LogLevel.Warning
+                                                && r.Message.Contains("threw while connecting",
+                                                    StringComparison.Ordinal));
+        Assert.IsType<InvalidOperationException>(record.Exception);
+    }
+
+    /// <summary>
+    /// A socket library may unwind cancellation as something other than an OperationCanceledException — a
+    /// client disposed underneath the connect throwing ObjectDisposedException, say. That is a stop, not a
+    /// connectivity failure: the loop must end quietly, disposing its socket, without reporting the server
+    /// unreachable or logging a connect warning that would send someone hunting a network problem.
+    /// </summary>
+    [Fact]
+    public async Task Connect_unwinding_as_a_non_cancellation_exception_on_stop_ends_quietly()
+    {
+        var source = new FakeRustSocketSource
+        {
+            LastConnectionSetup = c =>
+            {
+                c.BlockConnectUntilCancelled = true;
+                c.ConnectFaultOnCancel = new ObjectDisposedException("socket");
+            }
+        };
+        await using var h = CreateHarness(source);
+        var (serverId, _, _) = await SeedAsync(h.Provider);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         await h.Supervisor.EnsureConnectionAsync(10UL, serverId, cts.Token);
+        await WaitUntilAsync(() => source.LastConnection is not null, cts.Token);
+        var connecting = source.LastConnection!;
 
-        var state = await WaitForStateAsync(
-            h.Provider, serverId, s => s.Status == ConnectionStatus.Connected && s.PlayerCount == 9);
-        Assert.NotNull(state);
+        // StopAsync joins the loop, so once it returns no further log or dispose can race these asserts.
+        await h.Supervisor.StopAsync(10UL, serverId).WaitAsync(TimeSpan.FromSeconds(30), cts.Token);
+
+        Assert.Equal(1, connecting.DisposeCount);
+        Assert.DoesNotContain(
+            h.Logs.Records,
+            r => r.Message.Contains("threw while connecting", StringComparison.Ordinal));
     }
 
     /// <summary>

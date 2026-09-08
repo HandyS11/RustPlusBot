@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
+using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Entities;
@@ -92,7 +93,9 @@ public sealed class GuildPurgeServiceTests
             .Returns(noCategories);
         var provisioningLock = new ProvisioningLock();
         var teardown = new WorkspaceTeardownService(gateway, store, provisioningLock);
-        var service = new GuildPurgeService(context, new ServerService(context), teardown, provisioningLock);
+        var service = new GuildPurgeService(
+            context, new ServerService(context), teardown, provisioningLock,
+            Substitute.For<IServerConnectionStopper>());
 
         await service.PurgeGuildAsync(1);
 
@@ -110,5 +113,52 @@ public sealed class GuildPurgeServiceTests
         Assert.Single(await context.EventSubscriptions.Where(e => e.GuildId == 2).ToListAsync());
         Assert.Single(await context.GuildSettings.Where(g => g.GuildId == 2).ToListAsync());
         Assert.Single(await context.FcmRegistrations.Where(f => f.GuildId == 2).ToListAsync());
+    }
+
+    /// <summary>
+    /// The purge deletes each RustServer row, and the connection loop for that server may still be running.
+    /// It must be stopped FIRST: a live loop whose server row has vanished faults on the foreign key the
+    /// moment it writes its next status, and its socket stays open for the life of the process.
+    /// </summary>
+    [Fact]
+    public async Task PurgeGuild_StopsEachServersConnection_WhileItsRowStillExists()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+        await using var _ = connection;
+        await using var context = NewContext(connection);
+
+        var server = new RustServer
+        {
+            GuildId = 1, Name = "A", Ip = "a", Port = 1
+        };
+        context.RustServers.Add(server);
+        await context.SaveChangesAsync();
+
+        var gateway = Substitute.For<IWorkspaceGateway>();
+        var store = Substitute.For<IWorkspaceStore>();
+        IReadOnlyList<ProvisionedCategory> noCategories = [];
+        store.GetAllCategoriesAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns(noCategories);
+        var provisioningLock = new ProvisioningLock();
+        var teardown = new WorkspaceTeardownService(gateway, store, provisioningLock);
+
+        // Records whether the server row was still present at the moment the stop was requested — the
+        // ordering is the whole point, so asserting the call happened is not enough.
+        var rowPresentAtStop = new List<bool>();
+        var stopper = Substitute.For<IServerConnectionStopper>();
+        stopper.StopAsync(Arg.Any<ulong>(), Arg.Any<Guid>()).Returns(call =>
+        {
+            var id = call.ArgAt<Guid>(1);
+            rowPresentAtStop.Add(context.RustServers.AsNoTracking().Any(s => s.Id == id));
+            return Task.CompletedTask;
+        });
+
+        var service = new GuildPurgeService(
+            context, new ServerService(context), teardown, provisioningLock, stopper);
+
+        await service.PurgeGuildAsync(1);
+
+        await stopper.Received(1).StopAsync(1UL, server.Id);
+        Assert.Equal([true], rowPresentAtStop);
     }
 }
