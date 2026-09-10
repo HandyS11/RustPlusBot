@@ -15,7 +15,7 @@ namespace RustPlusBot.Domain.Devices;
 /// type would pull the base into the model and silently collapse both device tables into one
 /// table-per-hierarchy table. Each derived device keeps its own table; this base only shares the columns.
 /// </remarks>
-public abstract class PairedDeviceEntity : ICreatedAt
+public abstract class PairedDeviceEntity : IGuildScoped, ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

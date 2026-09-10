@@ -6,7 +6,7 @@ namespace RustPlusBot.Domain.Clans;
 /// A cached Steam64 id to display-name mapping. The clan API reports members by id only, so names
 /// are harvested from clan chat and team snapshots, which do carry them.
 /// </summary>
-public sealed class ClanPlayerName : IUpdatedAt
+public sealed class ClanPlayerName : IGuildScoped, IUpdatedAt
 {
     /// <summary>The owning guild snowflake.</summary>
     public ulong GuildId { get; set; }

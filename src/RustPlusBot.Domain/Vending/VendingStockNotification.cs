@@ -1,10 +1,12 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Vending;
 
 /// <summary>
 /// A live sell-out message in #vending, one per registered machine. Stores the sold-out set it was
 /// rendered against so an owner restock deletes the message rather than silently editing it.
 /// </summary>
-public sealed class VendingStockNotification
+public sealed class VendingStockNotification : IGuildScoped
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

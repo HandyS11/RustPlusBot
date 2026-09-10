@@ -1,7 +1,9 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Guilds;
 
 /// <summary>Per-guild configuration. Primary key is the guild snowflake.</summary>
-public sealed class GuildSettings
+public sealed class GuildSettings : IGuildScoped
 {
     /// <summary>The Discord guild snowflake (primary key).</summary>
     public ulong GuildId { get; set; }

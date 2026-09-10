@@ -4,7 +4,7 @@ using RustPlusBot.Abstractions.Connections;
 namespace RustPlusBot.Domain.Alarms;
 
 /// <summary>A paired Smart Alarm the bot manages, surviving restarts. Guild- and server-scoped. Driven by the live socket (primed on connect, reacts to SmartDeviceTriggered) — the entity id is the switch-vs-alarm discriminant.</summary>
-public sealed class SmartAlarm : ICreatedAt
+public sealed class SmartAlarm : IGuildScoped, ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

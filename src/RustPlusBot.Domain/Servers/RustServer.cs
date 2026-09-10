@@ -1,7 +1,9 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Servers;
 
 /// <summary>A Rust+ server target bound to a Discord guild. Guild-scoped.</summary>
-public sealed class RustServer
+public sealed class RustServer : IGuildScoped
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

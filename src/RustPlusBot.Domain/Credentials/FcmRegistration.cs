@@ -6,7 +6,7 @@ namespace RustPlusBot.Domain.Credentials;
 /// One Discord user's Rust+ FCM listener registration within a guild. One per (GuildId, OwnerUserId).
 /// The credentials blob is stored protected at rest (see ICredentialProtector) and feeds the pairing listener.
 /// </summary>
-public sealed class FcmRegistration : IUpdatedAt
+public sealed class FcmRegistration : IGuildScoped, IUpdatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

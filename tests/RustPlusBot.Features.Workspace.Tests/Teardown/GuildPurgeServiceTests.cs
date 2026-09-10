@@ -2,11 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Persistord.Testing;
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Domain.Clans;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Switches;
+using RustPlusBot.Domain.Vending;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Reconciler;
@@ -58,6 +60,21 @@ public sealed class GuildPurgeServiceTests
         {
             GuildId = 2, OwnerUserId = 200, ProtectedFcmCredentials = "y"
         });
+
+        // Two tables the old purge never named: one that cascaded off RustServer and one that is
+        // reached only through IGuildScoped. Both go because they declare the interface.
+        context.VendingGridTracks.Add(new VendingGridTrack
+        {
+            GuildId = 1, ServerId = serverA.Id, Grid = "D7", RegisteredBySteamId = 5
+        });
+        context.ClanPlayerNames.Add(new ClanPlayerName
+        {
+            GuildId = 1, ServerId = serverA.Id, SteamId = 5, Name = "Alice"
+        });
+        context.ClanPlayerNames.Add(new ClanPlayerName
+        {
+            GuildId = 2, ServerId = serverB.Id, SteamId = 6, Name = "Bob"
+        });
         await context.SaveChangesAsync();
 
         // Real teardown over fake Discord I/O, sharing the lock the purge holds. An empty category set
@@ -81,11 +98,14 @@ public sealed class GuildPurgeServiceTests
         Assert.Empty(await context.ConnectionStates.ToListAsync());
         Assert.Empty(await context.GuildSettings.Where(g => g.GuildId == 1).ToListAsync());
         Assert.Empty(await context.FcmRegistrations.Where(f => f.GuildId == 1).ToListAsync());
+        Assert.Empty(await context.VendingGridTracks.ToListAsync());
+        Assert.Empty(await context.ClanPlayerNames.Where(n => n.GuildId == 1).ToListAsync());
 
         // Guild 2 untouched.
         Assert.Single(await context.RustServers.Where(s => s.GuildId == 2).ToListAsync());
         Assert.Single(await context.GuildSettings.Where(g => g.GuildId == 2).ToListAsync());
         Assert.Single(await context.FcmRegistrations.Where(f => f.GuildId == 2).ToListAsync());
+        Assert.Single(await context.ClanPlayerNames.Where(n => n.GuildId == 2).ToListAsync());
     }
 
     /// <summary>

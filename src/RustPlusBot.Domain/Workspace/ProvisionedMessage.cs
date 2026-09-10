@@ -3,7 +3,7 @@ using Persistord.Core.Abstractions;
 namespace RustPlusBot.Domain.Workspace;
 
 /// <summary>An anchored bot message, edited in place rather than re-posted.</summary>
-public sealed class ProvisionedMessage : ICreatedAt, IUpdatedAt
+public sealed class ProvisionedMessage : IGuildScoped, ICreatedAt, IUpdatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

@@ -3,7 +3,7 @@ using Persistord.Core.Abstractions;
 namespace RustPlusBot.Domain.Connections;
 
 /// <summary>Persisted last-known connection state per server, so the active identity and status survive restarts.</summary>
-public sealed class ConnectionState : IUpdatedAt
+public sealed class ConnectionState : IGuildScoped, IUpdatedAt
 {
     /// <summary>The server this state belongs to (primary key, one row per server).</summary>
     public Guid RustServerId { get; set; }

@@ -3,7 +3,7 @@ using Persistord.Core.Abstractions;
 namespace RustPlusBot.Domain.Workspace;
 
 /// <summary>A Discord text channel the bot has provisioned, identified by its stable spec key.</summary>
-public sealed class ProvisionedChannel : ICreatedAt
+public sealed class ProvisionedChannel : IGuildScoped, ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

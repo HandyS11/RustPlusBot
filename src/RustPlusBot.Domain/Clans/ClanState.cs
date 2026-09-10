@@ -1,10 +1,12 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Clans;
 
 /// <summary>
 /// The latest known clan snapshot for one (guild, server). Row presence is the single source of
 /// truth for whether the paired player is in a clan.
 /// </summary>
-public sealed class ClanState
+public sealed class ClanState : IGuildScoped
 {
     /// <summary>The owning guild snowflake.</summary>
     public ulong GuildId { get; set; }

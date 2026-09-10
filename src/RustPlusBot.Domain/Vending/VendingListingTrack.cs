@@ -3,7 +3,7 @@ using Persistord.Core.Abstractions;
 namespace RustPlusBot.Domain.Vending;
 
 /// <summary>A listing the team sells, registered by hand rather than read off a machine.</summary>
-public sealed class VendingListingTrack : ICreatedAt
+public sealed class VendingListingTrack : IGuildScoped, ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Persistord.Core.Abstractions;
+using Persistord.Testing;
 using RustPlusBot.Domain.Devices;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Servers;
@@ -53,6 +55,45 @@ public sealed class BotDbContextTests
         Assert.Null(smartSwitch.BaseType);
         Assert.Null(storageMonitor.BaseType);
         Assert.NotEqual(smartSwitch.GetTableName(), storageMonitor.GetTableName());
+    }
+
+    /// <summary>
+    /// Pins the shape Persistord's conventions and PurgeGuildAsync depend on: the guild key is
+    /// caller-supplied and stored as a long, a device row is uniquely identified within its server,
+    /// and it cascades with the server it hangs off.
+    /// </summary>
+    [Fact]
+    public void Model_KeepsTheShapePersistordsConventionsAssume()
+    {
+        var (context, database) = SqliteContextFixture.Create();
+        using var _ = context;
+        using var __ = database;
+
+        context.AssertSnowflakeKey<GuildSettings>();
+        context.AssertUniqueIndex<SmartSwitch>(nameof(SmartSwitch.GuildId), nameof(SmartSwitch.ServerId),
+            nameof(SmartSwitch.EntityId));
+        context.AssertCascade<SmartSwitch, RustServer>();
+    }
+
+    /// <summary>
+    /// Every mapped entity type is guild-scoped, which is what makes PurgeGuildAsync a complete
+    /// teardown: a table that opted out would silently survive a guild purge.
+    /// </summary>
+    [Fact]
+    public void EveryMappedEntity_IsGuildScoped()
+    {
+        var (context, database) = SqliteContextFixture.Create();
+        using var _ = context;
+        using var __ = database;
+
+        var unscoped = context.Model.GetEntityTypes()
+            .Where(e => !e.IsOwned())
+            .Select(e => e.ClrType)
+            .Where(t => !typeof(IGuildScoped).IsAssignableFrom(t))
+            .Select(t => t.Name)
+            .ToList();
+
+        Assert.Empty(unscoped);
     }
 
     [Fact]

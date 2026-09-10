@@ -1,10 +1,12 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Credentials;
 
 /// <summary>
 /// One player's Rust+ credentials within a server's pool. Many per (GuildId, RustServerId).
 /// The token fields are stored protected at rest (see ICredentialProtector).
 /// </summary>
-public sealed class PlayerCredential
+public sealed class PlayerCredential : IGuildScoped
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

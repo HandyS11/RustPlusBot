@@ -3,7 +3,7 @@ using Persistord.Core.Abstractions;
 namespace RustPlusBot.Domain.Vending;
 
 /// <summary>A registered grid cell; every vending machine inside it counts as the team's own.</summary>
-public sealed class VendingGridTrack : ICreatedAt
+public sealed class VendingGridTrack : IGuildScoped, ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();

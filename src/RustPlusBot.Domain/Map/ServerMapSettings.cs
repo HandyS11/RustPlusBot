@@ -1,9 +1,11 @@
 using RustPlusBot.Abstractions.Connections;
 
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Map;
 
 /// <summary>Per-(guild, server) rendered-map layer settings; one row per server. Layers default on.</summary>
-public sealed class ServerMapSettings
+public sealed class ServerMapSettings : IGuildScoped
 {
     /// <summary>The owning guild snowflake.</summary>
     public ulong GuildId { get; set; }

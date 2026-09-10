@@ -1,7 +1,9 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Commands;
 
 /// <summary>Per-(guild, server) command configuration: trigger prefix and mute state.</summary>
-public sealed class ServerCommandSettings
+public sealed class ServerCommandSettings : IGuildScoped
 {
     /// <summary>The owning guild snowflake.</summary>
     public ulong GuildId { get; set; }

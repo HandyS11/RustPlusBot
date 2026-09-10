@@ -3,7 +3,7 @@ using Persistord.Core.Abstractions;
 namespace RustPlusBot.Domain.Workspace;
 
 /// <summary>A Discord category the bot has provisioned. One per scope (global or per-server).</summary>
-public sealed class ProvisionedCategory : ICreatedAt
+public sealed class ProvisionedCategory : IGuildScoped, ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
