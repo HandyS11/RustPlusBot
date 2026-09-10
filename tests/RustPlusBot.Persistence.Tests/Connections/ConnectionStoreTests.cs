@@ -1,8 +1,6 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using NSubstitute;
-using RustPlusBot.Abstractions.Time;
+using Persistord.Testing;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Servers;
@@ -12,23 +10,10 @@ namespace RustPlusBot.Persistence.Tests.Connections;
 
 public sealed class ConnectionStoreTests
 {
-    private static BotDbContext NewContext(SqliteConnection connection, IInterceptor interceptor)
+    private static (ConnectionStore Store, BotDbContext Context, SqliteTestDatabase Db) Create()
     {
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite(connection)
-            .AddInterceptors(interceptor)
-            .Options;
-        var context = new BotDbContext(options);
-        context.Database.Migrate();
-        return context;
-    }
-
-    private static (ConnectionStore Store, BotDbContext Context, SqliteConnection Conn) Create()
-    {
-        var (context, connection) = SqliteContextFixture.Create();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
-        return (new ConnectionStore(context, clock), context, connection);
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+        return (new ConnectionStore(context), context, database);
     }
 
     private static async Task<(Guid ServerId, Guid CredA, Guid CredB)> SeedServerWithPoolAsync(BotDbContext context)
@@ -112,13 +97,11 @@ public sealed class ConnectionStoreTests
     [Fact]
     public async Task UpsertStatus_WhenTheServerIsDeletedMidSave_WritesNothingAndReportsNoChange()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-        await using var _ = connection;
-
         var deleter = new InterferingWriteInterceptor((ctx, ct) =>
             ctx.Database.ExecuteSqlRawAsync("DELETE FROM RustServers", ct));
-        await using var context = NewContext(connection, deleter);
+        await using var database = SqliteTestDatabase.Private();
+        await using var context = database.CreateContext<BotDbContext>(
+            options => new BotDbContext(options), deleter);
 
         var server = new RustServer
         {
@@ -130,9 +113,7 @@ public sealed class ConnectionStoreTests
         // Armed only now: the seed above must survive, and the delete must land between the store's
         // existence check and its insert.
         deleter.Arm();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
-        var store = new ConnectionStore(context, clock);
+        var store = new ConnectionStore(context);
 
         var changed = await store.UpsertStatusAsync(
             10UL, server.Id, ConnectionStatus.Unreachable, null, null);
@@ -149,25 +130,21 @@ public sealed class ConnectionStoreTests
     [Fact]
     public async Task UpsertStatus_WhenTheSaveFailsForAnotherReason_Throws()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-        await using var _ = connection;
-
         var serverId = Guid.Empty;
         var conflicter = new InterferingWriteInterceptor(async (ctx, ct) =>
         {
             // A second context over the SAME connection, so the row lands before the outer insert runs.
-            var options = new DbContextOptionsBuilder<BotDbContext>()
-                .UseSqlite(ctx.Database.GetDbConnection())
-                .Options;
-            await using var other = new BotDbContext(options);
+            await using var other = new BotDbContext(
+                new DbContextOptionsBuilder<BotDbContext>().UseSqlite(ctx.Database.GetDbConnection()).Options);
             other.ConnectionStates.Add(new ConnectionState
             {
                 RustServerId = serverId, GuildId = 10UL, Status = ConnectionStatus.Connected
             });
             await other.SaveChangesAsync(ct);
         });
-        await using var context = NewContext(connection, conflicter);
+        await using var database = SqliteTestDatabase.Private();
+        await using var context = database.CreateContext<BotDbContext>(
+            options => new BotDbContext(options), conflicter);
 
         var server = new RustServer
         {
@@ -178,9 +155,7 @@ public sealed class ConnectionStoreTests
         serverId = server.Id;
 
         conflicter.Arm();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
-        var store = new ConnectionStore(context, clock);
+        var store = new ConnectionStore(context);
 
         await Assert.ThrowsAsync<DbUpdateException>(() =>
             store.UpsertStatusAsync(10UL, serverId, ConnectionStatus.Unreachable, null, null));

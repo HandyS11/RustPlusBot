@@ -1,4 +1,3 @@
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Persistence.Workspace;
@@ -9,10 +8,10 @@ public sealed class WorkspaceStoreByKeyTests
 {
     private static WorkspaceStore NewStore(out BotDbContext context, out IDisposable cleanup)
     {
-        var (ctx, connection) = SqliteContextFixture.Create();
+        var (ctx, connection) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
         context = ctx;
         cleanup = connection;
-        return new WorkspaceStore(ctx, new FixedClock(DateTimeOffset.UnixEpoch));
+        return new WorkspaceStore(ctx);
     }
 
     [Fact]
@@ -78,10 +77,5 @@ public sealed class WorkspaceStoreByKeyTests
         var rows = await store.GetChannelsByKeyAsync("teamchat");
 
         Assert.Empty(rows);
-    }
-
-    private sealed class FixedClock(DateTimeOffset now) : IClock
-    {
-        public DateTimeOffset UtcNow { get; } = now;
     }
 }

@@ -1,8 +1,6 @@
 using System.Globalization;
-using Microsoft.Data.Sqlite;
-using NSubstitute;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Alarms;
 
@@ -10,13 +8,12 @@ namespace RustPlusBot.Persistence.Tests.Alarms;
 
 public sealed class AlarmStoreTests
 {
-    private static (AlarmStore Store, BotDbContext Context, SqliteConnection Conn) Create(
+    private static (AlarmStore Store, BotDbContext Context, SqliteTestDatabase Db) Create(
         DateTimeOffset? now = null)
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(now ?? DateTimeOffset.UnixEpoch);
-        return (new AlarmStore(context, clock), context, connection);
+        var (context, database) = SqliteContextFixture.Create(
+            new FixedTimeProvider(now ?? DateTimeOffset.UnixEpoch));
+        return (new AlarmStore(context), context, database);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context, string ip = "1.1.1.1", string name = "S")
@@ -45,7 +42,7 @@ public sealed class AlarmStoreTests
         Assert.Equal(added.Id, loaded.Id);
         Assert.Equal("Alarm 42", loaded.Name);
         Assert.Equal(7UL, loaded.PairedByUserId);
-        Assert.Equal(DateTimeOffset.UnixEpoch, loaded.CreatedUtc);
+        Assert.Equal(DateTimeOffset.UnixEpoch, loaded.CreatedAt);
         Assert.False(loaded.PingEveryone);
         Assert.False(loaded.RelayToTeamChat);
         Assert.False(loaded.LastIsActive);
@@ -91,29 +88,26 @@ public sealed class AlarmStoreTests
         var t1 = t0.AddMinutes(1);
         var t2 = t0.AddMinutes(2);
 
-        var (context0, conn0) = SqliteContextFixture.Create();
-        await using var _conn = conn0;
+        var time = new FixedTimeProvider(t2);
+        var (context0, database) = SqliteContextFixture.Create(time);
+        await using var _db = database;
         await using var _ctx = context0;
         var serverId = await SeedServerAsync(context0);
 
-        var clock0 = Substitute.For<IClock>();
-        clock0.UtcNow.Returns(t2);
-        var store0 = new AlarmStore(context0, clock0);
-        await store0.AddAsync(10UL, serverId, 3UL, "C", 7UL);
+        var store = new AlarmStore(context0);
+        await store.AddAsync(10UL, serverId, 3UL, "C", 7UL);
 
-        clock0.UtcNow.Returns(t0);
-        var store1 = new AlarmStore(context0, clock0);
-        await store1.AddAsync(10UL, serverId, 1UL, "A", 7UL);
+        time.Now = t0;
+        await store.AddAsync(10UL, serverId, 1UL, "A", 7UL);
 
-        clock0.UtcNow.Returns(t1);
-        var store2 = new AlarmStore(context0, clock0);
-        await store2.AddAsync(10UL, serverId, 2UL, "B", 7UL);
+        time.Now = t1;
+        await store.AddAsync(10UL, serverId, 2UL, "B", 7UL);
 
-        var list = await store0.ListByServerAsync(10UL, serverId);
+        var list = await store.ListByServerAsync(10UL, serverId);
         Assert.Equal(3, list.Count);
-        Assert.Equal(t0, list[0].CreatedUtc);
-        Assert.Equal(t1, list[1].CreatedUtc);
-        Assert.Equal(t2, list[2].CreatedUtc);
+        Assert.Equal(t0, list[0].CreatedAt);
+        Assert.Equal(t1, list[1].CreatedAt);
+        Assert.Equal(t2, list[2].CreatedAt);
     }
 
     [Fact]

@@ -1,7 +1,5 @@
-using Microsoft.Data.Sqlite;
-using NSubstitute;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Switches;
 
@@ -9,12 +7,10 @@ namespace RustPlusBot.Persistence.Tests.Switches;
 
 public sealed class SwitchStoreTests
 {
-    private static (SwitchStore Store, BotDbContext Context, SqliteConnection Conn) Create()
+    private static (SwitchStore Store, BotDbContext Context, SqliteTestDatabase Db) Create()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
-        return (new SwitchStore(context, clock), context, connection);
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+        return (new SwitchStore(context), context, database);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context, string ip = "1.1.1.1", string name = "S")
@@ -44,7 +40,7 @@ public sealed class SwitchStoreTests
         Assert.Equal("Switch 42", loaded.Name);
         Assert.Equal(7UL, loaded.PairedByUserId);
         Assert.False(loaded.LastIsActive);
-        Assert.Equal(DateTimeOffset.UnixEpoch, loaded.CreatedUtc);
+        Assert.Equal(DateTimeOffset.UnixEpoch, loaded.CreatedAt);
     }
 
     [Fact]

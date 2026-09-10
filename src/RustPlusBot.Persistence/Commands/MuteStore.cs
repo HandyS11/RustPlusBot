@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Persistord.Core;
 using RustPlusBot.Domain.Commands;
 
 namespace RustPlusBot.Persistence.Commands;
@@ -20,26 +21,16 @@ public sealed class MuteStore(BotDbContext context) : IMuteStore
     public async Task SetMutedAsync(ulong guildId,
         Guid serverId,
         bool muted,
-        CancellationToken cancellationToken = default)
-    {
-        var existing = await context.ServerCommandSettings
-            .SingleOrDefaultAsync(s => s.GuildId == guildId && s.ServerId == serverId, cancellationToken)
+        CancellationToken cancellationToken = default) =>
+        await context.ServerCommandSettings.UpsertAsync(
+                s => s.GuildId == guildId && s.ServerId == serverId,
+                () => new ServerCommandSettings
+                {
+                    GuildId = guildId, ServerId = serverId
+                },
+                row => row.Muted = muted,
+                cancellationToken)
             .ConfigureAwait(false);
-
-        if (existing is null)
-        {
-            context.ServerCommandSettings.Add(new ServerCommandSettings
-            {
-                GuildId = guildId, ServerId = serverId, Muted = muted,
-            });
-        }
-        else
-        {
-            existing.Muted = muted;
-        }
-
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-    }
 
     /// <inheritdoc />
     public async Task<string> GetPrefixAsync(ulong guildId,

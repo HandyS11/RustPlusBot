@@ -1,19 +1,16 @@
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
+using Persistord.Testing;
 using RustPlusBot.Persistence;
 
 namespace RustPlusBot.Features.Pairing.Tests;
 
-/// <summary>Creates a BotDbContext over a private in-memory SQLite connection kept open for the test.</summary>
+/// <summary>Creates a BotDbContext over a private in-memory SQLite database that lives as long as the test.</summary>
 internal static class TestDb
 {
-    public static (BotDbContext Context, SqliteConnection Connection) Create()
+    /// <summary>Builds the context and its database, applying the committed migrations.</summary>
+    /// <returns>The context and the database backing it. Dispose both.</returns>
+    public static (BotDbContext Context, SqliteTestDatabase Database) Create()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        connection.Open();
-        var options = new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connection).Options;
-        var context = new BotDbContext(options);
-        context.Database.Migrate();
-        return (context, connection);
+        var database = SqliteTestDatabase.Private();
+        return (database.CreateContext<BotDbContext>(options => new BotDbContext(options)), database);
     }
 }

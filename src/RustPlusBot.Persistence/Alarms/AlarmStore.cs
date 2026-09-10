@@ -1,55 +1,39 @@
 using Microsoft.EntityFrameworkCore;
+using Persistord.Core;
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Alarms;
 
 namespace RustPlusBot.Persistence.Alarms;
 
 /// <summary>EF-backed <see cref="IAlarmStore"/>.</summary>
 /// <param name="context">The bot database context.</param>
-/// <param name="clock">Supplies the creation timestamp.</param>
-public sealed class AlarmStore(BotDbContext context, IClock clock) : IAlarmStore
+public sealed class AlarmStore(BotDbContext context) : IAlarmStore
 {
     /// <inheritdoc />
-    public async Task<SmartAlarm> AddAsync(
+    public Task<SmartAlarm> AddAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
         string name,
         ulong pairedByUserId,
-        CancellationToken ct = default)
-    {
-        var entity = new SmartAlarm
-        {
-            GuildId = guildId,
-            ServerId = serverId,
-            EntityId = entityId,
-            Name = name,
-            PairedByUserId = pairedByUserId,
-            CreatedUtc = clock.UtcNow,
-        };
-        context.SmartAlarms.Add(entity);
-        try
-        {
-            await context.SaveChangesAsync(ct).ConfigureAwait(false);
-            return entity;
-        }
-        catch (DbUpdateException)
-        {
-            // Two users accepted the same pending pairing concurrently (both saw ExistsAsync == false); the
-            // unique (GuildId, ServerId, EntityId) index rejects the second insert. Recover idempotently by
-            // detaching the failed insert and returning the row the winner persisted. If no such row exists,
-            // the failure was not the uniqueness race — let it propagate.
-            context.Entry(entity).State = EntityState.Detached;
-            var existing = await GetAsync(guildId, serverId, entityId, ct).ConfigureAwait(false);
-            if (existing is null)
+        CancellationToken ct = default) =>
+        // Adding is idempotent: two users can accept the same pending pairing concurrently, and the
+        // unique (GuildId, ServerId, EntityId) index rejects whichever insert lands second. The empty
+        // mutation is deliberate — the row the winner wrote is returned untouched, name and all —
+        // and Persistord recovers the race by re-reading that winner. CreatedAt is stamped by the
+        // TimestampInterceptor.
+        context.SmartAlarms.UpsertAsync(
+            a => a.GuildId == guildId && a.ServerId == serverId && a.EntityId == entityId,
+            () => new SmartAlarm
             {
-                throw;
-            }
-
-            return existing;
-        }
-    }
+                GuildId = guildId,
+                ServerId = serverId,
+                EntityId = entityId,
+                Name = name,
+                PairedByUserId = pairedByUserId,
+            },
+            _ => { },
+            ct);
 
     /// <inheritdoc />
     public Task<SmartAlarm?> GetAsync(
@@ -72,7 +56,7 @@ public sealed class AlarmStore(BotDbContext context, IClock clock) : IAlarmStore
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        return [.. alarms.OrderBy(a => a.CreatedUtc)];
+        return [.. alarms.OrderBy(a => a.CreatedAt)];
     }
 
     /// <inheritdoc />

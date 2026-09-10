@@ -1,7 +1,9 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Vending;
 
 /// <summary>A listing the team sells, registered by hand rather than read off a machine.</summary>
-public sealed class VendingListingTrack
+public sealed class VendingListingTrack : ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -33,6 +35,6 @@ public sealed class VendingListingTrack
     /// <summary>The Discord user who registered the listing, for display.</summary>
     public ulong RegisteredByUserId { get; set; }
 
-    /// <summary>When the listing was registered (UTC).</summary>
-    public DateTimeOffset CreatedUtc { get; set; }
+    /// <summary>When the listing was registered (UTC). Stamped by Persistord's TimestampInterceptor.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
 }

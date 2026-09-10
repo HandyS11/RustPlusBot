@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Abstractions.Time;
@@ -37,12 +37,13 @@ public sealed class PairingSupervisorTests
         services.AddSingleton(protector);
         services.AddSingleton<IEventBus, InMemoryEventBus>();
 
-        // Keep one open in-memory SQLite connection (singleton) and give each scope its OWN context.
-        var (seed, connection) = TestDb.Create();
+        // Keep one private in-memory database (singleton) and give each scope its OWN context over the
+        // connection it holds open — Options() reuses that connection rather than the connection string.
+        var (seed, database) = TestDb.Create();
         seed.Dispose();
-        services.AddSingleton(connection);
+        services.AddSingleton(database);
         services.AddScoped(sp => new BotDbContext(
-            new DbContextOptionsBuilder<BotDbContext>().UseSqlite(sp.GetRequiredService<SqliteConnection>()).Options));
+            sp.GetRequiredService<SqliteTestDatabase>().Options<BotDbContext>()));
         services.AddScoped<IFcmRegistrationStore, FcmRegistrationStore>();
         var handler = Substitute.For<IPairingHandler>();
         services.AddScoped(_ => handler);

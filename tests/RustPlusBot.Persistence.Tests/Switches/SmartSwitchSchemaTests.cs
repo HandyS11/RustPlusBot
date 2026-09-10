@@ -28,7 +28,7 @@ public sealed class SmartSwitchSchemaTests
             Name = "Switch 42",
             PairedByUserId = 7UL,
             LastIsActive = true,
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         };
         context.Set<SmartSwitch>().Add(entity);
         await context.SaveChangesAsync();
@@ -59,7 +59,7 @@ public sealed class SmartSwitchSchemaTests
             ServerId = server.Id,
             EntityId = 42UL,
             Name = "Switch 42",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
         await context.SaveChangesAsync();
 
@@ -88,7 +88,7 @@ public sealed class SmartSwitchSchemaTests
             ServerId = server.Id,
             EntityId = 42UL,
             Name = "A",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
         context.Set<SmartSwitch>().Add(new SmartSwitch
         {
@@ -96,7 +96,7 @@ public sealed class SmartSwitchSchemaTests
             ServerId = server.Id,
             EntityId = 42UL,
             Name = "B",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());

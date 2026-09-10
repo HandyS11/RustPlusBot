@@ -1,6 +1,6 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
@@ -19,21 +19,11 @@ namespace RustPlusBot.Features.Workspace.Tests.Teardown;
 
 public sealed class GuildPurgeServiceTests
 {
-    private static BotDbContext NewContext(SqliteConnection connection)
-    {
-        var options = new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connection).Options;
-        var context = new BotDbContext(options);
-        context.Database.Migrate();
-        return context;
-    }
-
     [Fact]
     public async Task PurgeGuild_RemovesTargetGuildRows_AndLeavesOtherGuildIntact()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-        await using var _ = connection;
-        await using var context = NewContext(connection);
+        await using var database = SqliteTestDatabase.Private();
+        await using var context = database.CreateContext<BotDbContext>(options => new BotDbContext(options));
 
         var serverA = new RustServer
         {
@@ -106,10 +96,8 @@ public sealed class GuildPurgeServiceTests
     [Fact]
     public async Task PurgeGuild_StopsEachServersConnection_WhileItsRowStillExists()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-        await using var _ = connection;
-        await using var context = NewContext(connection);
+        await using var database = SqliteTestDatabase.Private();
+        await using var context = database.CreateContext<BotDbContext>(options => new BotDbContext(options));
 
         var server = new RustServer
         {

@@ -1,6 +1,6 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Persistord.Testing;
 using NSubstitute;
 using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Servers;
@@ -19,16 +19,15 @@ public sealed class SwitchChannelLocatorTests
         var clock = Substitute.For<IClock>();
         clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
 
-        var cs = $"DataSource=switch-locator-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        var keepAlive = new SqliteConnection(cs);
-        keepAlive.Open();
-        using (var seed = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options))
-        {
-            seed.Database.Migrate();
-        }
+        // One shared-cache in-memory database several connections can open independently, so a
+        // background loop and the test never run concurrent commands on one connection. Creating
+        // the first context is what applies the migrations.
+        var database = SqliteTestDatabase.Shared();
+        var cs = database.ConnectionString;
+        database.CreateContext<BotDbContext>(options => new BotDbContext(options)).Dispose();
 
         var services = new ServiceCollection();
-        services.AddSingleton(keepAlive);
+        services.AddSingleton(database);
         services.AddSingleton(clock);
         services.AddScoped(_ => new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options));
         services.AddScoped<IWorkspaceStore, WorkspaceStore>();

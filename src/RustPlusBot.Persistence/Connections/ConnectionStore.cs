@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 
@@ -7,8 +6,7 @@ namespace RustPlusBot.Persistence.Connections;
 
 /// <summary>EF-backed <see cref="IConnectionStore"/>.</summary>
 /// <param name="context">The bot database context.</param>
-/// <param name="clock">Supplies the update timestamp.</param>
-public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConnectionStore
+public sealed class ConnectionStore(BotDbContext context) : IConnectionStore
 {
     /// <inheritdoc />
     public Task<ConnectionState?> GetStateAsync(
@@ -58,7 +56,6 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
                 Status = status,
                 PlayerCount = playerCount,
                 ActiveCredentialId = activeCredentialId,
-                UpdatedAt = clock.UtcNow,
             });
 
             try
@@ -93,7 +90,6 @@ public sealed class ConnectionStore(BotDbContext context, IClock clock) : IConne
         existing.Status = status;
         existing.PlayerCount = playerCount;
         existing.ActiveCredentialId = activeCredentialId;
-        existing.UpdatedAt = clock.UtcNow;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return true;
 

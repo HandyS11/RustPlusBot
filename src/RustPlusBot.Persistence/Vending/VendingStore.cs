@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using RustPlusBot.Abstractions.Time;
+using Persistord.Core;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Domain.Vending;
 
@@ -7,8 +7,11 @@ namespace RustPlusBot.Persistence.Vending;
 
 /// <summary>EF-backed <see cref="IVendingStore"/>.</summary>
 /// <param name="context">The bot database context.</param>
-/// <param name="clock">Supplies write timestamps.</param>
-internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendingStore
+/// <param name="timeProvider">
+/// Supplies the post timestamps, which only move when a message is (re)posted; the same clock the
+/// TimestampInterceptor stamps CreatedAt from.
+/// </param>
+internal sealed class VendingStore(BotDbContext context, TimeProvider timeProvider) : IVendingStore
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<string>> ListGridsAsync(
@@ -31,47 +34,22 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
         CancellationToken ct = default)
     {
         var normalized = Normalize(grid);
-        var existing = await context.VendingGridTracks
-            .FirstOrDefaultAsync(g => g.GuildId == guildId && g.ServerId == serverId && g.Grid == normalized, ct)
+
+        // Re-registering a cell is a no-op, not an error: !vtrack is a natural thing to repeat, and two
+        // callers can race on the same cell. The empty mutation keeps the row the first registration
+        // wrote — including who registered it — and Persistord recovers the unique-index race for us.
+        await context.VendingGridTracks.UpsertAsync(
+                g => g.GuildId == guildId && g.ServerId == serverId && g.Grid == normalized,
+                () => new VendingGridTrack
+                {
+                    GuildId = guildId,
+                    ServerId = serverId,
+                    Grid = normalized,
+                    RegisteredBySteamId = steamId,
+                },
+                _ => { },
+                ct)
             .ConfigureAwait(false);
-        if (existing is not null)
-        {
-            return; // Re-registering a cell is a no-op, not an error: !vtrack is a natural thing to repeat.
-        }
-
-        var track = new VendingGridTrack
-        {
-            GuildId = guildId,
-            ServerId = serverId,
-            Grid = normalized,
-            RegisteredBySteamId = steamId,
-            CreatedUtc = clock.UtcNow,
-        };
-        context.VendingGridTracks.Add(track);
-
-        try
-        {
-            await context.SaveChangesAsync(ct).ConfigureAwait(false);
-        }
-        catch (DbUpdateException)
-        {
-            // Two callers can both see "not present" above and both insert; the unique index on
-            // (GuildId, ServerId, Grid) then rejects whichever save lands second. That is a race on an
-            // operation this store's own contract calls idempotent, not a real failure, so re-query
-            // rather than surface it: if the row exists now, the desired end state was reached (by the
-            // other caller) and we return normally; if it still doesn't, this was a different failure
-            // and must propagate. The failed insert has to come off the tracker first, or it re-attempts
-            // on the very next SaveChanges this context makes.
-            context.Entry(track).State = EntityState.Detached;
-
-            var winner = await context.VendingGridTracks
-                .FirstOrDefaultAsync(g => g.GuildId == guildId && g.ServerId == serverId && g.Grid == normalized, ct)
-                .ConfigureAwait(false);
-            if (winner is null)
-            {
-                throw;
-            }
-        }
     }
 
     /// <inheritdoc />
@@ -121,34 +99,28 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
         ulong userId,
         CancellationToken ct = default)
     {
-        var row = await context.VendingListingTracks
-            .FirstOrDefaultAsync(
+        await context.VendingListingTracks.UpsertAsync(
                 l => l.GuildId == guildId && l.ServerId == serverId
                                           && l.ItemId == key.ItemId && l.ItemIsBlueprint == key.ItemIsBlueprint
                                           && l.CurrencyId == key.CurrencyId &&
                                           l.CurrencyIsBlueprint == key.CurrencyIsBlueprint,
+                () => new VendingListingTrack
+                {
+                    GuildId = guildId,
+                    ServerId = serverId,
+                    ItemId = key.ItemId,
+                    ItemIsBlueprint = key.ItemIsBlueprint,
+                    CurrencyId = key.CurrencyId,
+                    CurrencyIsBlueprint = key.CurrencyIsBlueprint,
+                    RegisteredByUserId = userId,
+                },
+                row =>
+                {
+                    row.Quantity = Math.Max(1, quantity);
+                    row.CostPerOrder = costPerOrder;
+                },
                 ct)
             .ConfigureAwait(false);
-
-        if (row is null)
-        {
-            row = new VendingListingTrack
-            {
-                GuildId = guildId,
-                ServerId = serverId,
-                ItemId = key.ItemId,
-                ItemIsBlueprint = key.ItemIsBlueprint,
-                CurrencyId = key.CurrencyId,
-                CurrencyIsBlueprint = key.CurrencyIsBlueprint,
-                RegisteredByUserId = userId,
-                CreatedUtc = clock.UtcNow,
-            };
-            context.VendingListingTracks.Add(row);
-        }
-
-        row.Quantity = Math.Max(1, quantity);
-        row.CostPerOrder = costPerOrder;
-        await context.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -219,7 +191,7 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
                 MessageId = messageId,
                 ReferenceQuantity = referenceQuantity,
                 ReferenceCostPerOrder = referenceCostPerOrder,
-                PostedUtc = clock.UtcNow,
+                PostedUtc = timeProvider.GetUtcNow(),
             };
             context.VendingNotifications.Add(row);
             await context.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -238,7 +210,7 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
         // place — and rewriting the timestamp then would make the column read "5 seconds ago" forever.
         if (row.MessageId != messageId)
         {
-            row.PostedUtc = clock.UtcNow;
+            row.PostedUtc = timeProvider.GetUtcNow();
         }
 
         row.MessageId = messageId;
@@ -308,7 +280,7 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
                 MachineId = machineId,
                 MessageId = messageId,
                 SoldOutSignature = soldOutSignature,
-                PostedUtc = clock.UtcNow,
+                PostedUtc = timeProvider.GetUtcNow(),
             };
             context.VendingStockNotifications.Add(row);
             await context.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -323,7 +295,7 @@ internal sealed class VendingStore(BotDbContext context, IClock clock) : IVendin
 
         if (row.MessageId != messageId)
         {
-            row.PostedUtc = clock.UtcNow;
+            row.PostedUtc = timeProvider.GetUtcNow();
         }
 
         row.MessageId = messageId;

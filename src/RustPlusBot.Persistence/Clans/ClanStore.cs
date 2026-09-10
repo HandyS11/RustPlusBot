@@ -1,14 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using Persistord.Core;
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Clans;
 
 namespace RustPlusBot.Persistence.Clans;
 
 /// <summary>EF-backed <see cref="IClanStore"/>.</summary>
 /// <param name="db">The bot database context.</param>
-/// <param name="clock">Supplies write timestamps.</param>
-internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
+/// <param name="timeProvider">Supplies the last-seen timestamp; the same clock the TimestampInterceptor uses.</param>
+internal sealed class ClanStore(BotDbContext db, TimeProvider timeProvider) : IClanStore
 {
     /// <inheritdoc />
     public async Task<ClanSnapshot?> GetAsync(
@@ -52,19 +52,19 @@ internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
-        var row = await db.ClanStates
-            .FirstOrDefaultAsync(s => s.ServerId == serverId, cancellationToken)
+        await db.ClanStates.UpsertAsync(
+                s => s.ServerId == serverId,
+                () => new ClanState
+                {
+                    ServerId = serverId
+                },
+                row => Apply(row, guildId, snapshot, timeProvider.GetUtcNow()),
+                cancellationToken)
             .ConfigureAwait(false);
+    }
 
-        if (row is null)
-        {
-            row = new ClanState
-            {
-                ServerId = serverId
-            };
-            db.ClanStates.Add(row);
-        }
-
+    private static void Apply(ClanState row, ulong guildId, ClanSnapshot snapshot, DateTimeOffset seenAt)
+    {
         row.GuildId = guildId;
         row.ClanId = snapshot.ClanId;
         row.Name = snapshot.Name;
@@ -80,9 +80,7 @@ internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
         row.RolesJson = ClanSnapshotSerializer.Serialize(snapshot.Roles);
         row.MembersJson = ClanSnapshotSerializer.Serialize(snapshot.Members);
         row.InvitesJson = ClanSnapshotSerializer.Serialize(snapshot.Invites);
-        row.LastSeenUtc = clock.UtcNow;
-
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        row.LastSeenUtc = seenAt;
     }
 
     /// <inheritdoc />
@@ -143,30 +141,20 @@ internal sealed class ClanStore(BotDbContext db, IClock clock) : IClanStore
     {
         ArgumentNullException.ThrowIfNull(name);
 
-        var row = await db.ClanPlayerNames
-            .FirstOrDefaultAsync(
+        // Writing the same name again is the common case (every chat line repeats it). The upsert
+        // saves only when something actually changed, so an unchanged row keeps its UpdatedAt.
+        await db.ClanPlayerNames.UpsertAsync(
                 n => n.ServerId == serverId && n.SteamId == steamId,
+                () => new ClanPlayerName
+                {
+                    ServerId = serverId, SteamId = steamId
+                },
+                row =>
+                {
+                    row.GuildId = guildId;
+                    row.Name = name;
+                },
                 cancellationToken)
             .ConfigureAwait(false);
-
-        if (row is not null && row.GuildId == guildId && string.Equals(row.Name, name, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        if (row is null)
-        {
-            row = new ClanPlayerName
-            {
-                ServerId = serverId, SteamId = steamId
-            };
-            db.ClanPlayerNames.Add(row);
-        }
-
-        row.GuildId = guildId;
-        row.Name = name;
-        row.UpdatedUtc = clock.UtcNow;
-
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

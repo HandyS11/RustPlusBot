@@ -26,7 +26,7 @@ public sealed class SmartAlarmSchemaTests
             ServerId = server.Id,
             EntityId = 42UL,
             Name = "Alarm 42",
-            CreatedUtc = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
         });
         await context.SaveChangesAsync();
 
@@ -56,7 +56,7 @@ public sealed class SmartAlarmSchemaTests
             ServerId = server.Id,
             EntityId = 7UL,
             Name = "a",
-            CreatedUtc = DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow
         });
         await context.SaveChangesAsync();
         context.SmartAlarms.Add(new SmartAlarm
@@ -65,7 +65,7 @@ public sealed class SmartAlarmSchemaTests
             ServerId = server.Id,
             EntityId = 7UL,
             Name = "b",
-            CreatedUtc = DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());

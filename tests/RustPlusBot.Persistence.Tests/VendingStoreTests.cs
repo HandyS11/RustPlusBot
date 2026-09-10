@@ -1,7 +1,5 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using NSubstitute;
-using RustPlusBot.Abstractions.Time;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Vending;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Vending;
@@ -20,12 +18,12 @@ public sealed class VendingStoreTests
 
     private static readonly DateTimeOffset Later = DateTimeOffset.UnixEpoch.AddHours(1);
 
-    private static (VendingStore Store, BotDbContext Context, SqliteConnection Conn, IClock Clock) Create()
+    private static (VendingStore Store, BotDbContext Context, SqliteTestDatabase Db, FixedTimeProvider Time)
+        Create()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
-        return (new VendingStore(context, clock), context, connection, clock);
+        var time = new FixedTimeProvider(DateTimeOffset.UnixEpoch);
+        var (context, database) = SqliteContextFixture.Create(time);
+        return (new VendingStore(context, time), context, database, time);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context, ulong guildId = 10UL, int port = 28015)
@@ -71,15 +69,16 @@ public sealed class VendingStoreTests
         // by re-querying rather than letting the exception escape.
         context.SavingChanges += (_, _) =>
         {
-            var rivalOptions = new DbContextOptionsBuilder<BotDbContext>().UseSqlite(conn).Options;
-            using var rival = new BotDbContext(rivalOptions);
+            // Options() reuses the database's held-open connection object, so the rival writes into
+            // the same private in-memory database rather than a fresh empty one.
+            using var rival = new BotDbContext(conn.Options<BotDbContext>());
             rival.VendingGridTracks.Add(new VendingGridTrack
             {
                 GuildId = 10UL,
                 ServerId = serverId,
                 Grid = "D7",
                 RegisteredBySteamId = 2UL,
-                CreatedUtc = DateTimeOffset.UnixEpoch,
+                CreatedAt = DateTimeOffset.UnixEpoch,
             });
             rival.SaveChanges();
         };
@@ -320,7 +319,7 @@ public sealed class VendingStoreTests
         // The relay reconciles every five seconds and re-upserts every live notice. Without the
         // unchanged-guard that is a SaveChanges per notice per poll, forever, and PostedUtc would be
         // rewritten each time so the column permanently read "just now".
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -328,7 +327,7 @@ public sealed class VendingStoreTests
 
         var saves = 0;
         context.SavingChanges += (_, _) => saves++;
-        clock.UtcNow.Returns(Later);
+        time.Now = Later;
 
         await store.UpsertNotificationAsync(10UL, serverId, Pipe, 555UL, 1, 10);
 
@@ -342,13 +341,13 @@ public sealed class VendingStoreTests
     {
         // A different id means the message was genuinely reposted, which is exactly what PostedUtc
         // is supposed to record.
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
         await store.UpsertNotificationAsync(10UL, serverId, Pipe, 555UL, 1, 10);
 
-        clock.UtcNow.Returns(Later);
+        time.Now = Later;
         await store.UpsertNotificationAsync(10UL, serverId, Pipe, 556UL, 1, 10);
 
         var row = Assert.Single(await store.ListNotificationsAsync(10UL, serverId));
@@ -361,13 +360,13 @@ public sealed class VendingStoreTests
     {
         // The same message edited in place was not reposted, so its "posted" time must not move —
         // an unconditional rewrite would make every live notice read as brand new on every poll.
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
         await store.UpsertNotificationAsync(10UL, serverId, Pipe, 555UL, 1, 10);
 
-        clock.UtcNow.Returns(Later);
+        time.Now = Later;
         await store.UpsertNotificationAsync(10UL, serverId, Pipe, 555UL, 2, 18);
 
         var row = Assert.Single(await store.ListNotificationsAsync(10UL, serverId));
@@ -434,7 +433,7 @@ public sealed class VendingStoreTests
     [Fact]
     public async Task UpsertStockNotification_NothingChanged_WritesNothingAtAll()
     {
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -442,7 +441,7 @@ public sealed class VendingStoreTests
 
         var saves = 0;
         context.SavingChanges += (_, _) => saves++;
-        clock.UtcNow.Returns(Later);
+        time.Now = Later;
 
         await store.UpsertStockNotificationAsync(10UL, serverId, 1UL, 777UL, PipeDry);
 
@@ -454,13 +453,13 @@ public sealed class VendingStoreTests
     [Fact]
     public async Task UpsertStockNotification_NewMessageId_MovesPostedUtc()
     {
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
         await store.UpsertStockNotificationAsync(10UL, serverId, 1UL, 777UL, PipeDry);
 
-        clock.UtcNow.Returns(Later);
+        time.Now = Later;
         await store.UpsertStockNotificationAsync(10UL, serverId, 1UL, 778UL, PipeDry);
 
         var row = Assert.Single(await store.ListStockNotificationsAsync(10UL, serverId));
@@ -471,13 +470,13 @@ public sealed class VendingStoreTests
     [Fact]
     public async Task UpsertStockNotification_SameMessageNewSignature_UpdatesTheSignatureButNotPostedUtc()
     {
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
         await store.UpsertStockNotificationAsync(10UL, serverId, 1UL, 777UL, PipeDry);
 
-        clock.UtcNow.Returns(Later);
+        time.Now = Later;
         await store.UpsertStockNotificationAsync(10UL, serverId, 1UL, 777UL, PipeAndClothDry);
 
         var row = Assert.Single(await store.ListStockNotificationsAsync(10UL, serverId));

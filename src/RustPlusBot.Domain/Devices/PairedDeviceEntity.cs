@@ -1,3 +1,4 @@
+using Persistord.Core.Abstractions;
 using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Domain.Devices;
@@ -14,7 +15,7 @@ namespace RustPlusBot.Domain.Devices;
 /// type would pull the base into the model and silently collapse both device tables into one
 /// table-per-hierarchy table. Each derived device keeps its own table; this base only shares the columns.
 /// </remarks>
-public abstract class PairedDeviceEntity
+public abstract class PairedDeviceEntity : ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -37,8 +38,8 @@ public abstract class PairedDeviceEntity
     /// <summary>The Discord user who accepted (validated) the pairing.</summary>
     public ulong PairedByUserId { get; set; }
 
-    /// <summary>When the pairing was accepted (UTC).</summary>
-    public DateTimeOffset CreatedUtc { get; set; }
+    /// <summary>When the pairing was accepted (UTC). Stamped by Persistord's TimestampInterceptor.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>Per-device reachability; defaults to Reachable. Orthogonal to whole-server connection status.</summary>
     public DeviceReachability Reachability { get; set; } = DeviceReachability.Reachable;

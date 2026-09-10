@@ -1,7 +1,9 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Vending;
 
 /// <summary>A registered grid cell; every vending machine inside it counts as the team's own.</summary>
-public sealed class VendingGridTrack
+public sealed class VendingGridTrack : ICreatedAt
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -18,6 +20,6 @@ public sealed class VendingGridTrack
     /// <summary>The Steam id of the player who registered the cell, for display.</summary>
     public ulong RegisteredBySteamId { get; set; }
 
-    /// <summary>When the cell was registered (UTC).</summary>
-    public DateTimeOffset CreatedUtc { get; set; }
+    /// <summary>When the cell was registered (UTC). Stamped by Persistord's TimestampInterceptor.</summary>
+    public DateTimeOffset CreatedAt { get; set; }
 }

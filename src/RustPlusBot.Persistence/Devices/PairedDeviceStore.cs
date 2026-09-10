@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Persistord.Core;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Devices;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Devices;
 
 namespace RustPlusBot.Persistence.Devices;
@@ -13,53 +13,37 @@ namespace RustPlusBot.Persistence.Devices;
 /// </summary>
 /// <typeparam name="TEntity">The persisted device row.</typeparam>
 /// <param name="context">The bot database context.</param>
-/// <param name="clock">Supplies the creation timestamp.</param>
-public abstract class PairedDeviceStore<TEntity>(BotDbContext context, IClock clock) : IPairedDeviceStore<TEntity>
+public abstract class PairedDeviceStore<TEntity>(BotDbContext context) : IPairedDeviceStore<TEntity>
     where TEntity : PairedDeviceEntity, new()
 {
     /// <summary>The device's table.</summary>
     private DbSet<TEntity> Set => context.Set<TEntity>();
 
     /// <inheritdoc />
-    public async Task<TEntity> AddAsync(
+    public Task<TEntity> AddAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
         string name,
         ulong pairedByUserId,
-        CancellationToken cancellationToken = default)
-    {
-        var entity = new TEntity
-        {
-            GuildId = guildId,
-            ServerId = serverId,
-            EntityId = entityId,
-            Name = name,
-            PairedByUserId = pairedByUserId,
-            CreatedUtc = clock.UtcNow,
-        };
-        Set.Add(entity);
-        try
-        {
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            return entity;
-        }
-        catch (DbUpdateException)
-        {
-            // Two users accepted the same pending pairing concurrently (both saw ExistsAsync == false); the
-            // unique (GuildId, ServerId, EntityId) index rejects the second insert. Recover idempotently by
-            // detaching the failed insert and returning the row the winner persisted. If no such row exists,
-            // the failure was not the uniqueness race — let it propagate.
-            context.Entry(entity).State = EntityState.Detached;
-            var existing = await GetAsync(guildId, serverId, entityId, cancellationToken).ConfigureAwait(false);
-            if (existing is null)
+        CancellationToken cancellationToken = default) =>
+        // Adding is idempotent: two users can accept the same pending pairing concurrently, and the
+        // unique (GuildId, ServerId, EntityId) index rejects whichever insert lands second. The empty
+        // mutation is deliberate — the row the winner wrote is returned untouched, name and all —
+        // and Persistord recovers the race by re-reading that winner. CreatedAt is stamped by the
+        // TimestampInterceptor.
+        Set.UpsertAsync(
+            s => s.GuildId == guildId && s.ServerId == serverId && s.EntityId == entityId,
+            () => new TEntity
             {
-                throw;
-            }
-
-            return existing;
-        }
-    }
+                GuildId = guildId,
+                ServerId = serverId,
+                EntityId = entityId,
+                Name = name,
+                PairedByUserId = pairedByUserId,
+            },
+            _ => { },
+            cancellationToken);
 
     /// <summary>Gets a device by identity, or null.</summary>
     /// <param name="guildId">Owning Discord guild snowflake.</param>
@@ -91,7 +75,7 @@ public abstract class PairedDeviceStore<TEntity>(BotDbContext context, IClock cl
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        return [.. devices.OrderBy(s => s.CreatedUtc)];
+        return [.. devices.OrderBy(s => s.CreatedAt)];
     }
 
     /// <inheritdoc />

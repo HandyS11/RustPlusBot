@@ -27,7 +27,7 @@ public sealed class SmartStorageMonitorSchemaTests
             EntityId = 777UL,
             Name = "Storage Monitor 777",
             PairedByUserId = 5UL,
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         };
         context.Set<SmartStorageMonitor>().Add(entity);
         await context.SaveChangesAsync();
@@ -57,7 +57,7 @@ public sealed class SmartStorageMonitorSchemaTests
             ServerId = server.Id,
             EntityId = 777UL,
             Name = "Storage Monitor 777",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
         await context.SaveChangesAsync();
 
@@ -86,7 +86,7 @@ public sealed class SmartStorageMonitorSchemaTests
             ServerId = server.Id,
             EntityId = 777UL,
             Name = "A",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
         context.Set<SmartStorageMonitor>().Add(new SmartStorageMonitor
         {
@@ -94,7 +94,7 @@ public sealed class SmartStorageMonitorSchemaTests
             ServerId = server.Id,
             EntityId = 777UL,
             Name = "B",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());

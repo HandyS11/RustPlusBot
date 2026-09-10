@@ -1,7 +1,7 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Persistord.Testing;
 using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
@@ -38,15 +38,14 @@ public sealed class MapImageQueryTests
         services.AddSingleton(dm);
         services.AddSingleton<IEventBus, InMemoryEventBus>();
 
-        var cs = $"DataSource=mapimage-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        var keepAlive = new SqliteConnection(cs);
-        keepAlive.Open();
-        using (var seed = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options))
-        {
-            seed.Database.Migrate();
-        }
+        // One shared-cache in-memory database several connections can open independently, so a
+        // background loop and the test never run concurrent commands on one connection. Creating
+        // the first context is what applies the migrations.
+        var database = SqliteTestDatabase.Shared();
+        var cs = database.ConnectionString;
+        database.CreateContext<BotDbContext>(options => new BotDbContext(options)).Dispose();
 
-        services.AddSingleton(keepAlive);
+        services.AddSingleton(database);
         services.AddScoped(_ => new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options));
         services.AddScoped<IConnectionStore, ConnectionStore>();
         services.AddScoped<IServerService, ServerService>();

@@ -69,7 +69,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
 
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
@@ -86,7 +86,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
 
         await h.Coordinator.HandleDetectedAsync(10UL, 1UL, ServerPairing(steam: 1UL), CancellationToken.None);
         await h.Coordinator.HandleDetectedAsync(10UL, 2UL, ServerPairing(steam: 2UL), CancellationToken.None);
@@ -110,7 +110,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
 
         // First detection posts the prompt as message 900 (the Create() default).
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
@@ -138,7 +138,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create(channelId: null);
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
 
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
@@ -154,7 +154,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         var outcome = await h.Coordinator.TryAcceptAsync(10UL, "1.2.3.4", 28015, CancellationToken.None);
@@ -179,7 +179,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         // Another path created the same endpoint while the prompt sat unanswered.
@@ -199,7 +199,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
 
         var outcome = await h.Coordinator.TryAcceptAsync(10UL, "1.2.3.4", 28015, CancellationToken.None);
 
@@ -213,7 +213,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
         var gate = new TaskCompletionSource<ulong?>(TaskCreationOptions.RunContinuationsAsynchronously);
         h.Poster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
                 Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
@@ -238,7 +238,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
         h.Poster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
                 Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
             .Returns((ulong?)null);
@@ -265,7 +265,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         h.Locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns((ulong?)null);
@@ -291,7 +291,7 @@ public sealed class ServerPairingCoordinatorTests
     {
         var h = Create();
         await using var _ = h.Context;
-        await using var __ = h.Connection;
+        await using var __ = h.Database;
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         Assert.True(h.Coordinator.TryDismiss(10UL, "1.2.3.4", 28015));
@@ -302,7 +302,7 @@ public sealed class ServerPairingCoordinatorTests
     private sealed record Harness(
         ServerPairingCoordinator Coordinator,
         BotDbContext Context,
-        Microsoft.Data.Sqlite.SqliteConnection Connection,
+        Persistord.Testing.SqliteTestDatabase Database,
         ISetupChannelLocator Locator,
         ISetupChannelPoster Poster,
         IOwnerNotifier Notifier,

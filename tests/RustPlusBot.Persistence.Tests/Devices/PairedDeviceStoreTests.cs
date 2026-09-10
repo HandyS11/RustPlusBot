@@ -1,7 +1,5 @@
-using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Devices;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Devices;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.StorageMonitors;
@@ -17,27 +15,25 @@ public sealed class PairedDeviceStoreTests
 {
     [Fact]
     public Task Switch_store_serves_the_shared_device_surface() =>
-        AssertSharedSurfaceAsync((context, clock) => new SwitchStore(context, clock));
+        AssertSharedSurfaceAsync(context => new SwitchStore(context));
 
     [Fact]
     public Task StorageMonitor_store_serves_the_shared_device_surface() =>
-        AssertSharedSurfaceAsync((context, clock) => new StorageMonitorStore(context, clock));
+        AssertSharedSurfaceAsync(context => new StorageMonitorStore(context));
 
     private static async Task AssertSharedSurfaceAsync<TEntity>(
-        Func<BotDbContext, IClock, IPairedDeviceStore<TEntity>> create)
+        Func<BotDbContext, IPairedDeviceStore<TEntity>> create)
         where TEntity : PairedDeviceEntity
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+        await using var _ = database;
         await using var __ = context;
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
-        var store = create(context, clock);
+        var store = create(context);
         var serverId = await SeedServerAsync(context);
 
         Assert.False(await store.ExistsAsync(10UL, serverId, 42UL));
         var added = await store.AddAsync(10UL, serverId, 42UL, "Device 42", pairedByUserId: 7UL);
-        Assert.Equal(DateTimeOffset.UnixEpoch, added.CreatedUtc);
+        Assert.Equal(DateTimeOffset.UnixEpoch, added.CreatedAt);
         Assert.True(await store.ExistsAsync(10UL, serverId, 42UL));
 
         await store.SetMessageIdAsync(10UL, serverId, 42UL, 999UL);
