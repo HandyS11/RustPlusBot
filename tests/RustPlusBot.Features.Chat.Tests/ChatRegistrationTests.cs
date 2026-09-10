@@ -83,7 +83,8 @@ public sealed class ChatRegistrationTests
                 FromActivePlayer: true),
             CancellationToken.None);
 
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(),
+            Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 

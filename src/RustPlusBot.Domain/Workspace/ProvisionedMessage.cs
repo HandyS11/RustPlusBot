@@ -8,9 +8,6 @@ public sealed class ProvisionedMessage : IGuildScoped, ICreatedAt, IUpdatedAt
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    /// <summary>The owning Discord guild snowflake.</summary>
-    public ulong GuildId { get; set; }
-
     /// <summary>The server this message belongs to, or <c>null</c> for a global message.</summary>
     public Guid? RustServerId { get; set; }
 
@@ -25,6 +22,9 @@ public sealed class ProvisionedMessage : IGuildScoped, ICreatedAt, IUpdatedAt
 
     /// <summary>When the record was first created (UTC). Stamped by Persistord's TimestampInterceptor.</summary>
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>The owning Discord guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 
     /// <summary>When the record was last written (UTC). Stamped by Persistord's TimestampInterceptor.</summary>
     public DateTimeOffset UpdatedAt { get; set; }

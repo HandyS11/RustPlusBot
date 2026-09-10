@@ -1,15 +1,11 @@
-using RustPlusBot.Abstractions.Connections;
-
 using Persistord.Core.Abstractions;
+using RustPlusBot.Abstractions.Connections;
 
 namespace RustPlusBot.Domain.Map;
 
 /// <summary>Per-(guild, server) rendered-map layer settings; one row per server. Layers default on.</summary>
 public sealed class ServerMapSettings : IGuildScoped
 {
-    /// <summary>The owning guild snowflake.</summary>
-    public ulong GuildId { get; set; }
-
     /// <summary>The server id (FK to RustServer; primary key, one row per server).</summary>
     public Guid ServerId { get; set; }
 
@@ -36,4 +32,7 @@ public sealed class ServerMapSettings : IGuildScoped
 
     /// <summary>Which grid convention the rendered map and event grid references use.</summary>
     public MapGridStyle GridStyle { get; set; } = MapGridStyle.InGame;
+
+    /// <summary>The owning guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 }

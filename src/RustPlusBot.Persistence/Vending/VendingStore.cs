@@ -42,10 +42,7 @@ internal sealed class VendingStore(BotDbContext context, TimeProvider timeProvid
                 g => g.GuildId == guildId && g.ServerId == serverId && g.Grid == normalized,
                 () => new VendingGridTrack
                 {
-                    GuildId = guildId,
-                    ServerId = serverId,
-                    Grid = normalized,
-                    RegisteredBySteamId = steamId,
+                    GuildId = guildId, ServerId = serverId, Grid = normalized, RegisteredBySteamId = steamId,
                 },
                 _ => { },
                 ct)

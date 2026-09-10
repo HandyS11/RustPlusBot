@@ -8,14 +8,14 @@ namespace RustPlusBot.Persistence.Tests.Credentials;
 
 public sealed class FcmRegistrationStoreTests
 {
+    private static readonly DateTimeOffset Now = new(2026, 6, 15, 0, 0, 0, TimeSpan.Zero);
+
     private static ICredentialProtector PassThroughProtector()
     {
         var protector = Substitute.For<ICredentialProtector>();
         protector.Protect(Arg.Any<string>()).Returns(call => "enc:" + call.Arg<string>());
         return protector;
     }
-
-    private static readonly DateTimeOffset Now = new(2026, 6, 15, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task Upsert_StoresProtectedAndActive()

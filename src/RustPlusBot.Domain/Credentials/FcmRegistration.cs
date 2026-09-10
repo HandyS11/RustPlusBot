@@ -11,9 +11,6 @@ public sealed class FcmRegistration : IGuildScoped, IUpdatedAt
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    /// <summary>The owning Discord guild snowflake.</summary>
-    public ulong GuildId { get; set; }
-
     /// <summary>The Discord user who connected these credentials.</summary>
     public ulong OwnerUserId { get; set; }
 
@@ -22,6 +19,9 @@ public sealed class FcmRegistration : IGuildScoped, IUpdatedAt
 
     /// <summary>Listener lifecycle state.</summary>
     public FcmRegistrationStatus Status { get; set; } = FcmRegistrationStatus.Active;
+
+    /// <summary>The owning Discord guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 
     /// <summary>When the registration was last written (UTC). Stamped by Persistord's TimestampInterceptor.</summary>
     public DateTimeOffset UpdatedAt { get; set; }

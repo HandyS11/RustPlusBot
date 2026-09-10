@@ -63,26 +63,6 @@ internal sealed class ClanStore(BotDbContext db, TimeProvider timeProvider) : IC
             .ConfigureAwait(false);
     }
 
-    private static void Apply(ClanState row, ulong guildId, ClanSnapshot snapshot, DateTimeOffset seenAt)
-    {
-        row.GuildId = guildId;
-        row.ClanId = snapshot.ClanId;
-        row.Name = snapshot.Name;
-        row.Created = snapshot.Created;
-        row.Creator = snapshot.Creator;
-        row.Motd = snapshot.Motd;
-        row.MotdTimestamp = snapshot.MotdTimestamp;
-        row.MotdAuthor = snapshot.MotdAuthor;
-        row.LogoHash = snapshot.LogoHash;
-        row.Color = snapshot.Color;
-        row.MaxMemberCount = snapshot.MaxMemberCount;
-        row.Score = snapshot.Score;
-        row.RolesJson = ClanSnapshotSerializer.Serialize(snapshot.Roles);
-        row.MembersJson = ClanSnapshotSerializer.Serialize(snapshot.Members);
-        row.InvitesJson = ClanSnapshotSerializer.Serialize(snapshot.Invites);
-        row.LastSeenUtc = seenAt;
-    }
-
     /// <inheritdoc />
     public async Task<bool> ClearAsync(
         ulong guildId,
@@ -156,5 +136,25 @@ internal sealed class ClanStore(BotDbContext db, TimeProvider timeProvider) : IC
                 },
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static void Apply(ClanState row, ulong guildId, ClanSnapshot snapshot, DateTimeOffset seenAt)
+    {
+        row.GuildId = guildId;
+        row.ClanId = snapshot.ClanId;
+        row.Name = snapshot.Name;
+        row.Created = snapshot.Created;
+        row.Creator = snapshot.Creator;
+        row.Motd = snapshot.Motd;
+        row.MotdTimestamp = snapshot.MotdTimestamp;
+        row.MotdAuthor = snapshot.MotdAuthor;
+        row.LogoHash = snapshot.LogoHash;
+        row.Color = snapshot.Color;
+        row.MaxMemberCount = snapshot.MaxMemberCount;
+        row.Score = snapshot.Score;
+        row.RolesJson = ClanSnapshotSerializer.Serialize(snapshot.Roles);
+        row.MembersJson = ClanSnapshotSerializer.Serialize(snapshot.Members);
+        row.InvitesJson = ClanSnapshotSerializer.Serialize(snapshot.Invites);
+        row.LastSeenUtc = seenAt;
     }
 }

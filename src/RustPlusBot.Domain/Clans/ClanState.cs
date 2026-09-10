@@ -8,9 +8,6 @@ namespace RustPlusBot.Domain.Clans;
 /// </summary>
 public sealed class ClanState : IGuildScoped
 {
-    /// <summary>The owning guild snowflake.</summary>
-    public ulong GuildId { get; set; }
-
     /// <summary>The server id (FK to RustServer; primary key, one row per server).</summary>
     public Guid ServerId { get; set; }
 
@@ -58,4 +55,7 @@ public sealed class ClanState : IGuildScoped
 
     /// <summary>When this snapshot was last confirmed (UTC).</summary>
     public DateTimeOffset LastSeenUtc { get; set; }
+
+    /// <summary>The owning guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 }

@@ -11,9 +11,6 @@ public sealed class PlayerCredential : IGuildScoped
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    /// <summary>The owning Discord guild snowflake.</summary>
-    public ulong GuildId { get; set; }
-
     /// <summary>The server this credential can connect to.</summary>
     public Guid RustServerId { get; set; }
 
@@ -28,4 +25,7 @@ public sealed class PlayerCredential : IGuildScoped
 
     /// <summary>Pool lifecycle state.</summary>
     public CredentialStatus Status { get; set; } = CredentialStatus.Standby;
+
+    /// <summary>The owning Discord guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 }

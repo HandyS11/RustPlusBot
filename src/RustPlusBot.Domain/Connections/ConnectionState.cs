@@ -8,9 +8,6 @@ public sealed class ConnectionState : IGuildScoped, IUpdatedAt
     /// <summary>The server this state belongs to (primary key, one row per server).</summary>
     public Guid RustServerId { get; set; }
 
-    /// <summary>The owning Discord guild snowflake.</summary>
-    public ulong GuildId { get; set; }
-
     /// <summary>The credential currently selected as active, if any.</summary>
     public Guid? ActiveCredentialId { get; set; }
 
@@ -19,6 +16,9 @@ public sealed class ConnectionState : IGuildScoped, IUpdatedAt
 
     /// <summary>Last heartbeat player count, or null if unknown.</summary>
     public int? PlayerCount { get; set; }
+
+    /// <summary>The owning Discord guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 
     /// <summary>When the state was last updated (UTC). Stamped by Persistord's TimestampInterceptor.</summary>
     public DateTimeOffset UpdatedAt { get; set; }

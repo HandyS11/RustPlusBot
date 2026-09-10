@@ -101,8 +101,10 @@ public sealed class ChatHostedServiceTests
         }
 
         await poster.Received()
-            .PostAsync(ChatChannelKind.Team, Arg.Any<ulong>(), TeamChannel, "dave", "hi team", Arg.Any<CancellationToken>());
-        await poster.DidNotReceive().PostAsync(ChatChannelKind.Clan, Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
+            .PostAsync(ChatChannelKind.Team, Arg.Any<ulong>(), TeamChannel, "dave", "hi team",
+                Arg.Any<CancellationToken>());
+        await poster.DidNotReceive().PostAsync(ChatChannelKind.Clan, Arg.Any<ulong>(), Arg.Any<ulong>(),
+            Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
 
         await service.StopAsync(default);
@@ -124,8 +126,10 @@ public sealed class ChatHostedServiceTests
         }
 
         await poster.Received()
-            .PostAsync(ChatChannelKind.Clan, Arg.Any<ulong>(), ClanChannel, "dave", "hi clan", Arg.Any<CancellationToken>());
-        await poster.DidNotReceive().PostAsync(ChatChannelKind.Team, Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
+            .PostAsync(ChatChannelKind.Clan, Arg.Any<ulong>(), ClanChannel, "dave", "hi clan",
+                Arg.Any<CancellationToken>());
+        await poster.DidNotReceive().PostAsync(ChatChannelKind.Team, Arg.Any<ulong>(), Arg.Any<ulong>(),
+            Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
 
         // The clan API reports members by Steam id only, so chat is the only place names are learned.
@@ -150,7 +154,8 @@ public sealed class ChatHostedServiceTests
     public async Task RelayLoop_faults_on_poster_exception_but_StopAsync_completes_cleanly()
     {
         var (service, bus, poster, _) = Build();
-        poster.PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(), Arg.Any<string>(),
+        poster.PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
+                Arg.Any<string>(),
                 Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("simulated fault"));
 
@@ -194,7 +199,8 @@ public sealed class ChatHostedServiceTests
         await service.StopAsync(default);
 
         await poster.Received()
-            .PostAsync(ChatChannelKind.Clan, Arg.Any<ulong>(), ClanChannel, "dave", "hi clan", Arg.Any<CancellationToken>());
+            .PostAsync(ChatChannelKind.Clan, Arg.Any<ulong>(), ClanChannel, "dave", "hi clan",
+                Arg.Any<CancellationToken>());
     }
 
     [Fact]

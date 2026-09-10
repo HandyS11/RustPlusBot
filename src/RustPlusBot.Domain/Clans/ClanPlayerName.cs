@@ -8,9 +8,6 @@ namespace RustPlusBot.Domain.Clans;
 /// </summary>
 public sealed class ClanPlayerName : IGuildScoped, IUpdatedAt
 {
-    /// <summary>The owning guild snowflake.</summary>
-    public ulong GuildId { get; set; }
-
     /// <summary>The server id (FK to RustServer).</summary>
     public Guid ServerId { get; set; }
 
@@ -19,6 +16,9 @@ public sealed class ClanPlayerName : IGuildScoped, IUpdatedAt
 
     /// <summary>The most recently observed display name.</summary>
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>The owning guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 
     /// <summary>When the name was last observed (UTC). Stamped by Persistord's TimestampInterceptor.</summary>
     public DateTimeOffset UpdatedAt { get; set; }
