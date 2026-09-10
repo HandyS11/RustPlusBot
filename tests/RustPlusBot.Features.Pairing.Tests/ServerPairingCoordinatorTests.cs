@@ -35,7 +35,7 @@ public sealed class ServerPairingCoordinatorTests
 
     private static Harness Create(ulong? channelId = 777UL)
     {
-        var (context, connection) = TestDb.Create();
+        var (context, database) = TestDb.Create();
 
         var workspace = Substitute.For<IWorkspaceStore>();
         workspace.GetCultureAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns("en");
@@ -61,15 +61,15 @@ public sealed class ServerPairingCoordinatorTests
             new ServerPairingPromptRenderer(new ResxLocalizer()), notifier, bus,
             NullLogger<ServerPairingCoordinator>.Instance);
 
-        return new Harness(coordinator, context, connection, locator, poster, notifier, bus);
+        return new Harness(coordinator, context, database, locator, poster, notifier, bus);
     }
 
     [Fact]
     public async Task Detected_posts_prompt_holds_pending_and_persists_nothing()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
 
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
@@ -85,8 +85,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Detected_again_while_pending_refreshes_token_and_reensures_without_duplicate()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
 
         await h.Coordinator.HandleDetectedAsync(10UL, 1UL, ServerPairing(steam: 1UL), CancellationToken.None);
         await h.Coordinator.HandleDetectedAsync(10UL, 2UL, ServerPairing(steam: 2UL), CancellationToken.None);
@@ -109,8 +109,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Repeat_detection_reensures_prompt_so_a_deleted_message_self_heals()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
 
         // First detection posts the prompt as message 900 (the Create() default).
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
@@ -137,8 +137,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Detected_without_setup_channel_notifies_owner_and_drops()
     {
         var h = Create(channelId: null);
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
 
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
@@ -153,8 +153,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Accept_persists_publishes_event_once_and_edits_prompt()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         var outcome = await h.Coordinator.TryAcceptAsync(10UL, "1.2.3.4", 28015, CancellationToken.None);
@@ -178,8 +178,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Accept_when_server_already_exists_upserts_credential_without_event()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         // Another path created the same endpoint while the prompt sat unanswered.
@@ -198,8 +198,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Accept_without_pending_returns_expired_and_persists_nothing()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
 
         var outcome = await h.Coordinator.TryAcceptAsync(10UL, "1.2.3.4", 28015, CancellationToken.None);
 
@@ -212,8 +212,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Concurrent_detections_for_same_endpoint_post_single_prompt()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
         var gate = new TaskCompletionSource<ulong?>(TaskCreationOptions.RunContinuationsAsynchronously);
         h.Poster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
                 Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
@@ -237,8 +237,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Detected_with_failed_prompt_post_drops_pending_and_repair_retries()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
         h.Poster.EnsureAsync(Arg.Any<ulong>(), Arg.Any<ulong?>(), Arg.Any<global::Discord.Embed>(),
                 Arg.Any<global::Discord.MessageComponent>(), Arg.Any<CancellationToken>())
             .Returns((ulong?)null);
@@ -264,8 +264,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Accept_without_setup_channel_still_persists_and_skips_edit()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         h.Locator.GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<CancellationToken>()).Returns((ulong?)null);
@@ -290,8 +290,8 @@ public sealed class ServerPairingCoordinatorTests
     public async Task Dismiss_clears_pending_once()
     {
         var h = Create();
-        await using var _ = h.Context;
-        await using var __ = h.Database;
+        await using var _ = h.Database;
+        await using var __ = h.Context;
         await h.Coordinator.HandleDetectedAsync(10UL, 99UL, ServerPairing(), CancellationToken.None);
 
         Assert.True(h.Coordinator.TryDismiss(10UL, "1.2.3.4", 28015));

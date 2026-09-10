@@ -9,9 +9,9 @@ public sealed class ServerCommandSettingsSchemaTests
     [Fact]
     public async Task ServerCommandSettings_RoundTrips_PrefixAndMuted()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -34,9 +34,9 @@ public sealed class ServerCommandSettingsSchemaTests
     [Fact]
     public async Task RemovingServer_CascadeDeletesItsCommandSettings()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {

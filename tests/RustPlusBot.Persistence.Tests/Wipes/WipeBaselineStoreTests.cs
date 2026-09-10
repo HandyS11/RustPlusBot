@@ -9,8 +9,8 @@ public sealed class WipeBaselineStoreTests
 {
     private static (WipeBaselineStore Store, BotDbContext Context, SqliteTestDatabase Db) Create()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        return (new WipeBaselineStore(context), context, connection);
+        var (context, database) = SqliteContextFixture.Create();
+        return (new WipeBaselineStore(context), context, database);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context)

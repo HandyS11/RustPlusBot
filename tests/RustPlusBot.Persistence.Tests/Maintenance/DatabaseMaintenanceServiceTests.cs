@@ -11,9 +11,9 @@ public sealed class DatabaseMaintenanceServiceTests
     [Fact]
     public async Task ClearAllAsync_EmptiesEveryTable_AndKeepsSchema()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var serverA = new RustServer
         {

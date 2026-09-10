@@ -7,9 +7,9 @@ public sealed class WorkspaceStoreTests
 {
     private static WorkspaceStore NewStore(out BotDbContext context, out IDisposable cleanup)
     {
-        var (ctx, connection) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+        var (ctx, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
         context = ctx;
-        cleanup = connection;
+        cleanup = database;
         return new WorkspaceStore(ctx);
     }
 

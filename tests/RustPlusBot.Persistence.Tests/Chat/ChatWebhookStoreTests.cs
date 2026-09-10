@@ -26,8 +26,8 @@ public sealed class ChatWebhookStoreTests
     public async Task Save_then_Get_round_trips_the_webhook_and_stores_the_token_protected()
     {
         var (context, database) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = database;
+        await using var _ = database;
+        await using var __ = context;
         var store = new ChatWebhookStore(context, PrefixingProtector());
 
         await store.SaveAsync(Guild, Channel, Key, 4242UL, "s3cret");
@@ -47,8 +47,8 @@ public sealed class ChatWebhookStoreTests
     public async Task Get_returns_null_when_nothing_was_recorded()
     {
         var (context, database) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = database;
+        await using var _ = database;
+        await using var __ = context;
         var store = new ChatWebhookStore(context, PrefixingProtector());
 
         Assert.Null(await store.GetAsync(Guild, Channel, Key));
@@ -62,8 +62,8 @@ public sealed class ChatWebhookStoreTests
     public async Task Saving_again_replaces_the_recorded_webhook()
     {
         var (context, database) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = database;
+        await using var _ = database;
+        await using var __ = context;
         var store = new ChatWebhookStore(context, PrefixingProtector());
 
         await store.SaveAsync(Guild, Channel, Key, 1UL, "first");
@@ -79,8 +79,8 @@ public sealed class ChatWebhookStoreTests
     public async Task Records_are_kept_apart_per_channel_and_per_kind()
     {
         var (context, database) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = database;
+        await using var _ = database;
+        await using var __ = context;
         var store = new ChatWebhookStore(context, PrefixingProtector());
 
         await store.SaveAsync(Guild, Channel, Key, 1UL, "team");
@@ -98,8 +98,8 @@ public sealed class ChatWebhookStoreTests
     public async Task Forget_drops_only_that_record()
     {
         var (context, database) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = database;
+        await using var _ = database;
+        await using var __ = context;
         var store = new ChatWebhookStore(context, PrefixingProtector());
 
         await store.SaveAsync(Guild, Channel, Key, 1UL, "team");
@@ -120,8 +120,8 @@ public sealed class ChatWebhookStoreTests
     public async Task An_unreadable_token_reports_no_record_and_drops_it()
     {
         var (context, database) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = database;
+        await using var _ = database;
+        await using var __ = context;
 
         var protector = Substitute.For<ICredentialProtector>();
         protector.Protect(Arg.Any<string>()).Returns(call => call.Arg<string>());
@@ -142,8 +142,8 @@ public sealed class ChatWebhookStoreTests
     public async Task Recorded_webhooks_are_stamped_and_guild_scoped()
     {
         var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
-        await using var _ = context;
-        await using var __ = database;
+        await using var _ = database;
+        await using var __ = context;
         var store = new ChatWebhookStore(context, PrefixingProtector());
 
         await store.SaveAsync(Guild, Channel, Key, 1UL, "team");

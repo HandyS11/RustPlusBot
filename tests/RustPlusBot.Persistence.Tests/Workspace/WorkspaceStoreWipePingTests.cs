@@ -8,8 +8,8 @@ public sealed class WorkspaceStoreWipePingTests
     [Fact]
     public async Task Ping_defaults_false_without_settings_row()
     {
-        var (context, connection) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+        await using var _ = database;
         await using var __ = context;
         var store = new WorkspaceStore(context);
 
@@ -19,8 +19,8 @@ public sealed class WorkspaceStoreWipePingTests
     [Fact]
     public async Task Set_true_then_get_round_trips_and_upserts_row()
     {
-        var (context, connection) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+        await using var _ = database;
         await using var __ = context;
         var store = new WorkspaceStore(context);
 
@@ -34,8 +34,8 @@ public sealed class WorkspaceStoreWipePingTests
     [Fact]
     public async Task Set_preserves_existing_culture()
     {
-        var (context, connection) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+        await using var _ = database;
         await using var __ = context;
         var store = new WorkspaceStore(context);
         await store.SetCultureAsync(10UL, "fr");

@@ -9,9 +9,9 @@ public sealed class SmartAlarmSchemaTests
     [Fact]
     public async Task RemovingServer_CascadeDeletesAlarms()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -39,9 +39,9 @@ public sealed class SmartAlarmSchemaTests
     [Fact]
     public async Task DuplicateEntityForSameServer_IsRejected()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {

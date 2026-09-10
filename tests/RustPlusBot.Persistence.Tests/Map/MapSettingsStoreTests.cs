@@ -20,9 +20,9 @@ public sealed class MapSettingsStoreTests
     [Fact]
     public async Task GetAsync_returns_all_on_when_no_row()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var result = await new MapSettingsStore(context).GetAsync(1UL, Guid.NewGuid());
 
@@ -32,9 +32,9 @@ public sealed class MapSettingsStoreTests
     [Fact]
     public async Task SetLayerAsync_creates_row_and_disables_one_layer_only()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var server = SeedServer(context);
 
         await new MapSettingsStore(context).SetLayerAsync(1UL, server.Id, MapLayer.Monuments, enabled: false);
@@ -51,9 +51,9 @@ public sealed class MapSettingsStoreTests
     [Fact]
     public async Task SetLayerAsync_updates_existing_row()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var server = SeedServer(context);
         var store = new MapSettingsStore(context);
 
@@ -67,9 +67,9 @@ public sealed class MapSettingsStoreTests
     [Fact]
     public async Task SetLayerAsync_can_disable_tunnels_only()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var server = SeedServer(context);
 
         await new MapSettingsStore(context).SetLayerAsync(1UL, server.Id, MapLayer.Tunnels, enabled: false);
@@ -82,9 +82,9 @@ public sealed class MapSettingsStoreTests
     [Fact]
     public async Task GridStyle_defaults_to_in_game()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var result = await new MapSettingsStore(context).GetAsync(1UL, Guid.NewGuid());
 
@@ -94,9 +94,9 @@ public sealed class MapSettingsStoreTests
     [Fact]
     public async Task SetGridStyleAsync_creates_row_and_round_trips()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var server = SeedServer(context);
         var store = new MapSettingsStore(context);
 
@@ -110,9 +110,9 @@ public sealed class MapSettingsStoreTests
     [Fact]
     public async Task SetGridStyleAsync_keeps_existing_layer_toggles()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var server = SeedServer(context);
         var store = new MapSettingsStore(context);
 

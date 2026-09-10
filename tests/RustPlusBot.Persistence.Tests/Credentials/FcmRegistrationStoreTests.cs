@@ -20,9 +20,9 @@ public sealed class FcmRegistrationStoreTests
     [Fact]
     public async Task Upsert_StoresProtectedAndActive()
     {
-        var (context, connection) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
         var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         var id = await store.UpsertAsync(10UL, 99UL, "{\"a\":1}");
@@ -37,9 +37,9 @@ public sealed class FcmRegistrationStoreTests
     [Fact]
     public async Task Upsert_SameOwner_RefreshesAndReactivates()
     {
-        var (context, connection) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
         var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         var id = await store.UpsertAsync(10UL, 99UL, "old");
@@ -56,9 +56,9 @@ public sealed class FcmRegistrationStoreTests
     [Fact]
     public async Task ListActive_ReturnsOnlyActiveAcrossGuilds()
     {
-        var (context, connection) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
         var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         await store.UpsertAsync(10UL, 1UL, "a");
@@ -75,9 +75,9 @@ public sealed class FcmRegistrationStoreTests
     [Fact]
     public async Task SetStatus_UpdatesStatusAndTimestamp()
     {
-        var (context, connection) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
         var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         var id = await store.UpsertAsync(10UL, 99UL, "a");
@@ -91,9 +91,9 @@ public sealed class FcmRegistrationStoreTests
     [Fact]
     public async Task Get_ReturnsRegistrationForOwner_OrNull()
     {
-        var (context, connection) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
         var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         await store.UpsertAsync(10UL, 99UL, "a");

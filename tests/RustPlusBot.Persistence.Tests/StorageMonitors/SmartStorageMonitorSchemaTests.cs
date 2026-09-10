@@ -9,8 +9,8 @@ public sealed class SmartStorageMonitorSchemaTests
     [Fact]
     public async Task SmartStorageMonitor_round_trips_through_sqlite()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
         await using var __ = context;
 
         var server = new RustServer
@@ -41,8 +41,8 @@ public sealed class SmartStorageMonitorSchemaTests
     [Fact]
     public async Task SmartStorageMonitor_cascades_when_server_removed()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
         await using var __ = context;
 
         var server = new RustServer
@@ -70,8 +70,8 @@ public sealed class SmartStorageMonitorSchemaTests
     [Fact]
     public async Task SmartStorageMonitor_unique_index_rejects_duplicate_entity()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
         await using var __ = context;
 
         var server = new RustServer

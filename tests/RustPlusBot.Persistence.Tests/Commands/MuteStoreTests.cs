@@ -8,8 +8,8 @@ public sealed class MuteStoreTests
 {
     private static (MuteStore Store, BotDbContext Context, SqliteTestDatabase Db) Create()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        return (new MuteStore(context), context, connection);
+        var (context, database) = SqliteContextFixture.Create();
+        return (new MuteStore(context), context, database);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context)

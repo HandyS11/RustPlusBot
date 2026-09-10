@@ -30,9 +30,9 @@ public sealed class CredentialStoreTests
     [Fact]
     public async Task UpsertFromPairing_FirstCredentialForServer_IsActiveAndProtected()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var serverId = await SeedServerAsync(context, 10UL);
         var protector = PassThroughProtector();
         var store = new CredentialStore(context, protector);
@@ -51,9 +51,9 @@ public sealed class CredentialStoreTests
     [Fact]
     public async Task UpsertFromPairing_SecondOwnerForServer_IsStandby()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var serverId = await SeedServerAsync(context, 10UL);
         var store = new CredentialStore(context, PassThroughProtector());
 
@@ -70,9 +70,9 @@ public sealed class CredentialStoreTests
     [Fact]
     public async Task UpsertFromPairing_SameOwnerAgain_RefreshesTokenAndResetsInvalid()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var serverId = await SeedServerAsync(context, 10UL);
         var store = new CredentialStore(context, PassThroughProtector());
 
@@ -94,9 +94,9 @@ public sealed class CredentialStoreTests
     [Fact]
     public async Task CountForServer_CountsOnlyMatchingGuildAndServer()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var serverA = await SeedServerAsync(context, 10UL);
         var serverB = await SeedServerAsync(context, 10UL, port: 28016);
         var serverAGuild20 = await SeedServerAsync(context, 20UL);
@@ -117,9 +117,9 @@ public sealed class CredentialStoreTests
     [Fact]
     public async Task RemoveForOwner_RemovesOwnersCredsAcrossServers_ReturnsDistinctServerIds_LeavesOthers()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var serverA = await SeedServerAsync(context, 10UL);
         var serverB = await SeedServerAsync(context, 10UL, port: 28016);
         var store = new CredentialStore(context, PassThroughProtector());
@@ -147,9 +147,9 @@ public sealed class CredentialStoreTests
     [Fact]
     public async Task RemoveForOwner_WhenNothingOwned_ReturnsEmpty()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         await SeedServerAsync(context, 10UL);
         var store = new CredentialStore(context, PassThroughProtector());
 
@@ -161,9 +161,9 @@ public sealed class CredentialStoreTests
     [Fact]
     public async Task ListServerIdsForOwner_ReturnsDistinctServers()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var serverA = await SeedServerAsync(context, 10UL);
         var serverB = await SeedServerAsync(context, 10UL, port: 28016);
         var store = new CredentialStore(context, PassThroughProtector());

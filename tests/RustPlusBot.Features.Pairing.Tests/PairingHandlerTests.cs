@@ -64,9 +64,9 @@ public sealed class PairingHandlerTests
     [Fact]
     public async Task NewServerPairing_RoutesToCoordinator_PersistsNothing()
     {
-        var (context, connection) = TestDb.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = TestDb.Create();
+        await using var _ = database;
+        await using var __ = context;
         var bus = Substitute.For<IEventBus>();
         var (handler, coordinator) = CreateHandler(context, bus);
 
@@ -82,9 +82,9 @@ public sealed class PairingHandlerTests
     [Fact]
     public async Task ExistingServerPairing_AddsStandbyCredential_NoEventNoPrompt()
     {
-        var (context, connection) = TestDb.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = TestDb.Create();
+        await using var _ = database;
+        await using var __ = context;
         var bus = Substitute.For<IEventBus>();
         var (handler, coordinator) = CreateHandler(context, bus);
         await SeedServerAsync(context);
@@ -102,9 +102,9 @@ public sealed class PairingHandlerTests
     [Fact]
     public async Task ExistingServerPairing_BackfillsFacepunchServerId()
     {
-        var (context, connection) = TestDb.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = TestDb.Create();
+        await using var _ = database;
+        await using var __ = context;
         var bus = Substitute.For<IEventBus>();
         var (handler, _) = CreateHandler(context, bus);
         await SeedServerAsync(context); // no Facepunch id yet
@@ -118,9 +118,9 @@ public sealed class PairingHandlerTests
     [Fact]
     public async Task EntityPairing_KnownServer_PublishesSwitchPairedEvent()
     {
-        var (context, connection) = TestDb.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = TestDb.Create();
+        await using var _ = database;
+        await using var __ = context;
         var bus = Substitute.For<IEventBus>();
         var (handler, _) = CreateHandler(context, bus);
         var server = await SeedServerAsync(context, FpServer);
@@ -135,9 +135,9 @@ public sealed class PairingHandlerTests
     [Fact]
     public async Task EntityPairing_UnknownServer_DropsAndCreatesNothing()
     {
-        var (context, connection) = TestDb.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = TestDb.Create();
+        await using var _ = database;
+        await using var __ = context;
         var bus = Substitute.For<IEventBus>();
         var (handler, _) = CreateHandler(context, bus);
 
@@ -150,9 +150,9 @@ public sealed class PairingHandlerTests
     [Fact]
     public async Task EntityPairing_Alarm_PublishesAlarmPairedEvent_NotSwitch()
     {
-        var (context, connection) = TestDb.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = TestDb.Create();
+        await using var _ = database;
+        await using var __ = context;
         var bus = Substitute.For<IEventBus>();
         var (handler, _) = CreateHandler(context, bus);
         var server = await SeedServerAsync(context, FpServer);
@@ -168,9 +168,9 @@ public sealed class PairingHandlerTests
     [Fact]
     public async Task EntityPairing_StorageMonitor_PublishesStorageMonitorPairedEvent_NotSwitch()
     {
-        var (context, connection) = TestDb.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = TestDb.Create();
+        await using var _ = database;
+        await using var __ = context;
         var bus = Substitute.For<IEventBus>();
         var (handler, _) = CreateHandler(context, bus);
         var server = await SeedServerAsync(context, FpServer);

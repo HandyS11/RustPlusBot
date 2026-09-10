@@ -8,9 +8,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task AddAsync_PersistsServerScopedToGuild()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
 
         var server = await service.AddAsync(10UL, 99UL, "Main", "127.0.0.1", 28082);
@@ -24,9 +24,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task ListAsync_DoesNotLeakAcrossGuilds()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
 
         await service.AddAsync(10UL, 1UL, "A", "1.1.1.1", 1);
@@ -40,9 +40,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task RemoveAsync_OnlyRemovesWithinGuild()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
 
         var server = await service.AddAsync(10UL, 1UL, "A", "1.1.1.1", 1);
@@ -55,9 +55,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task ResolveOrCreateByEndpoint_CreatesWhenNew()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
 
         var (server, created) = await service.ResolveOrCreateByEndpointAsync(10UL, 99UL, "Main", "1.2.3.4", 28015);
@@ -70,9 +70,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task ResolveOrCreateByEndpoint_ReturnsExistingForSameEndpoint()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
 
         var (Server, Created) = await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "Main", "1.2.3.4", 28015);
@@ -87,9 +87,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task ResolveOrCreateByEndpoint_DifferentPortIsDistinct()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
 
         await service.ResolveOrCreateByEndpointAsync(10UL, 1UL, "A", "1.2.3.4", 28015);
@@ -101,9 +101,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task GetByEndpoint_returns_existing_server()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
         var server = new RustServer
         {
@@ -121,9 +121,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task GetByEndpoint_returns_null_for_unknown_endpoint()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
 
         Assert.Null(await service.GetByEndpointAsync(10UL, "9.9.9.9", 28015));
@@ -132,9 +132,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task GetByFacepunchServerId_returns_matching_server()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
         var fp = Guid.NewGuid();
         var server = new RustServer
@@ -158,9 +158,9 @@ public sealed class ServerServiceTests
     [Fact]
     public async Task SetFacepunchServerId_backfills_then_is_idempotent()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
         var service = new ServerService(context);
         var server = new RustServer
         {

@@ -9,9 +9,9 @@ public sealed class PairingSchemaTests
     [Fact]
     public async Task RemovingServer_CascadeDeletesItsCredentials()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -38,9 +38,9 @@ public sealed class PairingSchemaTests
     [Fact]
     public async Task DuplicateServerEndpoint_ViolatesUniqueIndex()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         context.RustServers.Add(new RustServer
         {
@@ -57,9 +57,9 @@ public sealed class PairingSchemaTests
     [Fact]
     public async Task DuplicateRegistrationForOwner_ViolatesUniqueIndex()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         context.FcmRegistrations.Add(new FcmRegistration
         {
