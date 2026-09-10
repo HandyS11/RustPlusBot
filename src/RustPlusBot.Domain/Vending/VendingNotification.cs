@@ -1,3 +1,5 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Vending;
 
 /// <summary>
@@ -5,13 +7,10 @@ namespace RustPlusBot.Domain.Vending;
 /// "did the owner reprice" is answerable without a second poll — an owner reprice deletes the message,
 /// whereas a rival's move only edits it.
 /// </summary>
-public sealed class VendingNotification
+public sealed class VendingNotification : IGuildScoped
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
-
-    /// <summary>The owning Discord guild snowflake.</summary>
-    public ulong GuildId { get; set; }
 
     /// <summary>The server this notification belongs to (FK to RustServer, cascade delete).</summary>
     public Guid ServerId { get; set; }
@@ -39,4 +38,7 @@ public sealed class VendingNotification
 
     /// <summary>When the message was posted (UTC).</summary>
     public DateTimeOffset PostedUtc { get; set; }
+
+    /// <summary>The owning Discord guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 }

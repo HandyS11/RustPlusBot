@@ -9,8 +9,8 @@ public sealed class SmartSwitchSchemaTests
     [Fact]
     public async Task SmartSwitch_round_trips_through_sqlite()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
         await using var __ = context;
 
         var server = new RustServer
@@ -28,7 +28,7 @@ public sealed class SmartSwitchSchemaTests
             Name = "Switch 42",
             PairedByUserId = 7UL,
             LastIsActive = true,
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         };
         context.Set<SmartSwitch>().Add(entity);
         await context.SaveChangesAsync();
@@ -43,8 +43,8 @@ public sealed class SmartSwitchSchemaTests
     [Fact]
     public async Task SmartSwitch_cascades_when_server_removed()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
         await using var __ = context;
 
         var server = new RustServer
@@ -59,7 +59,7 @@ public sealed class SmartSwitchSchemaTests
             ServerId = server.Id,
             EntityId = 42UL,
             Name = "Switch 42",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
         await context.SaveChangesAsync();
 
@@ -72,8 +72,8 @@ public sealed class SmartSwitchSchemaTests
     [Fact]
     public async Task SmartSwitch_unique_index_rejects_duplicate_entity()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
         await using var __ = context;
 
         var server = new RustServer
@@ -88,7 +88,7 @@ public sealed class SmartSwitchSchemaTests
             ServerId = server.Id,
             EntityId = 42UL,
             Name = "A",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
         context.Set<SmartSwitch>().Add(new SmartSwitch
         {
@@ -96,7 +96,7 @@ public sealed class SmartSwitchSchemaTests
             ServerId = server.Id,
             EntityId = 42UL,
             Name = "B",
-            CreatedUtc = DateTimeOffset.UnixEpoch,
+            CreatedAt = DateTimeOffset.UnixEpoch,
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());

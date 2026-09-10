@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Persistord.Core;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Domain.Credentials;
 
@@ -17,39 +18,31 @@ public sealed class CredentialStore(BotDbContext context, ICredentialProtector p
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var existing = await context.PlayerCredentials
-            .SingleOrDefaultAsync(
+        // A resubmitted token revives an Invalid credential as Standby rather than promoting it: only
+        // a brand-new credential honours markActive, which is why that lives in the create branch.
+        var credential = await context.PlayerCredentials.UpsertAsync(
                 c => c.GuildId == request.GuildId
                      && c.RustServerId == request.RustServerId
                      && c.OwnerUserId == request.OwnerUserId,
+                () => new PlayerCredential
+                {
+                    GuildId = request.GuildId,
+                    RustServerId = request.RustServerId,
+                    OwnerUserId = request.OwnerUserId,
+                    Status = markActive ? CredentialStatus.Active : CredentialStatus.Standby,
+                },
+                row =>
+                {
+                    row.SteamId = request.SteamId;
+                    row.ProtectedPlayerToken = protector.Protect(request.PlayerToken);
+                    if (row.Status == CredentialStatus.Invalid)
+                    {
+                        row.Status = CredentialStatus.Standby;
+                    }
+                },
                 cancellationToken)
             .ConfigureAwait(false);
 
-        if (existing is not null)
-        {
-            existing.SteamId = request.SteamId;
-            existing.ProtectedPlayerToken = protector.Protect(request.PlayerToken);
-            if (existing.Status == CredentialStatus.Invalid)
-            {
-                existing.Status = CredentialStatus.Standby;
-            }
-
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            return existing.Id;
-        }
-
-        var credential = new PlayerCredential
-        {
-            GuildId = request.GuildId,
-            RustServerId = request.RustServerId,
-            OwnerUserId = request.OwnerUserId,
-            SteamId = request.SteamId,
-            ProtectedPlayerToken = protector.Protect(request.PlayerToken),
-            Status = markActive ? CredentialStatus.Active : CredentialStatus.Standby,
-        };
-
-        context.PlayerCredentials.Add(credential);
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return credential.Id;
     }
 

@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Persistord.Core;
 using RustPlusBot.Abstractions.Credentials;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Credentials;
 
 namespace RustPlusBot.Persistence.Credentials;
@@ -8,8 +8,7 @@ namespace RustPlusBot.Persistence.Credentials;
 /// <summary>EF-backed <see cref="IFcmRegistrationStore"/> that protects credentials before persisting.</summary>
 /// <param name="context">The bot database context.</param>
 /// <param name="protector">Protects credential material before it is written.</param>
-/// <param name="clock">Supplies the update timestamp.</param>
-public sealed class FcmRegistrationStore(BotDbContext context, ICredentialProtector protector, IClock clock)
+public sealed class FcmRegistrationStore(BotDbContext context, ICredentialProtector protector)
     : IFcmRegistrationStore
 {
     /// <inheritdoc />
@@ -21,47 +20,23 @@ public sealed class FcmRegistrationStore(BotDbContext context, ICredentialProtec
     {
         ArgumentNullException.ThrowIfNull(fcmCredentialsJson);
 
-        var existing = await context.FcmRegistrations
-            .SingleOrDefaultAsync(r => r.GuildId == guildId && r.OwnerUserId == ownerUserId, cancellationToken)
+        // Persistord's upsert owns the (guild, owner) unique-index race: it re-reads the winner once
+        // and applies the same mutation to it. UpdatedAt is stamped by the TimestampInterceptor.
+        var registration = await context.FcmRegistrations.UpsertAsync(
+                r => r.GuildId == guildId && r.OwnerUserId == ownerUserId,
+                () => new FcmRegistration
+                {
+                    GuildId = guildId, OwnerUserId = ownerUserId
+                },
+                row =>
+                {
+                    row.ProtectedFcmCredentials = protector.Protect(fcmCredentialsJson);
+                    row.Status = FcmRegistrationStatus.Active;
+                },
+                cancellationToken)
             .ConfigureAwait(false);
 
-        if (existing is not null)
-        {
-            existing.ProtectedFcmCredentials = protector.Protect(fcmCredentialsJson);
-            existing.Status = FcmRegistrationStatus.Active;
-            existing.UpdatedAt = clock.UtcNow;
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            return existing.Id;
-        }
-
-        var registration = new FcmRegistration
-        {
-            GuildId = guildId,
-            OwnerUserId = ownerUserId,
-            ProtectedFcmCredentials = protector.Protect(fcmCredentialsJson),
-            Status = FcmRegistrationStatus.Active,
-            UpdatedAt = clock.UtcNow,
-        };
-
-        context.FcmRegistrations.Add(registration);
-        try
-        {
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            return registration.Id;
-        }
-        catch (DbUpdateException)
-        {
-            // A concurrent submission for the same (guild, owner) won the unique-index race; update the winner.
-            context.Entry(registration).State = EntityState.Detached;
-            var winner = await context.FcmRegistrations
-                .SingleAsync(r => r.GuildId == guildId && r.OwnerUserId == ownerUserId, cancellationToken)
-                .ConfigureAwait(false);
-            winner.ProtectedFcmCredentials = protector.Protect(fcmCredentialsJson);
-            winner.Status = FcmRegistrationStatus.Active;
-            winner.UpdatedAt = clock.UtcNow;
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            return winner.Id;
-        }
+        return registration.Id;
     }
 
     /// <inheritdoc />
@@ -86,7 +61,6 @@ public sealed class FcmRegistrationStore(BotDbContext context, ICredentialProtec
         }
 
         registration.Status = status;
-        registration.UpdatedAt = clock.UtcNow;
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 

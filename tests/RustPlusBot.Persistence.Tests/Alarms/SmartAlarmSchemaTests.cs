@@ -9,9 +9,9 @@ public sealed class SmartAlarmSchemaTests
     [Fact]
     public async Task RemovingServer_CascadeDeletesAlarms()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -26,7 +26,7 @@ public sealed class SmartAlarmSchemaTests
             ServerId = server.Id,
             EntityId = 42UL,
             Name = "Alarm 42",
-            CreatedUtc = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
         });
         await context.SaveChangesAsync();
 
@@ -39,9 +39,9 @@ public sealed class SmartAlarmSchemaTests
     [Fact]
     public async Task DuplicateEntityForSameServer_IsRejected()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -56,7 +56,7 @@ public sealed class SmartAlarmSchemaTests
             ServerId = server.Id,
             EntityId = 7UL,
             Name = "a",
-            CreatedUtc = DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow
         });
         await context.SaveChangesAsync();
         context.SmartAlarms.Add(new SmartAlarm
@@ -65,7 +65,7 @@ public sealed class SmartAlarmSchemaTests
             ServerId = server.Id,
             EntityId = 7UL,
             Name = "b",
-            CreatedUtc = DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());

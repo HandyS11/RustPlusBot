@@ -1,7 +1,6 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
-using RustPlusBot.Abstractions.Time;
+using Persistord.Testing;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Features.Workspace.Gateway;
@@ -99,12 +98,8 @@ public sealed class ServerPurgeServiceTests
     [Fact]
     public async Task PurgeServer_DeletesTheDiscordChannels_EvenThoughTheRecordsCascadeWithTheRow()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-        await using var _ = connection;
-        var options = new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connection).Options;
-        await using var context = new BotDbContext(options);
-        await context.Database.MigrateAsync();
+        await using var database = SqliteTestDatabase.Private();
+        await using var context = database.CreateContext<BotDbContext>(options => new BotDbContext(options));
 
         var server = new RustServer
         {
@@ -126,10 +121,8 @@ public sealed class ServerPurgeServiceTests
         await context.SaveChangesAsync();
 
         var gateway = Substitute.For<IWorkspaceGateway>();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
         var provisioningLock = new ProvisioningLock();
-        var teardown = new WorkspaceTeardownService(gateway, new WorkspaceStore(context, clock), provisioningLock);
+        var teardown = new WorkspaceTeardownService(gateway, new WorkspaceStore(context), provisioningLock);
         var sut = new ServerPurgeService(new ServerService(context), teardown, provisioningLock);
 
         var removed = await sut.RemoveServerAsync(GuildId, server.Id);

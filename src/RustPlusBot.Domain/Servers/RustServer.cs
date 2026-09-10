@@ -1,13 +1,12 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Servers;
 
 /// <summary>A Rust+ server target bound to a Discord guild. Guild-scoped.</summary>
-public sealed class RustServer
+public sealed class RustServer : IGuildScoped
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
-
-    /// <summary>The owning Discord guild snowflake.</summary>
-    public ulong GuildId { get; set; }
 
     /// <summary>Display name shown in Discord.</summary>
     public string Name { get; set; } = string.Empty;
@@ -32,4 +31,7 @@ public sealed class RustServer
 
     /// <summary>Baseline: the last observed world size (game units), or null before first observation.</summary>
     public uint? LastMapSize { get; set; }
+
+    /// <summary>The owning Discord guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 }

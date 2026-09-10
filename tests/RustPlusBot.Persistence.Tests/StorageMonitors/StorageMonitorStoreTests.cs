@@ -1,7 +1,5 @@
-using Microsoft.Data.Sqlite;
-using NSubstitute;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.StorageMonitors;
 
@@ -9,12 +7,10 @@ namespace RustPlusBot.Persistence.Tests.StorageMonitors;
 
 public sealed class StorageMonitorStoreTests
 {
-    private static (StorageMonitorStore Store, BotDbContext Context, SqliteConnection Conn) Create()
+    private static (StorageMonitorStore Store, BotDbContext Context, SqliteTestDatabase Db) Create()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
-        return (new StorageMonitorStore(context, clock), context, connection);
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(DateTimeOffset.UnixEpoch));
+        return (new StorageMonitorStore(context), context, database);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context, string ip = "1.1.1.1", string name = "S")
@@ -43,7 +39,7 @@ public sealed class StorageMonitorStoreTests
         Assert.Equal(added.Id, loaded.Id);
         Assert.Equal("Box", loaded.Name);
         Assert.Equal(5UL, loaded.PairedByUserId);
-        Assert.Equal(DateTimeOffset.UnixEpoch, loaded.CreatedUtc);
+        Assert.Equal(DateTimeOffset.UnixEpoch, loaded.CreatedAt);
     }
 
     [Fact]
@@ -79,7 +75,7 @@ public sealed class StorageMonitorStoreTests
     }
 
     [Fact]
-    public async Task ListByServer_returns_only_that_server_ordered_by_CreatedUtc()
+    public async Task ListByServer_returns_only_that_server_ordered_by_CreatedAt()
     {
         var (store, context, conn) = Create();
         await using var _ = conn;

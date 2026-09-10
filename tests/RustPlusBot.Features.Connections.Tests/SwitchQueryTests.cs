@@ -1,8 +1,8 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Abstractions.Events;
@@ -41,15 +41,14 @@ public sealed class SwitchQueryTests
         services.AddSingleton(dm);
         services.AddSingleton<IEventBus>(bus);
 
-        var cs = $"DataSource=switchquery-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        var keepAlive = new SqliteConnection(cs);
-        keepAlive.Open();
-        using (var seed = new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options))
-        {
-            seed.Database.Migrate();
-        }
+        // One shared-cache in-memory database several connections can open independently, so a
+        // background loop and the test never run concurrent commands on one connection. Creating
+        // the first context is what applies the migrations.
+        var database = SqliteTestDatabase.Shared();
+        var cs = database.ConnectionString;
+        database.CreateContext<BotDbContext>(options => new BotDbContext(options)).Dispose();
 
-        services.AddSingleton(keepAlive);
+        services.AddSingleton(database);
         services.AddScoped(_ => new BotDbContext(new DbContextOptionsBuilder<BotDbContext>().UseSqlite(cs).Options));
         services.AddScoped<IConnectionStore, ConnectionStore>();
         services.AddScoped<IServerService, ServerService>();

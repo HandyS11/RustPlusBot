@@ -17,109 +17,47 @@ namespace RustPlusBot.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
 
-            modelBuilder.Entity("Persistord.Core.Entities.ChannelEntity", b =>
+            modelBuilder.Entity("Persistord.Managed.Entities.ManagedWebhook", b =>
                 {
                     b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ChannelDiscordId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("DiscordId")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("GuildId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Token")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("ParentId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GuildId");
-
-                    b.HasIndex("ParentId");
-
-                    b.ToTable("Channels");
-                });
-
-            modelBuilder.Entity("Persistord.Core.Entities.GuildEntity", b =>
-                {
-                    b.Property<long>("Id")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("OwnerId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Guilds");
-                });
-
-            modelBuilder.Entity("Persistord.Core.Entities.MemberEntity", b =>
-                {
-                    b.Property<long>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("UserId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset?>("JoinedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Nickname")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("GuildId", "UserId");
-
-                    b.ToTable("Members");
-                });
-
-            modelBuilder.Entity("Persistord.Core.Entities.RoleEntity", b =>
-                {
-                    b.Property<long>("Id")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Color")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("Permissions")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GuildId");
-
-                    b.ToTable("Roles");
-                });
-
-            modelBuilder.Entity("Persistord.Core.Entities.UserEntity", b =>
-                {
-                    b.Property<long>("Id")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("GlobalName")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
+                    b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users");
+                    b.HasIndex("GuildId", "Scope", "Key")
+                        .IsUnique();
+
+                    b.ToTable("ManagedWebhooks", (string)null);
                 });
 
             modelBuilder.Entity("RustPlusBot.Domain.Alarms.SmartAlarm", b =>
@@ -128,7 +66,7 @@ namespace RustPlusBot.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedUtc")
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("EntityId")
@@ -194,10 +132,12 @@ namespace RustPlusBot.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("UpdatedUtc")
+                    b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("ServerId", "SteamId");
+
+                    b.HasIndex("GuildId");
 
                     b.ToTable("ClanPlayerNames");
                 });
@@ -264,6 +204,8 @@ namespace RustPlusBot.Persistence.Migrations
 
                     b.HasKey("ServerId");
 
+                    b.HasIndex("GuildId");
+
                     b.ToTable("ClanStates");
                 });
 
@@ -284,6 +226,8 @@ namespace RustPlusBot.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("ServerId");
+
+                    b.HasIndex("GuildId");
 
                     b.ToTable("ServerCommandSettings");
                 });
@@ -309,6 +253,8 @@ namespace RustPlusBot.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("RustServerId");
+
+                    b.HasIndex("GuildId");
 
                     b.ToTable("ConnectionStates");
                 });
@@ -378,60 +324,6 @@ namespace RustPlusBot.Persistence.Migrations
                     b.ToTable("PlayerCredentials");
                 });
 
-            modelBuilder.Entity("RustPlusBot.Domain.Entities.PairedEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("EntityId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Kind")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("RustServerId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GuildId", "RustServerId");
-
-                    b.ToTable("PairedEntities");
-                });
-
-            modelBuilder.Entity("RustPlusBot.Domain.Events.EventSubscription", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("EventKey")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("RustServerId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GuildId", "RustServerId");
-
-                    b.ToTable("EventSubscriptions");
-                });
-
             modelBuilder.Entity("RustPlusBot.Domain.Guilds.GuildSettings", b =>
                 {
                     b.Property<long>("GuildId")
@@ -483,6 +375,8 @@ namespace RustPlusBot.Persistence.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("ServerId");
+
+                    b.HasIndex("GuildId");
 
                     b.ToTable("ServerMapSettings");
                 });
@@ -542,7 +436,7 @@ namespace RustPlusBot.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedUtc")
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("EntityId")
@@ -586,7 +480,7 @@ namespace RustPlusBot.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedUtc")
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("EntityId")
@@ -633,7 +527,7 @@ namespace RustPlusBot.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedUtc")
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Grid")
@@ -669,7 +563,7 @@ namespace RustPlusBot.Persistence.Migrations
                     b.Property<int>("CostPerOrder")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset>("CreatedUtc")
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("CurrencyId")
@@ -886,14 +780,6 @@ namespace RustPlusBot.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ProvisionedMessages");
-                });
-
-            modelBuilder.Entity("Persistord.Core.Entities.ChannelEntity", b =>
-                {
-                    b.HasOne("Persistord.Core.Entities.ChannelEntity", null)
-                        .WithMany()
-                        .HasForeignKey("ParentId")
-                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("RustPlusBot.Domain.Alarms.SmartAlarm", b =>

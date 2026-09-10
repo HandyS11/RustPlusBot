@@ -9,9 +9,9 @@ public sealed class ServerMapSettingsSchemaTests
     [Fact]
     public async Task ServerMapSettings_persists_with_all_layers_on_by_default()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -39,9 +39,9 @@ public sealed class ServerMapSettingsSchemaTests
     [Fact]
     public async Task RemovingServer_CascadeDeletesItsMapSettings()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {

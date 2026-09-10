@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RustPlusBot.Abstractions.Credentials;
+using RustPlusBot.Persistence.Chat;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Credentials;
 using RustPlusBot.Persistence.Servers;
@@ -34,5 +35,6 @@ public sealed class PersistenceRegistrationTests
         Assert.Contains(services, d => d.ServiceType == typeof(IFcmRegistrationStore));
         Assert.Contains(services, d => d.ServiceType == typeof(IConnectionStore));
         Assert.Contains(services, d => d.ServiceType == typeof(ISwitchStore));
+        Assert.Contains(services, d => d.ServiceType == typeof(IChatWebhookStore));
     }
 }

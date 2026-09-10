@@ -4,4 +4,11 @@
     <ProjectReference Include="..\RustPlusBot.Abstractions\RustPlusBot.Abstractions.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Entities implement Persistord's ICreatedAt/IUpdatedAt and IGuildScoped so the library
+         stamps timestamps and drives guild scoping. This does pull EF Core in transitively:
+         the marker interfaces ship inside Persistord.Core, which depends on it. -->
+    <PackageReference Include="Persistord.Core" />
+  </ItemGroup>
+
 </Project>

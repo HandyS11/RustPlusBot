@@ -9,9 +9,9 @@ public sealed class ProvisioningSchemaTests
     [Fact]
     public async Task RemovingServer_CascadeDeletesItsProvisioningRows()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -33,9 +33,9 @@ public sealed class ProvisioningSchemaTests
     [Fact]
     public async Task GlobalCategory_HasNullServerId_AndPersists()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         context.ProvisionedCategories.Add(new ProvisionedCategory
         {

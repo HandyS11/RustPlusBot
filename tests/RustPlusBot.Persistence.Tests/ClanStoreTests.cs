@@ -1,8 +1,6 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using NSubstitute;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Connections;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Clans;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Clans;
@@ -12,12 +10,11 @@ namespace RustPlusBot.Persistence.Tests;
 /// <summary>Unit tests for <see cref="ClanStore"/>.</summary>
 public sealed class ClanStoreTests
 {
-    private static (ClanStore Store, BotDbContext Context, SqliteConnection Conn, IClock Clock) Create()
+    private static (ClanStore Store, BotDbContext Context, SqliteTestDatabase Db, FixedTimeProvider Time) Create()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch);
-        return (new ClanStore(context, clock), context, connection, clock);
+        var time = new FixedTimeProvider(DateTimeOffset.UnixEpoch);
+        var (context, database) = SqliteContextFixture.Create(time);
+        return (new ClanStore(context, time), context, database, time);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context, ulong guildId = 10UL)
@@ -276,19 +273,19 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Recording_the_same_name_again_skips_the_write()
     {
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
 
         await store.RecordNameAsync(10UL, serverId, 111UL, "Alice");
-        var firstUpdatedUtc = (await context.ClanPlayerNames.SingleAsync(n => n.SteamId == 111UL)).UpdatedUtc;
+        var firstUpdatedAt = (await context.ClanPlayerNames.SingleAsync(n => n.SteamId == 111UL)).UpdatedAt;
 
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch.AddMinutes(5));
+        time.Now = DateTimeOffset.UnixEpoch.AddMinutes(5);
         await store.RecordNameAsync(10UL, serverId, 111UL, "Alice");
 
         var row = await context.ClanPlayerNames.SingleAsync(n => n.SteamId == 111UL);
-        Assert.Equal(firstUpdatedUtc, row.UpdatedUtc);
+        Assert.Equal(firstUpdatedAt, row.UpdatedAt);
         Assert.Single(await context.ClanPlayerNames.ToListAsync());
     }
 
@@ -305,7 +302,7 @@ public sealed class ClanStoreTests
             ServerId = serverId,
             SteamId = 111UL,
             Name = "Alice",
-            UpdatedUtc = DateTimeOffset.UnixEpoch
+            UpdatedAt = DateTimeOffset.UnixEpoch
         });
         await context.SaveChangesAsync();
 
@@ -317,7 +314,7 @@ public sealed class ClanStoreTests
     [Fact]
     public async Task Recording_a_name_heals_a_stale_guild_id_even_when_the_name_is_unchanged()
     {
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -327,23 +324,23 @@ public sealed class ClanStoreTests
             ServerId = serverId,
             SteamId = 111UL,
             Name = "Alice",
-            UpdatedUtc = DateTimeOffset.UnixEpoch
+            UpdatedAt = DateTimeOffset.UnixEpoch
         });
         await context.SaveChangesAsync();
 
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch.AddMinutes(5));
+        time.Now = DateTimeOffset.UnixEpoch.AddMinutes(5);
         await store.RecordNameAsync(10UL, serverId, 111UL, "Alice");
 
         var row = await context.ClanPlayerNames.SingleAsync(n => n.SteamId == 111UL);
         Assert.Equal(10UL, row.GuildId);
-        Assert.Equal(DateTimeOffset.UnixEpoch.AddMinutes(5), row.UpdatedUtc);
+        Assert.Equal(DateTimeOffset.UnixEpoch.AddMinutes(5), row.UpdatedAt);
         Assert.Single(await context.ClanPlayerNames.ToListAsync());
     }
 
     [Fact]
     public async Task Saving_a_clan_state_heals_a_stale_guild_id_instead_of_throwing()
     {
-        var (store, context, conn, clock) = Create();
+        var (store, context, conn, time) = Create();
         await using var _ = conn;
         await using var __ = context;
         var serverId = await SeedServerAsync(context);
@@ -353,7 +350,7 @@ public sealed class ClanStoreTests
         });
         await context.SaveChangesAsync();
 
-        clock.UtcNow.Returns(DateTimeOffset.UnixEpoch.AddMinutes(5));
+        time.Now = DateTimeOffset.UnixEpoch.AddMinutes(5);
         await store.SaveAsync(10UL, serverId, CreateSnapshot());
 
         var row = await context.ClanStates.SingleAsync(s => s.ServerId == serverId);

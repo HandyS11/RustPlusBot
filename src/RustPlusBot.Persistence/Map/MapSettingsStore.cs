@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Persistord.Core;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Map;
 
@@ -27,16 +28,34 @@ public sealed class MapSettingsStore(BotDbContext context) : IMapSettingsStore
         Guid serverId,
         MapLayer layer,
         bool enabled,
-        CancellationToken cancellationToken = default)
-    {
-        var existing = await context.ServerMapSettings
-            .SingleOrDefaultAsync(s => s.GuildId == guildId && s.ServerId == serverId, cancellationToken)
+        CancellationToken cancellationToken = default) =>
+        await context.ServerMapSettings.UpsertAsync(
+                s => s.GuildId == guildId && s.ServerId == serverId,
+                () => new ServerMapSettings
+                {
+                    GuildId = guildId, ServerId = serverId
+                },
+                row => ApplyLayer(row, layer, enabled),
+                cancellationToken)
             .ConfigureAwait(false);
 
-        var row = existing ?? new ServerMapSettings
-        {
-            GuildId = guildId, ServerId = serverId
-        };
+    /// <inheritdoc />
+    public async Task SetGridStyleAsync(ulong guildId,
+        Guid serverId,
+        MapGridStyle style,
+        CancellationToken cancellationToken = default) =>
+        await context.ServerMapSettings.UpsertAsync(
+                s => s.GuildId == guildId && s.ServerId == serverId,
+                () => new ServerMapSettings
+                {
+                    GuildId = guildId, ServerId = serverId
+                },
+                row => row.GridStyle = style,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+    private static void ApplyLayer(ServerMapSettings row, MapLayer layer, bool enabled)
+    {
         switch (layer)
         {
             case MapLayer.Grid:
@@ -63,35 +82,5 @@ public sealed class MapSettingsStore(BotDbContext context) : IMapSettingsStore
             default:
                 throw new ArgumentOutOfRangeException(nameof(layer), layer, "Unknown map layer.");
         }
-
-        if (existing is null)
-        {
-            context.ServerMapSettings.Add(row);
-        }
-
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
-    public async Task SetGridStyleAsync(ulong guildId,
-        Guid serverId,
-        MapGridStyle style,
-        CancellationToken cancellationToken = default)
-    {
-        var existing = await context.ServerMapSettings
-            .SingleOrDefaultAsync(s => s.GuildId == guildId && s.ServerId == serverId, cancellationToken)
-            .ConfigureAwait(false);
-
-        var row = existing ?? new ServerMapSettings
-        {
-            GuildId = guildId, ServerId = serverId
-        };
-        row.GridStyle = style;
-        if (existing is null)
-        {
-            context.ServerMapSettings.Add(row);
-        }
-
-        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

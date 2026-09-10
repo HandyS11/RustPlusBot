@@ -10,8 +10,8 @@ public sealed class RustServerWipeColumnsTests
     [Fact]
     public async Task Wipe_baseline_columns_round_trip()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
         await using var __ = context;
 
         var server = new RustServer
@@ -39,8 +39,8 @@ public sealed class RustServerWipeColumnsTests
     [Fact]
     public async Task New_server_has_empty_baseline_and_guild_ping_defaults_false()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
         await using var __ = context;
 
         var server = new RustServer

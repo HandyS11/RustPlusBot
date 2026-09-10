@@ -1,16 +1,15 @@
+using Persistord.Core.Abstractions;
+
 namespace RustPlusBot.Domain.Vending;
 
 /// <summary>
 /// A live sell-out message in #vending, one per registered machine. Stores the sold-out set it was
 /// rendered against so an owner restock deletes the message rather than silently editing it.
 /// </summary>
-public sealed class VendingStockNotification
+public sealed class VendingStockNotification : IGuildScoped
 {
     /// <summary>Surrogate primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
-
-    /// <summary>The owning Discord guild snowflake.</summary>
-    public ulong GuildId { get; set; }
 
     /// <summary>The server this notification belongs to (FK to RustServer, cascade delete).</summary>
     public Guid ServerId { get; set; }
@@ -29,4 +28,7 @@ public sealed class VendingStockNotification
 
     /// <summary>When the message was posted (UTC).</summary>
     public DateTimeOffset PostedUtc { get; set; }
+
+    /// <summary>The owning Discord guild snowflake.</summary>
+    public ulong GuildId { get; set; }
 }

@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Chat;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Credentials;
@@ -52,16 +52,11 @@ public sealed class ConnectionSupervisorTests
         // Each scope opens its OWN connection to a shared-cache in-memory database, so the background
         // supervisor loop and the test's polling never run concurrent commands on a single SqliteConnection
         // (which throws "active statements" misuse errors). One kept-open connection keeps the in-memory DB alive.
-        var connectionString = $"DataSource=connsup-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        var keepAlive = new SqliteConnection(connectionString);
-        keepAlive.Open();
-        using (var seed = new BotDbContext(
-                   new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options))
-        {
-            seed.Database.Migrate();
-        }
+        var database = SqliteTestDatabase.Shared();
+        var connectionString = database.ConnectionString;
+        database.CreateContext<BotDbContext>(options => new BotDbContext(options)).Dispose();
 
-        services.AddSingleton(keepAlive);
+        services.AddSingleton(database);
         services.AddScoped(_ => new BotDbContext(
             new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connectionString).Options));
         services.AddScoped<IConnectionStore, ConnectionStore>();

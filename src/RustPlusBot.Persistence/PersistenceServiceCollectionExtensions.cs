@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Persistord.Core.Interception;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Persistence.Alarms;
+using RustPlusBot.Persistence.Chat;
 using RustPlusBot.Persistence.Clans;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Connections;
@@ -28,7 +31,15 @@ public static class PersistenceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddDbContextFactory<BotDbContext>(options => options.UseSqlite(connectionString));
+        // The clock the TimestampInterceptor stamps from. TryAdd so a host (or a test) that registered
+        // its own TimeProvider keeps it.
+        services.TryAddSingleton(TimeProvider.System);
+
+        // Every ICreatedAt/IUpdatedAt row is stamped by the interceptor rather than by each store, so
+        // a store that forgets to touch a timestamp can no longer write a stale one.
+        services.AddDbContextFactory<BotDbContext>((sp, options) => options
+            .UseSqlite(connectionString)
+            .AddInterceptors(new TimestampInterceptor(sp.GetRequiredService<TimeProvider>())));
 
         // AddDbContextFactory registers only the singleton factory, not a scoped context.
         // Register a scoped BotDbContext sourced from the factory so the scoped services below
@@ -51,6 +62,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IWipeBaselineStore, WipeBaselineStore>();
         services.AddScoped<IClanStore, ClanStore>();
         services.AddScoped<IVendingStore, VendingStore>();
+        services.AddScoped<IChatWebhookStore, ChatWebhookStore>();
 
         return services;
     }

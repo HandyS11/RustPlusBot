@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using RustPlusBot.Abstractions.Credentials;
-using RustPlusBot.Abstractions.Time;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Persistence.Credentials;
 
@@ -9,6 +8,8 @@ namespace RustPlusBot.Persistence.Tests.Credentials;
 
 public sealed class FcmRegistrationStoreTests
 {
+    private static readonly DateTimeOffset Now = new(2026, 6, 15, 0, 0, 0, TimeSpan.Zero);
+
     private static ICredentialProtector PassThroughProtector()
     {
         var protector = Substitute.For<ICredentialProtector>();
@@ -16,20 +17,13 @@ public sealed class FcmRegistrationStoreTests
         return protector;
     }
 
-    private static IClock FixedClock()
-    {
-        var clock = Substitute.For<IClock>();
-        clock.UtcNow.Returns(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero));
-        return clock;
-    }
-
     [Fact]
     public async Task Upsert_StoresProtectedAndActive()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
-        var store = new FcmRegistrationStore(context, PassThroughProtector(), FixedClock());
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
+        var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         var id = await store.UpsertAsync(10UL, 99UL, "{\"a\":1}");
 
@@ -37,16 +31,16 @@ public sealed class FcmRegistrationStoreTests
         Assert.Equal(id, saved.Id);
         Assert.Equal("enc:{\"a\":1}", saved.ProtectedFcmCredentials);
         Assert.Equal(FcmRegistrationStatus.Active, saved.Status);
-        Assert.Equal(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero), saved.UpdatedAt);
+        Assert.Equal(Now, saved.UpdatedAt);
     }
 
     [Fact]
     public async Task Upsert_SameOwner_RefreshesAndReactivates()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
-        var store = new FcmRegistrationStore(context, PassThroughProtector(), FixedClock());
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
+        var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         var id = await store.UpsertAsync(10UL, 99UL, "old");
         await store.SetStatusAsync(id, FcmRegistrationStatus.Expired);
@@ -62,10 +56,10 @@ public sealed class FcmRegistrationStoreTests
     [Fact]
     public async Task ListActive_ReturnsOnlyActiveAcrossGuilds()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
-        var store = new FcmRegistrationStore(context, PassThroughProtector(), FixedClock());
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
+        var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         await store.UpsertAsync(10UL, 1UL, "a");
         var expiredId = await store.UpsertAsync(10UL, 2UL, "b");
@@ -81,26 +75,26 @@ public sealed class FcmRegistrationStoreTests
     [Fact]
     public async Task SetStatus_UpdatesStatusAndTimestamp()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
-        var store = new FcmRegistrationStore(context, PassThroughProtector(), FixedClock());
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
+        var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         var id = await store.UpsertAsync(10UL, 99UL, "a");
         await store.SetStatusAsync(id, FcmRegistrationStatus.Expired);
 
         var saved = await context.FcmRegistrations.SingleAsync();
         Assert.Equal(FcmRegistrationStatus.Expired, saved.Status);
-        Assert.Equal(new DateTimeOffset(2026, 6, 15, 0, 0, 0, TimeSpan.Zero), saved.UpdatedAt);
+        Assert.Equal(Now, saved.UpdatedAt);
     }
 
     [Fact]
     public async Task Get_ReturnsRegistrationForOwner_OrNull()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
-        var store = new FcmRegistrationStore(context, PassThroughProtector(), FixedClock());
+        var (context, database) = SqliteContextFixture.Create(new FixedTimeProvider(Now));
+        await using var _ = database;
+        await using var __ = context;
+        var store = new FcmRegistrationStore(context, PassThroughProtector());
 
         await store.UpsertAsync(10UL, 99UL, "a");
 

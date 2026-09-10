@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Persistord.Testing;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Persistence.Wipes;
 
@@ -7,10 +7,10 @@ namespace RustPlusBot.Persistence.Tests.Wipes;
 /// <summary>Unit tests for <see cref="WipeBaselineStore"/>.</summary>
 public sealed class WipeBaselineStoreTests
 {
-    private static (WipeBaselineStore Store, BotDbContext Context, SqliteConnection Conn) Create()
+    private static (WipeBaselineStore Store, BotDbContext Context, SqliteTestDatabase Db) Create()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        return (new WipeBaselineStore(context), context, connection);
+        var (context, database) = SqliteContextFixture.Create();
+        return (new WipeBaselineStore(context), context, database);
     }
 
     private static async Task<Guid> SeedServerAsync(BotDbContext context)

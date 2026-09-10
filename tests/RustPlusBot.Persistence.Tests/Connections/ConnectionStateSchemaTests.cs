@@ -9,9 +9,9 @@ public sealed class ConnectionStateSchemaTests
     [Fact]
     public async Task ConnectionState_RoundTrips_StatusAndPlayerCount()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -39,9 +39,9 @@ public sealed class ConnectionStateSchemaTests
     [Fact]
     public async Task ConnectionState_RoundTrips_NullPlayerCount()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {
@@ -66,9 +66,9 @@ public sealed class ConnectionStateSchemaTests
     [Fact]
     public async Task RemovingServer_CascadeDeletesItsConnectionState()
     {
-        var (context, connection) = SqliteContextFixture.Create();
-        await using var _ = context;
-        await using var __ = connection;
+        var (context, database) = SqliteContextFixture.Create();
+        await using var _ = database;
+        await using var __ = context;
 
         var server = new RustServer
         {

@@ -1,14 +1,14 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
+using Persistord.Testing;
 using RustPlusBot.Abstractions.Connections;
+using RustPlusBot.Domain.Clans;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
-using RustPlusBot.Domain.Entities;
-using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Switches;
+using RustPlusBot.Domain.Vending;
 using RustPlusBot.Domain.Workspace;
 using RustPlusBot.Features.Workspace.Gateway;
 using RustPlusBot.Features.Workspace.Reconciler;
@@ -21,21 +21,11 @@ namespace RustPlusBot.Features.Workspace.Tests.Teardown;
 
 public sealed class GuildPurgeServiceTests
 {
-    private static BotDbContext NewContext(SqliteConnection connection)
-    {
-        var options = new DbContextOptionsBuilder<BotDbContext>().UseSqlite(connection).Options;
-        var context = new BotDbContext(options);
-        context.Database.Migrate();
-        return context;
-    }
-
     [Fact]
     public async Task PurgeGuild_RemovesTargetGuildRows_AndLeavesOtherGuildIntact()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-        await using var _ = connection;
-        await using var context = NewContext(connection);
+        await using var database = SqliteTestDatabase.Private();
+        await using var context = database.CreateContext<BotDbContext>(options => new BotDbContext(options));
 
         var serverA = new RustServer
         {
@@ -54,18 +44,6 @@ public sealed class GuildPurgeServiceTests
         {
             RustServerId = serverA.Id, GuildId = 1, Status = ConnectionStatus.Connected
         });
-        context.EventSubscriptions.Add(new EventSubscription
-        {
-            GuildId = 1, RustServerId = serverA.Id, EventKey = "cargo"
-        });
-        context.EventSubscriptions.Add(new EventSubscription
-        {
-            GuildId = 2, RustServerId = serverB.Id, EventKey = "cargo"
-        });
-        context.PairedEntities.Add(new PairedEntity
-        {
-            GuildId = 1, RustServerId = serverA.Id, EntityId = 5, Name = "dev"
-        });
         context.GuildSettings.Add(new GuildSettings
         {
             GuildId = 1, Culture = "en"
@@ -81,6 +59,21 @@ public sealed class GuildPurgeServiceTests
         context.FcmRegistrations.Add(new FcmRegistration
         {
             GuildId = 2, OwnerUserId = 200, ProtectedFcmCredentials = "y"
+        });
+
+        // Two tables the old purge never named: one that cascaded off RustServer and one that is
+        // reached only through IGuildScoped. Both go because they declare the interface.
+        context.VendingGridTracks.Add(new VendingGridTrack
+        {
+            GuildId = 1, ServerId = serverA.Id, Grid = "D7", RegisteredBySteamId = 5
+        });
+        context.ClanPlayerNames.Add(new ClanPlayerName
+        {
+            GuildId = 1, ServerId = serverA.Id, SteamId = 5, Name = "Alice"
+        });
+        context.ClanPlayerNames.Add(new ClanPlayerName
+        {
+            GuildId = 2, ServerId = serverB.Id, SteamId = 6, Name = "Bob"
         });
         await context.SaveChangesAsync();
 
@@ -103,16 +96,16 @@ public sealed class GuildPurgeServiceTests
         Assert.Empty(await context.RustServers.Where(s => s.GuildId == 1).ToListAsync());
         Assert.Empty(await context.SmartSwitches.ToListAsync());
         Assert.Empty(await context.ConnectionStates.ToListAsync());
-        Assert.Empty(await context.EventSubscriptions.Where(e => e.GuildId == 1).ToListAsync());
-        Assert.Empty(await context.PairedEntities.Where(p => p.GuildId == 1).ToListAsync());
         Assert.Empty(await context.GuildSettings.Where(g => g.GuildId == 1).ToListAsync());
         Assert.Empty(await context.FcmRegistrations.Where(f => f.GuildId == 1).ToListAsync());
+        Assert.Empty(await context.VendingGridTracks.ToListAsync());
+        Assert.Empty(await context.ClanPlayerNames.Where(n => n.GuildId == 1).ToListAsync());
 
         // Guild 2 untouched.
         Assert.Single(await context.RustServers.Where(s => s.GuildId == 2).ToListAsync());
-        Assert.Single(await context.EventSubscriptions.Where(e => e.GuildId == 2).ToListAsync());
         Assert.Single(await context.GuildSettings.Where(g => g.GuildId == 2).ToListAsync());
         Assert.Single(await context.FcmRegistrations.Where(f => f.GuildId == 2).ToListAsync());
+        Assert.Single(await context.ClanPlayerNames.Where(n => n.GuildId == 2).ToListAsync());
     }
 
     /// <summary>
@@ -123,10 +116,8 @@ public sealed class GuildPurgeServiceTests
     [Fact]
     public async Task PurgeGuild_StopsEachServersConnection_WhileItsRowStillExists()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
-        await connection.OpenAsync();
-        await using var _ = connection;
-        await using var context = NewContext(connection);
+        await using var database = SqliteTestDatabase.Private();
+        await using var context = database.CreateContext<BotDbContext>(options => new BotDbContext(options));
 
         var server = new RustServer
         {

@@ -20,6 +20,7 @@
          from EF Core Sqlite (CVE-2025-6965). Flows to all DB-touching projects via this one. -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <PackageReference Include="Persistord.Core" />
+    <PackageReference Include="Persistord.Managed" />
   </ItemGroup>
 
 </Project>
