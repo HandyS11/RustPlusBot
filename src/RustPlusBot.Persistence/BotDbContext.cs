@@ -6,8 +6,6 @@ using RustPlusBot.Domain.Commands;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
 using RustPlusBot.Domain.Devices;
-using RustPlusBot.Domain.Entities;
-using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Map;
 using RustPlusBot.Domain.Servers;
@@ -20,8 +18,10 @@ using RustPlusBot.Persistence.Configurations;
 namespace RustPlusBot.Persistence;
 
 /// <summary>
-/// The bot's EF Core context. Inherits Persistord's DiscordDbContext for the Discord skeleton and
-/// the global ulong&lt;-&gt;long snowflake conversion, and adds the Rust-domain sets.
+/// The bot's EF Core context. Inherits Persistord's DiscordDbContext for the global
+/// ulong&lt;-&gt;long snowflake conversion and the snowflake-key convention, and adds the Rust-domain
+/// sets. Deliberately not DiscordGraphDbContext: the bot owns its Discord resources rather than
+/// mirroring Discord's graph, so it maps none of the guild/channel/user/member/role skeleton.
 /// </summary>
 /// <param name="options">The EF Core options, typically configured with a specific provider (e.g. SQLite, PostgreSQL).</param>
 public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : DiscordDbContext(options)
@@ -47,9 +47,6 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Per-guild settings.</summary>
     public DbSet<GuildSettings> GuildSettings => Set<GuildSettings>();
 
-    /// <summary>Paired smart devices.</summary>
-    public DbSet<PairedEntity> PairedEntities => Set<PairedEntity>();
-
     /// <summary>Paired and managed Smart Switches.</summary>
     public DbSet<SmartSwitch> SmartSwitches => Set<SmartSwitch>();
 
@@ -58,9 +55,6 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
 
     /// <summary>Managed Smart Storage Monitors.</summary>
     public DbSet<SmartStorageMonitor> SmartStorageMonitors => Set<SmartStorageMonitor>();
-
-    /// <summary>Per-guild event subscriptions.</summary>
-    public DbSet<EventSubscription> EventSubscriptions => Set<EventSubscription>();
 
     /// <summary>Provisioned Discord categories (global + per-server).</summary>
     public DbSet<ProvisionedCategory> ProvisionedCategories => Set<ProvisionedCategory>();
@@ -93,7 +87,7 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
-        base.OnModelCreating(modelBuilder); // core skeleton + snowflake convention
+        base.OnModelCreating(modelBuilder);
 
         // PairedDeviceEntity is a code-sharing base, not an entity type: SmartSwitch and
         // SmartStorageMonitor each own their table. Ignoring it makes that intent EF-enforced — without
@@ -108,11 +102,9 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new ServerCommandSettingsConfiguration())
             .ApplyConfiguration(new ServerMapSettingsConfiguration())
             .ApplyConfiguration(new GuildSettingsConfiguration())
-            .ApplyConfiguration(new PairedEntityConfiguration())
             .ApplyConfiguration(new SmartSwitchConfiguration())
             .ApplyConfiguration(new SmartAlarmConfiguration())
             .ApplyConfiguration(new SmartStorageMonitorConfiguration())
-            .ApplyConfiguration(new EventSubscriptionConfiguration())
             .ApplyConfiguration(new ProvisionedCategoryConfiguration())
             .ApplyConfiguration(new ProvisionedChannelConfiguration())
             .ApplyConfiguration(new ProvisionedMessageConfiguration())

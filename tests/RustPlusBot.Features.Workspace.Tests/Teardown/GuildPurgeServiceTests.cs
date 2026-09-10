@@ -4,8 +4,6 @@ using NSubstitute;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Domain.Connections;
 using RustPlusBot.Domain.Credentials;
-using RustPlusBot.Domain.Entities;
-using RustPlusBot.Domain.Events;
 using RustPlusBot.Domain.Guilds;
 using RustPlusBot.Domain.Servers;
 using RustPlusBot.Domain.Switches;
@@ -54,18 +52,6 @@ public sealed class GuildPurgeServiceTests
         {
             RustServerId = serverA.Id, GuildId = 1, Status = ConnectionStatus.Connected
         });
-        context.EventSubscriptions.Add(new EventSubscription
-        {
-            GuildId = 1, RustServerId = serverA.Id, EventKey = "cargo"
-        });
-        context.EventSubscriptions.Add(new EventSubscription
-        {
-            GuildId = 2, RustServerId = serverB.Id, EventKey = "cargo"
-        });
-        context.PairedEntities.Add(new PairedEntity
-        {
-            GuildId = 1, RustServerId = serverA.Id, EntityId = 5, Name = "dev"
-        });
         context.GuildSettings.Add(new GuildSettings
         {
             GuildId = 1, Culture = "en"
@@ -103,14 +89,11 @@ public sealed class GuildPurgeServiceTests
         Assert.Empty(await context.RustServers.Where(s => s.GuildId == 1).ToListAsync());
         Assert.Empty(await context.SmartSwitches.ToListAsync());
         Assert.Empty(await context.ConnectionStates.ToListAsync());
-        Assert.Empty(await context.EventSubscriptions.Where(e => e.GuildId == 1).ToListAsync());
-        Assert.Empty(await context.PairedEntities.Where(p => p.GuildId == 1).ToListAsync());
         Assert.Empty(await context.GuildSettings.Where(g => g.GuildId == 1).ToListAsync());
         Assert.Empty(await context.FcmRegistrations.Where(f => f.GuildId == 1).ToListAsync());
 
         // Guild 2 untouched.
         Assert.Single(await context.RustServers.Where(s => s.GuildId == 2).ToListAsync());
-        Assert.Single(await context.EventSubscriptions.Where(e => e.GuildId == 2).ToListAsync());
         Assert.Single(await context.GuildSettings.Where(g => g.GuildId == 2).ToListAsync());
         Assert.Single(await context.FcmRegistrations.Where(f => f.GuildId == 2).ToListAsync());
     }
