@@ -69,7 +69,8 @@ internal sealed partial class ChatRelay(
             return;
         }
 
-        await poster.PostAsync(line.Kind, channelId.Value, line.SenderName, line.Message, cancellationToken)
+        await poster.PostAsync(line.Kind, line.GuildId, channelId.Value, line.SenderName, line.Message,
+                cancellationToken)
             .ConfigureAwait(false);
     }
 

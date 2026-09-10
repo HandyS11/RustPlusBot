@@ -50,9 +50,9 @@ public sealed class ChatRegistrationTests
             CancellationToken.None);
 
         await poster.Received(1)
-            .PostAsync(ChatChannelKind.Team, TeamChannel, "Bob", "hi team", Arg.Any<CancellationToken>());
+            .PostAsync(ChatChannelKind.Team, guild, TeamChannel, "Bob", "hi team", Arg.Any<CancellationToken>());
         await poster.Received(1)
-            .PostAsync(ChatChannelKind.Clan, ClanChannel, "Bob", "hi clan", Arg.Any<CancellationToken>());
+            .PostAsync(ChatChannelKind.Clan, guild, ClanChannel, "Bob", "hi clan", Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class ChatRegistrationTests
                 FromActivePlayer: true),
             CancellationToken.None);
 
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<string>(),
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 

@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Persistord.Core;
+using Persistord.Managed.Configurations;
+using Persistord.Managed.Entities;
 using RustPlusBot.Domain.Alarms;
 using RustPlusBot.Domain.Clans;
 using RustPlusBot.Domain.Commands;
@@ -83,6 +85,9 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
     /// <summary>Live sell-out notifications.</summary>
     public DbSet<VendingStockNotification> VendingStockNotifications => Set<VendingStockNotification>();
 
+    /// <summary>Chat-relay webhooks the bot created, remembered so they are never re-discovered by name.</summary>
+    public DbSet<ManagedWebhook> ChatWebhooks => Set<ManagedWebhook>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -113,6 +118,11 @@ public sealed class BotDbContext(DbContextOptions<BotDbContext> options) : Disco
             .ApplyConfiguration(new VendingGridTrackConfiguration())
             .ApplyConfiguration(new VendingListingTrackConfiguration())
             .ApplyConfiguration(new VendingNotificationConfiguration())
-            .ApplyConfiguration(new VendingStockNotificationConfiguration());
+            .ApplyConfiguration(new VendingStockNotificationConfiguration())
+            // Only the webhook resource, not ApplyManagedModule: that maps all four managed types, and
+            // the bot owns its categories, channels and anchored messages through its own Provisioned*
+            // tables, which key their scope by a real foreign key to RustServers rather than by
+            // ManagedResource's opaque string. Mapping the other three would add three empty tables.
+            .ApplyConfiguration(new ManagedWebhookConfiguration());
     }
 }

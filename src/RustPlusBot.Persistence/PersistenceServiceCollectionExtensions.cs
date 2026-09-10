@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Persistord.Core.Interception;
 using RustPlusBot.Abstractions.Credentials;
 using RustPlusBot.Persistence.Alarms;
+using RustPlusBot.Persistence.Chat;
 using RustPlusBot.Persistence.Clans;
 using RustPlusBot.Persistence.Commands;
 using RustPlusBot.Persistence.Connections;
@@ -61,6 +62,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IWipeBaselineStore, WipeBaselineStore>();
         services.AddScoped<IClanStore, ClanStore>();
         services.AddScoped<IVendingStore, VendingStore>();
+        services.AddScoped<IChatWebhookStore, ChatWebhookStore>();
 
         return services;
     }

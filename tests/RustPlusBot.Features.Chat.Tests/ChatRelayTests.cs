@@ -59,7 +59,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.Received(1).PostAsync(kind, ChannelFor(kind), "Bob", "hello", Arg.Any<CancellationToken>());
+        await poster.Received(1).PostAsync(kind, 10UL, ChannelFor(kind), "Bob", "hello", Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -73,7 +73,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<string>(),
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
@@ -87,7 +87,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.Received(1).PostAsync(kind, ChannelFor(kind), "Bob", "[R+] hi", Arg.Any<CancellationToken>());
+        await poster.Received(1).PostAsync(kind, 10UL, ChannelFor(kind), "Bob", "[R+] hi", Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -101,7 +101,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(echo, CancellationToken.None);
 
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<string>(),
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
@@ -116,7 +116,7 @@ public sealed class ChatRelayTests
         await relay.RelayAsync(line, CancellationToken.None);
 
         await poster.Received(1)
-            .PostAsync(kind, ChannelFor(kind), "BotPlayer", "genuine", Arg.Any<CancellationToken>());
+            .PostAsync(kind, 10UL, ChannelFor(kind), "BotPlayer", "genuine", Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -131,7 +131,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<string>(),
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
@@ -145,7 +145,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<string>(),
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
@@ -162,8 +162,8 @@ public sealed class ChatRelayTests
             CancellationToken.None);
 
         await poster.Received(1)
-            .PostAsync(kind, ChannelFor(kind), "Bob", "!not a command", Arg.Any<CancellationToken>());
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<string>(),
+            .PostAsync(kind, 10UL, ChannelFor(kind), "Bob", "!not a command", Arg.Any<CancellationToken>());
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
             ".pop", Arg.Any<CancellationToken>());
     }
 
@@ -179,7 +179,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<string>(),
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), Arg.Any<ulong>(), Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
@@ -193,7 +193,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.Received(1).PostAsync(ChatChannelKind.Clan, ClanChannel, "BotPlayer", "[Alice] hello",
+        await poster.Received(1).PostAsync(ChatChannelKind.Clan, 10UL, ClanChannel, "BotPlayer", "[Alice] hello",
             Arg.Any<CancellationToken>());
     }
 
@@ -207,7 +207,7 @@ public sealed class ChatRelayTests
 
         await relay.RelayAsync(line, CancellationToken.None);
 
-        await poster.Received(1).PostAsync(ChatChannelKind.Team, TeamChannel, "BotPlayer", "[Alice] hello",
+        await poster.Received(1).PostAsync(ChatChannelKind.Team, 10UL, TeamChannel, "BotPlayer", "[Alice] hello",
             Arg.Any<CancellationToken>());
     }
 
@@ -221,8 +221,8 @@ public sealed class ChatRelayTests
         await relay.RelayAsync(line, CancellationToken.None);
 
         await poster.Received(1)
-            .PostAsync(ChatChannelKind.Clan, ClanChannel, "Bob", "hello", Arg.Any<CancellationToken>());
-        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), TeamChannel, Arg.Any<string>(),
+            .PostAsync(ChatChannelKind.Clan, 10UL, ClanChannel, "Bob", "hello", Arg.Any<CancellationToken>());
+        await poster.DidNotReceive().PostAsync(Arg.Any<ChatChannelKind>(), Arg.Any<ulong>(), TeamChannel, Arg.Any<string>(),
             Arg.Any<string>(), Arg.Any<CancellationToken>());
         await team.DidNotReceive().GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
@@ -237,7 +237,7 @@ public sealed class ChatRelayTests
         await relay.RelayAsync(line, CancellationToken.None);
 
         await poster.Received(1)
-            .PostAsync(ChatChannelKind.Team, TeamChannel, "Bob", "hello", Arg.Any<CancellationToken>());
+            .PostAsync(ChatChannelKind.Team, 10UL, TeamChannel, "Bob", "hello", Arg.Any<CancellationToken>());
         await clan.DidNotReceive().GetChannelIdAsync(Arg.Any<ulong>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 }
