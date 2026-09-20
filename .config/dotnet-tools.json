@@ -10,7 +10,7 @@
       "rollForward": false
     },
     "jetbrains.resharper.globaltools": {
-      "version": "2026.2.1",
+      "version": "2026.2.2",
       "commands": [
         "jb"
       ],
@@ -24,7 +24,7 @@
       "rollForward": false
     },
     "docfx": {
-      "version": "2.78.5",
+      "version": "2.80.1",
       "commands": [
         "docfx"
       ],
