@@ -148,15 +148,20 @@ public sealed class MapRefreshTests
             await h.PublishUntilAsync(() => new ConnectionStatusChangedEvent(Guild, Server, false, true),
                 h.WhenStatusHandled);
 
+            // Priming republishes until the first post lands, so repaints queued before the disconnect are
+            // still being drained and keep posting. A post count cannot tell those from a repaint made
+            // after the disconnect; a second fetch can only come from one that found the cache empty.
             await h.PublishUntilAsync(() => new MapMarkersChangedEvent(Guild, Server, null, [], [], []),
-                h.PostCountReachesAsync(2));
+                h.BaseMapFetchesReachAsync(2));
         }
         finally
         {
             await h.Service.StopAsync(CancellationToken.None);
         }
 
-        Assert.Equal(2, h.BaseMapFetches);
+        // Not exactly two: the disconnect is republished too, and each copy evicts the tile again.
+        Assert.True(h.BaseMapFetches >= 2,
+            $"the cached base map survived the disconnect (fetches: {h.BaseMapFetches})");
     }
 
     [Fact]
@@ -392,6 +397,8 @@ public sealed class MapRefreshTests
 
     private sealed class Harness : IDisposable
     {
+        private readonly List<(int Count, TaskCompletionSource Tcs)> _baseMapFetchTargets = [];
+
         private readonly ConcurrentDictionary<ulong, List<(int Count, TaskCompletionSource Tcs)>>
             _channelPostTargets = new();
 
@@ -498,6 +505,12 @@ public sealed class MapRefreshTests
 
         public Task PostCountReachesAsync(int count) => WaitForCountAsync(_postTargets, count, Posts);
 
+        /// <summary>Completes once the base map has been fetched <paramref name="count"/> times.</summary>
+        /// <param name="count">The fetch count to wait for.</param>
+        /// <returns>A task that completes when the base map has been fetched that many times.</returns>
+        public Task BaseMapFetchesReachAsync(int count) =>
+            WaitForCountAsync(_baseMapFetchTargets, count, BaseMapFetches);
+
         /// <summary>How many posts one channel has received so far.</summary>
         /// <param name="channelId">The channel to count.</param>
         /// <returns>The post count for that channel.</returns>
@@ -565,7 +578,8 @@ public sealed class MapRefreshTests
             return rigs;
         }
 
-        private void OnBaseMapFetch() => Interlocked.Increment(ref _baseMapFetches);
+        private void OnBaseMapFetch() =>
+            ReleaseReached(_baseMapFetchTargets, Interlocked.Increment(ref _baseMapFetches));
 
         private Task OnPostAsync(ulong channelId)
         {
