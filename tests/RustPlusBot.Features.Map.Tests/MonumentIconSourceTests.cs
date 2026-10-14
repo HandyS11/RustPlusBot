@@ -6,6 +6,7 @@ using RustMapsApi.V4.Assets;
 using RustMapsApi.V4.Models;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Map.Assets;
+using SkiaSharp;
 
 namespace RustPlusBot.Features.Map.Tests;
 
@@ -76,12 +77,13 @@ public sealed class MonumentIconSourceTests
             var icon = source.Monument(token, 30);
             Assert.True(icon is not null, $"{token} produced no icon");
 
+            using var pixels = SKBitmap.FromImage(icon);
             var hasVisiblePixel = false;
-            for (var y = 0; y < icon.Height && !hasVisiblePixel; y++)
+            for (var y = 0; y < pixels.Height && !hasVisiblePixel; y++)
             {
-                for (var x = 0; x < icon.Width; x++)
+                for (var x = 0; x < pixels.Width; x++)
                 {
-                    if (icon[x, y].A > 0)
+                    if (pixels.GetPixel(x, y).Alpha > 0)
                     {
                         hasVisiblePixel = true;
                         break;

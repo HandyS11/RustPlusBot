@@ -1,12 +1,7 @@
 using System.Globalization;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Assets;
-using SixLabors.Fonts;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 
 namespace RustPlusBot.Features.Map.Rendering;
 
@@ -23,22 +18,22 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
     private const float OutlinePenWidth = 1f;
     private const float ActiveRingWidth = 3f;
 
-    private static readonly FontFamily Family = LoadFamily();
-    private static readonly Font GridLabelFont = Family.CreateFont(MapRenderStyle.GridLabelFontSize);
+    private static readonly SKTypeface Typeface = LoadTypeface();
 
-    private static FontFamily LoadFamily()
+    private static SKTypeface LoadTypeface()
     {
         var asm = typeof(MapRenderer).Assembly;
         using var stream = asm.GetManifestResourceStream("RustPlusBot.Features.Map.Assets.LiberationSans-Regular.ttf")
                            ?? throw new InvalidOperationException(
                                "Embedded map font 'RustPlusBot.Features.Map.Assets.LiberationSans-Regular.ttf' not found.");
-        var collection = new FontCollection();
-        return collection.Add(stream, CultureInfo.InvariantCulture);
+        return SKTypeface.FromStream(stream)
+               ?? throw new InvalidOperationException("Embedded map font could not be loaded.");
     }
 
     /// <summary>Renders the map tile plus the requested overlay layers to PNG bytes.</summary>
     /// <param name="request">The base image, projection, and overlay data to render.</param>
     /// <returns>PNG-encoded bytes of a square image with <see cref="OutputSize"/> pixels on each side.</returns>
+    /// <exception cref="InvalidOperationException">The base image bytes are not a decodable image.</exception>
     public byte[] Render(MapRenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -50,58 +45,60 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
         ArgumentNullException.ThrowIfNull(request.Rigs);
         ArgumentNullException.ThrowIfNull(request.Layers);
 
-        using var image = Image.Load<Rgba32>(request.BaseJpeg);
-        image.Mutate(ctx => ctx.Resize(OutputSize, OutputSize));
+        using var surface = SKSurface.Create(new SKImageInfo(OutputSize, OutputSize));
+        var canvas = surface.Canvas;
+        using (var baseImage = SKImage.FromEncodedData(request.BaseJpeg)
+                               ?? throw new InvalidOperationException("The base map image could not be decoded."))
+        {
+            canvas.DrawImage(baseImage, SKRect.Create(OutputSize, OutputSize), Raster.Smooth);
+        }
 
         if (request.Layers.Grid)
         {
-            DrawGrid(image, request.Projection, request.GridStyle);
+            DrawGrid(canvas, request.Projection, request.GridStyle);
         }
 
         if (request.Layers.Monuments)
         {
-            DrawMonuments(image, request.Monuments);
+            DrawMonuments(canvas, request.Monuments);
         }
 
         if (request.Layers.Tunnels && request.Tunnels is { Count: > 0 })
         {
-            DrawMonuments(image, request.Tunnels);
+            DrawMonuments(canvas, request.Tunnels);
         }
 
         if (request.Layers.Markers || request.Layers.Vendor)
         {
-            DrawTrails(image, request.Markers);
+            DrawTrails(canvas, request.Markers);
         }
 
         if (request.Layers.Markers)
         {
-            DrawMarkers(image, request.Markers);
+            DrawMarkers(canvas, request.Markers);
         }
 
         if (request.Layers.Rigs)
         {
-            DrawRigs(image, request.Rigs);
+            DrawRigs(canvas, request.Rigs);
         }
 
         if (request.Layers.Players)
         {
-            DrawPlayers(image, request.Players);
+            DrawPlayers(canvas, request.Players);
         }
 
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return ms.ToArray();
+        using var snapshot = surface.Snapshot();
+        return Raster.EncodePng(snapshot);
     }
 
-    private static void DrawGrid(Image<Rgba32> image, MapProjection projection, MapGridStyle gridStyle)
+    private static void DrawGrid(SKCanvas canvas, MapProjection projection, MapGridStyle gridStyle)
     {
         if (projection.WorldSize == 0)
         {
             return;
         }
 
-        var lineColor = Color.FromRgba(255, 255, 255, 80);
-        var labelColor = Color.FromRgba(255, 255, 255, 140);
         var cells = MapGrid.CellCount(projection.WorldSize);
 
         // The lattice is anchored at the west edge and at the style's row anchor (the world's north
@@ -122,161 +119,176 @@ public sealed class MapRenderer(MonumentIconSource monumentIcons)
         var right = anchorX + (cells * stepX);
         var bottom = anchorY + (cells * stepY);
 
-        image.Mutate(ctx =>
+        using var linePaint = Stroke(new SKColor(255, 255, 255, 80), OutlinePenWidth);
+        for (var k = 0; k <= cells; k++)
         {
-            for (var k = 0; k <= cells; k++)
-            {
-                var x = anchorX + (k * stepX);
-                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(x, anchorY), new PointF(x, bottom));
-                var y = anchorY + (k * stepY);
-                ctx.DrawLine(lineColor, OutlinePenWidth, new PointF(anchorX, y), new PointF(right, y));
-            }
+            var x = anchorX + (k * stepX);
+            canvas.DrawLine(x, anchorY, x, bottom, linePaint);
+            var y = anchorY + (k * stepY);
+            canvas.DrawLine(anchorX, y, right, y, linePaint);
+        }
 
-            // Every labelled cell (A0 in the north-west corner), each label just inside its cell's
-            // top-left corner (companion-app placement).
-            for (var col = 0; col < cells; col++)
+        // Every labelled cell (A0 in the north-west corner), each label just inside its cell's
+        // top-left corner (companion-app placement). DrawText takes the baseline, so drop each
+        // label by the font's ascent to put its top edge at the corner offset.
+        // Unhinted, subpixel-positioned glyphs keep the small labels light rather than pixel-snapped bold.
+        using var font = new SKFont(Typeface, MapRenderStyle.GridLabelFontSize)
+        {
+            Edging = SKFontEdging.Antialias, Hinting = SKFontHinting.None, Subpixel = true,
+        };
+        using var labelPaint = new SKPaint
+        {
+            IsAntialias = true, Color = new SKColor(255, 255, 255, 140)
+        };
+        var ascent = -font.Metrics.Ascent;
+        for (var col = 0; col < cells; col++)
+        {
+            for (var row = 0; row < cells; row++)
             {
-                for (var row = 0; row < cells; row++)
-                {
-                    var label = MapGrid.ColumnLetters(col) + row.ToString(CultureInfo.InvariantCulture);
-                    ctx.DrawText(new RichTextOptions(GridLabelFont)
-                        {
-                            Origin = new PointF(anchorX + (col * stepX) + 2f, anchorY + (row * stepY) + 2f)
-                        },
-                        label, labelColor);
-                }
+                var label = MapGrid.ColumnLetters(col) + row.ToString(CultureInfo.InvariantCulture);
+                canvas.DrawText(label, anchorX + (col * stepX) + 2f, anchorY + (row * stepY) + 2f + ascent,
+                    SKTextAlign.Left, font, labelPaint);
             }
-        });
+        }
     }
 
-    private static void DrawTrails(Image<Rgba32> image, IReadOnlyList<MarkerPlacement> markers)
+    private static void DrawTrails(SKCanvas canvas, IReadOnlyList<MarkerPlacement> markers)
     {
-        image.Mutate(ctx =>
-        {
-            foreach (var marker in markers)
-            {
-                if (marker.Trail.Count < 2)
-                {
-                    continue;
-                }
+        // A dashed pen keeps the trail from looking like a solid smear; the dash pattern is in
+        // multiples of the pen width.
+        using var dash = SKPathEffect.CreateDash(
+            [.. MapRenderStyle.TrailDash.Select(d => d * MapRenderStyle.TrailWidth)], 0f);
+        using var paint = Stroke(SKColors.Transparent, MapRenderStyle.TrailWidth);
+        paint.PathEffect = dash;
 
-                var baseColor = MapRenderStyle.TrailColor(marker.Kind);
-                for (var i = 1; i < marker.Trail.Count; i++)
-                {
-                    // Fade from faint (oldest) to the alpha ceiling (newest) so direction still reads,
-                    // but stays subtle. A dashed pen keeps it from looking like a solid smear.
-                    var alpha = MapRenderStyle.TrailMaxAlpha * i / (marker.Trail.Count - 1);
-                    var pen = new PatternPen(baseColor.WithAlpha(alpha), MapRenderStyle.TrailWidth,
-                        MapRenderStyle.TrailDash);
-                    ctx.DrawLine(pen, marker.Trail[i - 1], marker.Trail[i]);
-                }
+        foreach (var marker in markers)
+        {
+            if (marker.Trail.Count < 2)
+            {
+                continue;
             }
-        });
+
+            var baseColor = MapRenderStyle.TrailColor(marker.Kind);
+            for (var i = 1; i < marker.Trail.Count; i++)
+            {
+                // Fade from faint (oldest) to the alpha ceiling (newest) so direction still reads,
+                // but stays subtle.
+                var alpha = MapRenderStyle.TrailMaxAlpha * i / (marker.Trail.Count - 1);
+                paint.Color = baseColor.WithAlpha(ToByte(alpha));
+                canvas.DrawLine(marker.Trail[i - 1], marker.Trail[i], paint);
+            }
+        }
     }
 
-    private static void DrawMarkers(Image<Rgba32> image, IReadOnlyList<MarkerPlacement> markers)
+    private static void DrawMarkers(SKCanvas canvas, IReadOnlyList<MarkerPlacement> markers)
     {
-        // One Mutate for the whole layer: each Mutate builds and runs a fresh processing pipeline,
-        // so batching all the layer's DrawImage calls into a single Mutate avoids per-item overhead.
-        image.Mutate(ctx =>
+        foreach (var marker in markers)
         {
-            foreach (var marker in markers)
+            var icon = MapIcons.Marker(marker.Kind, MapRenderStyle.MarkerIconSize(marker.Kind));
+            if (icon is null)
             {
-                var icon = MapIcons.Marker(marker.Kind, MapRenderStyle.MarkerIconSize(marker.Kind));
-                if (icon is null)
-                {
-                    continue;
-                }
-
-                if (marker.Rotation is { } rotation && Math.Abs(rotation) > 0.01f)
-                {
-                    using var rotated = icon.Clone(c => c.Rotate(-rotation));
-                    ctx.DrawImage(rotated, CenterAt(marker.PixelX, marker.PixelY, rotated), 1f);
-                }
-                else
-                {
-                    ctx.DrawImage(icon, CenterAt(marker.PixelX, marker.PixelY, icon), 1f);
-                }
+                continue;
             }
-        });
+
+            if (marker.Rotation is { } rotation && Math.Abs(rotation) > 0.01f)
+            {
+                // Counter-clockwise by the server heading, about the icon's centre.
+                canvas.Save();
+                canvas.Translate(marker.PixelX, marker.PixelY);
+                canvas.RotateDegrees(-rotation);
+                canvas.DrawImage(icon, -icon.Width / 2f, -icon.Height / 2f, Raster.Smooth);
+                canvas.Restore();
+            }
+            else
+            {
+                DrawCentered(canvas, icon, marker.PixelX, marker.PixelY);
+            }
+        }
     }
 
-    private void DrawMonuments(Image<Rgba32> image, IReadOnlyList<MonumentPlacement> monuments)
+    private void DrawMonuments(SKCanvas canvas, IReadOnlyList<MonumentPlacement> monuments)
     {
-        // One Mutate for the whole layer (see DrawMarkers): monuments can be numerous, so a single
-        // pipeline beats one Mutate per monument.
-        image.Mutate(ctx =>
+        foreach (var monument in monuments)
         {
-            foreach (var monument in monuments)
+            var icon = monumentIcons.Monument(monument.Token, MapRenderStyle.MonumentIconSize);
+            if (icon is not null)
             {
-                var icon = monumentIcons.Monument(monument.Token, MapRenderStyle.MonumentIconSize);
-                if (icon is not null)
-                {
-                    ctx.DrawImage(icon, CenterAt(monument.PixelX, monument.PixelY, icon), 1f);
-                }
+                DrawCentered(canvas, icon, monument.PixelX, monument.PixelY);
             }
-        });
+        }
     }
 
-    private void DrawRigs(Image<Rgba32> image, IReadOnlyList<RigPlacement> rigs)
+    private void DrawRigs(SKCanvas canvas, IReadOnlyList<RigPlacement> rigs)
     {
-        image.Mutate(ctx =>
+        using var ringPaint = Stroke(SKColors.Red, ActiveRingWidth);
+        foreach (var rig in rigs)
         {
-            foreach (var rig in rigs)
+            var icon = monumentIcons.Rig(rig.Kind, MapRenderStyle.MonumentIconSize);
+            if (icon is null)
             {
-                var icon = monumentIcons.Rig(rig.Kind, MapRenderStyle.MonumentIconSize);
-                if (icon is null)
-                {
-                    continue;
-                }
-
-                ctx.DrawImage(icon, CenterAt(rig.PixelX, rig.PixelY, icon), 1f);
-
-                if (rig.Active)
-                {
-                    // Active rigs are in their combat window: ring them in red to flag the danger.
-                    var radius = (Math.Max(icon.Width, icon.Height) / 2f) + ActiveRingWidth;
-                    var ring = new EllipsePolygon(rig.PixelX, rig.PixelY, radius);
-                    ctx.Draw(Color.Red, ActiveRingWidth, ring);
-                }
+                continue;
             }
-        });
+
+            DrawCentered(canvas, icon, rig.PixelX, rig.PixelY);
+
+            if (rig.Active)
+            {
+                // Active rigs are in their combat window: ring them in red to flag the danger.
+                var radius = (Math.Max(icon.Width, icon.Height) / 2f) + ActiveRingWidth;
+                canvas.DrawCircle(rig.PixelX, rig.PixelY, radius, ringPaint);
+            }
+        }
     }
 
-    private static void DrawPlayers(Image<Rgba32> image, IReadOnlyList<PlayerPlacement> players)
+    private static void DrawPlayers(SKCanvas canvas, IReadOnlyList<PlayerPlacement> players)
     {
-        image.Mutate(ctx =>
+        using var paint = Stroke(SKColors.Transparent, MapRenderStyle.PlayerCrossWidth);
+        foreach (var player in players)
         {
-            foreach (var player in players)
-            {
-                DrawPlayerCross(ctx, player);
-            }
-        });
+            DrawPlayerCross(canvas, paint, player);
+        }
     }
 
-    private static void DrawPlayerCross(IImageProcessingContext ctx, PlayerPlacement player)
+    private static void DrawPlayerCross(SKCanvas canvas, SKPaint paint, PlayerPlacement player)
     {
         const float arm = MapRenderStyle.PlayerCrossArm;
         var alpha = player.IsOnline ? 1f : MapRenderStyle.PlayerOfflineAlpha;
-        var color = player.CrossColor.WithAlpha(alpha);
-        var halo = Color.FromRgba(0, 0, 0, (byte)(180 * alpha));
+        var color = player.CrossColor.WithAlpha(ToByte(alpha));
+        var halo = new SKColor(0, 0, 0, (byte)(180 * alpha));
 
         // Alive = '+', dead = 'x'.
         var (a1, a2, b1, b2) = player.IsAlive
-            ? (new PointF(player.PixelX - arm, player.PixelY), new PointF(player.PixelX + arm, player.PixelY),
-                new PointF(player.PixelX, player.PixelY - arm), new PointF(player.PixelX, player.PixelY + arm))
-            : (new PointF(player.PixelX - arm, player.PixelY - arm),
-                new PointF(player.PixelX + arm, player.PixelY + arm),
-                new PointF(player.PixelX - arm, player.PixelY + arm),
-                new PointF(player.PixelX + arm, player.PixelY - arm));
+            ? (new SKPoint(player.PixelX - arm, player.PixelY), new SKPoint(player.PixelX + arm, player.PixelY),
+                new SKPoint(player.PixelX, player.PixelY - arm), new SKPoint(player.PixelX, player.PixelY + arm))
+            : (new SKPoint(player.PixelX - arm, player.PixelY - arm),
+                new SKPoint(player.PixelX + arm, player.PixelY + arm),
+                new SKPoint(player.PixelX - arm, player.PixelY + arm),
+                new SKPoint(player.PixelX + arm, player.PixelY - arm));
 
         // Halo first (wider, dark), then the colored strokes on top.
-        ctx.DrawLine(halo, MapRenderStyle.PlayerCrossHaloWidth, a1, a2);
-        ctx.DrawLine(halo, MapRenderStyle.PlayerCrossHaloWidth, b1, b2);
-        ctx.DrawLine(color, MapRenderStyle.PlayerCrossWidth, a1, a2);
-        ctx.DrawLine(color, MapRenderStyle.PlayerCrossWidth, b1, b2);
+        paint.Color = halo;
+        paint.StrokeWidth = MapRenderStyle.PlayerCrossHaloWidth;
+        canvas.DrawLine(a1, a2, paint);
+        canvas.DrawLine(b1, b2, paint);
+        paint.Color = color;
+        paint.StrokeWidth = MapRenderStyle.PlayerCrossWidth;
+        canvas.DrawLine(a1, a2, paint);
+        canvas.DrawLine(b1, b2, paint);
     }
 
-    private static Point CenterAt(float x, float y, Image<Rgba32> icon) =>
-        new((int)(x - (icon.Width / 2f)), (int)(y - (icon.Height / 2f)));
+    /// <summary>Draws an icon centred on a point, snapped to whole pixels so the 1:1 blit stays crisp.</summary>
+    /// <param name="canvas">The target canvas.</param>
+    /// <param name="icon">The icon, already at its on-map size.</param>
+    /// <param name="x">The centre X in output pixels.</param>
+    /// <param name="y">The centre Y in output pixels.</param>
+    private static void DrawCentered(SKCanvas canvas, SKImage icon, float x, float y) =>
+        canvas.DrawImage(icon, (int)(x - (icon.Width / 2f)), (int)(y - (icon.Height / 2f)),
+            SKSamplingOptions.Default);
+
+    private static SKPaint Stroke(SKColor color, float width) => new()
+    {
+        IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = width, Color = color,
+    };
+
+    private static byte ToByte(float alpha) => (byte)Math.Round(Math.Clamp(alpha, 0f, 1f) * 255f);
 }

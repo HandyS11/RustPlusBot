@@ -9,8 +9,6 @@ using RustPlusBot.Features.Map.Assets;
 using RustPlusBot.Features.Map.Composing;
 using RustPlusBot.Features.Map.Rendering;
 using RustPlusBot.Persistence.Map;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace RustPlusBot.Features.Map.Tests;
 
@@ -20,13 +18,7 @@ public sealed class MapComposerTests
     private static readonly Guid Server = Guid.NewGuid();
     private static readonly MapDimensions Dims = new(2000, 2000, 100, 4000);
 
-    private static byte[] BaseJpeg()
-    {
-        using var img = new Image<Rgba32>(64, 64, new Rgba32(0, 128, 0));
-        using var ms = new MemoryStream();
-        img.SaveAsJpeg(ms);
-        return ms.ToArray();
-    }
+    private static byte[] BaseJpeg() => TestImages.GreenJpeg();
 
     private static IServiceScopeFactory ScopeFactory(IMapSettingsStore settingsStore) =>
         new ServiceCollection()
@@ -99,7 +91,7 @@ public sealed class MapComposerTests
         var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
         Assert.NotNull(result);
-        using var image = Image.Load<Rgba32>(result.Png);
+        using var image = TestImages.Decode(result.Png);
         Assert.Equal(MapRenderer.OutputSize, image.Width);
     }
 
@@ -114,7 +106,7 @@ public sealed class MapComposerTests
         var result = await composer.ComposeAsync(Guild, Server, CancellationToken.None);
 
         Assert.NotNull(result);
-        using var image = Image.Load<Rgba32>(result.Png);
+        using var image = TestImages.Decode(result.Png);
         Assert.Equal(MapRenderer.OutputSize, image.Width);
     }
 

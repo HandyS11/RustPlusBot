@@ -3,10 +3,7 @@ using System.Text.Json;
 using RustMapsApi.V4;
 using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Features.Map.Rendering;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 
 if (args.Length < 4
     || !int.TryParse(args[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var size)
@@ -51,10 +48,14 @@ await File.WriteAllTextAsync(Path.Combine(outDir, "monuments.json"),
 
 // Project every monument through OUR MapProjection onto THEIR render and drop crosshairs.
 // If our math is right, every crosshair lands on the matching RustMaps monument icon.
-using var overlay = Image.Load<Rgba32>(imageBytes);
+using var overlay = SKBitmap.Decode(imageBytes);
 var projection =
     new MapProjection((uint)size, overlay.Width, overlay.Height, OceanMarginPx: 0, OutputSize: overlay.Width);
-overlay.Mutate(ctx =>
+using (var canvas = new SKCanvas(overlay))
+using (var pen = new SKPaint
+       {
+           IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2f, Color = SKColors.Magenta
+       })
 {
     foreach (var monument in map.Monuments ?? [])
     {
@@ -65,14 +66,19 @@ overlay.Mutate(ctx =>
 
         // RustMaps coordinates are centred on the map; MapProjection expects Rust+'s corner origin.
         var (px, py) = projection.ToPixel(c.X + (size / 2f), c.Y + (size / 2f));
-        ctx.DrawLine(Color.Magenta, 2f, new PointF(px - 12, py), new PointF(px + 12, py));
-        ctx.DrawLine(Color.Magenta, 2f, new PointF(px, py - 12), new PointF(px, py + 12));
+        canvas.DrawLine(px - 12, py, px + 12, py, pen);
+        canvas.DrawLine(px, py - 12, px, py + 12, pen);
         Console.WriteLine(
             $"{monument.Type,-30} world=({c.X,6},{c.Y,6}) "
             + $"grid={MapGrid.LabelFor(c.X + (size / 2f), c.Y + (size / 2f), (uint)size)} px=({px:F0},{py:F0})");
     }
-});
-await overlay.SaveAsPngAsync(Path.Combine(outDir, "overlay.png")).ConfigureAwait(false);
+}
+
+using (var png = overlay.Encode(SKEncodedImageFormat.Png, 100))
+{
+    await File.WriteAllBytesAsync(Path.Combine(outDir, "overlay.png"), png.ToArray()).ConfigureAwait(false);
+}
+
 await Console.Out.WriteLineAsync($"Wrote {outDir}/overlay.png — crosshairs must sit on the RustMaps monument markers.")
     .ConfigureAwait(false);
 return 0;
