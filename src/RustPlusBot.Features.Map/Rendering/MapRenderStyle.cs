@@ -1,5 +1,5 @@
 using RustPlusBot.Abstractions.Connections;
-using SixLabors.ImageSharp;
+using SkiaSharp;
 
 namespace RustPlusBot.Features.Map.Rendering;
 
@@ -48,12 +48,12 @@ public static class MapRenderStyle
     /// <summary>Gets the trail color for a marker kind.</summary>
     /// <param name="kind">The marker kind.</param>
     /// <returns>The base (fully opaque) trail color.</returns>
-    public static Color TrailColor(MarkerKind kind) => kind switch
+    public static SKColor TrailColor(MarkerKind kind) => kind switch
     {
-        MarkerKind.CargoShip => Color.ParseHex("4FC3F7"),
-        MarkerKind.PatrolHelicopter => Color.ParseHex("EF5350"),
-        MarkerKind.Chinook => Color.ParseHex("FFB74D"),
-        MarkerKind.TravellingVendor => Color.ParseHex("81C784"),
-        _ => Color.White,
+        MarkerKind.CargoShip => SKColor.Parse("4FC3F7"),
+        MarkerKind.PatrolHelicopter => SKColor.Parse("EF5350"),
+        MarkerKind.Chinook => SKColor.Parse("FFB74D"),
+        MarkerKind.TravellingVendor => SKColor.Parse("81C784"),
+        _ => SKColors.White,
     };
 }

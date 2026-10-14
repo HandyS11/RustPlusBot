@@ -1,5 +1,5 @@
 using RustPlusBot.Abstractions.Connections;
-using SixLabors.ImageSharp;
+using SkiaSharp;
 
 namespace RustPlusBot.Features.Map.Rendering;
 
@@ -14,4 +14,4 @@ public sealed record MarkerPlacement(
     float PixelX,
     float PixelY,
     float? Rotation,
-    IReadOnlyList<PointF> Trail);
+    IReadOnlyList<SKPoint> Trail);

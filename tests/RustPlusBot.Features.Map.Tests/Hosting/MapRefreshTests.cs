@@ -17,8 +17,6 @@ using RustPlusBot.Features.Map.Rendering;
 using RustPlusBot.Features.Workspace.Locating;
 using RustPlusBot.Persistence.Connections;
 using RustPlusBot.Persistence.Map;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using ConnectionState = RustPlusBot.Domain.Connections.ConnectionState;
 
 namespace RustPlusBot.Features.Map.Tests.Hosting;
@@ -562,13 +560,7 @@ public sealed class MapRefreshTests
         /// <returns>The channel snowflake for that server.</returns>
         private static ulong ChannelFor(Guid serverId) => serverId == SecondServer ? SecondMapChannel : MapChannel;
 
-        private static byte[] BaseJpeg()
-        {
-            using var img = new Image<Rgba32>(64, 64, new Rgba32(0, 128, 0));
-            using var ms = new MemoryStream();
-            img.SaveAsJpeg(ms);
-            return ms.ToArray();
-        }
+        private static byte[] BaseJpeg() => TestImages.GreenJpeg();
 
         private static IRigState Rigs()
         {

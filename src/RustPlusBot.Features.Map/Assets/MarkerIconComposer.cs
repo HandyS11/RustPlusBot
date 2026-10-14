@@ -1,6 +1,5 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using RustPlusBot.Features.Map.Rendering;
+using SkiaSharp;
 
 namespace RustPlusBot.Features.Map.Assets;
 
@@ -22,66 +21,64 @@ internal static class MarkerIconComposer
     private const float ChinookBladeScale = 0.62f;
 
     /// <summary>The single main-rotor hub offset, in body pixels (populated on first access).</summary>
-    internal static IReadOnlyList<PointF> HeliRotorOffsets { get; } = HeliOffsets();
+    internal static IReadOnlyList<SKPoint> HeliRotorOffsets { get; } = HeliOffsets();
 
     /// <summary>The two tandem-rotor offsets (front, rear), in body pixels.</summary>
-    internal static IReadOnlyList<PointF> ChinookRotorOffsets { get; } = ChinookOffsets();
+    internal static IReadOnlyList<SKPoint> ChinookRotorOffsets { get; } = ChinookOffsets();
 
     /// <summary>Builds the patrol-heli composite (body + one rotor blade on the hub).</summary>
     /// <returns>The composited heli icon; caller owns disposal.</returns>
-    internal static Image<Rgba32> Heli() =>
+    internal static SKImage Heli() =>
         Compose("heli", HeliRotorOffsets, HeliBladeScale);
 
     /// <summary>Builds the CH47 composite (body + two rotor blades at the tandem positions).</summary>
     /// <returns>The composited chinook icon; caller owns disposal.</returns>
-    internal static Image<Rgba32> Chinook() =>
+    internal static SKImage Chinook() =>
         Compose("chinook", ChinookRotorOffsets, ChinookBladeScale);
 
-    private static IReadOnlyList<PointF> HeliOffsets()
+    private static IReadOnlyList<SKPoint> HeliOffsets()
     {
         using var body = Load("heli");
 
         // Hub sits slightly forward of centre.
-        return [new PointF(body.Width / 2f, body.Height * 0.44f)];
+        return [new SKPoint(body.Width / 2f, body.Height * 0.44f)];
     }
 
-    private static IReadOnlyList<PointF> ChinookOffsets()
+    private static IReadOnlyList<SKPoint> ChinookOffsets()
     {
         using var body = Load("chinook");
         var cx = body.Width / 2f;
         return
         [
-            new PointF(cx, body.Height * 0.20f), // front rotor
-            new PointF(cx, body.Height * 0.80f), // rear rotor
+            new SKPoint(cx, body.Height * 0.20f), // front rotor
+            new SKPoint(cx, body.Height * 0.80f), // rear rotor
         ];
     }
 
-    private static Image<Rgba32> Compose(string bodyKey, IReadOnlyList<PointF> offsets, float bladeScale)
+    private static SKImage Compose(string bodyKey, IReadOnlyList<SKPoint> offsets, float bladeScale)
     {
-        var canvas = Load(bodyKey); // returned to caller (cached by MapIcons); not disposed here
+        using var body = Load(bodyKey);
         using var blade = Load("blade");
-        var edge = (int)(Math.Min(canvas.Width, canvas.Height) * bladeScale);
-        using var scaledBlade = blade.Clone(c => c.Resize(edge, edge));
+        var edge = (int)(Math.Min(body.Width, body.Height) * bladeScale);
 
-        canvas.Mutate(ctx =>
+        // Returned to the caller (cached by MapIcons); not disposed here.
+        return Raster.Draw(body.Width, body.Height, canvas =>
         {
+            canvas.DrawImage(body, 0, 0, SKSamplingOptions.Default);
             foreach (var offset in offsets)
             {
-                var topLeft = new Point(
-                    (int)(offset.X - (scaledBlade.Width / 2f)),
-                    (int)(offset.Y - (scaledBlade.Height / 2f)));
-                ctx.DrawImage(scaledBlade, topLeft, 1f);
+                var left = (int)(offset.X - (edge / 2f));
+                var top = (int)(offset.Y - (edge / 2f));
+                canvas.DrawImage(blade, SKRect.Create(left, top, edge, edge), Raster.Smooth);
             }
         });
-
-        return canvas;
     }
 
-    private static Image<Rgba32> Load(string key)
+    private static SKImage Load(string key)
     {
         var asm = typeof(MarkerIconComposer).Assembly;
         using var stream = asm.GetManifestResourceStream(ResourcePrefix + key + ".png")
                            ?? throw new InvalidOperationException($"Embedded marker asset '{key}.png' not found.");
-        return Image.Load<Rgba32>(stream);
+        return Raster.Decode(stream);
     }
 }

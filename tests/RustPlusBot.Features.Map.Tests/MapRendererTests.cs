@@ -4,8 +4,7 @@ using RustPlusBot.Abstractions.Connections;
 using RustPlusBot.Abstractions.Events;
 using RustPlusBot.Features.Map.Assets;
 using RustPlusBot.Features.Map.Rendering;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace RustPlusBot.Features.Map.Tests;
 
@@ -19,32 +18,20 @@ public sealed class MapRendererTests
         new(new MonumentIconSource(new MonumentAssetSource(), NullLogger<MonumentIconSource>.Instance));
 
     /// <summary>A 64x64 solid-green JPEG, generated once in-test so the renderer has a real base image to decode.</summary>
-    private static byte[] BaseJpeg()
-    {
-        using var img = new Image<Rgba32>(64, 64, new Rgba32(0, 128, 0));
-        using var ms = new MemoryStream();
-        img.SaveAsJpeg(ms);
-        return ms.ToArray();
-    }
+    private static byte[] BaseJpeg() => TestImages.GreenJpeg();
 
-    private static byte[] SolidJpeg(int size)
-    {
-        using var img = new Image<Rgba32>(size, size, new Rgba32(40, 90, 120));
-        using var ms = new MemoryStream();
-        img.SaveAsJpeg(ms);
-        return ms.ToArray();
-    }
+    private static byte[] SolidJpeg(int size) => TestImages.SolidJpeg(size, new SKColor(40, 90, 120));
 
-    private static Rectangle ChangedPixelBounds(byte[] a, byte[] b)
+    private static SKRectI ChangedPixelBounds(byte[] a, byte[] b)
     {
-        using var ia = Image.Load<Rgba32>(a);
-        using var ib = Image.Load<Rgba32>(b);
+        using var ia = TestImages.Decode(a);
+        using var ib = TestImages.Decode(b);
         int minX = int.MaxValue, minY = int.MaxValue, maxX = -1, maxY = -1;
         for (var y = 0; y < ia.Height; y++)
         {
             for (var x = 0; x < ia.Width; x++)
             {
-                if (ia[x, y] != ib[x, y])
+                if (ia.GetPixel(x, y) != ib.GetPixel(x, y))
                 {
                     minX = Math.Min(minX, x);
                     minY = Math.Min(minY, y);
@@ -54,7 +41,7 @@ public sealed class MapRendererTests
             }
         }
 
-        return maxX < 0 ? Rectangle.Empty : new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+        return maxX < 0 ? SKRectI.Empty : SKRectI.Create(minX, minY, maxX - minX + 1, maxY - minY + 1);
     }
 
     [Fact]
@@ -73,7 +60,7 @@ public sealed class MapRendererTests
             Layers = MapLayerSet.AllOn,
         });
 
-        using var result = Image.Load<Rgba32>(bytes);
+        using var result = TestImages.Decode(bytes);
         Assert.Equal(MapRenderer.OutputSize, result.Width);
         Assert.Equal(MapRenderer.OutputSize, result.Height);
     }
@@ -141,7 +128,7 @@ public sealed class MapRendererTests
             Layers = MapLayerSet.AllOn,
         });
 
-        using var img = Image.Load(png); // throws if not a valid image
+        using var img = TestImages.Decode(png); // throws if not a valid image
         Assert.Equal(MapRenderer.OutputSize, img.Width);
     }
 
@@ -207,7 +194,7 @@ public sealed class MapRendererTests
             Markers =
             [
                 new MarkerPlacement(MarkerKind.CargoShip, bx, by, null,
-                    [new PointF(ax, ay), new PointF(bx, by)])
+                    [new SKPoint(ax, ay), new SKPoint(bx, by)])
             ],
             Monuments = [],
             Players = [],
@@ -297,7 +284,7 @@ public sealed class MapRendererTests
         var baseJpeg = SolidJpeg(2000);
         var (px, py) = projection.ToPixel(2000f, 2000f);
         var layers = new MapLayerSet(false, false, false, false, true, false);
-        var red = SixLabors.ImageSharp.Color.ParseHex("E03131");
+        var red = SKColor.Parse("E03131");
 
         var without = renderer.Render(new MapRenderRequest
         {
@@ -322,14 +309,14 @@ public sealed class MapRendererTests
 
         Assert.False(without.AsSpan().SequenceEqual(with));
         // A red-dominant pixel must appear where the cross was drawn.
-        using var img = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(with);
+        using var img = TestImages.Decode(with);
         var found = false;
         for (var dy = -8; dy <= 8 && !found; dy++)
         {
             for (var dx = -8; dx <= 8 && !found; dx++)
             {
-                var p = img[(int)px + dx, (int)py + dy];
-                if (p.R > 150 && p.G < 120 && p.B < 120)
+                var p = img.GetPixel((int)px + dx, (int)py + dy);
+                if (p.Red > 150 && p.Green < 120 && p.Blue < 120)
                 {
                     found = true;
                 }
@@ -347,7 +334,7 @@ public sealed class MapRendererTests
         var baseJpeg = SolidJpeg(2000);
         var (px, py) = projection.ToPixel(2000f, 2000f);
         var layers = new MapLayerSet(false, false, false, false, true, false);
-        var blue = SixLabors.ImageSharp.Color.ParseHex("1971C2");
+        var blue = SKColor.Parse("1971C2");
 
         var alive = renderer.Render(new MapRenderRequest
         {

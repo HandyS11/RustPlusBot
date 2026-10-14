@@ -1,6 +1,5 @@
 using RustPlusBot.Features.Map.Assets;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace RustPlusBot.Features.Map.Tests;
 
@@ -30,7 +29,8 @@ public sealed class MarkerIconComposerTests
     public void Composited_chinook_adds_blade_pixels_to_the_bare_body()
     {
         // The composite must differ from the bare body — proving blades were actually drawn on.
-        using var composite = MarkerIconComposer.Chinook();
+        using var compositeImage = MarkerIconComposer.Chinook();
+        using var composite = SKBitmap.FromImage(compositeImage);
         using var body = LoadEmbedded("chinook");
 
         Assert.Equal(body.Width, composite.Width);
@@ -40,7 +40,7 @@ public sealed class MarkerIconComposerTests
         {
             for (var x = 0; x < body.Width; x++)
             {
-                if (body[x, y] != composite[x, y])
+                if (body.GetPixel(x, y) != composite.GetPixel(x, y))
                 {
                     changed++;
                 }
@@ -50,10 +50,10 @@ public sealed class MarkerIconComposerTests
         Assert.True(changed > 0, "composite identical to bare body — no blades drawn");
     }
 
-    private static Image<Rgba32> LoadEmbedded(string key)
+    private static SKBitmap LoadEmbedded(string key)
     {
         var asm = typeof(MarkerIconComposer).Assembly;
         using var stream = asm.GetManifestResourceStream($"RustPlusBot.Features.Map.Assets.icons.{key}.png")!;
-        return Image.Load<Rgba32>(stream);
+        return SKBitmap.Decode(stream);
     }
 }

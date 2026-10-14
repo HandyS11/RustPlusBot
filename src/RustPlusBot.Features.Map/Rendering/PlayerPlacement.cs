@@ -15,7 +15,7 @@ public sealed record PlayerPlacement(
     float PixelY,
     bool IsAlive,
     bool IsOnline,
-    SixLabors.ImageSharp.Color CrossColor);
+    SkiaSharp.SKColor CrossColor);
 
 /// <summary>One monument to draw, already projected to pixel coordinates.</summary>
 /// <param name="Token">The monument protobuf token (selects the icon).</param>

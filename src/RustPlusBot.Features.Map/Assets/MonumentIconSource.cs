@@ -3,8 +3,7 @@ using Microsoft.Extensions.Logging;
 using RustMapsApi.V4.Assets;
 using RustMapsApi.V4.Models;
 using RustPlusBot.Abstractions.Events;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using RustPlusBot.Features.Map.Rendering;
 using SkiaSharp;
 using Svg.Skia;
 
@@ -21,14 +20,14 @@ namespace RustPlusBot.Features.Map.Assets;
 /// <param name="logger">Logs tokens that resolve to no icon, once per token per process.</param>
 public sealed partial class MonumentIconSource(IMonumentAssetSource assets, ILogger<MonumentIconSource> logger)
 {
-    private readonly ConcurrentDictionary<(MonumentType Type, int Size), Lazy<Image<Rgba32>?>> _cache = new();
+    private readonly ConcurrentDictionary<(MonumentType Type, int Size), Lazy<SKImage?>> _cache = new();
     private readonly ConcurrentDictionary<string, byte> _reported = new(StringComparer.Ordinal);
 
     /// <summary>Gets the icon for a monument token scaled to a square box, or null when no icon exists.</summary>
     /// <param name="token">The Rust+ monument protobuf token (or prefab name).</param>
     /// <param name="size">The box edge length in pixels.</param>
     /// <returns>The cached icon, or null (reported once per token).</returns>
-    public Image<Rgba32>? Monument(string token, int size)
+    public SKImage? Monument(string token, int size)
     {
         var type = MonumentTokenMap.TypeFor(token);
         if (type is null)
@@ -48,20 +47,20 @@ public sealed partial class MonumentIconSource(IMonumentAssetSource assets, ILog
     /// <param name="kind">Which rig.</param>
     /// <param name="size">The box edge length in pixels.</param>
     /// <returns>The cached rig icon, or null.</returns>
-    public Image<Rgba32>? Rig(RigKind kind, int size) => kind switch
+    public SKImage? Rig(RigKind kind, int size) => kind switch
     {
         RigKind.Small => For(MonumentType.OilrigSmall, "oil_rig_small", size),
         RigKind.Large => For(MonumentType.OilrigLarge, "large_oil_rig", size),
         _ => null,
     };
 
-    private Image<Rgba32>? For(MonumentType type, string token, int size)
+    private SKImage? For(MonumentType type, string token, int size)
     {
         // GetOrAdd's value factory may run more than once under a first-request race; the Lazy wrapper
         // (ExecutionAndPublication) guarantees Rasterize itself runs exactly once per key, so no losing
         // image is leaked and the rasterization-failure Warning fires at most once per (type, size).
         var image = _cache
-            .GetOrAdd((type, size), key => new Lazy<Image<Rgba32>?>(() => Rasterize(key.Type, key.Size)))
+            .GetOrAdd((type, size), key => new Lazy<SKImage?>(() => Rasterize(key.Type, key.Size)))
             .Value;
         if (image is null)
         {
@@ -79,7 +78,7 @@ public sealed partial class MonumentIconSource(IMonumentAssetSource assets, ILog
         }
     }
 
-    private Image<Rgba32>? Rasterize(MonumentType type, int size)
+    private SKImage? Rasterize(MonumentType type, int size)
     {
         if (!assets.TryGetAsset(type, out var asset))
         {
@@ -97,20 +96,14 @@ public sealed partial class MonumentIconSource(IMonumentAssetSource assets, ILog
                 }
             }
 
-            var bounds = svg.Picture!.CullRect;
-            using var bitmap = new SKBitmap(new SKImageInfo(size, size, SKColorType.Rgba8888, SKAlphaType.Premul));
-            using (var canvas = new SKCanvas(bitmap))
+            var picture = svg.Picture!;
+            var bounds = picture.CullRect;
+            return Raster.Draw(size, size, canvas =>
             {
-                canvas.Clear(SKColors.Transparent);
                 canvas.Scale(size / bounds.Width, size / bounds.Height);
                 canvas.Translate(-bounds.Left, -bounds.Top);
-                canvas.DrawPicture(svg.Picture);
-            }
-
-            using var skImage = SKImage.FromBitmap(bitmap);
-            using var png = skImage.Encode(SKEncodedImageFormat.Png, 100);
-            using var ms = png.AsStream();
-            return Image.Load<Rgba32>(ms);
+                canvas.DrawPicture(picture);
+            });
         }
 #pragma warning disable CA1031 // Broad catch: a bad SVG must degrade to "no icon", never break a render.
         catch (Exception ex)

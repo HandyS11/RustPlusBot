@@ -5,7 +5,7 @@ using RustPlusBot.Features.Events.State;
 using RustPlusBot.Features.Map.Assets;
 using RustPlusBot.Features.Map.Rendering;
 using RustPlusBot.Persistence.Map;
-using SixLabors.ImageSharp;
+using SkiaSharp;
 
 namespace RustPlusBot.Features.Map.Composing;
 
@@ -151,13 +151,13 @@ public sealed class MapComposer(
         return markers;
     }
 
-    private static List<PointF> ProjectTrail(IReadOnlyList<TrailPoint> history, MapProjection projection)
+    private static List<SKPoint> ProjectTrail(IReadOnlyList<TrailPoint> history, MapProjection projection)
     {
-        var trail = new List<PointF>(history.Count);
+        var trail = new List<SKPoint>(history.Count);
         foreach (var h in history)
         {
             var (tx, ty) = projection.ToPixel(h.X, h.Y);
-            trail.Add(new PointF(tx, ty));
+            trail.Add(new SKPoint(tx, ty));
         }
 
         return trail;
