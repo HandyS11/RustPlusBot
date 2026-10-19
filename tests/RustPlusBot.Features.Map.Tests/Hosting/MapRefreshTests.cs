@@ -169,33 +169,41 @@ public sealed class MapRefreshTests
         // #map keeps being re-uploaded for a world the bot is no longer watching.
         using var h = Harness.Create(tick: TimeSpan.FromMilliseconds(20));
         h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Connected(Server));
-        h.ConnectionStore.GetStateAsync(Guild, SecondServer, Arg.Any<CancellationToken>())
-            .Returns(Connected(SecondServer));
+        var secondServerRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.ConnectionStore.GetStateAsync(Guild, SecondServer, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            secondServerRead.TrySetResult();
+            return Task.FromResult<ConnectionState?>(Connected(SecondServer));
+        });
 
         int afterDisconnect;
         await h.Service.StartAsync(CancellationToken.None);
         try
         {
+            // Republish only until the status loop is listening. Every status event repaints, so copies
+            // queued behind a slow render pile up on the sequential loop, and each later step would wait
+            // behind them while republishing more of its own.
             await h.PublishUntilAsync(() => new ConnectionStatusChangedEvent(Guild, Server, true, false),
-                h.PostsToReachesAsync(MapChannel, 1));
-
-            // Nothing is published here, so reaching three posts can only be the tick repainting it: the
-            // server really is on the tick before the disconnect under test.
-            await h.PostsToReachesAsync(MapChannel, 3).WaitAsync(Patience);
+                h.WhenStatusHandled);
 
             // A second server stays connected throughout. Its posts are the heartbeat that proves the tick
-            // kept firing afterwards, which is what makes "stopped repainting" mean something.
-            await h.PublishUntilAsync(() => new ConnectionStatusChangedEvent(Guild, SecondServer, true, false),
-                h.PostsToReachesAsync(SecondMapChannel, 1));
+            // kept firing afterwards, which is what makes "stopped repainting" mean something. The loop is
+            // listening now, so one publish is enough, and its read is a fence: the loop is first-in
+            // first-out and awaits each repaint, so every copy queued ahead of it has been fully handled.
+            await h.Bus.PublishAsync(new ConnectionStatusChangedEvent(Guild, SecondServer, true, false));
+            await secondServerRead.Task.WaitAsync(Patience);
+
+            // Nothing republishes the first server's connect any more, so its next post can only be the
+            // tick: the server really is on the tick before the disconnect under test.
+            await h.PostsToReachesAsync(MapChannel, h.PostsTo(MapChannel) + 1).WaitAsync(Patience);
+            await h.PostsToReachesAsync(SecondMapChannel, 1).WaitAsync(Patience);
 
             var offlineReads = 0;
             var handled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(_ =>
             {
-                // Only reads that see the offline state count, so status events queued before the store was
-                // switched over cannot satisfy the fence. The status loop consumes sequentially, so a second
-                // offline read proves the first one's handler - the one that drops the server from the tick -
-                // already ran to completion.
+                // The status loop consumes sequentially, so the second offline read proves the first one's
+                // handler - the one that drops the server from the tick - already ran to completion.
                 if (Interlocked.Increment(ref offlineReads) == 2)
                 {
                     handled.TrySetResult();
@@ -203,8 +211,9 @@ public sealed class MapRefreshTests
 
                 return Task.FromResult<ConnectionState?>(null);
             });
-            await h.PublishUntilAsync(() => new ConnectionStatusChangedEvent(Guild, Server, false, true),
-                handled.Task);
+            await h.Bus.PublishAsync(new ConnectionStatusChangedEvent(Guild, Server, false, true));
+            await h.Bus.PublishAsync(new ConnectionStatusChangedEvent(Guild, Server, false, true));
+            await handled.Task.WaitAsync(Patience);
 
             // Nothing is published from here on, so every further post comes from the tick. The tick reads
             // a snapshot of the connected set, so the iteration that was already in flight when the server
