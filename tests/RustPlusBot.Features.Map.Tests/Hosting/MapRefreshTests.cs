@@ -169,28 +169,33 @@ public sealed class MapRefreshTests
         // #map keeps being re-uploaded for a world the bot is no longer watching.
         using var h = Harness.Create(tick: TimeSpan.FromMilliseconds(20));
         h.ConnectionStore.GetStateAsync(Guild, Server, Arg.Any<CancellationToken>()).Returns(Connected(Server));
-        h.ConnectionStore.GetStateAsync(Guild, SecondServer, Arg.Any<CancellationToken>())
-            .Returns(Connected(SecondServer));
+        var secondServerRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.ConnectionStore.GetStateAsync(Guild, SecondServer, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            secondServerRead.TrySetResult();
+            return Task.FromResult<ConnectionState?>(Connected(SecondServer));
+        });
 
         int afterDisconnect;
         await h.Service.StartAsync(CancellationToken.None);
         try
         {
-            // Republish only until the status loop is listening. Each status event repaints, so copies queued
-            // behind a slow render pile up on the sequential loop, and every later step would wait behind them.
-            var primed = await h.PublishUntilAsync(
-                () => new ConnectionStatusChangedEvent(Guild, Server, true, false), h.StatusReadsReachAsync(1));
-            await h.StatusReadsReachAsync(primed).WaitAsync(Patience);
-
-            // Every copy has been read, so at most the last one's repaint is still in flight. Two more posts
-            // therefore include at least one from the tick: the server really is on the tick before the
-            // disconnect under test.
-            await h.PostsToReachesAsync(MapChannel, h.PostsTo(MapChannel) + 2).WaitAsync(Patience);
+            // Republish only until the status loop is listening. Every status event repaints, so copies
+            // queued behind a slow render pile up on the sequential loop, and each later step would wait
+            // behind them while republishing more of its own.
+            await h.PublishUntilAsync(() => new ConnectionStatusChangedEvent(Guild, Server, true, false),
+                h.WhenStatusHandled);
 
             // A second server stays connected throughout. Its posts are the heartbeat that proves the tick
             // kept firing afterwards, which is what makes "stopped repainting" mean something. The loop is
-            // known to be listening now, so one publish is enough.
+            // listening now, so one publish is enough, and its read is a fence: the loop is first-in
+            // first-out and awaits each repaint, so every copy queued ahead of it has been fully handled.
             await h.Bus.PublishAsync(new ConnectionStatusChangedEvent(Guild, SecondServer, true, false));
+            await secondServerRead.Task.WaitAsync(Patience);
+
+            // Nothing republishes the first server's connect any more, so its next post can only be the
+            // tick: the server really is on the tick before the disconnect under test.
+            await h.PostsToReachesAsync(MapChannel, h.PostsTo(MapChannel) + 1).WaitAsync(Patience);
             await h.PostsToReachesAsync(SecondMapChannel, 1).WaitAsync(Patience);
 
             var offlineReads = 0;
@@ -408,7 +413,6 @@ public sealed class MapRefreshTests
         private readonly List<(int Count, TaskCompletionSource Tcs)> _postTargets = [];
         private readonly ConcurrentDictionary<ulong, int> _postsByChannel = new();
         private readonly TaskCompletionSource _statusHandled = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly List<(int Count, TaskCompletionSource Tcs)> _statusReadTargets = [];
         private int _baseMapFetches;
         private int _locatorFaults;
         private int _posts;
@@ -435,8 +439,6 @@ public sealed class MapRefreshTests
         public required InMemoryEventBus Bus { get; init; }
 
         public Task WhenStatusHandled => _statusHandled.Task;
-
-        public int StatusReads => Volatile.Read(ref _statusReads);
 
         public void Dispose()
         {
@@ -533,14 +535,6 @@ public sealed class MapRefreshTests
         /// <returns>A task that completes when that many lookups have failed.</returns>
         public Task LocatorFaultsReachAsync(int count) => WaitForCountAsync(_locatorTargets, count, LocatorFaults);
 
-        /// <summary>
-        /// Completes once the status loop has read connection state <paramref name="count"/> times. Every
-        /// status event costs exactly one read, so this is how a test knows the loop has caught up.
-        /// </summary>
-        /// <param name="count">How many reads to wait for.</param>
-        /// <returns>A task that completes when that many reads have happened.</returns>
-        public Task StatusReadsReachAsync(int count) => WaitForCountAsync(_statusReadTargets, count, StatusReads);
-
         /// <summary>Counts one locator failure and returns the exception to throw.</summary>
         /// <param name="fault">The exception the locator reports.</param>
         /// <returns>The same exception, for the caller to throw.</returns>
@@ -557,21 +551,17 @@ public sealed class MapRefreshTests
         /// <typeparam name="TEvent">The event type being published.</typeparam>
         /// <param name="make">Builds the event to publish.</param>
         /// <param name="until">The signal that the service has done the work under test.</param>
-        /// <returns>How many copies were published, all of which the consumer will still handle.</returns>
-        public async Task<int> PublishUntilAsync<TEvent>(Func<TEvent> make, Task until)
+        public async Task PublishUntilAsync<TEvent>(Func<TEvent> make, Task until)
             where TEvent : notnull
         {
-            var published = 0;
             using var deadline = new CancellationTokenSource(Patience);
             while (!until.IsCompleted && !deadline.IsCancellationRequested)
             {
                 await Bus.PublishAsync(make());
-                published++;
                 await Task.WhenAny(until, Task.Delay(20, deadline.Token));
             }
 
             await until.WaitAsync(Patience);
-            return published;
         }
 
         /// <summary>The #map channel a server posts to; each server gets its own so posts are separable.</summary>
@@ -609,9 +599,7 @@ public sealed class MapRefreshTests
         {
             // The consume loop is sequential, so a second read proves the first status event's handler ran
             // to completion — which is what lets the assertions below not race it.
-            var reads = Interlocked.Increment(ref _statusReads);
-            ReleaseReached(_statusReadTargets, reads);
-            if (reads == 2)
+            if (Interlocked.Increment(ref _statusReads) == 2)
             {
                 _statusHandled.TrySetResult();
             }
