@@ -156,7 +156,7 @@ public sealed class MapComposerTests
         Assert.False(tunResult.Png.SequenceEqual(baseResult.Png), "tunnel token must render under the Tunnels layer");
     }
 
-    private static async Task<MapComposition?> ComposeTunnelScenarioAsync(bool monuments, bool tunnels)
+    private static Task<MapComposition?> ComposeTunnelScenarioAsync(bool monuments, bool tunnels)
     {
         var query = NewQuery();
         query.GetMonumentsAsync(Guild, Server, Arg.Any<CancellationToken>())
@@ -165,7 +165,7 @@ public sealed class MapComposerTests
             Grid: false, Markers: false, Monuments: monuments, Vendor: false, Players: false, Rigs: false,
             Tunnels: tunnels);
         var composer = Build(BaseJpeg(), Dims, query, NewEvents(), NewRigs(), NewSettings(settings));
-        return await composer.ComposeAsync(Guild, Server, CancellationToken.None);
+        return composer.ComposeAsync(Guild, Server, CancellationToken.None);
     }
 
     [Fact]

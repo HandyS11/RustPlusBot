@@ -74,6 +74,5 @@ public sealed class ServerRemovalModule(IServiceScopeFactory scopeFactory)
 
     /// <summary>Cancels the removal.</summary>
     [ComponentInteraction(RemoveCancelId)]
-    public async Task RemoveCancelAsync() =>
-        await RespondAsync("Cancelled.", ephemeral: true).ConfigureAwait(false);
+    public Task RemoveCancelAsync() => RespondAsync("Cancelled.", ephemeral: true);
 }

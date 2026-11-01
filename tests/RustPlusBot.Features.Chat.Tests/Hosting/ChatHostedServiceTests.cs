@@ -234,11 +234,11 @@ public sealed class ChatHostedServiceTests
 
 #pragma warning disable S2699 // The implicit assertion is "no exception is thrown".
     [Fact]
-    public async Task StopAsync_without_a_start_completes()
+    public Task StopAsync_without_a_start_completes()
     {
         var (service, _, _, _) = Build();
 
-        await service.StopAsync(default);
+        return service.StopAsync(default);
     }
 #pragma warning restore S2699
 

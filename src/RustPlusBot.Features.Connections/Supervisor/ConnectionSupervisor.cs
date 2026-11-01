@@ -216,50 +216,48 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
-    public async Task<ServerInfoSnapshot?> GetServerInfoAsync(
+    public Task<ServerInfoSnapshot?> GetServerInfoAsync(
         ulong guildId,
         Guid serverId,
         CancellationToken cancellationToken)
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return null;
+            return Task.FromResult<ServerInfoSnapshot?>(null);
         }
 
-        return await live.Connection.GetServerInfoAsync(_options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        return live.Connection.GetServerInfoAsync(_options.HeartbeatTimeout, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<ServerTimeSnapshot?> GetTimeAsync(ulong guildId,
+    public Task<ServerTimeSnapshot?> GetTimeAsync(ulong guildId,
         Guid serverId,
         CancellationToken cancellationToken)
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return null;
+            return Task.FromResult<ServerTimeSnapshot?>(null);
         }
 
-        return await live.Connection.GetTimeAsync(_options.HeartbeatTimeout, cancellationToken).ConfigureAwait(false);
+        return live.Connection.GetTimeAsync(_options.HeartbeatTimeout, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<TeamInfoSnapshot?> GetTeamInfoAsync(
+    public Task<TeamInfoSnapshot?> GetTeamInfoAsync(
         ulong guildId,
         Guid serverId,
         CancellationToken cancellationToken)
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return null;
+            return Task.FromResult<TeamInfoSnapshot?>(null);
         }
 
-        return await live.Connection.GetTeamInfoAsync(_options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        return live.Connection.GetTeamInfoAsync(_options.HeartbeatTimeout, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<bool> PromoteToLeaderAsync(
+    public Task<bool> PromoteToLeaderAsync(
         ulong guildId,
         Guid serverId,
         ulong steamId,
@@ -267,11 +265,10 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return false;
+            return Task.FromResult(false);
         }
 
-        return await live.Connection.PromoteToLeaderAsync(steamId, _options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        return live.Connection.PromoteToLeaderAsync(steamId, _options.HeartbeatTimeout, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -331,15 +328,14 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
-    public async Task<WorldSnapshot?> GetWorldAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
+    public Task<WorldSnapshot?> GetWorldAsync(ulong guildId, Guid serverId, CancellationToken cancellationToken)
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return null;
+            return Task.FromResult<WorldSnapshot?>(null);
         }
 
-        return await live.Connection.GetWorldAsync(_options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        return live.Connection.GetWorldAsync(_options.HeartbeatTimeout, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -392,7 +388,7 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
-    public async Task<DeviceReading> GetSmartAlarmReadingAsync(
+    public Task<DeviceReading> GetSmartAlarmReadingAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
@@ -400,12 +396,11 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return new DeviceReading(null, DeviceReachability.NoResponse);
+            return Task.FromResult(new DeviceReading(null, DeviceReachability.NoResponse));
         }
 
-        return await live.Connection
-            .GetSmartDeviceInfoAsync(entityId, SmartDeviceKind.Alarm, _options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        return live.Connection
+            .GetSmartDeviceInfoAsync(entityId, SmartDeviceKind.Alarm, _options.HeartbeatTimeout, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -427,7 +422,7 @@ internal sealed partial class ConnectionSupervisor(
     }
 
     /// <inheritdoc />
-    public async Task<DeviceReachability> SetSmartSwitchAsync(
+    public Task<DeviceReachability> SetSmartSwitchAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
@@ -436,16 +431,14 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return DeviceReachability.NoResponse;
+            return Task.FromResult(DeviceReachability.NoResponse);
         }
 
-        return await live.Connection
-            .SetSmartSwitchValueAsync(entityId, value, _options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        return live.Connection.SetSmartSwitchValueAsync(entityId, value, _options.HeartbeatTimeout, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<DeviceReachability> StrobeSmartSwitchAsync(
+    public Task<DeviceReachability> StrobeSmartSwitchAsync(
         ulong guildId,
         Guid serverId,
         ulong entityId,
@@ -455,16 +448,15 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return DeviceReachability.NoResponse;
+            return Task.FromResult(DeviceReachability.NoResponse);
         }
 
-        return await live.Connection
-            .StrobeSmartSwitchAsync(entityId, timeoutMs, value, _options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        return live.Connection
+            .StrobeSmartSwitchAsync(entityId, timeoutMs, value, _options.HeartbeatTimeout, cancellationToken);
     }
 
     /// <inheritdoc />
-    public async Task<bool> SetClanMotdAsync(
+    public Task<bool> SetClanMotdAsync(
         ulong guildId,
         Guid serverId,
         string motd,
@@ -472,12 +464,10 @@ internal sealed partial class ConnectionSupervisor(
     {
         if (!_liveSockets.TryGetValue((guildId, serverId), out var live))
         {
-            return false;
+            return Task.FromResult(false);
         }
 
-        return await live.Connection
-            .SetClanMotdAsync(motd, _options.HeartbeatTimeout, cancellationToken)
-            .ConfigureAwait(false);
+        return live.Connection.SetClanMotdAsync(motd, _options.HeartbeatTimeout, cancellationToken);
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Connection loop for server {ServerId} faulted.")]
@@ -521,36 +511,10 @@ internal sealed partial class ConnectionSupervisor(
                     .ConfigureAwait(false);
 
                 var connection = source.Create(p.Ip, p.Port, p.SteamId, p.PlayerToken);
-                SocketConnectOutcome outcome;
-                try
+                var outcome = await ConnectAsync(connection, key.Server, ct).ConfigureAwait(false);
+                if (outcome is null)
                 {
-                    outcome = await connection.ConnectAsync(_options.ConnectTimeout, ct).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    await connection.DisposeAsync().ConfigureAwait(false);
-                    throw;
-                }
-                catch (Exception) when (ct.IsCancellationRequested)
-                {
-                    // Stopping. A socket library may unwind cancellation as something other than an
-                    // OperationCanceledException (a client disposed underneath the connect, say). Dispose
-                    // and end the loop as the cancellation it is — reporting the server unreachable and
-                    // warning about a connect failure here would be noise pointing at the wrong problem.
-                    await connection.DisposeAsync().ConfigureAwait(false);
                     return;
-                }
-#pragma warning disable CA1031 // Broad catch is intentional: see below — a throwing source must not end the loop.
-                catch (Exception ex)
-#pragma warning restore CA1031
-                {
-                    // A source that throws instead of reporting an outcome is still just an unreachable
-                    // server. Letting it escape reaches the outer catch and ENDS the loop, and nothing
-                    // re-arms a dead loop, so the server would stay offline until the process restarts.
-                    // Fall through as Unreachable: the branch below disposes the socket, publishes the
-                    // status and backs off, exactly as for a reported failure.
-                    LogConnectThrew(logger, ex, key.Server);
-                    outcome = SocketConnectOutcome.Unreachable;
                 }
 
                 if (outcome == SocketConnectOutcome.AuthRejected)
@@ -610,6 +574,53 @@ internal sealed partial class ConnectionSupervisor(
             LogLoopFaulted(logger, ex, key.Server);
         }
 #pragma warning restore CA1031
+    }
+
+    /// <summary>
+    /// Connects the socket, folding a throwing source into an outcome so the connection loop never ends on it.
+    /// </summary>
+    /// <param name="connection">The freshly created socket to connect.</param>
+    /// <param name="serverId">The server the socket belongs to, for logging.</param>
+    /// <param name="ct">The loop's cancellation token.</param>
+    /// <returns>
+    /// The connect outcome, or <see langword="null"/> when the connect unwound because the loop is stopping;
+    /// the socket is disposed in that case and the caller just ends the loop.
+    /// </returns>
+    private async Task<SocketConnectOutcome?> ConnectAsync(
+        IRustServerConnection connection,
+        Guid serverId,
+        CancellationToken ct)
+    {
+        try
+        {
+            return await connection.ConnectAsync(_options.ConnectTimeout, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception) when (ct.IsCancellationRequested)
+        {
+            // Stopping. A socket library may unwind cancellation as something other than an
+            // OperationCanceledException (a client disposed underneath the connect, say). Dispose
+            // and end the loop as the cancellation it is — reporting the server unreachable and
+            // warning about a connect failure here would be noise pointing at the wrong problem.
+            await connection.DisposeAsync().ConfigureAwait(false);
+            return null;
+        }
+#pragma warning disable CA1031 // Broad catch is intentional: see below — a throwing source must not end the loop.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // A source that throws instead of reporting an outcome is still just an unreachable
+            // server. Letting it escape reaches the loop's outer catch and ENDS the loop, and nothing
+            // re-arms a dead loop, so the server would stay offline until the process restarts.
+            // Report Unreachable instead: the loop disposes the socket, publishes the status and
+            // backs off, exactly as for a reported failure.
+            LogConnectThrew(logger, ex, serverId);
+            return SocketConnectOutcome.Unreachable;
+        }
     }
 
     private async Task<ReconnectReason> RunConnectedAsync(

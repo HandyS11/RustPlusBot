@@ -24,10 +24,10 @@ internal sealed partial class PairingHostedService(
     }
 
     /// <inheritdoc />
-    public async Task StopAsync(CancellationToken cancellationToken)
+    public Task StopAsync(CancellationToken cancellationToken)
     {
         client.Ready -= OnReadyAsync;
-        await supervisor.StopAllAsync().ConfigureAwait(false);
+        return supervisor.StopAllAsync();
     }
 
     private Task OnReadyAsync()

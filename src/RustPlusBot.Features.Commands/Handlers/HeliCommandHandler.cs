@@ -23,12 +23,11 @@ internal sealed class HeliCommandHandler(
     public string Name => "heli";
 
     /// <inheritdoc />
-    public async Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return await MarkerReply
+        return MarkerReply
             .ForAsync(new MarkerReplyServices(state, localizer, clock, mapSettings), context,
-                MarkerKind.PatrolHelicopter, "command.heli", cancellationToken)
-            .ConfigureAwait(false);
+                MarkerKind.PatrolHelicopter, "command.heli", cancellationToken);
     }
 }

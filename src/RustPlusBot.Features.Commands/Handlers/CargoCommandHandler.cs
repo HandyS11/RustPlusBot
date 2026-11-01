@@ -23,12 +23,11 @@ internal sealed class CargoCommandHandler(
     public string Name => "cargo";
 
     /// <inheritdoc />
-    public async Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return await MarkerReply
+        return MarkerReply
             .ForAsync(new MarkerReplyServices(state, localizer, clock, mapSettings), context, MarkerKind.CargoShip,
-                "command.cargo", cancellationToken)
-            .ConfigureAwait(false);
+                "command.cargo", cancellationToken);
     }
 }
