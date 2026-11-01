@@ -15,7 +15,7 @@ internal static class MarkerReply
     /// <param name="prefix">The localization key prefix ("command.cargo" / "command.heli" / "command.chinook").</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <returns>The localized reply.</returns>
-    public static async Task<string> ForAsync(
+    public static async Task<string?> ForAsync(
         MarkerReplyServices services,
         CommandContext context,
         MarkerKind kind,

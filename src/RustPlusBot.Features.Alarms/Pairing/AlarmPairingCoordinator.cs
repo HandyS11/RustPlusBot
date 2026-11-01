@@ -127,10 +127,10 @@ internal sealed class AlarmPairingCoordinator(
     public bool TryDismiss(ulong guildId, Guid serverId, ulong entityId) =>
         _pending.TryRemove((guildId, serverId, entityId), out _);
 
-    private static async Task<string> GetCultureAsync(IServiceProvider provider, ulong guildId, CancellationToken ct)
+    private static Task<string> GetCultureAsync(IServiceProvider provider, ulong guildId, CancellationToken ct)
     {
         var store = provider.GetRequiredService<IWorkspaceStore>();
-        return await store.GetCultureAsync(guildId, ct).ConfigureAwait(false);
+        return store.GetCultureAsync(guildId, ct);
     }
 
     private sealed record Pending(string DefaultName, ulong? MessageId);

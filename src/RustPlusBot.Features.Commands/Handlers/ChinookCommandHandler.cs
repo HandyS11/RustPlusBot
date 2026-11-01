@@ -23,12 +23,11 @@ internal sealed class ChinookCommandHandler(
     public string Name => "chinook";
 
     /// <inheritdoc />
-    public async Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
+    public Task<string?> ExecuteAsync(CommandContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return await MarkerReply
+        return MarkerReply
             .ForAsync(new MarkerReplyServices(state, localizer, clock, mapSettings), context, MarkerKind.Chinook,
-                "command.chinook", cancellationToken)
-            .ConfigureAwait(false);
+                "command.chinook", cancellationToken);
     }
 }

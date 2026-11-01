@@ -73,12 +73,12 @@ internal sealed class AlarmRefresher(
         }
     }
 
-    private static async Task<string> GetCultureAsync(
+    private static Task<string> GetCultureAsync(
         IServiceProvider provider,
         ulong guildId,
         CancellationToken ct)
     {
         var store = provider.GetRequiredService<IWorkspaceStore>();
-        return await store.GetCultureAsync(guildId, ct).ConfigureAwait(false);
+        return store.GetCultureAsync(guildId, ct);
     }
 }

@@ -159,12 +159,12 @@ internal sealed class StorageMonitorStateRelay(
         }
     }
 
-    private static async Task<string> GetCultureAsync(
+    private static Task<string> GetCultureAsync(
         IServiceProvider provider,
         ulong guildId,
         CancellationToken cancellationToken)
     {
         var store = provider.GetRequiredService<IWorkspaceStore>();
-        return await store.GetCultureAsync(guildId, cancellationToken).ConfigureAwait(false);
+        return store.GetCultureAsync(guildId, cancellationToken);
     }
 }

@@ -413,6 +413,9 @@ dotnet_diagnostic.Moq1400.severity = none # Choose a mock behaviour (strict, loo
 dotnet_diagnostic.Moq1410.severity = none # Set behaviour to Strict
 
 dotnet_diagnostic.S2094.severity = none # Empty classes — intentional discriminated-union marker records (Marker/Note/EventArg hierarchies)
+dotnet_diagnostic.S3776.severity = warning # Cognitive complexity — fails locally on what SonarQube flags as Critical instead of only on the server
+
+dotnet_diagnostic.VSTHRD202.severity = warning # Return the Task directly when async/await adds nothing — SonarQube imports this INFO diagnostic as a code smell
 
 dotnet_diagnostic.T0003.severity = none # Do not use tuples
 dotnet_diagnostic.T0006.severity = none # Do not use Helper in type name

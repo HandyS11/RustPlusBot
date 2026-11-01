@@ -136,6 +136,5 @@ public sealed class CredentialModule(IServiceScopeFactory scopeFactory)
 
     /// <summary>Cancels the disconnect.</summary>
     [ComponentInteraction(DisconnectCancelId)]
-    public async Task DisconnectCancelAsync() =>
-        await RespondAsync("Cancelled.", ephemeral: true).ConfigureAwait(false);
+    public Task DisconnectCancelAsync() => RespondAsync("Cancelled.", ephemeral: true);
 }

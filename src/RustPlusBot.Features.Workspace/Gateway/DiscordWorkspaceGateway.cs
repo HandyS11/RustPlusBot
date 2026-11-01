@@ -181,7 +181,7 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
     }
 
     /// <inheritdoc />
-    public async Task EnsureChannelOrderAsync(ulong guildId,
+    public Task EnsureChannelOrderAsync(ulong guildId,
         ulong categoryId,
         IReadOnlyList<ulong> orderedChannelIds,
         CancellationToken cancellationToken)
@@ -190,7 +190,7 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
         var guild = client.GetGuild(guildId);
         if (guild is null)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var live = orderedChannelIds
@@ -199,25 +199,25 @@ internal sealed class DiscordWorkspaceGateway(DiscordSocketClient client) : IWor
             .ToList();
         if (live.Count < 2)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         // Discord sorts a category's channels by position, ties by snowflake.
         var current = live.OrderBy(c => c.Position).ThenBy(c => c.Id).Select(c => c.Id);
         if (current.SequenceEqual(live.Select(c => c.Id)))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         // Permute the channels' existing position values rather than assigning fresh ones, so every
         // channel outside the list keeps its place relative to the reordered block.
         var slots = live.Select(c => c.Position).Order().ToList();
-        await guild.ReorderChannelsAsync(
+        return guild.ReorderChannelsAsync(
             live.Select((c, i) => new ReorderChannelProperties(c.Id, slots[i])),
             new RequestOptions
             {
                 CancelToken = cancellationToken
-            }).ConfigureAwait(false);
+            });
     }
 
     /// <inheritdoc />
