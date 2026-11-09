@@ -16,14 +16,14 @@
     <PackageVersion Include="Persistord.Managed" Version="1.0.0-beta.3" />
     <PackageVersion Include="RustMapsApi" Version="1.0.0-beta.4" />
     <PackageVersion Include="RustMapsApi.Assets" Version="1.0.0-beta.4" />
-    <PackageVersion Include="RustPlusApi" Version="2.0.0-beta.9" />
-    <PackageVersion Include="RustPlusApi.Fcm" Version="2.0.0-beta.9" />
+    <PackageVersion Include="RustPlusApi" Version="2.0.0-beta.10" />
+    <PackageVersion Include="RustPlusApi.Fcm" Version="2.0.0-beta.10" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageVersion Include="SkiaSharp" Version="4.154.0" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
+    <PackageVersion Include="SkiaSharp" Version="4.155.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.155.0" />
     <!-- Pinned to override the transitive 2.1.11 pulled by Microsoft.EntityFrameworkCore.Sqlite,
          whose bundled SQLite is vulnerable to CVE-2025-6965 (GHSA-2m69-gcr7-jv3q). 3.0.x bundles
          SQLite >= 3.50.2. Drop once EF Core ships a build that depends on a patched SQLitePCLRaw. -->
@@ -34,6 +34,7 @@
     <!-- Test + sample -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <PackageVersion Include="JunitXml.TestLogger" Version="8.1.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
