@@ -142,8 +142,9 @@ internal sealed partial class RustPlusSocketSource(
 
     /// <summary>
     /// One live Rust+ connection backed by <see cref="RustPlus"/>.
-    /// <para>API notes (2.0.0-beta.1): constructor takes <see cref="RustPlusConnection"/> instead of
-    /// individual parameters; <see cref="RustPlusSocket"/> is <see cref="IAsyncDisposable"/>;
+    /// <para>API notes (2.0.0-beta.1): constructor takes a <see cref="RustPlusConnection"/> instead of
+    /// individual parameters (abstract since 2.0.0-beta.10; the bot uses <see cref="DirectConnection"/>);
+    /// <see cref="RustPlusSocket"/> is <see cref="IAsyncDisposable"/>;
     /// <c>ConnectAsync</c> accepts a <see cref="System.Threading.CancellationToken"/> and throws on failure;
     /// <c>GetInfoAsync</c> returns <c>Response&lt;ServerInfo?&gt;</c> with <c>ServerInfo.PlayerCount</c>
     /// typed as <c>uint?</c>.</para>
@@ -161,8 +162,9 @@ internal sealed partial class RustPlusSocketSource(
             ILoggerFactory loggerFactory)
         {
             _logger = logger;
-            // CONFIRMED: RustPlusConnection(string Server, int Port, ulong PlayerId, int PlayerToken, bool UseFacepunchProxy).
-            var connection = new RustPlusConnection(ip, port, steamId, playerToken, UseFacepunchProxy: false);
+            // CONFIRMED (2.0.0-beta.10): RustPlusConnection is abstract; DirectConnection(string server, int port,
+            // ulong playerId, int playerToken) connects straight to ws://{server}:{port}. UseFacepunchProxy is gone.
+            var connection = new DirectConnection(ip, port, steamId, playerToken);
             _rustPlus = new RustPlus(connection, loggerFactory: loggerFactory);
             _rustPlus.OnTeamChatReceived += OnTeamChatReceived;
             _rustPlus.OnSmartDeviceTriggered += OnSmartDeviceTriggered;
