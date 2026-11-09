@@ -24,11 +24,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
+      # The scanner engine runs on this Java (begin passes sonar.scanner.skipJreProvisioning),
+      # instead of a JRE downloaded from the self-hosted server on every cache miss. Temurin 21
+      # comes preinstalled on ubuntu-latest, so this resolves from the runner's tool cache.
+      - name: Set up JDK 21
         uses: actions/setup-java@v6.2.0
         with:
-          java-version: 17
-          distribution: 'zulu'
+          java-version: 21
+          distribution: 'temurin'
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
@@ -59,7 +62,7 @@ jobs:
           echo "::error::The SonarQube server did not answer /api/server/version after 5 attempts."
           exit 1
 
-      # The scanner downloads its JRE and analyzer plugins from the server into ~/.sonar/cache.
+      # The scanner downloads its analyzer plugins from the server into ~/.sonar/cache.
       # Key the cache on the server version: actions/cache never re-saves an existing key, so
       # a fixed key kept the first snapshot forever and every run after a server upgrade
       # downloaded everything again. No restore-keys, so each server version starts clean
@@ -87,8 +90,8 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      # begin downloads the analyzer plugins (and the JRE on a cache miss) from the server. A
-      # dropped connection aborts it with an unhandled exception (2026-11-04), so retry it.
+      # begin downloads the analyzer plugins from the server on a cache miss. A dropped
+      # connection aborts it with an unhandled exception (2026-11-04), so retry it.
       - name: Begin SonarQube analysis
         run: |
           args=(
@@ -99,6 +102,7 @@ jobs:
             /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
             /d:sonar.cpd.exclusions="**/Migrations/*.cs,**/Configurations/*.cs,**/Modules/*.cs"
             /d:sonar.exclusions="**/Migrations/*.cs,**/obj/**,**/bin/**"
+            /d:sonar.scanner.skipJreProvisioning=true
           )
           for attempt in 1 2 3; do
             if ./.sonar/scanner/dotnet-sonarscanner begin "${args[@]}"; then
