@@ -14,7 +14,7 @@ internal sealed record AfkPollContext(DateTimeOffset Clock, TimeSpan Threshold, 
 internal sealed class TeamStateTracker
 {
     private readonly HashSet<ulong> _afk = [];
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<ulong, DateTimeOffset> _stillSince = [];
     private Dictionary<ulong, TeamMemberSnapshot>? _baseline;
 
