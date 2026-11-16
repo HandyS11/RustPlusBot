@@ -161,7 +161,9 @@ public sealed class VendingHostedServiceTests
         // Cancelling alone cannot end a loop that is mid-handler, so a StopAsync that joins its loop
         // tasks can never complete here however long we wait — which is what makes waiting sound rather
         // than a timing assumption. One that did not join would return as soon as the cancel landed.
-        await Task.WhenAny(stop, Task.Delay(TimeSpan.FromSeconds(2)));
+        using var window = new CancellationTokenSource();
+        await Task.WhenAny(stop, Task.Delay(TimeSpan.FromSeconds(2), window.Token));
+        await window.CancelAsync(); // Don't leave the timer running if StopAsync won the race.
         Assert.False(stop.IsCompleted, "StopAsync returned while a handler was still in flight");
 
         release.SetResult();
