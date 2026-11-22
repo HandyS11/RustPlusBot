@@ -28,7 +28,7 @@ jobs:
       # instead of a JRE downloaded from the self-hosted server on every cache miss. Temurin 21
       # comes preinstalled on ubuntu-latest, so this resolves from the runner's tool cache.
       - name: Set up JDK 21
-        uses: actions/setup-java@v6.2.0
+        uses: actions/setup-java@v6.3.0
         with:
           java-version: 21
           distribution: 'temurin'
